@@ -34,98 +34,28 @@ their pixels, so the comparison names the puzzle **and** its print number at
 once — the technique ``tests/test_book_pdf_band.py`` reads a band with
 (CARD-117).
 
-*A divider page* is identified in two independent steps, because the two halves
-of AC-254 are different claims:
-
-* **"and nothing else"** is measured off the page's own ink
-  (:func:`is_divider`): one band of inked rows, no block wide and tall enough
-  to be a drawing, and under a thousandth of the page inked. A page carrying a
-  band, a page number, a grid or a second line fails it, and nothing in that
-  measurement knows what a divider is supposed to look like.
-* **"its level's name"** is a comparison against the divider pages of the four
-  words the interior can print — "Easy", "Medium", "Hard" and "SOLUTIONS" (the
-  last now the approved mockup's Solutions opener, named by comparison with
-  ``create_solutions_opener`` instead, :func:`is_solutions_opener`) —
-  built by :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.create_divider_page`
-  itself. Exactly one of the four must match, which is a statement about the
-  word this card **chooses** for the page rather than about the ink a word
-  makes; that the four are four different pages is asserted in
-  :class:`TestBookPdf_DividerPageCarriesLevelNameOnly` before any of them is
-  used to name a page, so the comparison is shown to discriminate rather than
-  assumed to.
+*A divider page* is identified by comparison with the page the generator
+draws for that level at that position (``create_level_divider``: the level's
+name, its puzzle range and its difficulty dots), so the comparison names the
+level and its range at once (:func:`level_divider_at`). The Solutions opener
+is named the same way (:func:`is_solutions_opener`).
 
 The book is CON-018's Book 1 profile throughout, written out in millimetres
 rather than imported. Its puzzles are 21x20 with 3-deep clue gutters, so no two
-of them ever share a page (FR-040, CARD-127), and one column wider than the
-answer key's packing limit, so no two answers share one either: the
-interior's make-up is one page per puzzle in both sections — which is what
-lets these tests count pages. Each puzzle's
+of them ever share a puzzle page (FR-040, CARD-127); their answers pack up to
+four to a page, one level per page (CARD-202). Each puzzle's
 grid carries a different extra cell, so two puzzles of the same extent are
 different pictures with different clues and a page holding the wrong one is
 visible.
 
-The medium (CARD-360, ADR-0042/R1 and R6)
------------------------------------------
-Every claim above is about **which page is where** -- "the page that came back
-is the page that was asked for" -- and was measured by comparing a page's
-*bytes* with the bytes of a bitmap COMP-007 draws. That was a claim about the
-same page coming back; bytes were only the instrument. Once an interior puzzle
-page is written as operators the instrument has no subject: a poppler render of
-a stream and a PIL bitmap are different objects even when they show the same
-page. The claim is therefore re-expressed, not rasterised into agreement:
-
-Both this module and ``tests/test_book_pdf_two_up.py`` are fully green on the
-unlifted tree; their reds (4 here, 4 there, 2 of which are CARD-352's) are
-ABSENT unprobed and exist only under the five-kind probe.
-
-* a page is the same page as another when it is **in the same medium and has
-  the same marks** (:func:`same_page`) -- operator for operator for a stream,
-  byte for byte for a bitmap, and never a bitmap against a stream;
-* the expected page is drawn **in the medium the interior used**
-  (:func:`expected_in_the_medium_of`), and an operators page's band is also
-  read from its text layer, which poppler -- not ``band_identity`` -- reads
-  (:func:`names_the_page`);
-* what identity means for a page of operators, and the controls that show the
-  comparison can fail, are asserted in
-  :class:`TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport` -- the answer
-  CARD-355 settled for the memory module
-  (``tests/test_book_pdf_memory.py::TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport``)
-  carried here unchanged: determinism of the stream, not equality with a
-  bitmap.
-
-**Residue, declared (ADR-0039/R3).** The operators expected for a puzzle page
-is the generator's own page writer called directly, so a page drawn wrong the
-*same* way by the walk and by that writer would pass here. The reason is that a
-whole-page expectation of an operators page is a second implementation of the
-writer. What holds the rest of an operators page lives in
-``tests/test_book_puzzle_page_vector.py``, by class:
-
-* the grid (rule count, span, placement and weights) against the raster page's
-  own ink: ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_AgreesWithTheRasterTwin``;
-* each clue digit where the layout put it:
-  ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt``;
-* the band's number and tier and never the title:
-  ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle``;
-* the sheet furniture (frame rules, footer label, folio, QR group):
-  ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheProductionPageCarriesTheFurniture``
-  and ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheFooterIsAllOrNothing``.
-
-Measured by the author, one plant, in-process, on that module alone: a stray
-rule added to every content stream reds 19 failed + 17 errors across 17
-classes, among them each class named above except the clue-digit one. The plant
-also lands in that module's own control streams, so this is not a count of real
-catches, and the clue-digit class was not moved by a stray rule (a rule is not a
-digit): **its claim is by name only, not plant-measured by this card.** Carried
-from the CARD-360 review, not re-measured: a stray rule at the left of the
-footer zone reds 1 in this module and 17 beyond the M8 pair in two_up; a grid
-shifted 1 pt reds 0 here and 1 in two_up; a stray rule in the page corner reds 0
-in both. This module holds the walk's choices (which puzzle, which
-position, which number and tier), and the band's words against the text layer.
+Puzzle pages are content-stream operators (ADR-0042/R1): a puzzle page is
+named by its operators against ``vector_puzzle_page`` drawn for the stated
+puzzle, position, number and tier (:func:`same_page`), and by the band and
+folio its text layer reads (:func:`names_the_page`). The dividers stay raster.
 """
 
 from __future__ import annotations
 
-import ast
 import re
 import tempfile
 from pathlib import Path
@@ -133,23 +63,15 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from nonogram import clues
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin import book_vector
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
-from nonogram.admin.book_pdf_generator import (
-    DPI,
-    BookPDFGenerator,
-    _draw_page_frame,
-    grid_size_label,
-)
-from nonogram.export.layout import compute_layout, interior_frame
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.difficulty import Tier
 from nonogram.export import ExportPayload
-from nonogram.export.pdf import render_pages
 from tests.helpers import pdf_vector
 from tests.helpers.pdf_pages import interior_images
 
@@ -170,11 +92,9 @@ INK_LEVEL = 128
 #: expected line is a second implementation of the rule (CLAUDE.md).
 BAND_TEMPLATE = "Puzzle {number} · {tier}"
 
-#: The three level names a divider can carry (ADR-0031's three tiers, as
-#: AC-020 displays them), and the fourth word the interior's other divider
-#: carries (AC-292).
+#: The three levels a divider can open (ADR-0031's three tiers, as AC-020
+#: displays them).
 LEVEL_NAMES = ("Easy", "Medium", "Hard")
-SOLUTIONS = "SOLUTIONS"
 
 
 def _cm(millimetres: float) -> str:
@@ -219,14 +139,10 @@ def _grid(columns: int, rows: int, depth: int = 3, mark: int = 0) -> List[List[b
     return grid
 
 
-#: This module's default puzzle width: one column wider than the answer key's
-#: packing limit, so every answer here still takes a full page of its own and
-#: the page counts below stay one answer page per puzzle. It was 20 (20x20s)
-#: until the owner raised the limit to ``PACKED_MAX_WIDTH`` x
-#: ``PACKED_MAX_HEIGHT`` (20 x 25, from 15 x 20), which made a 20x20 answer
-#: pack four to a page; derived from the constant so a second raise cannot do
-#: the same silently.
-_PUZZLE_COLUMNS = PACKED_MAX_WIDTH + 1
+#: This module's default puzzle width (21x20 puzzles, one per puzzle page).
+#: A literal: ``tests/test_book_uploaded_dividers.py`` and
+#: ``tests/test_book_divider_pages_option.py`` build their books from it too.
+_PUZZLE_COLUMNS = 21
 
 
 def _puzzle(
@@ -294,50 +210,6 @@ def _interior(puzzles: Sequence[dict]) -> List[Image.Image]:
 # --------------------------------------------------------------------------
 
 
-def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str):
-    """The page COMP-007 draws for ``puzzle``, banded as this module says.
-
-    The payload the generator builds from the row, with the picture's name
-    cleared (ADR-0037/R1) and the band line written out here, laid out on the
-    sheet of interior page ``page_number`` — so comparing it with the interior's
-    page asserts the puzzle, its print number, its tier label and its parity
-    together.
-
-    **Since CARD-200, one more mark: the folio** — and since CARD-222 the
-    whole page frame it belongs to
-    (:func:`~nonogram.admin.book_pdf_generator._draw_page_frame`: the header
-    rule, the footer's hairline, the grid-size label and the folio), drawn
-    here the same way
-    :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._blank_page`
-    draws it onto the real interior page, with that method's own arguments.
-    Without this, every comparison in this module would fail at the frame's
-    own pixels, not because the puzzle or its band moved.
-    """
-    payload = ExportPayload(
-        grid=puzzle["grid"],
-        row_clues=tuple(tuple(clue) for clue in puzzle["clues_rows"]),
-        column_clues=tuple(tuple(clue) for clue in puzzle["clues_cols"]),
-        seed=0,
-        mode="random",
-        width=puzzle["width"],
-        height=puzzle["height"],
-        name=None,
-        difficulty=BAND_TEMPLATE.format(number=number, tier=tier),
-    )
-    spec = book_page_spec(_book(), page_number)
-    blank, _ = render_pages(payload, page_spec=spec)
-    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
-    _draw_page_frame(
-        ImageDraw.Draw(blank),
-        interior_frame(spec),
-        page_number,
-        DPI,
-        size_label=grid_size_label(layout.columns, layout.rows),
-        content_bottom=None if layout.page is None else layout.page.drawing_bottom,
-    )
-    return blank
-
-
 def _banded_payload(puzzle: dict, tier: str) -> ExportPayload:
     """``puzzle`` as the boundary payload, with no picture name (ADR-0037/R1)."""
     return ExportPayload(
@@ -356,21 +228,11 @@ def _banded_payload(puzzle: dict, tier: str) -> ExportPayload:
 def expected_in_the_medium_of(
     page: Page, puzzle: dict, page_number: int, number: int, tier: str
 ) -> Page:
-    """The page ``puzzle`` should be, drawn in the medium ``page`` is written in.
-
-    CARD-360. A bitmap interior page is compared with the bitmap COMP-007
-    draws (:func:`expected_puzzle_page`, as it always was). A page written as
-    operators is compared with the operators the generator's own page writer
-    (``vector_puzzle_page``) draws for that puzzle at the position, number and
-    tier **this module states** -- called directly, so what is under test is
-    the walk's choices (which puzzle, where, under which number and tier) and
-    not the pixels poppler makes of them.
-    """
-    if isinstance(page, ContentStream):
-        return BookPDFGenerator(_book()).vector_puzzle_page(
-            _banded_payload(puzzle, tier), number, page_number
-        )
-    return expected_puzzle_page(puzzle, page_number, number, tier)
+    """The operators ``vector_puzzle_page`` draws for ``puzzle`` at the position,
+    number and tier this module states (CARD-360)."""
+    return BookPDFGenerator(_book()).vector_puzzle_page(
+        _banded_payload(puzzle, tier), number, page_number
+    )
 
 
 def same_page(left: Page, right: Page) -> bool:
@@ -520,32 +382,41 @@ def names_the_page(
     neither the band's words nor the page's position is asked of the function
     that composed them.
     """
+    if not isinstance(page, ContentStream):
+        return False
     expected = expected_in_the_medium_of(page, puzzle, page_number, number, tier)
     if not same_page(page, expected):
         return False
-    if isinstance(page, ContentStream):
-        return band_lines(page) == [
-            BAND_TEMPLATE.format(number=number, tier=tier)
-        ] and footer_digits(page, (puzzle["width"], puzzle["height"])) == [
-            str(page_number)
-        ]
-    return True
+    return band_lines(page) == [
+        BAND_TEMPLATE.format(number=number, tier=tier)
+    ] and footer_digits(page, (puzzle["width"], puzzle["height"])) == [
+        str(page_number)
+    ]
 
 
-def divider_page(page_number: int, text: str) -> Image.Image:
-    """A divider page carrying ``text``, on the sheet of interior ``page_number``."""
-    return BookPDFGenerator(_book()).create_divider_page(page_number, text)
+def level_divider(page_number: int, level: str, first: int, last: int) -> Image.Image:
+    """The divider the generator draws for ``level`` (puzzles ``first``-``last``)
+    on the sheet of interior ``page_number``."""
+    return BookPDFGenerator(_book()).create_level_divider(
+        page_number, Tier(level.lower()), (first, last)
+    )
+
+
+def level_divider_at(page: Image.Image, page_number: int, first: int, last: int) -> Optional[str]:
+    """Which level's divider for puzzles ``first``-``last`` ``page`` is, if any."""
+    if not isinstance(page, Image.Image):
+        return None
+    for level in LEVEL_NAMES:
+        if page.tobytes() == level_divider(page_number, level, first, last).tobytes():
+            return level
+    return None
 
 
 def is_solutions_opener(page: Image.Image, page_number: int, puzzle_count: int) -> bool:
     """Whether ``page`` is the Solutions opener for a book of ``puzzle_count`` puzzles.
 
-    The approved solutions mockup: with no stored picture the SOLUTIONS slot
-    no longer prints the one word but an opener (a rule, "PUZZLES 1-N",
-    "Solutions" at 48 pt and a grey blurb), which is more than
-    :func:`is_divider`'s "one word and a folio". So it is named by comparison
-    with the page the generator draws for it at that position, as the level
-    dividers are named by :func:`divider_word`.
+    Named by comparison with the page the generator draws for it at that
+    position, as the level dividers are (:func:`level_divider_at`).
     """
     reference = BookPDFGenerator(_book()).create_solutions_opener(page_number, puzzle_count)
     return page.tobytes() == reference.tobytes()
@@ -591,66 +462,31 @@ def _carries_a_drawing(page: Image.Image) -> bool:
     return False
 
 
-def is_divider(page: Image.Image) -> bool:
-    """Whether ``page`` is a divider: its word, its folio, and nothing else.
-
-    Measured off the page and nothing else: at most two bands of inked rows
-    — the centred word and, since CARD-200, the bottom-outer-corner folio
-    sharing the page with it (SCOPE+: this file's own heuristic predates the
-    folio and originally required exactly **one** band; a divider now
-    legitimately carries two, so a puzzle page's "a second line" tell has to
-    be a *third* band or more, never a divider's own folio counted twice) —
-    no block of ink large enough to be a drawing, and under a thousandth of
-    the page inked. A puzzle page fails on all three (its band is a second
-    *text* line plus its folio is a third, its grid is a block, and its ink
-    is orders of magnitude more), and so does an answer page (whose band,
-    caption and folio are three bands, not two).
-
-    **It does not tell a divider from a page with no ink at all** (CARD-206's
-    blank title page, interior page 1: zero bands, no block, no ink), and it
-    is not widened to, because "nothing else" is a statement about *how much*
-    is on the page and blankness satisfies it. A caller walking the whole
-    interior excludes that page by the one thing that distinguishes it — its
-    blankness — and asserts the blankness, rather than by its position:
-    see :meth:`TestBookPdf_EmptyLevelHasNoDivider.test_no_page_of_the_interior_is_a_hard_divider`.
-    """
-    mask = _ink(page)
-    return (
-        len(_row_bands(mask.any(axis=1))) <= 2
-        and not _carries_a_drawing(page)
-        and mask.sum() < page.width * page.height / 1000
-    )
-
-
-def divider_word(page: Image.Image, page_number: int) -> Optional[str]:
-    """Which of the interior's four divider words ``page`` carries, if any.
-
-    ``None`` when the page matches none of them — which is a failure worth
-    reporting as "no word this interior prints", rather than one the caller has
-    to spell out four times.
-    """
-    for word in (*LEVEL_NAMES, SOLUTIONS):
-        if page.tobytes() == divider_page(page_number, word).tobytes():
-            return word
-    return None
-
-
 def interior_shape(pages: Sequence[Image.Image]) -> List[str]:
-    """Each interior page as ``"divider Easy"`` or ``"puzzle"``, in print order.
+    """Each puzzle-section page as ``"divider Easy"`` or ``"puzzle"``, in print order.
 
-    The blank title page (interior page 1, CARD-206), the guide (interior
-    pages 2-3, CARD-201's 2-page tutorial) and the table
-    of contents (interior page 4, CARD-200 — this book is small enough that
-    the TOC is always exactly one page) are left out: none of them is part of
-    the puzzle section. Every other page is named by measurement —
-    :func:`is_divider` first, then the word it carries.
+    Pages 1-4 (title page, the 2-page guide, the one-page TOC) are left out. A
+    page carrying a drawing is a puzzle page (one puzzle each, at 21x20);
+    any other page is named by :func:`level_divider_at`, with the puzzle range
+    the following puzzle pages give it -- ``"divider None"`` if it matches no
+    level's divider.
     """
+    section = list(enumerate(pages[4:], start=5))
+    drawn = [_carries_a_drawing(page) for _, page in section]
     shape: List[str] = []
-    for number, page in enumerate(pages[4:], start=5):
-        if is_divider(page):
-            shape.append(f"divider {divider_word(page, number)}")
-        else:
+    seen = 0
+    for index, (number, page) in enumerate(section):
+        if drawn[index]:
+            seen += 1
             shape.append("puzzle")
+            continue
+        following = 0
+        for later in drawn[index + 1 :]:
+            if not later:
+                break
+            following += 1
+        level = level_divider_at(page, number, seen + 1, seen + max(following, 1))
+        shape.append(f"divider {level}")
     return shape
 
 
@@ -719,30 +555,24 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
             )
 
     def test_the_interior_is_that_section_between_the_guide_and_the_key(self) -> None:
-        """The whole file: the title page, the 2-page guide, the eight pages
-        above, SOLUTIONS, the key.
+        """The whole file: the title page, the 2-page guide, the TOC, the
+        eight pages above, SOLUTIONS, the key.
 
-        CARD-198: the answer section is one full solved page per puzzle,
-        so these five puzzles take five answer pages — where the packed key
-        once took three, one per level — which is what makes 18 the
-        interior's page count (CARD-206: up from 17 — the blank title page;
-        CARD-200 before that: up from 16, the one-page table of
-        contents), and what the generator must have reported before it drew
+        The key packs up to four answers a page, one level per page
+        (CARD-202), so 2 easy, 2 medium and 1 hard take three answer pages:
+        16 pages, which the generator must have reported before it drew
         anything.
         """
         puzzles, pages = self._pages()
         stream = BookPDFGenerator(_book()).interior_stream(puzzles)
 
-        assert len(pages) == 18
-        assert stream.page_count == 18
-        # The approved solutions mockup: the SOLUTIONS divider is the
-        # Solutions opener, which carries more than one word and so is named
-        # by comparison rather than by ``is_divider``.
+        assert len(pages) == 16
+        assert stream.page_count == 16
         assert is_solutions_opener(pages[12], 13, len(puzzles)), (
             "interior page 13 is the SOLUTIONS divider"
         )
-        assert stream.answer_page_count == 5
-        assert not any(is_divider(page) for page in pages[13:])
+        assert stream.answer_page_count == 3
+        assert all(_carries_a_drawing(page) for page in pages[13:])
 
 
 # --------------------------------------------------------------------------
@@ -751,59 +581,29 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
 
 
 class TestBookPdf_DividerPageCarriesLevelNameOnly:
-    """AC-254 — each divider page's only content is its level's name."""
+    """AC-254 — each divider page names its own level (and its puzzle range)."""
 
-    #: The three divider pages of AC-253's book, by interior position
-    #: (CARD-206: each one page later than before, behind the title page;
-    #: CARD-200 before that put them behind the TOC).
-    DIVIDERS = ((5, "Easy"), (8, "Medium"), (11, "Hard"))
+    #: AC-253's three dividers: interior position, level, its puzzles.
+    DIVIDERS = ((5, "Easy", 1, 2), (8, "Medium", 3, 4), (11, "Hard", 5, 5))
 
-    def test_the_four_divider_words_are_four_different_pages(self) -> None:
-        """The premise of every comparison below: the words discriminate.
+    def test_the_three_level_dividers_are_three_different_pages(self) -> None:
+        """The premise of the comparison: the levels discriminate."""
+        pages = {level: level_divider(5, level, 1, 2).tobytes() for level in LEVEL_NAMES}
 
-        Four pages built the same way from four different words must be four
-        different images, or "the page carries this word and not the others"
-        would be a statement about nothing.
-        """
-        pages = {
-            word: divider_page(5, word).tobytes()
-            for word in (*LEVEL_NAMES, SOLUTIONS)
-        }
-
-        assert len(set(pages.values())) == 4, "two divider words draw one page"
+        assert len(set(pages.values())) == 3, "two levels draw one page"
 
     def test_each_divider_carries_its_own_level_name(self) -> None:
         pages = _interior(_book_of(*AC253_MEMBERS))
 
-        for page_number, name in self.DIVIDERS:
-            assert divider_word(pages[page_number - 1], page_number) == name
+        for page_number, name, first, last in self.DIVIDERS:
+            assert level_divider_at(pages[page_number - 1], page_number, first, last) == name
 
-    def test_a_divider_carries_one_line_of_type_and_nothing_else(self) -> None:
-        """No band, no drawing — measured off the page (G-3).
-
-        "No number" is the one half of this test's own original name
-        CARD-200 revises deliberately (not silently): the level's word plus
-        the new bottom-outer-corner folio is two bands of type, never a
-        third (a band proper, or a drawing) — :func:`is_divider`'s own
-        updated docstring explains why two is still "and nothing else" here.
-        """
+    def test_a_divider_carries_no_drawing_and_a_puzzle_page_does(self) -> None:
         pages = _interior(_book_of(*AC253_MEMBERS))
 
-        for page_number, name in self.DIVIDERS:
-            page = pages[page_number - 1]
-            mask = _ink(page)
-            assert mask.any(), f"the {name} divider is blank"
-            assert len(_row_bands(mask.any(axis=1))) == 2, (
-                f"the {name} divider does not carry exactly its word and its folio"
-            )
-            assert not _carries_a_drawing(page), f"the {name} divider carries a drawing"
-
-    def test_a_puzzle_page_fails_the_same_measurement(self) -> None:
-        """The control: the measurement above says "no" when there is more ink."""
-        pages = _interior(_book_of(*AC253_MEMBERS))
-
-        assert not is_divider(pages[5]), "a puzzle page reads as a divider"
-        assert _carries_a_drawing(pages[5])
+        for page_number, name, _, _ in self.DIVIDERS:
+            assert not _carries_a_drawing(pages[page_number - 1]), name
+        assert _carries_a_drawing(pages[5]), "the control: a puzzle page"
 
 
 # --------------------------------------------------------------------------
@@ -880,45 +680,25 @@ class TestBookPdf_EmptyLevelHasNoDivider:
     def test_no_page_of_the_interior_is_a_hard_divider(self) -> None:
         pages = _interior(_book_of(*self.MEMBERS))
 
-        words = [
-            divider_word(page, number)
-            for number, page in enumerate(pages, start=1)
-            if is_divider(page) and _ink(page).any()
+        assert [s for s in interior_shape(pages[:11]) if s != "puzzle"] == [
+            "divider Easy",
+            "divider Medium",
         ]
-
-        # The SOLUTIONS divider is the approved mockup's Solutions opener,
-        # which is more than one word (so ``is_divider`` does not take it) and
-        # is named by comparison instead, on its own page: after the title
-        # page, the guide, the TOC, two dividers and five puzzle pages.
-        assert words == ["Easy", "Medium"]
         assert is_solutions_opener(pages[11], 12, len(self.MEMBERS)), (
             "interior page 12 is the SOLUTIONS divider"
         )
-        # The one page the walk above excludes, and why: CARD-206's blank
-        # title page carries no ink, which `is_divider` cannot tell from a
-        # divider's own sparseness (its own docstring says so). Asserted here
-        # so the exclusion is a measurement and not a slice.
-        # Since 2026-11-09 page 1 is the title / copyright page rather than a
-        # blank one (owner): it has ink, and the walk above still starts past it.
-        assert _ink(pages[0]).any(), "interior page 1 is the title page"
-        assert all(_ink(page).any() for page in pages), "no interior page is blank"
+        assert all(_carries_a_drawing(page) for page in pages[12:]), "answer pages"
 
     def test_the_interior_is_one_page_shorter_than_three_levels_would_make_it(
         self,
     ) -> None:
         """Title page, guide (2 pages), TOC (1), Easy, 3 puzzles, Medium,
-        2 puzzles, SOLUTIONS, 5 answer pages.
-
-        Seventeen pages (CARD-206: up from 16, now one page further behind
-        the blank title page), and a third level's divider
-        would have made it eighteen — one divider page, not one answer
-        page: since CARD-198 the answer section is one full page per puzzle
-        regardless of levels (five of them either way), so only the
-        *divider* count is what a third level would add here.
+        2 puzzles, SOLUTIONS, 3 answer pages (easy 2 + 1, medium 2: a packed
+        page holds one level, CARD-202): fifteen pages.
         """
         pages = _interior(_book_of(*self.MEMBERS))
 
-        assert len(pages) == 17
+        assert len(pages) == 15
         assert interior_shape(pages[:11]) == [
             "divider Easy",
             "puzzle",
@@ -1022,11 +802,6 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
     (``tests/test_book_pdf_memory.py::TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport``),
     and it carries here for the same reason: nothing in this file is about
     pixels.
-
-    The tests run on both trees. On a tree whose puzzle pages are still bitmaps
-    the interior walk exercises the bitmap arm; the operators arm is exercised
-    on every tree by the tests that draw a page with ``vector_puzzle_page``
-    directly, so no branch is only ever run under the probe.
     """
 
     BOOK = AC253_MEMBERS
@@ -1035,7 +810,7 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         first = _raw_interior(_book_of(*self.BOOK))
         second = _raw_interior(_book_of(*self.BOOK))
 
-        assert len(first) == len(second) == 18
+        assert len(first) == len(second) == 16
         assert [type(page) for page in first] == [type(page) for page in second]
         for number, (left, right) in enumerate(zip(first, second), start=1):
             assert same_page(left, right), f"interior page {number} differs on re-export"
@@ -1044,7 +819,7 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         """Control, same run: determinism is not "every page equals every page".
 
         A comparison that ignored which page it was handed would pass the test
-        above on a book of 18 identical pages. Two puzzle pages, a puzzle page
+        above on a book of 16 identical pages. Two puzzle pages, a puzzle page
         and a divider and a puzzle page and an answer page are all different
         pages of one export, and a book with its pages swapped is not the same
         book.
@@ -1178,142 +953,3 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         assert same_page(planted, expected_in_the_medium_of(planted, puzzles[0], 6, 1, "Easy"))
         assert footer_digits(planted, extent) == ["7"]
         assert not names_the_page(planted, puzzles[0], 6, 1, "Easy")
-
-
-# --------------------------------------------------------------------------
-# Every survivor this module cites still exists, exactly once
-# --------------------------------------------------------------------------
-
-#: The ``tests/`` prefix is optional: a citation written without it is derived
-#: and checked, not silently skipped.
-_CITATION = re.compile(r"(?:tests/)?(test_\w+\.py)::(\w+)(?:::(\w+))?")
-
-
-def _cited_survivors(text: str) -> List[Tuple[str, str, Optional[str]]]:
-    """``(file, class, method-or-None)`` for each ``tests/<file>::<Class>[::<method>]``."""
-    return sorted(
-        {(file, cls, method or None) for file, cls, method in _CITATION.findall(text)},
-        key=str,
-    )
-
-
-def _unresolved_survivors(text: str, tests_root: Path) -> List[str]:
-    """What ``text`` cites that does not resolve by ``ast``, default-DENY.
-
-    Only the file a citation names is parsed. A citation resolves when that file
-    exists, defines the class exactly once at module level, that class holds at
-    least one ``test*`` method (a stub carrying a survivor's name is not one),
-    and, when the citation names a method, that class defines it.
-    """
-    problems = []
-    for file, cls, method in _cited_survivors(text):
-        target = tests_root / file
-        if not target.is_file():
-            problems.append(f"{file}: no such file (cited as {cls})")
-            continue
-        tree = ast.parse(target.read_text(encoding="utf-8"))
-        classes = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == cls
-        ]
-        if len(classes) != 1:
-            problems.append(f"{file}::{cls}: {len(classes)} definitions")
-            continue
-        if not any(
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name.startswith("test")
-            for node in classes[0].body
-        ):
-            problems.append(f"{file}::{cls}: defines no test method")
-            continue
-        if method is not None and not any(
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name == method
-            for node in classes[0].body
-        ):
-            problems.append(f"{file}::{cls}::{method}: no such method")
-    return problems
-
-
-class TestBookPdf_EveryCitedSurvivorStillExists:
-    """The survivors this module cites live in prose, so a rename would leave a
-    claim with no survivor and no red. The set is **derived from this module's
-    own text** above this class (ADR-0039/R2): a citation added later extends it
-    with no list to keep in step, and each is resolved by ``ast`` in the one
-    file it names. Nothing is imported from another module."""
-
-    SELF = Path(__file__).resolve()
-
-    @classmethod
-    def prose(cls) -> str:
-        return cls.SELF.read_text(encoding="utf-8").split(
-            "class " + "TestBookPdf_EveryCitedSurvivorStillExists"
-        )[0]
-
-    def test_every_cited_survivor_resolves(self) -> None:
-        assert _unresolved_survivors(self.prose(), self.SELF.parent) == []
-
-    def test_both_survivors_this_module_names_are_derived(self) -> None:
-        cited = {(file, cls) for file, cls, _ in _cited_survivors(self.prose())}
-        assert cited >= {
-            ("test_book_pdf_memory.py", "TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport"),
-            ("test_book_puzzle_page_vector.py", "TestPuzzlePage_AgreesWithTheRasterTwin"),
-        }, cited
-
-    def test_a_survivor_with_no_tests_is_refused_and_one_with_a_test_is_not(
-        self, tmp_path: Path
-    ) -> None:
-        (tmp_path / "test_fake.py").write_text(
-            "class TestKept:\n    def test_x(self):\n        pass\n\n"
-            "class TestEmptied:\n    def helper(self):\n        pass\n\n"
-            "class TestStub:\n    pass\n"
-        )
-        assert _unresolved_survivors("tests/test_fake.py::TestKept", tmp_path) == []
-        for emptied in ("TestEmptied", "TestStub"):
-            problems = _unresolved_survivors(f"tests/test_fake.py::{emptied}", tmp_path)
-            assert len(problems) == 1 and "no test method" in problems[0], problems
-
-    def test_a_renamed_real_class_with_a_stub_carrying_its_name_is_refused(
-        self, tmp_path: Path
-    ) -> None:
-        """The rename plant that the existence check alone passed: the real class
-        moved to a new name and a ``pass`` stub left under the old one."""
-        (tmp_path / "test_fake.py").write_text(
-            "class TestSurvivor_Renamed:\n    def test_x(self):\n        pass\n\n"
-            "class TestSurvivor:\n    pass\n"
-        )
-        problems = _unresolved_survivors("tests/test_fake.py::TestSurvivor", tmp_path)
-        assert len(problems) == 1 and "no test method" in problems[0], problems
-
-    def test_a_citation_without_the_tests_prefix_is_derived_not_skipped(
-        self, tmp_path: Path
-    ) -> None:
-        assert _cited_survivors("see test_fake.py::TestKept::test_x") == [
-            ("test_fake.py", "TestKept", "test_x")
-        ]
-        (tmp_path / "test_fake.py").write_text("class Other:\n    pass\n")
-        problems = _unresolved_survivors("see test_fake.py::TestKept", tmp_path)
-        assert problems == ["test_fake.py::TestKept: 0 definitions"], problems
-
-    def test_a_renamed_citation_is_named_and_its_control_is_not(self) -> None:
-        text = self.prose()
-        victim = "TestPuzzlePage_AgreesWithTheRasterTwin"
-        assert victim in text
-        assert _unresolved_survivors(text, self.SELF.parent) == []
-        problems = _unresolved_survivors(
-            text.replace(victim, victim + "_Renamed"), self.SELF.parent
-        )
-        assert len(problems) >= 1 and victim + "_Renamed" in problems[0], problems
-        missing_method = text.replace(victim, victim + "::test_no_such_method", 1)
-        assert any(
-            "no such method" in problem
-            for problem in _unresolved_survivors(missing_method, self.SELF.parent)
-        )
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()
