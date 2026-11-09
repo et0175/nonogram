@@ -126,6 +126,7 @@ def play_page(
     *,
     url: str,
     short: str,
+    puzzle_count: int = 0,
     metrics: FontMetrics | None = None,
     grey: float = INK_GREY,
 ) -> ContentStream:
@@ -144,6 +145,11 @@ def play_page(
         ValueError: the sheet has no room for the page at all.
     """
     face = interior_face_metrics() if metrics is None else metrics
+    designed = _mockup_play_page(
+        spec, dpi, page_number, url=url, short=short, puzzle_count=puzzle_count, metrics=face
+    )
+    if designed is not None:
+        return designed
     frame = page_frame(spec)
     measure = frame.right - frame.left
     heading_px = type_px(PLAY_HEADING_PT, dpi)
@@ -222,4 +228,146 @@ def play_page(
             face,
             grey=grey,
         )
+    return stream
+
+
+# --------------------------------------------------------------------------
+# The approved version B mockup (owner, 2026-11-07)
+# --------------------------------------------------------------------------
+
+#: The mockup's words, as requirements/one-qr-book-delta-2026-11-07.md states them.
+PLAY_EYEBROW = "BONUS"
+PLAY_TITLE = "Play every puzzle online"
+PLAY_INTRO = (
+    "Scan the code to open this book's puzzle list. Tap a puzzle's number and "
+    "solve it in your browser, on a phone, a tablet or a computer. Nothing to install."
+)
+PLAY_CARD_TITLE = "This book's puzzles"
+PLAY_ADDRESS_LEAD = "Or type the address:"
+PLAY_STEPS = (
+    ("Scan", "Point your phone's camera at the code."),
+    ("Pick", "Tap the number of the puzzle you're on."),
+    ("Play", "Fill squares with a tap. Undo, zoom and finished-clue marks help along the way."),
+)
+PLAY_CALLOUT_TITLE = "Stuck? Try it online before you turn the page."
+PLAY_CALLOUT_BODY = (
+    "The solutions start overleaf. Online, the game tells you when the picture is complete."
+)
+
+#: The code's printed side in the mockup, and the least it may shrink to.
+_PLAY_QR_MM = 50.0
+_PLAY_QR_MIN_MM = 40.0
+
+
+def play_card_count_line(puzzle_count: int) -> str:
+    """The card's second line: "All 158, in the same order and with the same numbers as the book." """
+    if puzzle_count <= 0:
+        return "In the same order and with the same numbers as the book."
+    return f"All {puzzle_count}, in the same order and with the same numbers as the book."
+
+
+def _mockup_play_page(
+    spec: PageSpec,
+    dpi: int,
+    page_number: int,
+    *,
+    url: str,
+    short: str,
+    puzzle_count: int,
+    metrics: FontMetrics,
+) -> ContentStream | None:
+    """The Play online page as the approved mockup sets it, or ``None`` when the
+    sheet is too small for it (the plain centred page is drawn instead).
+
+    Top to bottom: a short rule and the "BONUS" eyebrow; the heading; one grey
+    paragraph; a shaded card holding the code (50 mm, never under 40 mm) with
+    the book's puzzle count and the typed address beside it; three numbered
+    steps; and a callout at the foot saying the solutions start overleaf.
+    """
+    from nonogram.admin.book_guide_spread import _BOLD_RATIO, _GREY, _SHADE, _Pen, _badge
+    from nonogram.export.layout import interior_frame
+
+    frame = interior_frame(spec)
+    left, right = frame.header_rule.left, frame.header_rule.right
+    pt = dpi / 72.0
+    width = right - left
+    if width < 360 * pt:
+        return None
+    trim = page_frame(spec)
+    stream = ContentStream(width_px=trim.width, height_px=trim.height, dpi=dpi)
+    pen = _Pen(stream, metrics, pt, dpi, left, right)
+    modules = encode_text(url)
+    mm = dpi / 25.4
+
+    y = frame.header_rule.y + pen.px(40)
+    stream.fill_grey(0.0)
+    stream.rectangle(left, y, left + pen.px(60), y + pen.px(2.4), paint="fill")
+    y += pen.px(18)
+    pen.put(PLAY_EYEBROW, left, y, FOLIO_PT, grey=_GREY, bold=True)
+    y += pen.px(38)
+    title_pt = 30.0
+    title_lines = wrap(PLAY_TITLE, pen.type_px(title_pt), width * 0.62, metrics)
+    for line in title_lines:
+        pen.put(line, left, y, title_pt, bold=True)
+        y += pen.px(title_pt * 1.15)
+    y += pen.px(4)
+    y = pen.para(PLAY_INTRO, left, y, width * 0.9, 12.0, grey=_GREY)
+
+    # The card: code on the left, words beside it.
+    qr_side = _PLAY_QR_MM * mm
+    floor = max(_PLAY_QR_MIN_MM * mm, qr_min_side_px(len(modules), dpi))
+    card_top = y + pen.px(8)
+    pad = pen.px(22)
+    text_left = left + pad + qr_side + pen.px(26)
+    text_width = right - pad - text_left
+    if text_width < pen.px(150) or qr_side < floor:
+        return None
+    card_bottom = card_top + qr_side + 2 * pad
+    pen.box(left, card_top, right, card_bottom, _SHADE)
+    draw_qr(stream, modules, QrBox(left + pad, card_top + pad, qr_side))
+    ty = card_top + pad + pen.px(22)
+    pen.put(PLAY_CARD_TITLE, text_left, ty, 15.0, bold=True)
+    ty = pen.para(play_card_count_line(puzzle_count), text_left, ty + pen.px(20), text_width, 11.0, grey=_GREY)
+    ty += pen.px(12)
+    pen.put(PLAY_ADDRESS_LEAD, text_left, ty, FOLIO_PT, grey=_GREY)
+    address, address_px = address_lines(
+        short, [type_px(size, dpi) for size in PLAY_ADDRESS_SIZES_PT], text_width, metrics
+    )
+    ty += pen.px(17)
+    for line in address:
+        pen.put(line, text_left, ty, address_px / pt, bold=True)
+        ty += line_height_px(address_px, metrics)
+    if ty > card_bottom:
+        return None
+
+    # The three steps, side by side.
+    y = card_bottom + pen.px(42)
+    column = width / len(PLAY_STEPS)
+    steps_bottom = y
+    for index, (head, body) in enumerate(PLAY_STEPS):
+        x = left + index * column
+        _badge(pen, x + pen.px(9), y, str(index + 1))
+        pen.put(head, x + pen.px(26), y, 13.0, bold=True)
+        steps_bottom = max(steps_bottom, pen.para(body, x, y + pen.px(22), column - pen.px(20), FOLIO_PT, grey=_GREY))
+
+    # The callout, at the foot of the area.
+    callout_h = pen.px(40)
+    callout_top = frame.footer_rule.y - pen.px(16) - callout_h
+    if callout_top < steps_bottom + pen.px(10):
+        return None
+    stream.fill_grey(0.0)
+    stream.rectangle(left, callout_top, left + pen.px(3), callout_top + callout_h, paint="fill")
+    pen.put(PLAY_CALLOUT_TITLE, left + pen.px(14), callout_top + pen.px(15), 11.5, bold=True)
+    pen.para(PLAY_CALLOUT_BODY, left + pen.px(14), callout_top + pen.px(32), width - pen.px(14), FOLIO_PT, grey=_GREY)
+
+    draw_sheet_furniture(
+        stream,
+        SheetFurniture(
+            frame=frame,
+            folio=str(page_number),
+            folio_size_px=type_px(FOLIO_PT, dpi),
+            right_hand=page_is_right_hand(page_number),
+        ),
+        metrics,
+    )
     return stream

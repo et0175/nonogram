@@ -681,6 +681,11 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
                 )
                 checked += 1
                 continue
+            if 0 < number - max(GUIDE_INTERIOR_PAGES) <= decided.toc_page_count:
+                # The table of contents (CARD-200): no grid. Skipped by
+                # position since the approved restyle ruled a line under its
+                # title, which ``drawing_of`` would otherwise read as a frame.
+                continue
             try:
                 drawing = drawing_of(page)
             except ValueError:
@@ -2637,6 +2642,12 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         painted by ``B``. So ``B``/``c``/``h`` are no longer surplus: they are
         CARD-233's signal arriving, on the **answer** pages only, and the TOC
         still draws no round shape (asserted per kind below).
+
+        **The approved contents restyle puts them on the TOC too.** Each level
+        row now carries its tier's dots after the level's name, drawn by the
+        same ``draw_tier_dots``, so ``B``/``c``/``h`` are on both kinds; the
+        per-kind reading below now asserts the TOC reaches them only through
+        that one site.
         """
         emitted = {
             "g", "G", "w", "m", "l", "S", "re", "f",
@@ -2654,14 +2665,16 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
             seen |= tokens
         assert seen == emitted, (sorted(seen - emitted), sorted(emitted - seen))
         # The three members F-297-04 found surplus are a round mark's. Since
-        # the approved mockup they are the solution header's tier dots, and
-        # they belong to the answer pages alone: a round shape on a TOC page
-        # is still nobody's licence. Stated here as well as in the limit cell
+        # the approved mockups they are the tier dots of a solution's header
+        # and of a contents level row, and both writers reach them only
+        # through ``draw_tier_dots``. Stated here as well as in the limit cell
         # so the two cannot drift apart again.
         round_ops = {"B", "c", "h"}
         for stream_text in pdf_vector.content_streams(_written(recorded.toc_streams())):
             tokens = set(pdf_vector.operator_tokens(stream_text))
-            assert not (round_ops & tokens), sorted(round_ops & tokens)
+            assert round_ops <= tokens, sorted(round_ops - tokens)
+        assert "round_mark" not in _source_of(book_toc_vector)
+        assert "draw_tier_dots" in _source_of(book_toc_vector)
         # CARD-314: the mark is on the answer pages and NOT on the TOC, which
         # draws no clue digit. Read per page kind, so an over-applied bracket
         # on a TOC page reds here rather than disappearing into the union.
@@ -3228,8 +3241,13 @@ _FURNITURE_RULES = {
     "draw_running_head": "the rule under the answer page's running head",
 }
 
+#: The contents page's one piece of ruled furniture, held to the same shape.
+_TOC_FURNITURE_RULES = {
+    "draw_title_rule": "the rule under the contents page's title",
+}
 
-def _furniture_rule_violations(source: str) -> List[str]:
+
+def _furniture_rule_violations(source: str, rules: dict = _FURNITURE_RULES) -> List[str]:
     """Every way a :data:`_FURNITURE_RULES` function exceeds one horizontal rule.
 
     Each must exist, make exactly one call through a drawing door, that call
@@ -3243,7 +3261,7 @@ def _furniture_rule_violations(source: str) -> List[str]:
         for node in _ast.walk(tree)
         if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
     }
-    for name in _FURNITURE_RULES:
+    for name in rules:
         function = functions.get(name)
         if function is None:
             found.append(f"{name} is declared but not defined")
@@ -3455,19 +3473,28 @@ class TestAnswerTiles_ReuseTheGridRoutine:
         """Since the approved solutions mockup, outside the exemption **or**
         the declared page furniture (:data:`_FURNITURE_RULES`): the solution
         header's hairline and the running head's rule, each held to one
-        horizontal line by :func:`_furniture_rule_violations`."""
+        horizontal line by :func:`_furniture_rule_violations`. The approved
+        contents restyle added the TOC's own (:data:`_TOC_FURNITURE_RULES`),
+        the rule under its title, held to the same one-line shape."""
         for module in _GUARDED:
             source = _source_of(module)
             outside = [
                 violation
                 for violation in stroke_violations(source)
-                if not (
-                    module is book_answer_vector
-                    and any(f": {name} rules a line" in violation for name in _FURNITURE_RULES)
+                if not any(
+                    f": {name} rules a line" in violation
+                    for name in (
+                        _FURNITURE_RULES if module is book_answer_vector
+                        else _TOC_FURNITURE_RULES if module is book_toc_vector
+                        else {}
+                    )
                 )
             ]
             assert outside == [], module.__name__
         assert _furniture_rule_violations(_source_of(book_answer_vector)) == []
+        assert _furniture_rule_violations(
+            _source_of(book_toc_vector), _TOC_FURNITURE_RULES
+        ) == []
 
     def test_the_exemption_set_is_derived_and_not_everything(self) -> None:
         """The guard is not default-ALLOW underneath (ADR-0039/R2).
@@ -4198,9 +4225,10 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
         right, through ``book_puzzle_vector.draw_tier_dots`` (the puzzle
         header's own round-mark site, not a second one). So the reading is
         now the other way round, per page kind: every answer page draws a
-        round mark, no TOC page does, and the answer writer reaches
-        ``round_mark`` only through ``draw_tier_dots``. (The name is kept: it
-        is cited by node id.)
+        round mark, and the answer writer reaches ``round_mark`` only through
+        ``draw_tier_dots``. The approved contents restyle did the same for the
+        TOC: its level rows carry their tier's dots, through the same site.
+        (The name is kept: it is cited by node id.)
         """
         def has_curve(text: str) -> bool:
             return " c\n" in text or text.rstrip().endswith(" c")
@@ -4210,7 +4238,8 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
         for text in answers:
             assert has_curve(text), "a solution header drew no tier dots"
         for text in pdf_vector.content_streams(_written(recorded.toc_streams())):
-            assert not has_curve(text)
+            assert has_curve(text), "a contents page drew no level's tier dots"
+        assert "draw_tier_dots" in _source_of(book_toc_vector)
         assert "round_mark" not in _source_of(book_answer_vector)
         assert "draw_tier_dots" in _source_of(book_answer_vector)
         assert "round_mark" not in _source_of(book_toc_vector)

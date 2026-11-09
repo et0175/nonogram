@@ -1355,8 +1355,8 @@ def _lose_a_toc_row(monkeypatch):
     """
     from nonogram.admin import book_pdf_generator as module
 
-    def one_row_short(level_count, puzzle_count):
-        return 0 if puzzle_count == 0 else 1 + 2 * level_count
+    def one_row_short(level_count, puzzle_count, *, play_row=False):
+        return 0 if puzzle_count == 0 else 1 + 2 * level_count + int(play_row)
 
     monkeypatch.setattr(module, "structural_toc_entry_count", one_row_short)
     return "the table of contents built"

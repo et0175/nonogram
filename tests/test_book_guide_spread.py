@@ -396,13 +396,22 @@ class TestGuidePage_PlayPageNumberIsTheRealOne:
         ids=["four", "five", "baseline-6x9", "five-5x8"],
     )
     def test_the_guide_names_the_page_that_carries_the_play_heading(self, puzzles, trim_mm):
-        from nonogram.admin.book_play_vector import PLAY_HEADING
+        from nonogram.admin.book_pdf_generator import TOC_TITLE
+        from nonogram.admin.book_play_vector import PLAY_HEADING, PLAY_TITLE
+
+        def carries_the_play_heading(text: List[str]) -> bool:
+            # The designed page wraps its title over lines; the plain fallback
+            # sets PLAY_HEADING whole. The contents page lists "Play online" as
+            # a row, which is not the page itself.
+            if TOC_TITLE in text:
+                return False
+            return PLAY_HEADING in text or PLAY_TITLE in " ".join(text)
 
         _, streams = _interior(_spread_book(trim_mm=trim_mm), puzzles)
         carrying = [
             number
             for number, stream in enumerate(streams, start=1)
-            if PLAY_HEADING in _guide_text(stream)
+            if carries_the_play_heading(_guide_text(stream))
         ]
 
         assert carrying != [] and len(carrying) == 1, carrying

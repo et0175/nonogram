@@ -416,6 +416,7 @@ def set_from_top(
     metrics: FontMetrics,
     *,
     grey: float = INK_GREY,
+    embolden_pt: float = 0.0,
 ) -> None:
     """Set ``text`` with its left edge at ``left`` and its ascender at ``top``.
 
@@ -433,7 +434,9 @@ def set_from_top(
     # in the argument list takes this module out of that excuse and reds that
     # file's equality.
     size_pt = stream.to_points(size_px)
-    stream.text(text, left, top + ascent_px(size_px, metrics), size_pt, grey=grey)
+    stream.text(
+        text, left, top + ascent_px(size_px, metrics), size_pt, grey=grey, embolden_pt=embolden_pt
+    )
 
 
 def set_right_from_top(

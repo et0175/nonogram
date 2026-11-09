@@ -556,7 +556,11 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
     # of the same order (`print_order` is called above, so the premise holds
     # here as it does there).
     toc_pages = measured_toc_page_count(
-        structural_toc_entry_count(dividers, len(ordered)), _toc_frame_for(book), DPI
+        structural_toc_entry_count(
+            dividers, len(ordered), play_row=printable_player_domain(book) is not None
+        ),
+        _toc_frame_for(book),
+        DPI,
     )
     return interior_page_count(
         len(ordered),

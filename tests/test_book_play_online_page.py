@@ -164,6 +164,20 @@ def _text_free_codes(page: np.ndarray, words, dpi: int) -> np.ndarray:
             int(word.top * scale) - 2 : int(word.bottom * scale) + 3,
             int(word.left * scale) - 2 : int(word.right * scale) + 3,
         ] = 255
+    # The approved mockup sets the code in a shaded card, beside the words and
+    # among the steps' badges and the callout's bar: what is outside the card
+    # is not the code. A page with no card (the plain fallback, or any other
+    # page) is read whole, as before.
+    card = (page >= 236) & (page <= 246)
+    rows = np.nonzero(card.mean(axis=1) > 0.3)[0]
+    if rows.size:
+        top, bottom = int(rows.min()), int(rows.max())
+        cols = np.nonzero(card[top : bottom + 1].mean(axis=0) > 0.3)[0]
+        if cols.size:
+            left, right = int(cols.min()), int(cols.max())
+            outside = np.ones_like(cleaned, dtype=bool)
+            outside[top : bottom + 1, left : right + 1] = False
+            cleaned[outside] = 255
     return cleaned
 
 
@@ -187,8 +201,12 @@ class TestPlayPage_QrDecodesToTheLandingUrl:
         )
         address = [word for word in words if word.text.startswith("nonogram.")]
         assert [word.text for word in address] == ["nonogram.adverax.io/b/5e51610a53"]
-        code_bottom = np.nonzero(_text_free_codes(page, words, 150) <= 128)[0].max() * 72 / 150
-        assert address[0].top >= code_bottom
+        ink = np.nonzero(_text_free_codes(page, words, 150) <= 128)
+        code_bottom = ink[0].max() * 72 / 150
+        code_right = ink[1].max() * 72 / 150
+        # Under the code on the plain page; beside it, in the same card, on the
+        # approved mockup's.
+        assert address[0].top >= code_bottom or address[0].left >= code_right
 
 
 #: CON-018's Book 1 trim and the two smaller trims the panel offers, in

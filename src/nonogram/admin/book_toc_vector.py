@@ -81,6 +81,13 @@ from nonogram.admin.book_vector_draw import (
     set_from_top,
     set_right_from_top,
 )
+from nonogram.admin.book_puzzle_vector import draw_tier_dots
+from nonogram.export.layout import interior_header_rule_px
+
+#: The approved mockup's secondary text and the leaders' lighter grey.
+TOC_RANGE_GREY = 0.36
+TOC_LEADER_GREY = 0.58
+_BOLD_RATIO = 0.04
 
 __all__ = [
     "TocTypeSpec",
@@ -220,6 +227,13 @@ def leader_dots(run: float, size_px: float, metrics: FontMetrics) -> str:
     return dots
 
 
+def draw_title_rule(stream: ContentStream, left: float, right: float, y: float, grey: float) -> None:
+    """The approved mockup's rule under the page title, at the header rule's weight."""
+    stream.stroke_grey(grey)
+    stream.stroke_width(stream.to_points(interior_header_rule_px()))
+    stream.line(left, y, right, y)
+
+
 def toc_page_stream(
     rows: Sequence[TocEntry],
     frame: PageFrame,
@@ -252,9 +266,11 @@ def toc_page_stream(
     measure = frame.right - frame.left
 
     set_from_top(
-        stream, spec.title_text, frame.left, frame.top, spec.title_size_px, face, grey=grey
+        stream, spec.title_text, frame.left, frame.top, spec.title_size_px, face, grey=grey,
+        embolden_pt=stream.to_points(spec.title_size_px) * _BOLD_RATIO,
     )
     y = frame.top + line_height_px(spec.title_size_px, face) + spec.title_gap_px
+    draw_title_rule(stream, frame.left, frame.right, y - spec.title_gap_px / 2, grey)
 
     size_px = spec.entry_size_px
     gap = spec.entry_gap_px
@@ -265,16 +281,30 @@ def toc_page_stream(
     for index, row in enumerate(rows):
         if row.starts_group and index > 0:
             y += spec.group_gap_px
+        bold = stream.to_points(size_px) * _BOLD_RATIO
         if row.page is None:
+            # A level's heading: its name, emboldened, and the level's dots.
             clipped = clipped_to(row.label, size_px, face, measure)
-            set_from_top(stream, clipped, frame.left, y, size_px, face, grey=grey)
+            set_from_top(stream, clipped, frame.left, y, size_px, face, grey=grey, embolden_pt=bold)
+            name_right = frame.left + advance_px(clipped, size_px, face)
+            middle = y + line_height_px(size_px, face) / 2
+            draw_tier_dots(
+                stream, row.label, name_right + size_px * 2.6, middle, size_px, grey=grey
+            )
         else:
             number_text = str(row.page)
             number_width = advance_px(number_text, size_px, face)
             clipped = clipped_to(
                 row.label, size_px, face, measure - number_width - 2 * gap
             )
-            set_from_top(stream, clipped, frame.left, y, size_px, face, grey=grey)
+            # A section's own row is emboldened; a level's range under its
+            # heading is set in the secondary grey.
+            under_level = index > 0 and rows[index - 1].page is None
+            set_from_top(
+                stream, clipped, frame.left, y, size_px, face,
+                grey=TOC_RANGE_GREY if under_level else grey,
+                embolden_pt=0.0 if under_level else bold,
+            )
             set_right_from_top(
                 stream, number_text, frame.right, y, size_px, face, grey=grey
             )
@@ -286,7 +316,7 @@ def toc_page_stream(
             dot_right = frame.right - number_width - gap
             dots = leader_dots(dot_right - dot_left, size_px, face)
             if dots:
-                set_from_top(stream, dots, dot_left, y, size_px, face, grey=grey)
+                set_from_top(stream, dots, dot_left, y, size_px, face, grey=TOC_LEADER_GREY)
         bottom = y + row_height
         y += line_height
 

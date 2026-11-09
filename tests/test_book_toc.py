@@ -2440,8 +2440,8 @@ class TestBookToc_TheErrorPathsRaiseAndNameTheProblem:
         """
         import nonogram.admin.book_pdf_generator as module
 
-        def one_row_short(level_count: int, puzzle_count: int) -> int:
-            return 0 if puzzle_count == 0 else 1 + 2 * level_count
+        def one_row_short(level_count: int, puzzle_count: int, *, play_row: bool = False) -> int:
+            return 0 if puzzle_count == 0 else 1 + 2 * level_count + int(play_row)
 
         monkeypatch.setattr(module, "structural_toc_entry_count", one_row_short)
         generator = BookPDFGenerator(_book("card-205-f003-rows"))

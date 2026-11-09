@@ -3586,7 +3586,9 @@ def toc_range_label(first: int, last: int) -> str:
     return f"Puzzles {first}{TOC_RANGE_DASH}{last}"
 
 
-def structural_toc_entry_count(level_count: int, puzzle_count: int) -> int:
+def structural_toc_entry_count(
+    level_count: int, puzzle_count: int, *, play_row: bool = False
+) -> int:
     """How many rows the structural table of contents holds (CARD-205).
 
     The TOC lists **sections, never puzzles** (the owner's decision, Google
@@ -3638,7 +3640,9 @@ def structural_toc_entry_count(level_count: int, puzzle_count: int) -> int:
         )
     if puzzle_count == 0:
         return 0
-    return 2 + 2 * level_count
+    # The Play online row (owner, 2026-11-09), between the levels and the
+    # solutions, when the book prints that page.
+    return 2 + 2 * level_count + (1 if play_row else 0)
 
 
 def structural_toc_entries(
@@ -3647,6 +3651,7 @@ def structural_toc_entries(
     solutions_page: int,
     *,
     level_rows: bool = True,
+    play_page: Optional[int] = None,
 ) -> List["TocEntry"]:
     """The structural TOC's own rows, read off the page plan (CARD-205).
 
@@ -3740,6 +3745,7 @@ def structural_toc_entries(
             )
         return [
             TocEntry(GUIDE_TITLE, 1 + TITLE_PAGE_COUNT),
+            *_play_rows(play_page),
             TocEntry(TOC_SOLUTIONS_LABEL, solutions_page, starts_group=True),
         ]
     if [divider.level for divider in dividers] != [level for level, _, _ in runs]:
@@ -3767,8 +3773,18 @@ def structural_toc_entries(
     # The solutions open the last group, so they are set off like a heading
     # even though they are a numbered row (owner decision 2026-10-14) — see
     # :attr:`TocEntry.starts_group`.
+    entries.extend(_play_rows(play_page))
     entries.append(TocEntry(TOC_SOLUTIONS_LABEL, solutions_page, starts_group=True))
     return entries
+
+
+#: The contents row naming the Play online page (owner, 2026-11-09).
+TOC_PLAY_LABEL = "Play online"
+
+
+def _play_rows(play_page: Optional[int]) -> List["TocEntry"]:
+    """The Play online row, set off as its own group, or nothing."""
+    return [] if play_page is None else [TocEntry(TOC_PLAY_LABEL, play_page, starts_group=True)]
 
 
 def recto_blank_pages(pages_before: int) -> int:
@@ -3934,7 +3950,9 @@ def interior_page_count(
             # (correct, possibly smaller) divider count, and the TOC's own
             # default must stay an upper bound over every book, not shrink to
             # one caller's book.
-            structural_toc_entry_count(min(len(TIERS), puzzle_count), puzzle_count),
+            structural_toc_entry_count(
+                min(len(TIERS), puzzle_count), puzzle_count, play_row=True
+            ),
             default_toc_frame(),
             DPI,
         )
@@ -7144,6 +7162,7 @@ class BookPDFGenerator:
                 else 0
             ),
             len(payloads),
+            play_row=self.player_domain is not None,
         )
         # Read once here and fed to the TOC measurement below, which saves
         # `page_frame(self.page_spec(1))` a second call on the same sheet.
@@ -7542,6 +7561,7 @@ class BookPDFGenerator:
             decided.payloads,
             first_answer_page - (1 if self.divider_pages else 0),
             level_rows=self.divider_pages,
+            play_page=decided.play_page,
         )
         # The plan/draw tripwire for the TOC, in two halves — the ROWS first,
         # then the pages they take.
@@ -7567,7 +7587,9 @@ class BookPDFGenerator:
         # `dividers` is the section walk's own count of level divider pages,
         # which `structural_toc_entries` has just proved to be the same levels
         # in the same order as `payloads`' own runs (its RuntimeError above).
-        predicted_toc_rows = structural_toc_entry_count(dividers, count)
+        predicted_toc_rows = structural_toc_entry_count(
+            dividers, count, play_row=decided.play_page is not None
+        )
         if len(toc_entries) != predicted_toc_rows:
             raise RuntimeError(
                 f"the table of contents built {len(toc_entries)} row(s), but "

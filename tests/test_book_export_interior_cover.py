@@ -3736,7 +3736,11 @@ class Generator:
     #: where the walk already holds it (``decided.play_page``), and none is
     #: computed here. Re-derived by running ``_page_positions`` against main
     #: and the branch and reading the difference.
-    POSITION_SITE_COUNT = 38
+    #: The contents' Play online row: 39, not 38 -- **+1**, the
+    #: ``play_page`` parameter (``None`` default) that
+    #: ``structural_toc_entries`` gained so the row can carry the page's
+    #: number. No row removed.
+    POSITION_SITE_COUNT = 39
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -4353,10 +4357,18 @@ class Generator:
         # is a receiver the module defines) and cost no refusal. Steps still
         # strict drops; the four figures are read off this test's own
         # measurement.
-        ((), 860),
-        (("builtins",), 586),
-        (("builtins", "definitions and imports"), 219),
-        (("builtins", "definitions and imports", "parameters"), 216),
+        #
+        # **The Play online row in the contents re-measured it an eleventh
+        # time: +4 refusals** (860 -> 864, 586 -> 590, 219 -> 220, 216 -> 217,
+        # last two still 0): **builtins 0**; **definitions and imports +3**
+        # (``_play_rows`` in both arms of ``structural_toc_entries`` and the
+        # ``TocEntry`` it builds); **parameters 0**; **an attribute of a
+        # receiver this module does not define +1**. Read off this test's own
+        # measurement.
+        ((), 864),
+        (("builtins",), 590),
+        (("builtins", "definitions and imports"), 220),
+        (("builtins", "definitions and imports", "parameters"), 217),
         (
             (
                 "builtins",

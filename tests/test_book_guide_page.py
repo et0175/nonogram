@@ -265,6 +265,12 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
                 # either. Every other page is read exactly as before, and
                 # ``checked`` below still floors how many.
                 continue
+            if number == max(GUIDE_INTERIOR_PAGES) + 1:
+                # This corpus's one table-of-contents page. Since the approved
+                # restyle it rules a line under its title, which ``drawing_of``
+                # would read as a frame; it carries no drawing, so it is
+                # skipped for what it is, like the guide's pages.
+                continue
             try:
                 drawing = drawing_of(page)
             except ValueError:

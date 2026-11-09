@@ -138,7 +138,9 @@ def play_page_stream(
     address = landing_address(rows, player_domain)
     if address is None:
         raise ValueError("the Play online page was planned for a book with no player domain")
-    return play_page(spec, dpi, page_number, url=address.url, short=address.short)
+    return play_page(
+        spec, dpi, page_number, url=address.url, short=address.short, puzzle_count=len(rows)
+    )
 
 
 #: Every downstream interior page writer, bound for the walk that cannot
