@@ -991,12 +991,17 @@ function start() {
     });
   }
 
-  // CARD-193: boards wider than BIG_SIDE columns mirror their row clues to
-  // the right, but only on phones (owner decision, 2026-10-06) — the ≤ 820 px
-  // shell breakpoint, the same one admin.css keys the phone cell floor to.
+  // CARD-193 mirrored the row clues of boards wider than BIG_SIDE to the
+  // right on phones (owner decision, 2026-10-06), so a player swiped right
+  // still saw them. RETIRED by CARD-405 (owner finding 2026-11-07: the clues
+  // stay at the left and top; the sticky bands — CARD-271, kept at every
+  // zoom since CARD-404 capped the numerals — and the crosshair keep them in
+  // view). isMirrored() is false at every width; it stays as the one switch
+  // the ladder and drawBoard read, and mirrorQuery stays as the redraw
+  // trigger at the 820 px crossing the phone cell floor still follows.
   const mirrorQuery = window.matchMedia("(max-width: 820px)");
   function isMirrored() {
-    return payload.width > BIG_SIDE && mirrorQuery.matches;
+    return false;
   }
 
   // CARD-212: the layouts to try for this board, roomiest first. Each axis is

@@ -635,6 +635,13 @@ class TestSolverFifthRule_EdgesAndGuttersToo:
         """
         tokens = _open_filled(browser_page, live, viewport)
         assert tokens["dpr"] == 1, tokens["dpr"]
+        # CARD-405 (owner finding 2026-11-07, the phone mirror retired): at
+        # 390 px this 20-wide board is wider than its stage on the LEFT-gutter
+        # layout too, and the cells past the stage's right edge are clipped
+        # out of the capture. The stage's clip is lifted for the capture only
+        # (overflow does not change the table's own layout), so every outer
+        # cell is in the image.
+        browser_page.evaluate("() => { document.querySelector('.player-stage').style.overflow = 'visible'; }")
         image, geometry = _board(browser_page)
 
         #: The board's outer ring: every cell that has at least one side on

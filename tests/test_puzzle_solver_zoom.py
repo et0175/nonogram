@@ -716,9 +716,13 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert shaped["zoomProperty"] == "1.5"
 
         # Crossing to phone width: the duplicates cannot be afforded there,
-        # so the board falls back to CARD-193's single mirrored gutter.
+        # so the board falls back to ONE gutter per axis — on the left since
+        # CARD-405 retired CARD-193's phone mirror (owner finding 2026-11-07);
+        # the redraw is awaited by its draw mark, not by the mirror class.
+        _n = page.evaluate("performance.getEntriesByName('nonogram-player-board-draw').length")
         page.set_viewport_size(_PHONE)
-        page.wait_for_function("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        page.wait_for_function(f"performance.getEntriesByName('nonogram-player-board-draw').length > {_n}")
+        assert not page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
         phone = page.evaluate(_GUTTER_SHAPE)
 
         assert (phone["rowBoxes"], phone["colBoxes"], phone["duplicates"]) == (12, 30, 0)
@@ -755,10 +759,13 @@ class TestSolverZoom_SurvivesADoubledRedraw:
 
         # Force the redraw the breakpoint listener performs (out to phone
         # width and back), where a zoom-blind decision would double.
+        # (awaited by the draw mark since CARD-405 retired the phone mirror)
+        _n = page.evaluate("performance.getEntriesByName('nonogram-player-board-draw').length")
         page.set_viewport_size(_PHONE)
-        page.wait_for_function("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        page.wait_for_function(f"performance.getEntriesByName('nonogram-player-board-draw').length > {_n}")
+        _n = page.evaluate("performance.getEntriesByName('nonogram-player-board-draw').length")
         page.set_viewport_size(_LAPTOP)
-        page.wait_for_function("!document.querySelector('.player-board').classList.contains('is-mirrored')")
+        page.wait_for_function(f"performance.getEntriesByName('nonogram-player-board-draw').length > {_n}")
 
         after = page.evaluate(_GUTTER_SHAPE)
         assert (after["rowBoxes"], after["colBoxes"], after["duplicates"]) == (25, 30, 0)
