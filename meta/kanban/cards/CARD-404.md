@@ -1,6 +1,6 @@
 # CARD-404: Clue strips stop growing with the zoom — the numbers cap at a readable size while the cells grow — and the strips stay pinned at every zoom
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/404-clue-numerals-capped
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-404
 **Source:** owner player findings 2026-11-07, items 3 and 6 ("The clue strips zoom too. At 200% the row clues take about 135 px ... Keeping the clue text at a fixed readable size while only the cells grow would roughly double the playing area. Alignment should stay of course." with the owner's own spec: cap the numbers around 13-14 px; the cap only limits growth when zooming IN; a column's box stays narrow when zoomed out so a two-digit clue keeps today's small size; the along-the-line dimension keeps zooming with the cells). Item 3: "At 100% and above the clue strips stay pinned (row clues at the side, column clues at the top)."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-401/402/403 (admin.css; serialize), CARD-405 and CARD-406/408/410 (all depend on the strip geometry this card fixes). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T11:54Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -86,4 +86,9 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] d0777bbd + ab2e7a85. admin.css --player-clue-cell = min(cell, --player-numeral-max (14 px) / 0.6): numeral, column-number slot, column band pad and ring follow it; along a line the clue boxes are still exactly one cell. Fit re-derived: width = max(min(floor term, growing term), capped term); height = max(uniform term, band-at-cap term); the height also subtracts the board's own --space-4 margin (a 2-5 px overflow of height-bound boards since CARD-403's measured top; review cycle 1 measured it on main).
+[Owner rulings 2026-11-09, "all as recommended"] (1) STICK_MAX_SHARE is unchanged: a band too big AT the cap scrolls with the board rather than covering it — on a 30 x 30 whose rows carry eight numbers the row band is 317 px on a 358 px phone stage (AC-5's 390 x 844 arm, and 844 x 390 at 200/300%), and its eight-deep column band gives up at 150% at 1280 x 720; AC-5 is met where the band fits at the cap (rows of that board at 1280 x 720 now keep to 300%). (2) The 14 px cap applies at every zoom, 100% included (AC-4's TestPlayerNumerals desktop pin 16.8 -> 14, the 12 px phone floor unchanged). (3) The board-margin fix stays (desktop cells ~0.4-0.7 px smaller: 15x15 at 1280x720 21.125 -> 20.406, 30x30 at 1440x900 17.016 -> 16.625).
+[AC-3 measure] Shared-UI preview, 30x30 class (puzzle 5260), cells outside the clue bands (columns x rows): 390x844 200% 4x14 -> 6x15, 300% 1x7 -> 4x10; 1280x720 200% 33x11 -> 35x13, 300% 20x5 -> 23x8; bands 187x210 (200%) / 278x314 (300%) -> 152x171 at both.
+[Tests] New TestSolverZoom_ClueStripsStopGrowing (cap, equal strips at 200/300%, alignment at 100/200/300%; plant uncap -> red at 200%). Re-pinned with the decision named in place: desktop numerals, column slot = clue cell, GIVES_UP_AT rows 225 -> 325 (never), bands/overflows of the doubled 30x25, mid-size cells, small-board resize tests to 440x480 (the bands fit 1024x768 now), the phone predictor (measured top + cap). Touch/drag tests bring the target cell clear of the now-sticky bands first. Net node ids +1 (registry). 
+[Review 1/3] Score: 5.0 — critical AC-5 (decided by the owner, ruling 1), important: margin fix (ruling 3), AC-4 reading (ruling 2), notes (this note); minor: the CARD-271 solver.js comment restated, crosshair comment and slot tolerance explained (ab2e7a85). Report meta/review/20261109T125050Z-CARD-404-cycle1.yml.

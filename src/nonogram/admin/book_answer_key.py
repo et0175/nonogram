@@ -417,27 +417,33 @@ class PackedAnswerPage:
     that does not qualify for packing, or none at all — so a caller holding
     one never re-checks those.
 
-    Unlike the old six-up/four-up :class:`AnswerPage`, :attr:`capacity` here
-    is **not** derived from the answers' own extents (there is no analogue of
-    :data:`SIX_UP_LONGEST_SIDE` gating 2 vs 4): it is 4 whenever the page
-    holds more than :data:`PACKED_TWO_UP` answers, 2 otherwise — the owner's
-    "always 4-up, 2-up only for a leftover" rule, read off the page's own
-    answer count because that count *is* the rule's only input.
+    :attr:`capacity` is the tiling, 4 (a 2x2) unless stated. Owner decision
+    2026-11-09 (CARD-232 AC-4): a level's last page of one to three answers
+    keeps the same 2x2 positions as its full pages rather than switching to a
+    larger 2-up tiling. 2 is used only by the degrade path, when four tiles
+    cannot reach the minimum cell (``_degrade_infeasible_packed_pages``).
 
     Attributes:
         answers: The answers on the page, in fill order — puzzle-number
             order, left to right then top to bottom (2 columns always).
+        capacity: The tiling the page is laid out at: 4, or 2 when degraded.
     """
 
     answers: Tuple[Answer, ...]
+    capacity: int = 4
 
     def __post_init__(self) -> None:
         if not self.answers:
             raise ValueError("a packed answer page holds at least one answer")
-        if len(self.answers) > PACKED_FOUR_UP:
+        if self.capacity not in (PACKED_TWO_UP, PACKED_FOUR_UP):
+            raise ValueError(
+                f"a packed page is laid out at {PACKED_TWO_UP} or "
+                f"{PACKED_FOUR_UP}, not {self.capacity}"
+            )
+        if len(self.answers) > self.capacity:
             raise ValueError(
                 f"{len(self.answers)} answers on a packed page that holds "
-                f"at most {PACKED_FOUR_UP}"
+                f"at most {self.capacity}"
             )
         if len(set(answer.level for answer in self.answers)) != 1:
             raise ValueError(
@@ -451,11 +457,6 @@ class PackedAnswerPage:
                     f"too large to pack (width<={PACKED_MAX_WIDTH} and "
                     f"height<={PACKED_MAX_HEIGHT} only)"
                 )
-
-    @property
-    def capacity(self) -> int:
-        """The tiling this page is laid out at: 2 or 4 (never 6, unlike :data:`SIX_UP`)."""
-        return PACKED_FOUR_UP if len(self.answers) > PACKED_TWO_UP else PACKED_TWO_UP
 
     @property
     def level(self) -> Optional[Tier]:
@@ -489,11 +490,10 @@ def plan_small_answer_pages(answers: Sequence[Answer]) -> List[AnswerSectionPage
     **The rule, walked forward.** A large answer (:func:`qualifies_for_packing`
     is ``False``) always closes whatever packed run came before it and prints
     on a page of its own — CARD-198's unchanged treatment. A run of
-    consecutive small answers *of one level* is cut into pages of 4 while at
-    least 4 remain, then a page of 2 while at least 2 remain, then a page
-    holding the last 1 if one is left over — never a page of 3, never a 4-up
-    page with an empty slot (owner decision, resolved 2026-10-08: "always
-    4-up, 2-up only for leftovers", no secondary size threshold). A run ends,
+    consecutive small answers *of one level* is cut into pages of 4, and the
+    last one to three answers share one more page in the same 2x2 positions
+    (owner decision 2026-11-09, CARD-232 AC-4; it replaced 2026-10-08's
+    "2-up only for leftovers"). A run ends,
     the same way :func:`pack_answer_pages`'s own one-level-per-page rule ends
     one, the moment either the level changes **or** the next answer does not
     qualify for packing — both are a tier boundary in the sense that matters
@@ -524,10 +524,7 @@ def plan_small_answer_pages(answers: Sequence[Answer]) -> List[AnswerSectionPage
     def flush() -> None:
         index = 0
         while index < len(run):
-            remaining = len(run) - index
-            take = PACKED_FOUR_UP if remaining >= PACKED_FOUR_UP else min(
-                remaining, PACKED_TWO_UP
-            )
+            take = min(len(run) - index, PACKED_FOUR_UP)
             plan.append(PackedAnswerPage(tuple(run[index : index + take])))
             index += take
         run.clear()

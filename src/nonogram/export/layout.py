@@ -5238,9 +5238,14 @@ def _packed_tile_layout(
     spare = tile_width - drawing_columns * pitch
     left = tile_left + max(spare, Fraction(0)) / 2
     top = band_top + _exact_px(page_spec.band_mm)
+    # Owner decision 2026-11-09 (CARD-232 AC-3, option B): the drawing is
+    # centred in the room between its own band and the tile's foot; the band
+    # stays at the tile's top, so headers in one row stay on one line.
+    room = tile_bottom - top - drawing_rows * pitch
+    drawing_top = top + max(room, Fraction(0)) / 2
 
     xs = _boundaries(left, pitch, drawing_columns)
-    ys = _boundaries(top, pitch, drawing_rows)
+    ys = _boundaries(drawing_top, pitch, drawing_rows)
     grid_xs = xs[row_gutter_cells:]
     grid_ys = ys[column_gutter_cells:]
     grid_right, grid_bottom = grid_xs[-1], grid_ys[-1]

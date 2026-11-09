@@ -1,6 +1,6 @@
 # CARD-226: A two-up page becomes two equal slots split by a light rule, with aligned bottoms
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -16,10 +16,10 @@
 **Depends on:** CARD-224 (centring), CARD-225 (the shared cell size), CARD-391 (the QR is gone and the two-up page has one shared footer line), CARD-392 (the footer band and so the area the two slots divide)
 <!-- AMENDED 2026-11-07 (one-QR decision): was CARD-223 (each slot's own QR corner), which CARD-391 supersedes. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_two_up.py, tests/test_book_page_numbers.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card226.json, tests/helpers/two_up_ink.py, meta/profiling/rank_durations.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** n/a — **RETIRED** by the owner on 2026-11-09 ("226 I think is not relevant"). No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -214,3 +214,7 @@ distinction onto tone alone.
 ## Triage 2026-11-09
 
 Still open. Built: shared cell, centring, one footer line. Not built: equal slots split by a light rule (AC-1), aligned bottoms (AC-3), the per-slot float `PairLayout`'s docstring still calls unimplemented, and the AC-8/AC-7 bookkeeping. Worth one owner look at whether the equal-slot look is still wanted.
+
+## RETIRED 2026-11-09 — owner decision
+
+The owner retired the equal-slot two-up page on the board triage: the shipped two-up page (shared cell, centred drawings, the lower slot's own header rule) stays as it is.

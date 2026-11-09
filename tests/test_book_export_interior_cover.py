@@ -125,12 +125,12 @@ _PUZZLE_WIDTH = 21
 
 
 def _packed_answer_pages(puzzle_count):
-    """Answer pages for ``puzzle_count`` answers of one level (CARD-202):
-    pages of 4 while 4 remain, then one of 2, then one of 1."""
-    return puzzle_count // 4 + (puzzle_count % 4 + 1) // 2
+    """Answer pages for ``puzzle_count`` answers of one level: 4 to a page,
+    the last page holding whatever 1-3 are left (2026-11-09, CARD-232 AC-4)."""
+    return -(-puzzle_count // 4)
 
 
-#: This module's standard book: three easy 21x20s, answers on 2 pages (2 + 1).
+#: This module's standard book: three easy 21x20s, answers on one page.
 STANDARD_BOOK_PAGES = _interior_pages(3, _packed_answer_pages(3))
 
 
@@ -434,7 +434,7 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
 
     def test_the_interior_runs_title_guide_puzzles_divider_answers(self, covered_book):
         """1 title + 2 guide + TOC + the "Easy" divider + 3 puzzles +
-        SOLUTIONS + the answers (two packed pages).
+        SOLUTIONS + the answers (one packed page).
 
         What this AC is about is the *order* of the sections and the cover's
         absence from them.
@@ -1295,14 +1295,14 @@ class TestBookExport_TitlePageCountedEverywhere:
             title_pages + 2 + 1 + 1
         ), "the puzzle section opens after the title pages, the guide and the TOC"
         expected = len(pages)
-        # 3 easy 21x20s: 2 guide + TOC + divider + 3 + SOLUTIONS + 2 answer pages.
-        assert expected == 10 + title_pages
+        # 3 easy 21x20s: 2 guide + TOC + divider + 3 + SOLUTIONS + 1 answer page.
+        assert expected == 9 + title_pages
         assert (
-            bpg.interior_page_count(3, 3, 2, 1, toc_pages=1) == expected
+            bpg.interior_page_count(3, 3, 1, 1, toc_pages=1) == expected
         ), "interior_page_count still counts a literal, not the constant"
-        # The KDP estimate does not pack: one answer page more here.
+        # The KDP estimate does not pack: two answer pages more here.
         assert (
-            book_kdp.unpaired_interior_page_count(rows) == expected + 1
+            book_kdp.unpaired_interior_page_count(rows) == expected + 2
         ), "the KDP estimate still counts a literal, not the constant"
 
 

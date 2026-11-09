@@ -173,3 +173,9 @@ decision**. CARD-293 §6 classifies this card as *written, tests retargeted*: so
 ## Triage 2026-11-09
 
 Mostly built: every answer up to 30x30 packs four to a page with shaded clues and one shared cell. Left: a leftover page of one or two answers still drops to capacity 2 instead of keeping the 2x2 positions (AC-4), grids are top-aligned rather than centred in their tiles (AC-3), the packing doc and its test (AC-8), the old 6-up wording in requirements.yml and docs (AC-9), and what happens when four tiles cannot reach the minimum cell.
+
+**Owner decisions, 2026-11-09 (later the same day).**
+- AC-3: option B of three rendered mock-ups. Each grid is centred in the room between its own header band and the tile's foot, while the bands stay at the tile tops, so headers in a row share one line. Built in `export.layout._packed_tile_layout`, and the packed-answer goldens were re-recorded.
+- Minimum cell: keep `MIN_CELL_MM = 2.0`. A page whose four tiles cannot reach it still falls back to two tiles, or a full page. That is no longer an open point.
+- AC-4, agreed with the owner the same day: a level's last page of one to three answers keeps the 2x2 positions. `plan_small_answer_pages` cuts pages of up to four, all at capacity 4, and `PackedAnswerPage.capacity` is now a field (default 4) that only the degrade path sets to 2.
+- Still open: the packing doc (AC-8) and the old 6-up wording (AC-9).

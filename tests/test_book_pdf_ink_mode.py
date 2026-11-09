@@ -196,8 +196,10 @@ EC1_BOOKS = 14
 #: fails; the literal in the assertion's chain (``pages >= EC1_PAGES >= 110``)
 #: keeps the constant itself from being lowered. 163 since answers up to 30x30
 #: pack four to a page (owner, 2026-11-09): every answer of the corpus now
-#: shares its page with its same-level neighbours.
-EC1_PAGES = 163
+#: shares its page with its same-level neighbours. 161 since a level's last
+#: page of one to three answers keeps the 2x2 spots (owner, 2026-11-09,
+#: CARD-232 AC-4): two corpus books lose a page where a 2 + 1 tail became one.
+EC1_PAGES = 161
 
 #: How many of those pages the **stored ink mode actually reaches**: the pages
 #: written as a bitmap, where a colour space is declared at all.

@@ -85,20 +85,20 @@ def _book(domain: str | None = DOMAIN, *, trim_mm: tuple[float, float] | None = 
 #: Those two used to end on 18 and 19, one answer page per puzzle: an 18x18
 #: or 20x20 was too wide for the answer key's old 15x20 packing limit. The
 #: owner raised the limit to 20x25 (2026-11-09), so every corpus answer now
-#: packs, same-level neighbours four to a page (two for a leftover). Only the
+#: packs, same-level neighbours four to a page (a leftover keeps the 2x2 spots, 2026-11-09). Only the
 #: answer section shrank; the Play page and SOLUTIONS divider did not move.
 #: * the baseline book: its last puzzle page is 10, so Play 11, SOLUTIONS 12,
 #:   three answer pages 13-15;
 #: * two Hards that pair: one divider and one two-up page end on page 6, so
 #:   Play 7, SOLUTIONS 8, answers 9 (two small answers pack onto one page);
 #: * three Hards (a pair and a single): the section ends on page 7, so a blank
-#:   (8), Play 9, SOLUTIONS 10, answers 11-12 (a packed pair, then one).
+#:   (8), Play 9, SOLUTIONS 10, answers on 11 (all three on one packed page).
 CASES = [
     ("four singles, ends on a recto", corpus_puzzles(4), 13, 12, 14, 17),
     ("five singles, ends on a verso", corpus_puzzles(5), 13, None, 14, 17),
     ("the baseline book", baseline_puzzles(), 11, None, 12, 15),
     ("a pair ends the section", _hard_pair(2), 7, None, 8, 9),
-    ("a pair and a single", _hard_pair(3), 9, 8, 10, 12),
+    ("a pair and a single", _hard_pair(3), 9, 8, 10, 11),
 ]
 
 

@@ -1,6 +1,6 @@
 # CARD-417: The table of contents lists the Play online page
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -20,11 +20,11 @@
 <!-- CARD-205 (done) made the TOC list sections only; CARD-322 (done) made the interior vector; CARD-390 added the Play online page and its plan entry (`SectionPlan.play_page`). Queued after CARD-207 and CARD-416 by the owner's order: it changes existing TOC tests on the vector page, so it lands after CARD-416 has retired the TOC's raster twins and the placement cards have settled the band. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_toc_vector.py, src/nonogram/admin/book_kdp.py, meta/architecture/requirements.yml, meta/architecture/trace.yml, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md, tests/test_book_toc.py, tests/test_book_play_online_page.py, tests/test_book_finalise_gutter.py, tests/test_book_pdf.py, tests/test_book_export_interior_cover.py, tests/test_book_interior_face.py, tests/test_book_interior_type_floor.py, tests/test_book_solved_answer_key.py, tests/test_book_arrange_page_breaks.py, tests/test_book_divider_pages_option.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card205.json, tests/test_book_vector_goldens.py, tests/test_check_ref_resolution.py
 <!-- Derived 2026-11-08 by `git grep` over src/ and tests/ for `structural_toc_entry_count`, `structural_toc_entries`, `TOC_SOLUTIONS_LABEL`, `toc_page_stream`, `measured_toc_page_count` and `play_page`/`play_online`/`player_domain`; the author re-derives it and names any difference. The WHOLE tests tree is grepped, not only these files (see the lessons block). FR-043 is where the TOC's rows are stated in requirements.yml; trace.yml carries the AC-to-test rows. -->
-**Review score:** —
+**Review score:** n/a — closed by the owner on the 2026-11-09 board triage; built in 4b925232, no review of its own.
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09
+**Actual:** built in 4b925232; the AC tests and the FR-043 wording were not written.
+**Merge commit:** 4b925232
 **Blocked by:** —
 
 ## Why this card exists
@@ -89,3 +89,7 @@ Facts carried from the owner's brief, each to be MEASURED or read by the author,
 ## Triage 2026-11-09
 
 Code built in 4b925232 (`TOC_PLAY_LABEL`, `_play_rows`, every page-count reader passes `play_row`). Left: tests that name the Play row and its page (AC-A, AC-B, AC-D), the 18-case measurement (AC-E), and the FR-043 / docs wording (AC-F).
+
+## Closed 2026-11-09 — owner decision
+
+The owner closed it on the board triage: the Play online row is in the TOC (4b925232). Its named AC tests (AC-A/B/D/E) and the FR-043 / docs wording (AC-F) were not written.

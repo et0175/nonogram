@@ -348,7 +348,7 @@ def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage()
     packed_pages = 0
     bare_entries = 0
     saw_four_up = False
-    saw_two_up_leftover = False
+    saw_leftover = False
 
     for _ in range(300):
         count = rng.randint(1, 20)
@@ -378,8 +378,10 @@ def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage()
                 assert entry.capacity in (PACKED_TWO_UP, PACKED_FOUR_UP)
                 if entry.capacity == PACKED_FOUR_UP:
                     saw_four_up = True
-                if entry.capacity == PACKED_TWO_UP and len(entry.answers) < PACKED_TWO_UP:
-                    saw_two_up_leftover = True
+                if len(entry.answers) < PACKED_FOUR_UP:
+                    # A leftover keeps the 2x2 positions (2026-11-09).
+                    assert entry.capacity == PACKED_FOUR_UP
+                    saw_leftover = True
             else:
                 bare_entries += 1
         cases += 1
@@ -388,13 +390,13 @@ def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage()
     assert packed_pages >= 50, packed_pages
     assert bare_entries == 0, "an answer of a supported size took a page of its own"
     assert saw_four_up, "the corpus never produced a 4-up packed page"
-    assert saw_two_up_leftover, "the corpus never produced a leftover 2-up page"
+    assert saw_leftover, "the corpus never produced a leftover page"
 
 
 def _expected_group_sizes(run_length: int) -> list:
-    """CARD-202's own chunking of one same-level qualifying run, by length
-    alone: 4 at a time while at least 4 remain, then 2 at a time while at
-    least 2 remain, then a lone 1 if one is left over. Independent of
+    """The chunking of one same-level qualifying run, by length alone: 4 at
+    a time, then one page of whatever 1-3 are left (owner decision
+    2026-11-09, CARD-232 AC-4). Independent of
     :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` (CLAUDE.md:
     prefer an independent second implementation) — pure arithmetic over a
     count, nothing else.
@@ -404,21 +406,16 @@ def _expected_group_sizes(run_length: int) -> list:
     while remaining >= PACKED_FOUR_UP:
         sizes.append(PACKED_FOUR_UP)
         remaining -= PACKED_FOUR_UP
-    while remaining >= PACKED_TWO_UP:
-        sizes.append(PACKED_TWO_UP)
-        remaining -= PACKED_TWO_UP
-    if remaining == 1:
-        sizes.append(1)
+    if remaining:
+        sizes.append(remaining)
     return sizes
 
 
 def test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenMoreWereAvailable() -> None:
     """The density rule's own edge, over every run length from 1 to 20: the
     walk's own group sizes match :func:`_expected_group_sizes`'s independent
-    "4s, then 2s, then a lone 1" chunking exactly — never a page of 3, never
-    a 4-up page padded with fewer than 4, and never two pages of 2 where one
-    page of 4 was available (the owner's "always 4-up, 2-up only for
-    leftovers", no secondary size threshold).
+    "4s, then the rest on one page" chunking exactly — a short page only at
+    the run's end, and never two short pages where one would do.
     """
     rng = random.Random(203)
     checked = 0

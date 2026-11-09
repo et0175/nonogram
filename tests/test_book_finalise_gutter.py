@@ -1014,9 +1014,10 @@ SMALL_CORPUS = ((alone, "easy", 3),)
 
 #: Its interior, counted by hand rather than by the code under test: 1 title
 #: page + 2 guide pages + 1 TOC + 1 easy divider + 3 puzzle pages + the
-#: SOLUTIONS divider + 2 packed answer pages (2 + 1) = 11 on a legal sheet.
-#: Its sheet-free bound on an illegal one leaves the answers unpacked: 12.
-SMALL_PAGES = 11
+#: SOLUTIONS divider + 1 packed answer page (all three share it) = 10 on a
+#: legal sheet. Its sheet-free bound on an illegal one leaves the answers
+#: unpacked: 12.
+SMALL_PAGES = 10
 SMALL_SHEET_FREE_PAGES = 12
 
 #: The sheet builder's reason for refusing AC-179's 0.60 cm, written out here.

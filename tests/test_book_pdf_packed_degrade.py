@@ -167,12 +167,12 @@ class TestDegradeInfeasiblePackedPages_AHalfThatStillFailsFallsBackToSingles:
 
     def test_the_second_half_alone_is_infeasible(self) -> None:
         payloads = _payloads(self.SPECS)
-        second_half = PackedAnswerPage((_answer(3, 15, 18), _answer(4, 15, 20)))
+        second_half = PackedAnswerPage((_answer(3, 15, 18), _answer(4, 15, 20)), capacity=2)
         assert not _packed_page_is_feasible(second_half, payloads, KDP_MIN_ODD)
 
     def test_the_first_half_alone_is_feasible(self) -> None:
         payloads = _payloads(self.SPECS)
-        first_half = PackedAnswerPage((_answer(1, 15, 10), _answer(2, 15, 15)))
+        first_half = PackedAnswerPage((_answer(1, 15, 10), _answer(2, 15, 15)), capacity=2)
         assert _packed_page_is_feasible(first_half, payloads, KDP_MIN_ODD)
 
     def test_the_degraded_plan_keeps_the_pair_and_splits_the_rest_to_singles(
@@ -201,14 +201,14 @@ class TestDegradeInfeasiblePackedPages_ATwoUpThatFailsFallsBackToSingles:
 
     def test_the_pair_is_infeasible_at_its_own_capacity(self) -> None:
         answers = (_answer(1, 15, 10), _answer(2, 15, 12))
-        page = PackedAnswerPage(answers)
+        page = PackedAnswerPage(answers, capacity=2)
         payloads = _payloads(self.SPECS)
         assert page.capacity == 2
         assert not _packed_page_is_feasible(page, payloads, KDP_MIN_ODD)
 
     def test_it_degrades_to_two_plain_answers(self) -> None:
         answers = (_answer(1, 15, 10), _answer(2, 15, 12))
-        page = PackedAnswerPage(answers)
+        page = PackedAnswerPage(answers, capacity=2)
         payloads = _payloads(self.SPECS)
 
         result = _degrade_infeasible_packed_pages([page], payloads, KDP_MIN_ODD)
@@ -226,7 +226,7 @@ class TestDegradeInfeasiblePackedPages_ALoneLeftoverThatFailsBecomesAPlainAnswer
         answer = _answer(1, 15, 10)
         page = PackedAnswerPage((answer,))
         payloads = _payloads([(15, 10, 1, 25)])
-        assert page.capacity == 2  # a lone member still measures at the 2-up tile
+        assert page.capacity == 4  # a lone leftover keeps the 2x2 spots (2026-11-09)
         assert not _packed_page_is_feasible(page, payloads, KDP_MIN_ODD)
 
         result = _degrade_infeasible_packed_pages([page], payloads, KDP_MIN_ODD)
