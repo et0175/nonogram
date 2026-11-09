@@ -1,6 +1,6 @@
 # CARD-404: Clue strips stop growing with the zoom — the numbers cap at a readable size while the cells grow — and the strips stay pinned at every zoom
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/404-clue-numerals-capped
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-404
 **Source:** owner player findings 2026-11-07, items 3 and 6 ("The clue strips zoom too. At 200% the row clues take about 135 px ... Keeping the clue text at a fixed readable size while only the cells grow would roughly double the playing area. Alignment should stay of course." with the owner's own spec: cap the numbers around 13-14 px; the cap only limits growth when zooming IN; a column's box stays narrow when zoomed out so a two-digit clue keeps today's small size; the along-the-line dimension keeps zooming with the cells). Item 3: "At 100% and above the clue strips stay pinned (row clues at the side, column clues at the top)."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-401/402/403 (admin.css; serialize), CARD-405 and CARD-406/408/410 (all depend on the strip geometry this card fixes). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T11:54Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
