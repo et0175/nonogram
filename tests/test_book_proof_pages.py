@@ -75,7 +75,7 @@ from typing import Iterable
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.book_proof as book_proof_module
@@ -83,8 +83,6 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
-    _draw_page_frame,
-    grid_size_label,
     page_frame,
 )
 from nonogram.admin import book_vector
@@ -95,13 +93,11 @@ from nonogram.admin.book_proof import (
     proof_pages,
     render_proof_pdf,
 )
-from nonogram.export.layout import compute_layout, interior_frame
+from nonogram.export.layout import compute_layout
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import (
-    RASTER,
-    page_medium_of,
     pdf_page_count,
     pdf_pages,
 )
@@ -726,53 +722,11 @@ class TestBookProof_AnnotationIsProofOnly:
         first_puzzle_page = 6
         generator = BookPDFGenerator(book)
         page = generator.interior_pages([row])[first_puzzle_page - 1]
-        if page_medium_of(page) != RASTER:
-            # CARD-359 (ADR-0042/R6): the page is operators, so there is no
-            # bitmap to hold byte for byte against COMP-007's raster, and a
-            # byte comparison across media is false whatever the page says.
-            # WHAT HOLDS in this medium is narrower than what was retired,
-            # and it is stated so (review F-3): the stream shows none of the
-            # proof note's own wording. WHAT IS RETIRED is "no ink of any
-            # kind beyond the page, the frame and the caption": a stray rule
-            # or a reworded note passes this arm (measured: a stray vertical
-            # line appended to every vector puzzle page leaves this module at
-            # 105 passed). The named survivor
-            # ``test_nothing_on_the_book_export_path_imports_this_module``
-            # holds only the proof-note ROUTE (``book_proof`` is imported by
-            # ``app.py`` alone), not stray ink. Stray ink on the vector puzzle
-            # page is held by ``tests/test_book_puzzle_page_vector.py``
-            # (MEASURED here: the same stray line reds 10 of its 65, on its
-            # own corpus); this fixture is drawn by the same writer
-            # (``vector_puzzle_page``) but that module does not read THIS
-            # fixture's page, and no claim is made that it does.
-            self._assert_no_proof_note_in_the_stream(page)
-        else:
-            self._assert_the_raster_page_is_the_composed_one(
-                page, generator, book, puzzle, first_puzzle_page
-            )
+        # The page is operators (ADR-0042), so what holds is that the
+        # stream shows none of the proof note's own wording; stray ink on the
+        # vector puzzle page is held by tests/test_book_puzzle_page_vector.py.
+        self._assert_no_proof_note_in_the_stream(page)
 
-    @staticmethod
-    def _assert_the_raster_page_is_the_composed_one(
-        page, generator, book, puzzle, first_puzzle_page
-    ) -> None:
-        """The raster arm: COMP-007's page plus the frame and caption, byte for byte."""
-        expected, _ = render_pages(
-            puzzle.payload("Puzzle 1 · Hard"),
-            page_spec=book_page_spec(book, first_puzzle_page),
-        )
-        spec = book_page_spec(book, first_puzzle_page)
-        layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
-        draw = ImageDraw.Draw(expected)
-        _draw_page_frame(
-            draw,
-            interior_frame(spec),
-            first_puzzle_page,
-            generator.dpi,
-            size_label=grid_size_label(layout.columns, layout.rows),
-            content_bottom=None if layout.page is None else layout.page.drawing_bottom,
-        )
-        assert _foot_strip(page).tobytes() == _foot_strip(expected).tobytes()
-        assert page.tobytes() == expected.tobytes()
 
     @staticmethod
     def _texts_of(stream) -> str:
