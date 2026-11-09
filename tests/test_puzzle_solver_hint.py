@@ -527,7 +527,7 @@ _SETTLED = """async () => {
 _SEEN_REGIONS = (
     ("board", ".player-board"),
     ("toolbar", "#puzzle-player-controls"),
-    ("line", "#puzzle-player-explain"),
+    ("line", "#puzzle-player-explain"),  # CARD-409: read as a band of the stage, see _shots
 )
 
 
@@ -536,7 +536,23 @@ def _shots(page):
     asserted settled — review cycle 1's own instrument, which is how F-2 was
     measured rather than argued."""
     assert page.evaluate(_SETTLED) == 0, "an animation is still running: a reading taken now is not a measurement"
-    return {name: page.locator(selector).screenshot() for name, selector in _SEEN_REGIONS}
+    # CARD-409 (owner finding 2026-11-07): the answer line is a strip OVER the
+    # board's bottom edge, drawn only while it holds a sentence. So the board
+    # and toolbar are read with the strip out of the way (what lies under it
+    # is the board's own question), and the line is read as a fixed band of
+    # the page — the stage's bottom 64 px, where the strip appears — so an
+    # empty strip and a written one are two pictures of the same size.
+    strip = "document.getElementById('puzzle-player-explain')"
+    page.evaluate(f"() => {{ {strip}.style.visibility = 'hidden'; }}")
+    try:
+        shots = {name: page.locator(selector).screenshot()
+                 for name, selector in _SEEN_REGIONS if name != "line"}
+    finally:
+        page.evaluate(f"() => {{ {strip}.style.visibility = ''; }}")
+    stage = page.locator(".player-stage").bounding_box()
+    band = {"x": stage["x"], "y": stage["y"] + stage["height"] - 64, "width": stage["width"], "height": 64}
+    shots["line"] = page.screenshot(clip=band)
+    return shots
 
 
 def _seen(page):
@@ -773,11 +789,12 @@ _REASON_SENTENCE = {
 def _rung_text(rung, axis, index, reason=None):
     """What #puzzle-player-announce says on rung 1 or rung 2 of a ladder
     pointing at (``axis``, ``index``), 0-based, announced 1-based."""
-    point = f"Hint: look at {axis} {index + 1}"
+    # CARD-409 (owner finding 2026-11-07): "the highlighted row (13)" — the
+    # highlight points, the number is the backup. Was "look at row 13".
     if rung == 1:
-        return f"{point}."
+        return f"Hint: look at the highlighted {axis} ({index + 1})."
     case, run = reason
-    return f"{point} — {_REASON_SENTENCE[case](axis, run)}"
+    return f"Hint: look at the highlighted {axis} ({index + 1}) — {_REASON_SENTENCE[case](axis, run)}"
 
 
 def _grid_ladder_line(cells):
@@ -1357,6 +1374,8 @@ class TestSolverHint_ReducedMotion:
             assert _lined(page)["cells"] != []
             for selector in ("td.player-cell.is-hint-line", "th.player-clue.is-hint-line"):
                 element = page.locator(selector).first
+                # Still one since CARD-409: the fade-in now ends in two pulses,
+                # in the same keyframes (owner finding 2026-11-07: too faint).
                 assert element.evaluate("(el) => el.getAnimations().length") == 1, selector
                 name, first = element.evaluate(_FADE)
                 assert name == "player-hint-line-in", selector
@@ -1586,6 +1605,32 @@ GRID_BIG = _unique_grid(20, 12, seed=2124)
 #: as an expression rather than a function so it reads the same in
 #: page.evaluate and in a wait_for_function predicate.
 _DRAWN_BOARDS = "performance.getEntriesByName('nonogram-player-board-draw').length"
+
+
+#: Whether the answer strip lies over a hinted line's cell or the revealed
+#: cell (CARD-409's AC-3; review cycles 1 and 2).
+#: Review cycle 3, F-201: also true when the revealed cell (or a hinted
+#: ROW — a column runs the board's height) is out of the
+#: stage's box or above the column clues' bottom, or when the strip itself
+#: starts above the column clues' bottom (it would cover a clue).
+_STRIP_COVERS = """() => { const s = document.getElementById('puzzle-player-explain').getBoundingClientRect();
+  const v = document.querySelector('.player-stage').getBoundingClientRect();
+  const clues = document.querySelector('.player-board thead').getBoundingClientRect().bottom;
+  if (s.top < clues - 0.5) return true;
+  const line = [...document.querySelectorAll('td.player-cell.is-hint-line')];
+  const oneRow = new Set(line.map((c) => c.dataset.row)).size === 1 ? line : [];
+  const hidden = [...document.querySelectorAll('td.player-cell.is-hinted'), ...oneRow].some((c) => {
+    const b = c.getBoundingClientRect();
+    return b.top < Math.max(v.top, clues) - 0.5 || b.bottom > v.bottom + 1.5; });
+  return hidden || [...document.querySelectorAll('td.player-cell.is-hint-line, td.player-cell.is-hinted')].some((c) => {
+    const b = c.getBoundingClientRect();
+    return b.bottom > s.top && b.top < s.bottom && b.right > s.left && b.left < s.right; }); }"""
+
+#: Replace the board with a flat list of cell states (row-major).
+_SET_BOARD = """(cells) => {
+  const { width, height } = window.puzzlePlayer.payload;
+  window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells: Object.freeze(cells) }));
+}"""
 
 
 @pytest.mark.browser
@@ -2354,11 +2399,11 @@ _BOXES_AROUND_THE_LINE = """() => {
     return [b.left, b.top, b.width, b.height]; };
   return {
     head: box('.page-head'),
-    board: box('.player-board'),
+    board: (() => { const [l, t, w, h] = box('.player-board');
+      return [l, t + document.querySelector('.player-stage').scrollTop, w, h]; })(),
     toolbar: box('#puzzle-player-controls'),
     counters: box('.player-counters'),
     progress: box('#puzzle-player-progress'),
-    line: box('#puzzle-player-explain'),
   };
 }"""
 
@@ -2633,9 +2678,12 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
         assert line.get_attribute("aria-hidden") == "true"
         assert line.get_attribute("role") is None
         assert line.get_attribute("aria-live") is None  # not a second live region
-        assert line.is_visible()
+        # Not drawn while empty since CARD-409 (a strip over the board, owner
+        # finding 2026-11-07); visible once the press has written it.
+        assert not line.is_visible()
 
         _hint(browser_page).click()
+        assert line.is_visible()
 
         assert _announced(browser_page) != ""  # still spoken
         assert _explained(browser_page) == _announced(browser_page)  # and now also seen
@@ -2668,61 +2716,82 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
         assert _ax_nodes_saying(browser_page, said) == shipped_tree
 
     def test_the_line_moves_neither_the_toolbar_nor_the_board(self, browser, live) -> None:
-        """The owner is re-confirming the 1280 px toolbar on fix round 1's
-        captures and must not be shown a third different toolbar, so this is
-        the assertion that the line did not touch it — nor the page head, nor
-        the board, at either width, empty or full.
-
-        **This is the test that chose the placement.** The obvious reading of
-        the owner's words, a <p> in the gap between the toolbar and the board,
-        reds it: at 1280 x 720 the 15 x 15 board's bottom edge is 715.813 px
-        in a 720 px viewport, so the page has 4.187 px of vertical slack and a
-        line of --text-sm needs 22.328 px, of which only .player-toolbar's own
-        16 px margin-bottom can be reclaimed. Spending the remaining 6.328 px
-        anyway moves the board out of the viewport, Playwright then scrolls to
-        reach a cell, and two tests elsewhere that compare a VIEWPORT-relative
-        bounding_box() across an action start comparing two scroll positions
-        (TestSolverMarking_KeyboardAndLabels[White-Space] and
-        TestSolverProgress_SolvedWhenBlacksMatch's board-does-not-move). The
-        .page-head row costs nothing vertically at any width, so none of that
-        is in play — and admin.css records the arithmetic and the residual
-        (below about 1270 px the longest sentence is ellipsised).
-
-        Asserted per width: every box identical empty vs full; the line one
-        line box tall even while EMPTY (which is also what makes it
-        screenshottable, so :func:`_shots` has something to hash); and the
-        sentence NOT truncated at these two widths, scrollWidth against
-        clientWidth, because text-overflow hides an overflow silently and a
-        test that did not look would call an ellipsis a pass.
-        """
+        """RETIRED CLAIM, 2026-11-07 (CARD-409, owner finding: "the hint text
+        right by the board"): the answer line in the page-head row, one line
+        box tall while empty, and the 4.187 px arithmetic that put it there.
+        The name is kept (a rename moves a recorded node id); the claim is now
+        CARD-409's AC-3/AC-4: the sentence is a strip over the board's bottom
+        edge — not drawn while empty, inside the stage's box when written,
+        12 px or more, not clipped — and nothing (head, board, toolbar,
+        counters) moves between empty, full and dismissed; the next
+        pointer-down away from Hint clears it. Measured at a phone, a
+        landscape phone and the two desktop widths this test always held."""
         puzzle = live.store(GRID)
-        checked, moved, clipped = 0, [], []
-        for width in (1280, 1440):
-            context = browser.new_context(viewport={"width": width, "height": 900})
+        checked, moved, outside, small = 0, [], [], []
+        for width, height in ((390, 844), (844, 390), (1280, 900), (1440, 900)):
+            context = browser.new_context(viewport={"width": width, "height": height})
             page = context.new_page()
             try:
                 _open(page, live, puzzle)
                 assert page.evaluate(_SETTLED) == 0
                 empty = page.evaluate(_BOXES_AROUND_THE_LINE)
-                assert _explained(page) == ""
-                assert empty["line"][3] > 0, width  # one line box tall while EMPTY
+                assert _explained(page) == "" and not page.locator("#puzzle-player-explain").is_visible()
 
                 _hint(page).click()
                 _hint(page).click()  # rung 2: the longest sentence of the three
                 assert page.evaluate(_SETTLED) == 0
                 full = page.evaluate(_BOXES_AROUND_THE_LINE)
                 assert " — " in _explained(page), width
-                fit = page.evaluate(
-                    "() => { const e = document.getElementById('puzzle-player-explain');"
-                    " return [e.scrollWidth, e.clientWidth]; }")
+                strip = page.evaluate("""() => { const e = document.getElementById('puzzle-player-explain');
+                  const b = e.getBoundingClientRect(); const s = document.querySelector('.player-stage').getBoundingClientRect();
+                  return { inside: b.left >= s.left - 0.5 && b.right <= s.right + 0.5 && b.top >= s.top - 0.5 && b.bottom <= s.bottom + 0.5,
+                           font: parseFloat(getComputedStyle(e).fontSize), clipped: e.scrollWidth > e.clientWidth }; }""")
+                # The hinted cells are not under the strip (review cycle 1,
+                # F-001: it moves to the stage's top when they would be).
+                page.wait_for_timeout(50)
+                covered = page.evaluate(_STRIP_COVERS)
+                if (width, height) == (844, 390):
+                    page.keyboard.press("Escape")  # AC-3: Escape dismisses too
+                else:
+                    page.locator(".page-head h1").click()  # a pointer-down away from Hint
+                dismissed = _explained(page)
+                after = page.evaluate(_BOXES_AROUND_THE_LINE)
+                # Review cycle 2, F-102/F-101: the hint the strip is most
+                # likely to cover — every row solved but one, so the hint
+                # must land on that row: the last at 390 and 1440 (under the
+                # bottom strip), row 3 at 844 x 390 (where the stage is too
+                # short for either edge to be clear, so the STAGE scrolls — after
+                # the boxes above are measured). Pressed to rung 3, the
+                # revealed cell is not under the strip either.
+                only = 1 if (width, height) == (844, 390) else SIDE - 1
+                if (width, height) in ((390, 844), (844, 390), (1440, 900)):
+                    page.evaluate(_SET_BOARD, [U if r == only else F if GRID[r][c] else E
+                                               for r in range(SIDE) for c in range(SIDE)])
+                    for _ in range(3):  # every rung, not only the last (F-201)
+                        _hint(page).click()
+                        page.wait_for_timeout(50)
+                        covered = covered or page.evaluate(_STRIP_COVERS)
+                    hinted_row = page.evaluate("() => [...document.querySelectorAll('td.player-cell.is-hinted')].map((c) => Number(c.dataset.row))")
+                    assert hinted_row == [only], (width, height, hinted_row)
+                    covered = covered or page.evaluate(_STRIP_COVERS)
             finally:
                 context.close()
             checked += 1
-            if fit[0] > fit[1]:
-                clipped.append((width, fit))
-            for name in ("head", "board", "toolbar", "counters", "progress", "line"):
-                if empty[name] != full[name]:
-                    moved.append((width, name, empty[name], full[name]))
-        assert checked == 2
+            if not strip["inside"] or strip["clipped"]:
+                outside.append((width, height, strip))
+            if strip["font"] < 12:
+                small.append((width, height, strip["font"]))
+            assert dismissed == "", (width, dismissed)
+            assert not covered, (width, height, "the strip covers the hinted line")
+            # Review cycle 2, F-101: on the landscape phone neither edge of the
+            # short stage is clear, so the STAGE scrolls the hinted row above
+            # the strip — the board moves inside the stage there, by design.
+            # Review cycle 3, F-204: there the board is compared in STAGE
+            # coordinates (its top plus the stage's scroll), so a real layout
+            # move of the board is still caught.
+            for name in ("head", "board", "toolbar", "counters", "progress"):
+                if not (empty[name] == full[name] == after[name]):
+                    moved.append((width, name, empty[name], full[name], after[name]))
+        assert checked == 4
         assert moved == [], moved
-        assert clipped == [], clipped
+        assert outside == [] and small == [], (outside, small)

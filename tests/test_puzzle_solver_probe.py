@@ -195,6 +195,10 @@ def _lab(rgb: tuple[float, float, float]) -> tuple[float, float, float]:
     return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
 
 
+#: CARD-409: the hint line's ground against paper (dE76), raised by the card.
+_HINT_LINE_FLOOR = 15.0
+
+
 def _de76(first: str | tuple, second: str | tuple) -> float:
     """CIE76 colour difference between two computed colours.
 
@@ -1017,6 +1021,15 @@ class TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround:
         style, width, colour = look["probed"]["outline"]
         assert style == "dashed", (ground, look["probed"]["outline"])
         assert float(width.removesuffix("px")) > 0, (ground, width)
+        # CARD-409 (owner finding 2026-11-07: the hint line was "a pale wash"):
+        # on the hint-line grounds, the line itself is apart from paper by the
+        # raised floor — the tint the card strengthened, held here rather than
+        # by a new cell (owner test budget). Measured: dE76 6.9 before the
+        # card, 24.3 after; the floor sits between them.
+        if neighbour == "line" and state == "unknown":
+            paper = browser_page.evaluate(
+                "() => getComputedStyle(document.querySelector('td.player-cell:not(.is-hint-line):not(.is-crossed)[data-state=\"unknown\"]')).backgroundColor")
+            assert _de76(look["probed"]["background"], paper) >= _HINT_LINE_FLOOR, (ground, look["probed"]["background"], paper)
         # 3 — the CLAIM: the ring is apart from that ground.
         apart = _de76(colour, look["probed"]["background"])
         assert apart >= _RING_FLOOR, (

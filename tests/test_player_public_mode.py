@@ -1084,8 +1084,10 @@ class TestPublicMode_TheCensus:
     def test_every_control_family_is_read_by_the_census(self, attribute) -> None:
         text = real_template()
         assert any(c.startswith(attribute + "=") for c in template_controls(text))
-        planted = text.replace("</div>\n</div>\n\n<div class=\"player-stage\"",
-                               f'<button {attribute}="ghost">?</button></div>\n</div>\n\n<div class="player-stage"')
+        # The anchor is the toolbar's close; since CARD-409 the stage sits in a
+        # .player-stage-wrap with the answer strip, after a template comment.
+        planted = text.replace("</div>\n</div>\n\n{# CARD-409",
+                               f'<button {attribute}="ghost">?</button></div>\n</div>\n\n{{# CARD-409')
         assert planted != text and f"{attribute}=ghost" in template_controls(planted)
 
     def test_an_unclicked_step_is_found_by_the_sweep_not_only_by_the_census(self, touch_page, serve) -> None:

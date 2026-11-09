@@ -222,7 +222,8 @@ def usage_line_problems(page) -> list[str]:
     box = page.evaluate(
         """() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect();
           return {top: b.top, bottom: b.bottom, width: b.width}; };
-          return {h1: r('.player-head h1'), line: r('#puzzle-player-explain'), tools: r('#puzzle-player-controls')}; }"""
+          return {h1: r('.player-head h1'), line: r('#puzzle-player-explain'), tools: r('#puzzle-player-controls'),
+                  stage: r('.player-stage')}; }"""
     )
     line, h1, tools = box["line"], box["h1"], box["tools"]
     problems = []
@@ -238,6 +239,13 @@ def usage_line_problems(page) -> list[str]:
         claimed = True
         if line["bottom"] > tools["top"] + 1:
             problems.append("says at the top of the page, but the line is below the toolbar")
+    # CARD-409 (owner finding 2026-11-07): the answer is a strip over the
+    # bottom of the board — inside the stage's box, in its lower half.
+    if "a strip over the board" in text:
+        claimed = True
+        stage = box["stage"]
+        if not (stage["top"] + (stage["bottom"] - stage["top"]) / 2 <= line["top"] and line["bottom"] <= stage["bottom"] + 1):
+            problems.append("says the strip is over the board, but the line is not there")
     if not claimed:
         problems.append("the paragraph does not say where the answer line is")
     return problems
@@ -327,7 +335,7 @@ class TestSharedUi_ThePageRuns:
         assert hint.is_visible()
         text = hint.inner_text()
         assert "Check" not in text and "wrong mark" not in text, text
-        assert text.endswith("the third reveals it, and each press writes its answer in the line at the top of the page."), text
+        assert text.endswith("the third reveals it, and each press writes its answer in a strip over the board."), text  # CARD-409
         assert "beside the puzzle" not in text, text
         assert browser_page.locator('[data-player-action="check"]').count() == 0
         # And the admin-only counters are gone from the toolbar.
@@ -347,9 +355,12 @@ class TestSharedUi_ThePageRuns:
         assert usage_line_problems(browser_page) == []
 
     def test_the_old_wording_is_false_on_a_phone_and_the_check_sees_it(self, browser_page, preview_host) -> None:
-        """The plant: the admin's own sentence, put back, must red at 390 px (and only there)."""
+        """The plant: the previous sentence, put back, must red. Since CARD-409
+        (the answer is a strip over the board) the sentence before it, "at the
+        top of the page", is false at BOTH widths, so both must red; the name
+        is kept (a rename moves a recorded node id)."""
         url, report, keys, _ = preview_host
-        old = "its answer in the line beside the puzzle's title."
+        old = "its answer in the line at the top of the page."
         problems = {}
         for width, height in ((390, 844), (1280, 900)):
             browser_page.set_viewport_size({"width": width, "height": height})
@@ -357,13 +368,12 @@ class TestSharedUi_ThePageRuns:
             action(browser_page, "hint").click()
             browser_page.evaluate(
                 "(old) => { const p = document.querySelector('#puzzle-player-hint');"
-                " p.textContent = p.textContent.replace(/its answer in the line at the top of the page\\./, old); }",
+                " p.textContent = p.textContent.replace(/its answer in a strip over the board\\./, old); }",
                 old,
             )
             assert old in browser_page.locator("#puzzle-player-hint").inner_text()
             problems[width] = usage_line_problems(browser_page)
-        assert problems[390] != [], "the old wording must red at 390 px"
-        assert problems[1280] == [], "and it is true on a desktop, which is why it survived"
+        assert problems[390] != [] and problems[1280] != [], problems
 
     def test_a_bad_address_shows_no_placeholder_header_chip_or_false_fallback(
         self, browser_page, preview_host

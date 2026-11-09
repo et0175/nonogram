@@ -1317,6 +1317,7 @@ function start() {
     marking.refresh();
     [stage.scrollLeft, stage.scrollTop] = scrolled;
     measureFit();
+    replaceExplain();
   }
 
   // Pointer, tool, history and keyboard input is wired once, to `stage`
@@ -1473,6 +1474,7 @@ function start() {
     const above = new ResizeObserver(() => {
       keepCluesInView();
       measureFit();
+      replaceExplain();
     });
     for (const element of [toolbar, document.querySelector(".player-head")]) {
       if (element) above.observe(element);
@@ -1485,6 +1487,7 @@ function start() {
     else {
       keepCluesInView();
       measureFit();
+      replaceExplain();
     }
     drawnAt = key;
   };
@@ -1661,7 +1664,9 @@ function hintText({ row, col, state, deduced }) {
 //: Rung 1: where to look, and nothing more. `axis` is a hintLine axis, so it
 //: is already the word to say out loud ("row" / "column").
 function ladderPointText(axis, index) {
-  return `Hint: look at ${axis} ${index + 1}.`;
+  // CARD-409 (owner finding 2026-11-07): the highlight does the pointing,
+  // the number is the backup ("Look at row 13" asked for counting lines).
+  return `Hint: look at the highlighted ${axis} (${index + 1}).`;
 }
 
 //: Rung 2's reason clause, one sentence per HINT_REASONS name. Each is
@@ -1691,7 +1696,7 @@ function ladderExplainText(line) {
   if (sentence === undefined) {
     throw new RangeError(`"${reason}" is not a hint reason (${HINT_REASONS.join(", ")})`);
   }
-  return `Hint: look at ${line.axis} ${line.index + 1} — ${sentence(line.axis, run)}`;
+  return `Hint: look at the highlighted ${line.axis} (${line.index + 1}) — ${sentence(line.axis, run)}`;
 }
 
 //: The exhausted state (card rule 6): undecided cells remain but no single
@@ -1745,11 +1750,8 @@ function checkText(row) {
 //: level apart in two button corners. The test's _pixel_delta carries that
 //: correction and bounds the claim by LEVEL instead.)
 //:
-//: #puzzle-player-explain is a plain <p> in the page-head row, beside the
-//: puzzle's title and directly above the toolbar — the only place on this page
-//: that holds a line of text at zero vertical cost, which is why it is not in
-//: the toolbar-to-board gap where it reads most naturally (admin.css has the
-//: arithmetic, the two placements that were tried, and the residual). It
+//: #puzzle-player-explain is a strip over the board (CARD-409: the stage's
+//: bottom edge, or its top below the column clues — see placeExplain). It
 //: carries aria-hidden="true": the live region stays
 //: THE assistive-technology channel and stays unchanged, so a screen reader
 //: meets each sentence once as an announcement instead of twice.
@@ -1759,7 +1761,87 @@ function checkText(row) {
 //: is a no-op rather than a mode flag of its own.
 function showExplain(text) {
   const line = document.getElementById("puzzle-player-explain");
-  if (line !== null) line.textContent = text;
+  if (line !== null) {
+    line.textContent = text;
+    // After the press has painted (and CARD-408 has scrolled), decide the
+    // strip's edge: see placeExplain.
+    requestAnimationFrame(() => placeExplain(line));
+  }
+}
+
+// CARD-409 review cycle 1, F-001: the strip sits over the stage's bottom
+// edge, and a hinted row or a revealed cell near the bottom of the visible
+// board would be under it. So when what the hint points at meets the strip,
+// the strip goes to the TOP of the stage instead — just below the sticky
+// column band, never over it.
+function placeExplain(line) {
+  line.classList.remove("is-top");
+  if (line.textContent === "") return;
+  const stage = document.getElementById("puzzle-player");
+  const table = stage?.querySelector(".player-board");
+  if (!stage || !table) return;
+  // A revealed cell is the target when there is one; otherwise the hinted
+  // ROW's cells (a hinted column runs the board's whole height, so some of
+  // it is under any strip — its clue and the cells above stay in view).
+  let targets = [...stage.querySelectorAll("td.player-cell.is-hinted")];
+  if (targets.length === 0) {
+    const lined = [...stage.querySelectorAll("td.player-cell.is-hint-line")];
+    const rows = new Set(lined.map((cell) => cell.dataset.row));
+    if (rows.size === 1) targets = lined;
+  }
+  if (targets.length === 0) return;
+  const span = () => {
+    const boxes = targets.map((cell) => cell.getBoundingClientRect());
+    return { top: Math.min(...boxes.map((b) => b.top)), bottom: Math.max(...boxes.map((b) => b.bottom)) };
+  };
+  const meets = () => {
+    const strip = line.getBoundingClientRect();
+    const t = span();
+    return t.bottom > strip.top && t.top < strip.bottom;
+  };
+  if (!meets()) return;
+  // The top placement starts where the column clues END in view — the
+  // sticky band's height, or, when the band is not kept (a short stage),
+  // wherever the scrolled thead's bottom is — so it never covers a clue.
+  const view = stage.getBoundingClientRect();
+  const strip = line.getBoundingClientRect();
+  const head = table.querySelector("thead")?.getBoundingClientRect();
+  const band = Math.max(0, (head?.bottom ?? view.top) - view.top);
+  if (band + strip.height <= stage.clientHeight) {
+    line.style.setProperty("--player-explain-top", `${Math.round(band)}px`);
+    line.classList.add("is-top");
+    if (!meets()) return;
+    line.classList.remove("is-top");
+  }
+  // Neither edge is clear (a short landscape stage, review cycle 2, F-101):
+  // the strip stays at the bottom, and the stage scrolls just enough to
+  // lift the target above it — the stage only, never the page.
+  const lift = span().bottom - line.getBoundingClientRect().top;
+  if (lift > 0) stage.scrollTop += Math.ceil(lift);
+}
+
+// Re-place the strip after anything that moves the board under it (a
+// redraw, a resize, the stage's top moving): review cycle 2, F-103.
+function replaceExplain() {
+  const line = document.getElementById("puzzle-player-explain");
+  if (line !== null && line.textContent !== "") requestAnimationFrame(() => placeExplain(line));
+}
+
+// CARD-409: the strip over the board goes away on the next
+// pointer-down anywhere and on Escape — it is a glance, not a panel; the
+// live region (#puzzle-player-announce) keeps the sentence for a screen
+// reader regardless. Wired once, from start().
+function wireExplainDismiss() {
+  const line = document.getElementById("puzzle-player-explain");
+  if (line === null) return;
+  const dismiss = () => { if (line.textContent !== "") line.textContent = ""; };
+  document.addEventListener("pointerdown", (event) => {
+    // The hint and check buttons write the next sentence on click; a
+    // pointer-down ON them must not wipe what their click is about to say.
+    if (event.target instanceof Element && event.target.closest('[data-player-action="hint"], [data-player-action="check"]')) return;
+    dismiss();
+  }, true);
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") dismiss(); });
 }
 
 // The elements `.is-hint-line` goes on for one line: every cell of it and
@@ -2764,6 +2846,7 @@ function wireMarking(container, player) {
   // puzzle_edit.html's sake, like the Hint and Check buttons.
   const explainLine = document.getElementById("puzzle-player-explain");
   if (explainLine !== null) explainLine.hidden = false;
+  wireExplainDismiss();
   // CARD-268: and the probe bar, with the toolbar and for the toolbar's
   // reason — a page whose script never ran, or whose payload was refused,
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
