@@ -61,6 +61,7 @@ from nonogram.admin import (
 )
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.difficulty import Tier
 
 from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import BASELINE_PAGE_COUNT, baseline_puzzles, corpus_book
@@ -209,7 +210,7 @@ class TextCall:
         names = self.caller_names
         if "create_guide_page" in names:
             return "guide"
-        if "create_divider_page" in names:
+        if "create_divider_page" in names or "create_level_divider" in names:
             return "divider"
         if self.caller in BAND_SETTERS:
             return "band"
@@ -407,7 +408,9 @@ def below_floor(calls: List[TextCall]) -> List[str]:
 #: to derive "letters something" from: whether a kind letters is a fact about
 #: what its writer draws, and the writers are exactly what this file is the
 #: independent statement of.
-LETTERING_KINDS = frozenset({"guide", "toc", "divider", "puzzle", "answer", "play"})
+LETTERING_KINDS = frozenset(
+    {"title", "guide", "toc", "divider", "puzzle", "answer", "play"}
+)
 
 #: The interior's remaining page kinds, each with the reason it letters
 #: nothing — the complement of :data:`LETTERING_KINDS`, written out so the
@@ -416,11 +419,6 @@ NON_LETTERING_KINDS = {
     "cover": (
         "not an interior page at all — the cover is its own file and stays "
         "raster permanently (ADR-0042/R2)"
-    ),
-    "title": (
-        "blank by AC-283 (CARD-206): the interior's first page carries no ink "
-        "of any kind, so a lettered title page is a defect a different test "
-        "catches"
     ),
     "blank": (
         "the page that puts the Play online page on a right-hand page "
@@ -1235,11 +1233,11 @@ class TestInteriorType_FloorHoldsWithoutArial:
     def test_the_dividers_are_drawn(self, book):
         calls = recording(book, arial=False)
         dividers = [call for call in calls if call.kind == "divider"]
-        # Three levels, two draw.text calls each since CARD-200 (the word,
-        # then the folio sharing its bottom-outer corner — both carry
-        # "create_divider_page" in their call chain, so both are tagged
-        # "divider" by `TextCall.kind`).
-        assert len(dividers) == 6
+        # Three levels, three draw.text calls each since the level divider
+        # took the Solutions opener's style (owner, 2026-11-09): the eyebrow
+        # "PUZZLES a-b", the level's name and the folio, all in
+        # ``create_level_divider``'s chain.
+        assert len(dividers) == 9
         # SOLUTIONS is no longer one of them: since the approved solutions
         # mockup its slot draws the Solutions opener, whose four draw.text
         # calls (the eyebrow "PUZZLES 1-N", "Solutions", the blurb and the
@@ -1292,14 +1290,6 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
             "FAILURE (ADR-0039/R2)."
         )
 
-    def test_only_the_two_clue_writers_are_exempt(self, book):
-        callers = {call.caller for call in recording(book, arial=True) if call.exempt}
-        assert callers <= EXEMPT_CALLERS
-
-    def test_exempt_calls_are_puzzle_page_digits(self, book):
-        exempt = [call for call in recording(book, arial=True) if call.exempt]
-        assert all(call.text.isdigit() for call in exempt)
-        assert all(call.kind == "other" for call in exempt)
 
     def test_worked_example_digits_are_drawn_and_never_exempt(self, book):
         """The guide's clue digits are **drawn**, and are **never** exempt.
@@ -1363,41 +1353,12 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
         :meth:`test_a_book_keeps_the_worked_example_on_a_guide_page` is what
         stops that from being true of every book.
 
-        **Scope.** On today's committed tree the guide is a declared raster
-        exception, so the raster branch below is the one that runs; the gap
-        above is in the **converted end state**, the one the card's reds live
-        in and CARD-322 will produce. The raster branch is **no more specific
-        than the record was**, which was measured rather than assumed:
-        ``WORKED_EXAMPLE`` is ``draw_example_line``, which every one of the
-        four families calls, and planting an empty ``worked_example_images``
-        in ``BookPDFGenerator.create_guide_page`` leaves this module at its
-        unplanted 53 passed with the guide still a raster exception. It is left
-        as CARD-184 wrote it — the raster guide is the page CARD-231 or
-        CARD-322 retires, and nothing here is built on it. The independent corroboration
-        that does fail for an empty worked example, in the converted medium, is
-        in ``tests/test_book_guide_page_vector.py`` and is measured, not
-        assumed: ``TestGuidePage_WorkedExampleReusesTheGridRoutine::test_the_page_draws_every_diagram_through_that_one_routine``
+        The independent corroboration that does fail for an empty worked
+        example is in ``tests/test_book_guide_page_vector.py``:
+        ``TestGuidePage_WorkedExampleReusesTheGridRoutine::test_the_page_draws_every_diagram_through_that_one_routine``
         and
-        ``TestGuidePage_WorkedExampleClueDigitsAreNotExempt::test_an_engine_that_did_not_write_the_file_reads_the_digits_back``
-        both red under that plant. Its sibling
-        ``::test_each_clue_digit_size_really_reaches_the_file`` does **not**
-        — it reads every clue digit's size and is exactly as non-specific as
-        the record — and is cited nowhere as a survivor of this claim.
+        ``TestGuidePage_WorkedExampleClueDigitsAreNotExempt::test_an_engine_that_did_not_write_the_file_reads_the_digits_back``.
         """
-        guide_is_raster = book_pdf_generator.page_medium(
-            book_pdf_generator.PageKind.GUIDE
-        ) is book_pdf_generator.PageMedium.RASTER
-
-        if guide_is_raster:
-            example = [
-                call
-                for call in recording(book, arial=True)
-                if WORKED_EXAMPLE in call.caller_names
-            ]
-            assert example, "the guide page's worked example drew no text"
-            assert not any(call.exempt for call in example)
-            return
-
         digits = guide_clue_digit_faces(book)
 
         assert digits, (
@@ -1452,28 +1413,11 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
         an empty ``if`` on both books and pass for a page with no worked
         example. That is a FAILURE (ADR-0039/R2), not a quiet pass.
         """
-        if book_pdf_generator.page_medium(
-            book_pdf_generator.PageKind.GUIDE
-        ) is book_pdf_generator.PageMedium.RASTER:
-            return
         assert any(
             page.form.shows_worked_example
             for book in BOOKS
             for page in guide_pages_for(book)
         ), "no book's vector guide page keeps the worked example any more"
-
-    def test_the_exemption_rule_by_name(self):
-        def call(*chain: Tuple[str, str]) -> TextCall:
-            return TextCall(1, "3", 10, tuple(chain), 300)
-
-        png = ("nonogram.export.png", "_draw_clues")
-        writer = ("nonogram.admin.book_pdf_generator", "_write_clues")
-        example = ("nonogram.admin.book_pdf_generator", WORKED_EXAMPLE)
-        assert call(png).exempt
-        assert call(writer).exempt
-        assert not call(writer, example).exempt
-        assert not call(example).exempt
-        assert not call(("nonogram.export.png", "render_answer_page")).exempt
 
 
 # --------------------------------------------------------------------------
@@ -1580,23 +1524,23 @@ class TestInteriorType_DifficultyDotsAreNotText:
         assert self._text_sizes(draw_dots) == []
         assert drawn[0] is not None, "the glyph must have drawn, or this proves nothing"
 
-    def test_the_spy_does_see_the_word_beside_them(self):
-        """The control: the same spy, on the band line the glyph sits beside."""
-        page, draw = self._page()
-        band = book_pdf_generator.HeaderBand(
-            height=self.BOX[3] + 1,
-            center_x=(self.BOX[0] + self.BOX[2]) // 2,
-            center_y=(self.BOX[1] + self.BOX[3]) // 2,
-            font_size=book_pdf_generator.type_px(FLOOR_PT, 300),
+    def test_the_spy_does_see_the_words_beside_them(self):
+        """The control: the same spy, on the level divider the glyph is drawn on.
+
+        The divider sets three words (the eyebrow, the level's name and the
+        folio) and draws the dots under the name; the spy sees exactly the
+        three, each at the floor or above.
+        """
+        generator = BookPDFGenerator(corpus_book())
+
+        sizes = self._text_sizes(
+            lambda: generator.create_level_divider(6, Tier.MEDIUM, (1, 4))
         )
-
-        def draw_word():
-            book_pdf_generator._set_band(draw, band, "Puzzle 12 · Medium", self.BOX[2] + 1)
-
-        sizes = self._text_sizes(draw_word)
-        assert len(sizes) == 1
-        assert sizes[0] is not None
-        assert sizes[0] * POINTS_PER_INCH / 300 >= FLOOR_PT
+        assert len(sizes) == 3, sizes
+        assert all(size is not None for size in sizes), sizes
+        assert all(
+            size * POINTS_PER_INCH / generator.dpi >= FLOOR_PT for size in sizes
+        ), sizes
 
 
 # --------------------------------------------------------------------------
@@ -1608,82 +1552,18 @@ class TestInteriorType_DifficultyDotsAreNotText:
 class TestInteriorType_TheStreamArmIsReached:
     """The medium-agnostic floor really reads a stream, and really discriminates.
 
-    Three claims, and none of them is "the suite is still green". At this
-    commit every page kind is a declared raster exception, so
-    :func:`below_floor_in_its_medium`'s stream arm contributes nothing to any
-    assertion above — which means without this class the conversion would be a
-    branch nobody took, asserted by a test that could not tell.
+    The interior is operators but for its dividers (ADR-0042), so the stream
+    arm of :func:`below_floor_in_its_medium` carries most of the claim; these
+    show it is taken and that it can fail.
     """
 
-    def test_lifting_a_declaration_makes_the_stream_arm_read_that_page(
-        self, monkeypatch
-    ):
-        """A real vector page, written by production's own writer, is read there.
+    def test_the_stream_arm_reads_every_operator_page(self, monkeypatch):
+        """Every operator page of the written interior is read by the stream arm.
 
-        The declaration is lifted exactly as ``tests/test_book_pdf.py``'s
-        mixed-file test lifts it, so the file walked is the file a converted
-        book will hold. The reader is wrapped rather than asserted *about*,
-        because the question is whether the arm **called** it: a reader that
-        fell through to the spy would leave the wrapper untouched and the
-        recorded page list empty.
-
-        **The wrapped reader is ``marked_type_sizes`` since CARD-314**, which
-        is the one this arm now reads with: the exemption is the mark, so a
-        wrapper left on the size-only ``type_sizes`` would sit on a function
-        the arm no longer calls.
-
-        What that would have cost is stated here as it was **measured** rather
-        than as it was first feared (CARD-314 fix round 1, F-007). Reverting
-        the wrapper to ``pdf_vector.type_sizes`` on this branch reds this test
-        — 1 failed — because the assertion below is ``asked == vector_streams``
-        (``len(asked) == 1`` until CARD-379) and an arm that never called the
-        wrapped reader leaves ``asked`` empty. So the
-        hazard was a test going **RED, correctly**, and not a test going
-        silently vacuous; this test is fail-closed in that direction, and the
-        body was updated under the same name.
+        The reader (``marked_type_sizes``, the one the arm reads with since
+        CARD-314) is wrapped rather than asserted *about*: an arm that fell
+        through to the spy would leave the recorded page list empty.
         """
-        # CARD-379 (the ``delitem`` site, 1 red): the claim is "REMOVING the
-        # declaration makes the stream arm read that page", which can only be
-        # observed from a state in which the declaration is PRESENT. The
-        # five-kind probe (and the tree after CARD-322) has already removed
-        # it, where a bare ``delitem`` raises ``KeyError``; ``raising=False``
-        # would make it quietly not-a-lift there and the claim vacuous. So
-        # the precondition is established, not assumed: the entry is put back
-        # (the real one when there is one, a stand-in carrying the same
-        # fields otherwise), asserted PRESENT, and only then removed.
-        #
-        # What actually catches a missing entry is the ``delitem`` below: on
-        # a registry that no longer holds the key it raises ``KeyError``
-        # (measured, 7 of 7 sites in the cycle-1 review, probed). The
-        # ``page_medium(title) is RASTER`` assertion after the ``setitem``
-        # and the stand-in's ``authority`` / ``expires_with`` are NOT
-        # independently load-bearing: planting each of them wrong gave 0 reds
-        # in both trees (cycle 1's D6 / D7). They document the state the
-        # claim starts from; they are not a second guard, and nothing here
-        # claims they are.
-        registry = book_pdf_generator._RASTER_DECLARATIONS
-        title = book_pdf_generator.PageKind.TITLE
-        monkeypatch.setitem(
-            registry,
-            title,
-            registry.get(
-                title,
-                book_pdf_generator.RasterDeclaration(
-                    reason="a stand-in for the entry a converted tree has removed",
-                    authority="CARD-379",
-                    expires_with=("CARD-322",),
-                ),
-            ),
-        )
-        assert (
-            book_pdf_generator.page_medium(title)
-            is book_pdf_generator.PageMedium.RASTER
-        ), "the precondition: the title page is a declared bitmap BEFORE the lift"
-        monkeypatch.delitem(registry, title)
-        assert (
-            book_pdf_generator.page_medium(title)
-            is book_pdf_generator.PageMedium.VECTOR
-        ), "the lift did not make the title page operators"
         asked: List[str] = []
         original = pdf_vector.marked_type_sizes
         monkeypatch.setattr(
@@ -1696,12 +1576,8 @@ class TestInteriorType_TheStreamArmIsReached:
         faces = stream_faces(generator, baseline_puzzles())
 
         # The pages that took the stream arm are EXACTLY the file's operator
-        # pages, in page order, each by its own stream. CARD-379: this used to
-        # read ``len(asked) == 1`` -- true only of a tree in which the title
-        # page is the one converted page. Derived from the file instead, it
-        # holds in every tree, and it still fails if the arm skips the title
-        # page (the page this test lifted), reads a bitmap page, or reads a
-        # page twice.
+        # pages, in page order, each by its own stream: it fails if the arm
+        # skips a page, reads a bitmap page, or reads a page twice.
         data = generator.export_interior(baseline_puzzles()).getvalue()
         vector_streams = [
             stream
@@ -1712,13 +1588,10 @@ class TestInteriorType_TheStreamArmIsReached:
             )
             if medium == pdf_vector.VECTOR
         ]
-        assert vector_streams, "the lift produced no operator page at all"
+        assert vector_streams, "the interior holds no operator page at all"
         assert asked == vector_streams, (len(asked), len(vector_streams))
-        # And the lifted page is genuinely blank, which is AC-283 and why it
-        # adds no face (CARD-379: page 1's, not the interior's -- other kinds
-        # may be operators too).
-        # Since 2026-11-09 page 1 is the title / copyright page (owner), so
-        # its faces are the title page's own type, all at or above the floor.
+        # Page 1 is the title / copyright page (owner, 2026-11-09): its faces
+        # are its own type, all at or above the floor.
         assert [face for face in faces if face.page == 1]
         assert all(
             face.points >= 10.0 for face in faces if face.page == 1
@@ -3151,10 +3024,3 @@ class TestInteriorType_EveryCitedSurvivorStillExists:
         # sibling's own method under its own class.
         assert definitions_of("TestX_Y", "test_x_v2", tmp_path) == ["test_a.py"]
         assert definitions_of("TestOther", "test_x", tmp_path) == ["test_a.py"]
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

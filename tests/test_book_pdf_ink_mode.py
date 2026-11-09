@@ -192,25 +192,12 @@ EC1_BOOKS = 14
 #: on the pages and not only on the books: a corpus of fourteen one-page books
 #: would satisfy a book count and prove nothing.
 #:
-#: 171 is the number the corpus above really produces — measured, not a bound
-#: with room in it — so one page fewer fails. The literal in the assertion's
-#: chain (``pages >= EC1_PAGES >= 110``) is what keeps this constant from being
-#: quietly lowered to whatever a shrunken corpus happens to yield.
-#:
-#: **CARD-337 corrected this from 117, which was 54 pages of slack in a floor
-#: whose own comment claimed it had none** (ADR-0039/R4: a figure recomputed
-#: and refuted is retracted where it was written). Re-derived as 171 in both
-#: media — the committed raster tree and the five-kind vector one give the
-#: identical per-book counts ``[10, 13, 11, 14, 12, 18, 8, 10, 13, 11, 14, 11,
-#: 18, 8]`` — so the staleness was never a conversion effect. The constant the
-#: comment described and the constant the file held had drifted apart, and a
-#: floor with 54 pages of room in it is the defect CARD-149's review found,
-#: here in the very place that cites it.
-#:
-#: **167 since the answer key packs up to 20x25 four to a page** (owner,
-#: 2026-11-09): four of the corpus's answer pages now share a page with
-#: their neighbours, so the same fourteen books print four pages fewer.
-EC1_PAGES = 167
+#: The number the corpus above really produces, measured, so one page fewer
+#: fails; the literal in the assertion's chain (``pages >= EC1_PAGES >= 110``)
+#: keeps the constant itself from being lowered. 163 since answers up to 30x30
+#: pack four to a page (owner, 2026-11-09): every answer of the corpus now
+#: shares its page with its same-level neighbours.
+EC1_PAGES = 163
 
 #: How many of those pages the **stored ink mode actually reaches**: the pages
 #: written as a bitmap, where a colour space is declared at all.
@@ -1772,18 +1759,9 @@ class TestBookInk_InkPositionsDoNotDependOnTheMode:
                     assert_declares_one_grey([c], f"{label} (colour) page {number} of")
                     blank = not g["painting_operators"]
 
-                # CARD-206: interior page 1 is the blank title / copyright
-                # page — no marks on either mode's copy of it, which is itself
-                # the thing to assert here; every other page must carry marks,
-                # or the equality above would be comparing two empty pages.
-                # Since 2026-11-09 page 1 is the title / copyright page, so
-                # it carries marks like every other page.
-                if number == 1:
-                    assert not blank, (
-                        f"{label} page 1 is the title page and carries its type"
-                    )
-                else:
-                    assert not blank, f"{label} page {number} has no marks"
+                # Every page carries marks (page 1 is the title / copyright
+                # page), or the equality above would compare two empty pages.
+                assert not blank, f"{label} page {number} has no marks"
                 pages += 1
             books += 1
 
@@ -1924,10 +1902,3 @@ def _plan_of(records) -> DistributionPlan:
         if not candidate.disagrees_with_split:
             return candidate
     raise AssertionError("no split agrees with this selection")
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()
