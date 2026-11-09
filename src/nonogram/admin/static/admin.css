@@ -1098,7 +1098,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   border-top: var(--border-width) solid var(--color-accent);
   box-shadow: var(--shadow-modal); pointer-events: none;
 }
+.player-explain.is-top { top: var(--player-explain-top, 0px); bottom: auto; border-top: 0; border-bottom: var(--border-width) solid var(--color-accent); }
 .player-explain:empty, .player-explain[hidden] { display: none; }
+/* With the answer line gone from the head, the tier badge stays beside the
+   title (the head's flex would otherwise push it to the far right). */
+.player-head { justify-content: flex-start; }
 .player-solved { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); border: var(--border-width) solid var(--color-success); border-left-width: 3px; border-radius: var(--radius-control); background: var(--color-success-tint); color: var(--color-text); }
 .player-solved[hidden] { display: none; }
 .player-solved .icon { flex: none; color: var(--color-success); }

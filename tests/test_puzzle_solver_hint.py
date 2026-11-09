@@ -2719,7 +2719,16 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                   const b = e.getBoundingClientRect(); const s = document.querySelector('.player-stage').getBoundingClientRect();
                   return { inside: b.left >= s.left - 0.5 && b.right <= s.right + 0.5 && b.top >= s.top - 0.5 && b.bottom <= s.bottom + 0.5,
                            font: parseFloat(getComputedStyle(e).fontSize), clipped: e.scrollWidth > e.clientWidth }; }""")
-                page.locator(".page-head h1").click()  # a pointer-down away from Hint
+                # The hinted cells are not under the strip (review cycle 1,
+                # F-001: it moves to the stage's top when they would be).
+                page.wait_for_timeout(50)
+                covered = page.evaluate("""() => { const s = document.getElementById('puzzle-player-explain').getBoundingClientRect();
+                  return [...document.querySelectorAll('td.player-cell.is-hint-line')].some((c) => { const b = c.getBoundingClientRect();
+                    return b.bottom > s.top && b.top < s.bottom && b.right > s.left && b.left < s.right; }); }""")
+                if (width, height) == (844, 390):
+                    page.keyboard.press("Escape")  # AC-3: Escape dismisses too
+                else:
+                    page.locator(".page-head h1").click()  # a pointer-down away from Hint
                 dismissed = _explained(page)
                 after = page.evaluate(_BOXES_AROUND_THE_LINE)
             finally:
@@ -2730,6 +2739,7 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
             if strip["font"] < 12:
                 small.append((width, height, strip["font"]))
             assert dismissed == "", (width, dismissed)
+            assert not covered, (width, height, "the strip covers the hinted line")
             for name in ("head", "board", "toolbar", "counters", "progress"):
                 if not (empty[name] == full[name] == after[name]):
                     moved.append((width, name, empty[name], full[name], after[name]))

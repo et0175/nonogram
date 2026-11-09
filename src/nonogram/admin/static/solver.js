@@ -1761,7 +1761,36 @@ function checkText(row) {
 //: is a no-op rather than a mode flag of its own.
 function showExplain(text) {
   const line = document.getElementById("puzzle-player-explain");
-  if (line !== null) line.textContent = text;
+  if (line !== null) {
+    line.textContent = text;
+    // After the press has painted (and CARD-408 has scrolled), decide the
+    // strip's edge: see placeExplain.
+    requestAnimationFrame(() => placeExplain(line));
+  }
+}
+
+// CARD-409 review cycle 1, F-001: the strip sits over the stage's bottom
+// edge, and a hinted row or a revealed cell near the bottom of the visible
+// board would be under it. So when what the hint points at meets the strip,
+// the strip goes to the TOP of the stage instead — just below the sticky
+// column band, never over it.
+function placeExplain(line) {
+  line.classList.remove("is-top");
+  if (line.textContent === "") return;
+  const stage = document.getElementById("puzzle-player");
+  const table = stage?.querySelector(".player-board");
+  if (!stage || !table) return;
+  const targets = [...stage.querySelectorAll("td.player-cell.is-hint-line, td.player-cell.is-hinted")];
+  const strip = line.getBoundingClientRect();
+  const covered = targets.some((cell) => {
+    const box = cell.getBoundingClientRect();
+    return box.bottom > strip.top && box.top < strip.bottom && box.right > strip.left && box.left < strip.right;
+  });
+  if (!covered) return;
+  const band = table.classList.contains("is-keeping-cols")
+    ? (table.querySelector("thead")?.getBoundingClientRect().height ?? 0) : 0;
+  line.style.setProperty("--player-explain-top", `${Math.round(band)}px`);
+  line.classList.add("is-top");
 }
 
 // CARD-409: the strip over the board's bottom edge goes away on the next
