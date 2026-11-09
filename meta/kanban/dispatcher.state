@@ -487,6 +487,13 @@ active:
     started: 2026-11-09T09:05Z
     estimate: 3c (1d)
     cut_from: 9406a630
+  # CARD-403 DISPATCHED 2026-11-09T09:30Z, cut from card/401-icon-only-toolbar (both edit admin.css and puzzle_solve.html: serialized behind 401, which is at its merge gate).
+  - card: CARD-403
+    branch: card/403-stage-above-fold
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-403
+    started: 2026-11-09T09:30Z
+    estimate: 3c (1d)
+    cut_from: card/401-icon-only-toolbar
 # CARD-399 CLEARED 2026-11-08T22:19:38Z at its merge gate: merged 635981c9, done, certified 8.4 on cycle 1, estimate 5c -> 1 cycle = ratio 0.2. Full armed suite 10908 passed, 1 skipped, 1 xfailed (collected 10923, net -704 ids; run 1 31m46s against 44m36s before) + 10 lifted wave_close_only passed. CARD-384 closed moot alongside. Entry dropped.
 # CARD-414 CLEARED 2026-11-08T20:09:24Z at its merge gate: merged 1d1e1c58, done, certified 8.6 on cycle 2 (6.5 on cycle 1, not certified), estimate 1c -> 2 cycles = ratio 2.0. Gate 1 red on 6 playwright goto timeouts, not reproduced; gate 2 full suite 11612 passed, 1 skipped, 1 xfailed + 7 lifted wave_close_only passed. Entry dropped.
 # CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
@@ -789,7 +796,6 @@ queued:
 - id: CARD-416   # P2 6c  (387b) TAIL OF CARD-387, runs LAST: convert the ~62 'convert after' ids (pdf, pdf_band, type_floor, page_frame, page_numbers, toc), delete the 21 remaining raster writers + bitmap arms, restate docs/ADRs/censuses. Depends on CARD-387, 392, 207, 229, 230, 232, 233. Unstamped.
 - id: CARD-417   # P2 2c  TOC LISTS THE PLAY ONLINE PAGE: one row after the last level, before Solutions, against SectionPlan.play_page; three-place count agreement (section_plan, interior_page_count default, unpaired_interior_page_count) + KDP band measured on 18 cases. Owner ruling 2026-11-08: the TOC stays after How to Solve (guide facing spread on 2-3). Depends 390, 205, 322; queued after 207 and 416. Unstamped.
 - id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
-- id: CARD-403   # P1 3c STAGE ends above the fold at any toolbar height; the jump. Owner findings 2026-11-07. Unstamped.
 - id: CARD-404   # P1 4c CLUE NUMERALS capped (~14 px) while cells grow; strips pinned at every zoom. Owner findings 2026-11-07. Unstamped.
 - id: CARD-405   # P2 3c PHONE: retire the right-hand mirror, clues left and top. Depends 404. Owner findings 2026-11-07. Unstamped.
 - id: CARD-406   # P2 4c FIT zoom step. Depends 403, 404. Owner findings 2026-11-07. Unstamped.

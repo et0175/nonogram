@@ -1,6 +1,6 @@
 # CARD-403: The board's scroll box ends above the fold at any toolbar height — no scroll inside a scroll — and the jump while scrolling is reproduced and fixed
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bug
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/403-stage-above-fold
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-403
 **Source:** owner player findings 2026-11-07, item 6: "Scrolling inside a scroll. Once zoomed, the board becomes its own scroll box, 616 px tall, starting 317 px down a 844 px screen. Its bottom edge and sideways scrollbar sit off-screen, so you scroll the page and the board separately." and "Scrolling makes the whole puzzle to jump."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. The claim 'the stage's cap follows the real toolbar' already exists for play.js (`tests/test_public_player_zoom.py::TestPublicZoom_TheStageEndsAboveTheFold`, retiring with CARD-399); this card makes it true for the admin file and so gives CARD-399's audit a named survivor. No dependency on CARD-401: this is independent of how many rows the toolbar has, which is the point. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T09:30Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
