@@ -680,7 +680,7 @@ const DOUBLE_MIN_CELL = 24;
 //     359.4 px row band over a 724 px stage swallowed the cells a recorded
 //     touch drag was aimed at (tests/test_puzzle_solver_zoom.py
 //     TestSolverZoom_OneFingerDragIsUnchangedByZoom, which reds on a bar of
-//     0.5 and passes on this one). They run up to 0.76 -- a mirrored 30 x 30
+//     0.5 and passes on this one). They ran up to 0.76 -- a mirrored (until CARD-405) 30 x 30
 //     on a 390 px phone, six columns of a thirty-column board left visible
 //     and the cells under the band not tappable at all
 //     (tests/test_puzzle_solver_phone.py
@@ -801,7 +801,9 @@ function cornerBox(right, stuck) {
 // row-major whatever `layout` says — only the clue boxes around them move.
 //
 // `layout` is one rung of start()'s layoutLadder:
-//   mirrored     CARD-193: the one row-clue gutter draws on the RIGHT (each
+//   mirrored     [INERT since CARD-405 retired the phone mirror, 2026-11-07:
+//                isMirrored() is always false; kept for CARD-212's layouts]
+//                CARD-193: the one row-clue gutter draws on the RIGHT (each
 //                body row's box after its cells, the head row's corner after
 //                the last column clue), for boards wider than BIG_SIDE on
 //                phones only. The left gutter is gone, not doubled.
@@ -1009,8 +1011,8 @@ function start() {
   // clues and not its column clues), and a rung is taken only if the cells it
   // leaves are still DOUBLE_MIN_CELL or more (redraw() below measures the
   // rung it drew). Doubling needs MORE room than the mirror, not less, so
-  // when no doubled rung fits, the last rung — exactly today's rendering,
-  // mirror included — is drawn whether it fits or not. The row axis is
+  // when no doubled rung fits, the last rung — exactly today's rendering
+  // (the mirror it included is retired, CARD-405) — is drawn whether it fits or not. The row axis is
   // preferred over the column axis when only one of the two can be afforded,
   // because the row gutter is the one the owner reported first and the only
   // one CARD-193 ever mirrored.
@@ -1078,7 +1080,8 @@ function start() {
 
   // (Re)draws the board for the current viewport from the recorded history —
   // called once at load and again, from the same recorded board, whenever
-  // mirrorQuery crosses 820 px (CARD-193: nothing recorded is lost — history,
+  // mirrorQuery crosses 820 px (CARD-193; since CARD-405 it no longer flips
+  // a mirror, it re-fits the phone cell floor: nothing recorded is lost — history,
   // undo/redo and the save are untouched by a redraw).
   // `marking` (below) always exists by the time this runs (the first call
   // is textually after `const marking = wireMarking(...)`) — CARD-195's

@@ -224,7 +224,6 @@ class TestSolverMirror_MarkingWorksOnAMirroredBoard:
         # Unmirrored, the rightmost column can lie past the phone's stage;
         # bring it to the middle (clear of the sticky row band) first.
         page.evaluate(f"() => document.querySelector('td.player-cell[data-row=\"{row}\"][data-col=\"{col}\"]').scrollIntoView({{block: 'center', inline: 'center', behavior: 'instant'}})")
-        page.wait_for_timeout(150)
         page.mouse.click(*_centre(page, row, col))
 
         states = page.evaluate(

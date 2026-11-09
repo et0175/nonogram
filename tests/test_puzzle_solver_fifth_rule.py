@@ -641,7 +641,10 @@ class TestSolverFifthRule_EdgesAndGuttersToo:
         # out of the capture. The stage's clip is lifted for the capture only
         # (overflow does not change the table's own layout), so every outer
         # cell is in the image.
+        cell_box = "JSON.stringify(document.querySelector('td.player-cell').getBoundingClientRect())"
+        before_clip = browser_page.evaluate(cell_box)
         browser_page.evaluate("() => { document.querySelector('.player-stage').style.overflow = 'visible'; }")
+        assert browser_page.evaluate(cell_box) == before_clip  # the table's layout did not move
         image, geometry = _board(browser_page)
 
         #: The board's outer ring: every cell that has at least one side on

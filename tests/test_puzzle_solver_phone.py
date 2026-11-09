@@ -795,11 +795,11 @@ class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
 
 @pytest.mark.browser
 class TestSolverPhone_MirroredGutterSticks:
-    """AC-2 — on a mirrored board with room for it, the one row-clue gutter
-    sticks to the RIGHT of the stage's scrollport and the column gutter to
-    its top, so both are in view at every scroll position, including the one
-    the board opens at (scrollLeft 0), where the mirrored band sits a whole
-    band-width off-screen to the right."""
+    """AC-2 — on a board with room for it, the one row-clue gutter sticks to
+    the stage's scrollport and the column gutter to its top, so both are in
+    view at every scroll position. Until CARD-405 (owner finding 2026-11-07)
+    the phone board was MIRRORED and the band stuck to the RIGHT edge; it is
+    the left/top layout now and the band sticks to the LEFT edge."""
 
     def test_both_bands_are_in_view_at_every_corner(self, browser_page, live) -> None:
         page = browser_page
@@ -880,7 +880,8 @@ class TestSolverPhone_MirroredGutterSticks:
             assert seen["corner"]["hit"] in GUTTER_PAINTS, (corner, seen["corner"])
 
     def test_the_mirrored_corner_sticks_to_the_right_too(self, browser_page, live) -> None:
-        """The mirror leaves ONE corner, the right-hand one, and it is the
+        """[Since CARD-405: the one corner is the LEFT one, pinned top-left.]
+        The mirror left ONE corner, the right-hand one, and it was the
         corner of the band that sticks — so it carries both markers here,
         where a non-mirrored doubled board's right corner carries only the
         column one (tests/test_puzzle_solver_clues.py
@@ -911,7 +912,9 @@ class TestSolverPhone_MirroredGutterSticks:
         overflows sideways past the whole of it, so a stuck band would hang
         over the cells at every scroll position. It is not stuck, and the
         consequence is asserted from both sides: the row clues really are
-        gone at scrollLeft 0 (the bug, unfixed here), and a right-hand cell
+        gone once the stage is scrolled right (since CARD-405 the band is on
+        the left; owner ruling 2026-11-09: a band too big at the cap
+        scrolls), and a right-hand cell
         really is still the thing that a tap at its centre lands on — which
         is what a stuck band took away (the tap in
         TestSolverPhone_TouchDragMarksOnAFittedBoard above went to the band
