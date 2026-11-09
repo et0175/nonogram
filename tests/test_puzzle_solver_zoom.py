@@ -167,11 +167,14 @@ class TestSolverZoom_ButtonsStepAndClamp:
             assert a == pytest.approx(b * 1.25, abs=0.5), (b, a)
 
     def test_zoom_out_at_100_percent_is_a_no_op_and_stays_disabled(self, browser_page, live) -> None:
-        """AC-2, the 100% end."""
+        """AC-2, the 100% end — for a board that FITS at 100% (since CARD-406 a
+        board that does not fit has a Fit step below 100%; this one has none,
+        so the readout is not a control either)."""
         _open(browser_page, live, live.store(_unique_grid(15, 15, seed=19512)))
         before = _cell_widths(browser_page)
         assert _zoom_readout(browser_page) == "100%"
         assert _zoom_button(browser_page, "out").get_attribute("aria-disabled") == "true"
+        assert browser_page.locator("[data-player-zoom-readout]").get_attribute("role") is None
 
         _zoom_button(browser_page, "out").click(force=True)
 
@@ -1291,3 +1294,92 @@ class TestSolverZoom_ClueStripsStopGrowing:
         # 200% (28.8 px) and 300% (43.2 px) are both past it: equal strips.
         assert abs(seen[300]["rowStrip"] - seen[200]["rowStrip"]) <= 1, seen
         assert abs(seen[300]["colStrip"] - seen[200]["colStrip"]) <= 1, seen
+
+
+# ==========================================================================
+# CARD-406 — the Fit step below 100%
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverZoom_Fit:
+    """CARD-406 (owner findings 2026-11-07; option A of 2026-11-07: Fit is
+    the bottom step of − / +, the readout says "Fit", tapping it jumps
+    between Fit and the last zoom).
+
+    The pure floor (AC-1/AC-2): fitZoom against an independent computation,
+    and the step/pinch arithmetic at a floor below 100 (the floor = 100 case
+    is TestZoomArithmetic_PureFunctions, unchanged). The page (AC-3/AC-4): a
+    30 x 30 at 390 x 844 and at 844 x 390 reaches Fit from 100% in one step,
+    scrolls on neither axis there, says "Fit", and goes back up to 100%; a
+    board that fits at 100% has no Fit (Zoom out stays disabled: the
+    existing test_zoom_out_at_100_percent_is_a_no_op_and_stays_disabled,
+    extended). AC-5's
+    pinch shares pinchZoom's floor (the pure cell); AC-6 (not saved) is
+    TestSolverZoom_IsNotSavedAndSendsNothing, Fit being one more zoom value.
+    Plant (run 2026-11-09): removing solver.js's overshoot loop (the board's
+    1-2 px rules do not scale, so the first estimate can still scroll) reds
+    the no-scroll assertion at 844 x 390 ([0, 3]). A floor + 1 error in
+    fitZoom alone does NOT red it — the loop corrects it — which is the loop
+    doing its job."""
+
+    def test_the_pure_floor_and_its_steps(self, browser_page, live) -> None:
+        _open(browser_page, live, live.store(_unique_grid(15, 15, seed=40601)))
+        cases = [(500, 400, 358, 618), (300, 200, 358, 618), (734, 600, 734, 232), (100, 100, 50, 80)]
+        result = browser_page.evaluate(
+            """async (cases) => {
+              const S = await import('/static/solver_state.js');
+              const attempt = (f) => { try { return f(); } catch (e) { return e.name; } };
+              return {
+                fits: cases.map(([bw, bh, sw, sh]) => S.fitZoom(bw, bh, sw, sh)),
+                outToFloor: S.stepZoom(100, 'out', 62),
+                outAtFloor: S.stepZoom(62, 'out', 62),
+                inFromFloor: S.stepZoom(62, 'in', 62),
+                outFrom125: S.stepZoom(125, 'out', 62),
+                pinchToFloor: S.pinchZoom(100, 200, 50, 62),
+                clampToFloor: S.clampZoom(10, 62),
+                refused: attempt(() => S.fitZoom(0, 10, 10, 10)),
+              };
+            }""", cases)
+        independent = [100 if min(sw / bw, sh / bh) >= 1 else int(100 * min(sw / bw, sh / bh))
+                       for bw, bh, sw, sh in cases]
+        assert result["fits"] == independent == [71, 100, 38, 50], result
+        assert (result["outToFloor"], result["outAtFloor"], result["inFromFloor"], result["outFrom125"]) == (62, 62, 100, 100)
+        assert (result["pinchToFloor"], result["clampToFloor"]) == (62, 62)
+        assert result["refused"] == "RangeError"
+
+    @pytest.mark.parametrize("width,height", [(390, 844), (844, 390)])
+    def test_fit_shows_the_whole_board_and_says_so(self, browser, live, width, height) -> None:
+        context = browser.new_context(viewport={"width": width, "height": height})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(_GRID_30x30))
+            # One Maybe on the board: a "?" that kept its 12 px floor made
+            # Fit scroll (review cycle 1, F-001).
+            _set(page, ["maybe"] + ["unknown"] * (30 * 30 - 1))
+            assert _zoom_readout(page) == "100%"
+            assert _zoom_button(page, "out").get_attribute("aria-disabled") == "false"
+            _zoom_button(page, "out").click(force=True)
+            page.wait_for_timeout(300)
+            overflow = """() => { const s = document.querySelector('.player-stage');
+              return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+            at_fit = page.evaluate(overflow)
+            # ...and Fit is the LARGEST such zoom: one percent more scrolls.
+            fit = float(page.locator(".player-board").evaluate("(t) => t.style.getPropertyValue('--player-zoom')"))
+            page.locator(".player-board").evaluate(f"(t) => t.style.setProperty('--player-zoom', '{fit + 0.01}')")
+            one_more = page.evaluate(overflow)
+            page.locator(".player-board").evaluate(f"(t) => t.style.setProperty('--player-zoom', '{fit}')")
+            readout = _zoom_readout(page)
+            out_disabled = _zoom_button(page, "out").get_attribute("aria-disabled")
+            page.locator("[data-player-zoom-readout]").click()  # back to the last zoom
+            back = _zoom_readout(page)
+            page.locator("[data-player-zoom-readout]").click()  # and to Fit again
+            again = _zoom_readout(page)
+            _zoom_button(page, "in").click(force=True)
+            up = _zoom_readout(page)
+        finally:
+            context.close()
+        assert at_fit == [0, 0], at_fit
+        assert max(one_more) > 0, one_more
+        assert (readout, out_disabled) == ("Fit", "true")
+        assert (back, again, up) == ("100%", "Fit", "100%")

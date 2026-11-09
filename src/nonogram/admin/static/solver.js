@@ -428,8 +428,11 @@
 // ZOOM_MIN (100%) on every load — wireMarking's local `zoom` variable is
 // never read by anything outside this file. 100% to 300%, in ZOOM_STEP
 // (25-point) steps on the zoom buttons ([data-player-zoom-action="in"/"out"]
-// in .player-zoom) and continuously on a two-finger pinch; the readout
-// ([data-player-zoom-readout]) is plain text, not a live region. The pure
+// in .player-zoom) and continuously on a two-finger pinch — and, since
+// CARD-406, down to Fit (the floor at which the whole board fits, see
+// measureFit), one step below 100%. The readout ([data-player-zoom-readout])
+// is not a live region; while a Fit exists it is a role=button that jumps
+// between Fit and the last zoom (owner's option A, 2026-11-07). The pure
 // arithmetic (clamping, a button's next step, a pinch's ratio, and the
 // anchor-preserving scroll formula) lives in solver_state.js (ADR-0038/R4);
 // this file only reads the pointers, the DOM and .player-stage's scroll
@@ -594,7 +597,7 @@ import { circledClues } from "./solver_state.js";
 // The save in this browser (CARD-185): see SAVE below.
 import { deserializeState, saveKey, serializeState } from "./solver_state.js";
 // Zoom (CARD-195): see ZOOM below.
-import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom } from "./solver_state.js";
+import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, fitZoom, pinchZoom, stepZoom } from "./solver_state.js";
 // Region (CARD-194's modifier, its own toggle since CARD-211): see "region"
 // above. The flag's transitions and the "does this drag paint?" rule are
 // pure (ADR-0038/R4); the button that shows the flag is this file's.
@@ -1164,6 +1167,71 @@ function start() {
     }
   }
 
+  // FIT (CARD-406). The board's size at 100% is its drawn size divided by
+  // the zoom — every clue measure scales with the zoom below 100% too (the
+  // numeral floor shrinks with it, admin.css) — and the stage's room is its
+  // width and its CAP (max-height, CARD-403), less the board's own
+  // --space-4 margin inside it. fitZoom (solver_state.js) turns those into
+  // the floor. The rules (1-2 px borders) do not scale, so the board drawn
+  // at that floor can still overflow by a pixel or two: while the board is
+  // AT Fit and still scrolls, the floor steps down one percent at a time
+  // (at most a few steps; each is a re-layout of a table already drawn).
+  // The smallest Fit there is: below it the board is a smudge, and a stage
+  // that cannot hold the board even there scrolls at this size instead
+  // (review cycle 1: a cell that refused to shrink drove the loop to 1%).
+  const FIT_MIN = 10;
+  let measuringFit = false;
+  function measureFit() {
+    if (measuringFit) return;
+    measuringFit = true;
+    try {
+      fitTheFloor();
+    } finally {
+      measuringFit = false;
+    }
+  }
+  function fitTheFloor() {
+    const table = stage.querySelector(".player-board");
+    if (!table) return;
+    // The board's size AT 100%: above 100% the clue numerals are capped
+    // (CARD-404), so the board does not grow in proportion to the zoom and
+    // dividing by it would mis-state that size. So the table is laid out at
+    // 100% for the reading and put back, inside this one task (a forced
+    // layout, never painted); below 100% everything scales together and the
+    // division is exact.
+    const zoomNow = marking.getZoom();
+    let boardWidth;
+    let boardHeight;
+    if (zoomNow > ZOOM_MIN) {
+      // The smaller 100% table clamps the stage's scroll; it is put back
+      // with the zoom (review cycle 2, F-101: the view jumped to the 100%
+      // board's limits on every resize while zoomed in).
+      const scrolled = [stage.scrollLeft, stage.scrollTop];
+      table.style.setProperty("--player-zoom", "1");
+      [boardWidth, boardHeight] = [table.offsetWidth, table.offsetHeight];
+      table.style.setProperty("--player-zoom", String(zoomNow / 100));
+      [stage.scrollLeft, stage.scrollTop] = scrolled;
+    } else {
+      const scale = zoomNow / 100;
+      [boardWidth, boardHeight] = [table.offsetWidth / scale, table.offsetHeight / scale];
+    }
+    const margin = parseFloat(getComputedStyle(table).marginBottom) || 0;
+    const room = parseFloat(getComputedStyle(stage).maxHeight);
+    const height = Number.isFinite(room) ? room : stage.clientHeight;
+    if (!(stage.clientWidth > 0) || !(height - margin > 0)) return;
+    let floor = Math.max(FIT_MIN, fitZoom(boardWidth, boardHeight, stage.clientWidth, height - margin));
+    marking.setFloor(floor);
+    // At Fit and still scrolling: shrink by the measured overshoot (the
+    // fixed-size rules are a larger share of a smaller board), then by one
+    // percent, until nothing scrolls; a handful of re-layouts at most.
+    for (let tries = 0; tries < 6 && floor > FIT_MIN && floor < ZOOM_MIN && marking.getZoom() === floor
+      && (stage.scrollWidth > stage.clientWidth || stage.scrollHeight > stage.clientHeight); tries += 1) {
+      const ratio = Math.min(stage.clientWidth / stage.scrollWidth, stage.clientHeight / stage.scrollHeight);
+      floor = Math.max(FIT_MIN, Math.min(floor - 1, Math.floor(floor * ratio)));
+      marking.setFloor(floor);
+    }
+  }
+
   function keepCluesInView() {
     measureStageTop();
     // The fallback fails CLOSED, toward not sticking (CARD-271 review cycle
@@ -1227,6 +1295,7 @@ function start() {
     showProgress(null);
     marking.refresh();
     [stage.scrollLeft, stage.scrollTop] = scrolled;
+    measureFit();
   }
 
   // Pointer, tool, history and keyboard input is wired once, to `stage`
@@ -1306,7 +1375,16 @@ function start() {
     // afford to keep its clues?" measurement has to be taken again after
     // one. It is the only thing zoom does beyond --player-zoom and the
     // anchored scroll, and it records nothing (CON-021).
-    zoomed: () => keepCluesInView(),
+    zoomed: () => {
+      keepCluesInView();
+      // A zoom that lands on Fit checks that Fit really fits (measureFit's
+      // overshoot loop); measureFit's own setFloor calls re-enter here, so
+      // the flag makes the re-entry a plain re-measure of the bands.
+      // Only at or below 100%: above it the floor cannot have changed (a
+      // zoom moves no layout the floor reads), and measuring there would
+      // force two layouts per pinch move (review cycle 2, F-103).
+      if (!measuringFit && marking.getZoom() <= ZOOM_MIN) measureFit();
+    },
   });
   // CARD-267: the crosshair's own pointer listeners, on the same stage and
   // wired once for the same reason. Constructed before the first redraw()
@@ -1371,7 +1449,10 @@ function start() {
   if (typeof ResizeObserver === "function") {
     // keepCluesInView measures the top first, then the bands (review cycle
     // 1: a cap that changed under the bands left their verdict stale).
-    const above = new ResizeObserver(() => keepCluesInView());
+    const above = new ResizeObserver(() => {
+      keepCluesInView();
+      measureFit();
+    });
     for (const element of [toolbar, document.querySelector(".player-head")]) {
       if (element) above.observe(element);
     }
@@ -1380,7 +1461,10 @@ function start() {
     const key = sizeKey();
     // redraw() re-measures as part of drawing — see keepCluesInView() in it.
     if (isBig && key !== drawnAt) redraw();
-    else keepCluesInView();
+    else {
+      keepCluesInView();
+      measureFit();
+    }
     drawnAt = key;
   };
   mirrorQuery.addEventListener("change", viewportChanged);
@@ -1914,6 +1998,13 @@ function wireMarking(container, player) {
   const zoomIn = controls.querySelector('[data-player-zoom-action="in"]');
   const zoomReadout = controls.querySelector("[data-player-zoom-readout]");
   let zoom = ZOOM_MIN;
+  // Fit (CARD-406): the zoom at which the whole board fits its stage, set by
+  // the player after each draw/resize (setFloor); ZOOM_MIN when the board
+  // fits at 100%, in which case nothing below 100% exists. `beforeFit` is the
+  // zoom the readout's toggle returns to (owner's option A, 2026-11-07:
+  // tapping the label jumps between Fit and the last zoom).
+  let zoomFloor = ZOOM_MIN;
+  let beforeFit = ZOOM_MIN;
   // Every active touch/pen pointer's current position ({x, y}, in viewport
   // coordinates) and the board cell it started on (a [row, col] from
   // cellUnder, or null when it started on a clue box or off the board) —
@@ -1935,9 +2026,38 @@ function wireMarking(container, player) {
 
   // The readout and the buttons' aria-disabled, from the current `zoom`.
   function syncZoom() {
-    zoomReadout.textContent = `${Math.round(zoom)}%`;
-    zoomOut.setAttribute("aria-disabled", String(zoom <= ZOOM_MIN));
+    const atFit = zoomFloor < ZOOM_MIN && zoom <= zoomFloor + 1e-6;
+    zoomReadout.textContent = atFit ? "Fit" : `${Math.round(zoom)}%`;
+    zoomOut.setAttribute("aria-disabled", String(zoom <= zoomFloor + 1e-6));
     zoomIn.setAttribute("aria-disabled", String(zoom >= ZOOM_MAX));
+    // The readout is a control only while there is a Fit to go to.
+    if (zoomFloor < ZOOM_MIN) {
+      zoomReadout.setAttribute("role", "button");
+      zoomReadout.setAttribute("tabindex", "0");
+      zoomReadout.setAttribute("aria-label", atFit ? "Zoom: Fit. Back to the last zoom" : `Zoom ${Math.round(zoom)}%. Fit the whole board`);
+      zoomReadout.title = atFit ? "Back to the last zoom" : "Fit the whole board";
+    } else {
+      for (const name of ["role", "tabindex", "aria-label", "title"]) zoomReadout.removeAttribute(name);
+    }
+  }
+
+  // Called by the player whenever the board or its stage changed size. A
+  // board that was AT Fit stays at Fit (the new one), wherever that is.
+  function setFloor(floor) {
+    const wasAtFit = zoomFloor < ZOOM_MIN && zoom <= zoomFloor + 1e-6;
+    zoomFloor = floor;
+    if (zoom < zoomFloor || (wasAtFit && zoom !== zoomFloor)) applyZoom(zoomFloor, 0, 0);
+    else syncZoom();
+  }
+
+  function toggleFit() {
+    if (zoomFloor >= ZOOM_MIN) return;
+    const centre = [container.clientWidth / 2, container.clientHeight / 2];
+    if (zoom <= zoomFloor + 1e-6) applyZoom(beforeFit, ...centre);
+    else {
+      beforeFit = zoom;
+      applyZoom(zoomFloor, ...centre);
+    }
   }
 
   // Moves to `nextPercent` (clamped by the caller's own arithmetic —
@@ -1993,7 +2113,9 @@ function wireMarking(container, player) {
     const stageBox = container.getBoundingClientRect();
     const midX = (p1.x + p2.x) / 2 - stageBox.left;
     const midY = (p1.y + p2.y) / 2 - stageBox.top;
-    applyZoom(pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2)), midX, midY);
+    const pinched = pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2), zoomFloor);
+    if (pinched <= zoomFloor + 1e-6 && zoom > zoomFloor + 1e-6) beforeFit = Math.max(ZOOM_MIN, pinch.startZoom);
+    applyZoom(pinched, midX, midY);
   }
 
   // The trigger's name/text and which menu item is checked, from `tool`
@@ -2322,10 +2444,18 @@ function wireMarking(container, player) {
   });
 
   zoomOut.addEventListener("click", () => {
-    applyZoom(stepZoom(zoom, "out"), container.clientWidth / 2, container.clientHeight / 2);
+    if (zoom > zoomFloor + 1e-6 && stepZoom(zoom, "out", zoomFloor) <= zoomFloor + 1e-6) beforeFit = zoom;
+    applyZoom(stepZoom(zoom, "out", zoomFloor), container.clientWidth / 2, container.clientHeight / 2);
   });
   zoomIn.addEventListener("click", () => {
-    applyZoom(stepZoom(zoom, "in"), container.clientWidth / 2, container.clientHeight / 2);
+    applyZoom(stepZoom(zoom, "in", zoomFloor), container.clientWidth / 2, container.clientHeight / 2);
+  });
+  zoomReadout.addEventListener("click", toggleFit);
+  zoomReadout.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleFit();
+    }
   });
 
   trigger.addEventListener("click", () => {
@@ -2560,7 +2690,7 @@ function wireMarking(container, player) {
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
   // Check and the explain line.
   if (probeBar !== null) probeBar.hidden = false;
-  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe };
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor };
 }
 
 start();
