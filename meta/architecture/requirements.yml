@@ -5858,8 +5858,9 @@ functional:
       count the KDP gutter band is read at agree, and the TOC's Solutions
       row and every later folio follow the inserted pages. The Finalise
       screen states whether the page prints and at which page. The first
-      guide page names the Play online page under its intro ("Every puzzle in
-      this book can also be played online. Scan the code on page N."), N being
+      guide page names the Play online page under its intro ("You can also
+      play them all online: scan the code on page N."; owner's rewording,
+      2026-11-09), N being
       the page the plan prints it on; a book with no Play page prints no such
       line and an otherwise identical guide (CARD-229, CARD-393 folded in).
     source: [US-028]
@@ -5925,7 +5926,7 @@ functional:
       - id: AC-414
         given: a book with a Play online page at interior page 167
         when: the first guide page is read
-        then: its text layer holds "Every puzzle in this book can also be played online. Scan the code on page 167." with 167 exactly, below the guide's intro and above its first technique heading
+        then: its text layer holds "You can also play them all online: scan the code on page 167." with 167 exactly, below the guide's intro and above its first technique heading
         kind: happy
         test: TestGuidePage_NamesThePlayPage
       - id: AC-415

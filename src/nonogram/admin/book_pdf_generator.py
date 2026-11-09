@@ -1104,7 +1104,7 @@ GUIDE_INTRO = "Read the clues. Fill what must be black. Mark what must be empty.
 #: The promise under the intro (owner, 2026-11-09): what every puzzle in the
 #: book is, so a reader knows a stuck grid is not a broken one.
 GUIDE_PROMISE = (
-    "Every puzzle has exactly one solution, checked by computer, and reveals a picture."
+    "Each puzzle hides a picture and has just one solution, checked by computer."
 )
 
 #: The line that introduces the worked example on the page's full form,
@@ -1119,10 +1119,10 @@ GUIDE_EXAMPLE_HEADING = (
 #: folded in from CARD-393; the owner's wording, ADR-0041/R8). ``{page}`` is the
 #: Play page's interior page number, a described variable: the guide prints the
 #: sentence only for a book whose plan prints that page, so the number it names
-#: is always a page that exists (:func:`guide_play_sentence`).
+#: is always a page that exists (:func:`guide_play_sentence`). Reworded by the
+#: owner on 2026-11-09 so it no longer opens like the promise above it.
 GUIDE_PLAY_SENTENCE = (
-    "Every puzzle in this book can also be played online. "
-    "Scan the code on page {page}."
+    "You can also play them all online: scan the code on page {page}."
 )
 
 

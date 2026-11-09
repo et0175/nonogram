@@ -336,7 +336,7 @@ class TestGuideSpread_TextComesFromTheConstants:
 
 
 
-_PLAY_NUMBER = re.compile(r"Scan the code on page (\d+)\.")
+_PLAY_NUMBER = re.compile(r"scan the code on page (\d+)\.")
 
 
 def _sentence_lines(placed, sentence: str):
@@ -375,7 +375,7 @@ class TestGuidePage_NamesThePlayPage:
         by_text = {t: y for y, t in text}
         sentence = GUIDE_PLAY_SENTENCE.format(page=167)
 
-        assert "Every puzzle in this book can also be played online." in sentence
+        assert "You can also play them all online:" in sentence
         assert sentence in by_text, [t for _, t in text]
         # PDF y grows upward: below the intro is a smaller y, above the first
         # technique heading is a larger one.
@@ -432,7 +432,7 @@ class TestGuidePage_NoPlayPageNoLine:
         _, without = _interior(_spread_book(domain=None), puzzles)
         generator = BookPDFGenerator(_spread_book(domain=None))
 
-        assert not any("played online" in text for n in (2, 3) for text in _guide_text(without[n - 1]))
+        assert not any("play them all online" in text for n in (2, 3) for text in _guide_text(without[n - 1]))
         for number in (2, 3):
             expected = spread_page(generator.page_spec(number), generator.dpi, number)
             assert without[number - 1].rstrip("\n") == "\n".join(expected.stream.operators), number

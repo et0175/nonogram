@@ -125,5 +125,5 @@ class TestLayoutPolish_GuideSeparatesNeighbouringFilledSquares:
 
 class TestLayoutPolish_GuidePromise:
     def test_the_promise_is_one_sentence_naming_both_facts(self) -> None:
-        assert "exactly one solution" in GUIDE_PROMISE
+        assert "just one solution" in GUIDE_PROMISE
         assert "picture" in GUIDE_PROMISE
