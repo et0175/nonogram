@@ -1,6 +1,6 @@
 # CARD-408: Hint and Check bring what they point at into view — the hinted row or column, or the filled cell — at any zoom and in both orientations
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/408-hint-into-view
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-408
 **Source:** owner player findings 2026-11-07, item 7, first bullet (marked essential): "Scroll the board so the hinted row or column, or the filled cell, is in view, at any zoom and in both orientations. This is the essential one."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-403, CARD-404
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Real dependencies: CARD-403 (it fixes which element scrolls; a scroll-into-view written against today's nested scroller would move the page as well) and CARD-404 (the sticky bands are what the target must not hide under; their depth changes with it). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T18:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -84,4 +84,10 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] 9b05011c + review-1 fixes. revealScroll (solver_state.js) + bringIntoView (solver.js, the stage only, instant: item 2's recommended instant). Rungs 1-2 and Check's row: the line's cells AND its labelled clue box on both axes — a zoomed 30-cell line does not fit sideways, so revealScroll's "box larger than the view" arm puts the line's start (its clue) just past the band and shows the clue and the first cells (AC-2 read that way: every cell is not physically possible at 200% on a phone). Rung 3: the revealed cell on both axes. A redraw that repaints the highlight moves nothing.
+[Measure] 30 x 30 at 200%, stage scrolled to the far corner: at 844 x 390 and 1440 x 900 the hint line's cells come in across the line, its clue box is in the stage, the revealed cell is fully in view clear of the bands, Check's row comes in; window.scrollY unchanged throughout. At 390 x 844 the 30 x 30 keeps no band at 200% (owner ruling 2026-11-09), so the cell moved to 1440 x 900 where both bands stick.
+[Tests] New TestSolverZoom_HintComesIntoView: the pure cell (7 cases incl. the upper clamp) and 844 x 390 / 1440 x 900. Plants run: revealScroll ignoring the band (pure cell red), no bringIntoView in setLadderLine (both browser cells red), rowBand = 0 and colBand = 0 in bringIntoView (1440 x 900 red). Node ids +3 (all in the browser registry); none removed; tests/test_puzzle_solver_hint.py untouched (AC-7).
+[Review 1/3] Score: 7.0 — F-001 (no band exercised) fixed by the 1440 x 900 viewport; F-002 (clue box) fixed as above; F-003 this note; F-004 the axis-specific assertion; F-005 an upper-clamp case; F-006 (row band read from the first row clue, assumed left) holds while the mirror is inert (CARD-405), noted; F-007 the function moved above cellUnder's comment. Report meta/review/20261109T190847Z-CARD-408-cycle1.yml.
+[Review 2/3] Score: 8.0 — F-101 (the both-axis bring-in snapped a sideways scroll back on every press, AC-5): fixed — across the line its cells; along it only its clue box, and only when that axis's band is not kept (a kept band pins the clue in view already). F-102: the test now scrolls 150 px along the line before rung 2 and asserts no movement where the band is kept (1440 x 900) and the clue brought back fully where it is not (844 x 390); the plant "always bring the clue in" reds 1440 x 900 (run). F-103: the measured numbers are the test's own assertions above (in-view on both viewports, page scroll constant). Report meta/review/20261109T193500Z-CARD-408-cycle2.yml.
+
