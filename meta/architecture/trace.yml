@@ -2167,7 +2167,7 @@ links:
   - TestBookAnswerKey_LongestSideTwentyStaysSixUp
   - TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
   - test_the_search_finds_an_answer_caption_at_its_own_size
-  - test_a_custom_book_title_wins_over_the_pictures_own_name
+  - test_a_custom_book_title_reaches_a_packed_page
   - TestBookAnswerKey_DefaultPlanTakesThirtyPages
   - TestBookFinalise_PageCountIncludesAnswerKeyPages
   - PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
