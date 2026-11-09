@@ -763,6 +763,8 @@ class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
 
 # ==========================================================================
 # CARD-271 — the mirrored gutter stays in view, where there is room for it
+# [The phone mirror described below was retired by CARD-405, owner finding
+# 2026-11-07; the measurements are history, the class now asserts the left band.]
 #
 # CARD-193's mirror is the third of that card's three converging causes: at
 # <= 820 px with width > 15 the ONE row-clue gutter is drawn on the right, so
@@ -824,6 +826,7 @@ class TestSolverPhone_MirroredGutterSticks:
             assert seen["overflow"] == [136, 108], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap
             assert seen["scroll"] == [136 if col else 0, 108 if row else 0], (corner, seen["scroll"])
 
+            # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
             # and the column band to its top; both wholly inside it, at every
             # corner — including the one the board OPENS at, where the
