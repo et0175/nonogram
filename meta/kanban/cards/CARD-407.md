@@ -1,6 +1,6 @@
 # CARD-407: A big puzzle opens at Fit — the player sees what they are solving before they zoom in
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/407-open-at-fit
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-407
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 2: "Big puzzles would open at Fit, so the player sees what they're solving." 'Big' is not defined by the owner (owner Q11).
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-406
 **Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_page.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. -->
-**Review score:** —
+**Review score:** 8.5 (cycle 1)
 **Started:** 2026-11-09T17:30Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T18:40Z
+**Actual:** 1 review cycle (wall clock excluded, owner ruling)
+**Merge commit:** 6f4bab4f
 **Blocked by:** —
 
 ## Why this card exists
@@ -85,4 +85,5 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 [Tests] AC-4: rather than re-pin the ~32 cells that measure the 100% board on a phone, the shared helpers (_open in test_puzzle_solver_page.py, _open_editor) return a Fit opening to 100% and the stage's home, the owner finding named in the docstring; keep_opening_zoom=True opts out. New cell TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only (plant: inverting the compact condition reds it — run). AC-2 (not saved): zoom was never saved; a reload re-applies the rule (the stage sweep's reloads exercise it). Net node ids +1.
 [AC-4 list] The cells the helper returns from Fit to 100% — the 32 that went red before it (measured on this branch, 2026-11-09): zoom.py::TestSolverZoom_PinchOnTheBoardZooms::test_spreading_100_to_200px_on_a_cell_reads_200_percent_and_marks_nothing[chromium]; zoom.py::TestSolverZoom_PinchOnAClueBoxIsNotTheBoardsZoom::test_a_pinch_starting_on_a_column_clue_box_is_left_to_the_browser[chromium]; zoom.py::TestSolverZoom_StageEndsAboveTheFold::test_sweep[chromium]; zoom.py::TestSolverZoom_StageEndsAboveTheFold::test_a_resize_keeps_the_board_and_its_scroll[chromium]; zoom.py::TestSolverZoom_Fit::test_fit_shows_the_whole_board_and_says_so[chromium-390-844]; zoom.py::TestSolverZoom_Fit::test_fit_shows_the_whole_board_and_says_so[chromium-844-390]; clues.py::TestSolverClues_TheCircleIsVisible::test_two_digit_rings_clear_their_digits_on_a_30x30[phone]; clues.py::TestPlayerNumerals_ColumnFloorIsTheWidestColumnNumeral::test_one_digit_column_numbers_keep_the_fit; clues.py::TestPlayerNumerals_ColumnFloorIsTheWidestColumnNumeral::test_a_two_digit_column_number_sets_the_floor_at_390_without_the_phone_floor; clues.py::TestPlayerNumerals_ColumnNumbersDecideTheStageScroll::test_the_stage_scrolls_and_the_page_does_not; clues.py::TestSolverClues_SmallBoardsUnaffectedByStickiness::test_a_resize_after_a_zoom_re_measures_the_room; clues.py::TestSolverClues_SmallBoardsUnaffectedByStickiness::test_a_grown_window_re_measures_the_room_too; clues.py::TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[390x844]; clues.py::TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[600x844]; fifth_rule.py::TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::test_a_light_band_reads_across_the_fifth_rule[phone-x]; fifth_rule.py::TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::test_a_light_band_reads_across_the_fifth_rule[phone-y]; fifth_rule.py::TestSolverFifthRule_GeometryAndOtherMarksUnchanged::test_the_hairline_takes_no_part_in_layout[phone]; maybe.py::TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell::test_glyph[30x30@390]; page.py::TestSolverPageFits::test_a_phone_width_page_never_scrolls_sideways; phone.py::TestSolverPhone_BoardFitsThePhoneWidth::test_the_cell_matches_the_formula_and_clears_the_old_floor[15x15]; phone.py::TestSolverPhone_BoardFitsThePhoneWidth::test_the_cell_matches_the_formula_and_clears_the_old_floor[25x15]; phone.py::TestSolverPhone_BoardFitsThePhoneWidth::test_the_cell_matches_the_formula_and_clears_the_old_floor[30x30]; phone.py::TestSolverPhone_BoardFitsThePhoneWidth::test_the_stage_scrolls_exactly_when_the_column_floor_exceeds_the_fit[15x15]; phone.py::TestSolverPhone_BoardFitsThePhoneWidth::test_the_stage_scrolls_exactly_when_the_column_floor_exceeds_the_fit[25x15]; phone.py::TestSolverPhone_BoardFitsThePhoneWidth::test_the_stage_scrolls_exactly_when_the_column_floor_exceeds_the_fit[30x30]; phone.py::TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit::test_a_30x30_at_390_keeps_one_mirrored_gutter_per_axis; phone.py::TestSolverPhone_MirroredGutterSticks::test_both_bands_are_in_view_at_every_corner; phone.py::TestSolverPhone_MirroredGutterSticks::test_a_390px_phone_keeps_its_cells_rather_than_its_row_clues; zoom.py::TestSolverZoom_ButtonsStepAndClamp::test_zoom_in_once_reads_125_percent_and_scales_every_cell; zoom.py::TestSolverZoom_TheBoardScrollsInsideItsStage::test_300_percent_scrolls_the_stage_both_ways_never_the_page; zoom.py::TestSolverZoom_ZoomKeepsTheViewCentre::test_zoom_out_keeps_the_same_cell_near_the_stages_centre; puzzle_editor_ui.py::TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule::test_a_resize_after_a_zoom_re_measures_the_editors_room.
 [Review 1/3] Score: 8.5 — opening rule sound (mutants re-decide-every-time and drop-compact both caught); the helper strategy honest. Important: the page text (puzzle_solve.html, solver.js ZOOM) still said "100% on every load" — fixed 7be3f1b9, stating the rule and that a reload/resume applies it again. Lows fixed: one zoom-back helper, the docstring citation, the 200 ms sleep, compact-condition cross-references; this note lists AC-4's cells. Report meta/review/20261109T183000Z-CARD-407-cycle1.yml.
+[Closing note, merge gate, merged 6f4bab4f] Player set (owner ruling 2026-11-09): 1389 passed, 9 skipped (DATABASE_URL unset), 0 failed. Full suite owed at the wave close. Accuracy: 1 cycle / 2c = 0.5. Net node ids +1.
 
