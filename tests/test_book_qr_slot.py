@@ -25,15 +25,17 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import pytest
-from PIL import Image, ImageDraw
 
 from nonogram import clues
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
+    FOLIO_PT,
     PuzzlePagePlan,
-    _draw_page_frame,
     _folio_reserve_px,
+    type_px,
 )
+from nonogram.admin.book_vector import interior_face_metrics
+from nonogram.admin.book_vector_draw import advance_px
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     INTERIOR_FOOTER_MM,
@@ -46,6 +48,7 @@ from nonogram.export.layout import (
 )
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.book_corpus import corpus_book
+from tests.helpers.pdf_vector import frame_rules, placed_text
 
 DPI = 300
 PX_PER_MM = DPI / 25.4
@@ -62,14 +65,6 @@ BOTTOM_MM = 0.47 * 25.4
 BAND_MM = 12.0
 STANDARD_CELL_MM = 7.5
 MIN_THIN_RULE_MM = 0.25
-
-#: The unequal sheet's two side margins, in millimetres: neither is a Book 1
-#: figure and the two differ by 12 mm, so "which side" claims made on it cannot
-#: pass by reading the wrong margin.
-UNEQUAL_GUTTER_MM = 19.0
-UNEQUAL_OUTSIDE_MM = 7.0
-
-DOMAIN = "https://nonogram.adverax.io"
 
 #: FR-040's two-up minimum, in millimetres -- written out rather than
 #: imported, so a claim about the boundary is not the same constant on both
@@ -123,11 +118,6 @@ def _spec(
     )
 
 
-def _unequal_spec(parity: PageParity) -> PageSpec:
-    """Book 1's trim with a gutter and an outside margin that **differ**."""
-    return _spec(parity=parity, gutter_mm=UNEQUAL_GUTTER_MM, outside_mm=UNEQUAL_OUTSIDE_MM)
-
-
 def _grid(columns: int, rows: int, row_depth: int, column_depth: int) -> List[List[bool]]:
     """A grid whose row clues are ``row_depth`` deep and columns ``column_depth``."""
     if 2 * row_depth - 1 > columns or 2 * column_depth - 1 > rows:
@@ -165,35 +155,6 @@ def _payload(columns: int, rows: int, row_depth: int, column_depth: int) -> Expo
 # ==========================================================================
 # Survivors of CARD-223/CARD-248's footer claims (moved here from the QR file)
 # ==========================================================================
-
-
-def _page_text_calls(generator, plan, payloads, monkeypatch) -> List[dict]:
-    """Every ``draw.text`` call **one page's** own drawing makes.
-
-    The per-page form of :func:`_text_calls`, for a page composed directly by
-    ``_two_up_page`` rather than reached through a whole interior export —
-    the same spy ``tests/test_book_page_numbers.py`` uses for the folio.
-    """
-    original = ImageDraw.ImageDraw.text
-    calls: List[dict] = []
-
-    def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
-        calls.append(
-            {
-                "text": str(text),
-                "anchor": kwargs.get("anchor"),
-                "size": getattr(font, "size", None),
-                "xy": xy,
-            }
-        )
-        return original(self, xy, text, fill, font, *args, **kwargs)
-
-    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
-    try:
-        generator._two_up_page(plan, payloads)
-    finally:
-        monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
-    return calls
 
 
 def _footer_reserve_px(spec: PageSpec) -> int:
@@ -242,27 +203,17 @@ def _two_up_rule_gap_px(pair, *, footer_px: int) -> int:
     return gap
 
 
-def _two_up_render(
-    spec_parity: PageParity,
-    page_number: int,
-    pair,
-    numbers=(1, 2),
-    *,
-    book=None,
-):
-    """A real two-up page image, drawn by the production method.
-
-    ``book`` names the stored print specification the renderer reads its own
-    frame from; the default is Book 1's. Pass one when the pair was fitted on
-    some other profile, because the two have to be the same sheet
-    (:func:`_ink_render`).
-    """
-    generator = BookPDFGenerator(
-        book or corpus_book(f"card248-{spec_parity.name}-{page_number}")
-    )
+def _two_up_stream(page_number: int, pair):
+    """The vector two-up page production writes for ``pair``, on Book 1's sheet."""
+    generator = BookPDFGenerator(corpus_book(f"card248-{page_number}"))
     payloads = [_payload(10, 10, 3, 3), _payload(10, 10, 3, 3)]
-    plan = PuzzlePagePlan(page_number, numbers, pair)
-    return generator, plan, payloads
+    return generator.vector_two_up_page(PuzzlePagePlan(page_number, (1, 2), pair), payloads)
+
+
+def _folios_set(stream, page_number: int) -> List[Tuple[float, float]]:
+    """Every ``(x, y)`` in points where the stream set ``page_number``'s own digits."""
+    placed = placed_text("\n".join(stream.operators))
+    return [(x, y) for x, y, _, text in placed if text == str(page_number)]
 
 
 # --------------------------------------------------------------------------
@@ -527,70 +478,51 @@ class TestTwoUpFooter_TwoUpPagesNowCarryTheirFolio:
     """A gain to claim deliberately: a two-up page had **no** footer, so
     CARD-222's frame refused the strip and the page kept CARD-200's
     bottom-outer-corner folio. With the strip reserved it carries the footer
-    rule and the centred folio like every other puzzle page.
-
-    Survivor of ``tests/test_book_page_frame.py``'s
-    ``TestBookPageFrame_TwoUpKeepsItsOuterFolio`` (G-7), which asserted the
-    opposite and is retargeted there to the exemption that is left.
+    rule and the centred folio like every other puzzle page. Read off the
+    vector page ``vector_two_up_page`` writes.
     """
 
     @pytest.mark.parametrize("parity,page_number", [(PageParity.ODD, 5), (PageParity.EVEN, 6)])
     def test_the_footer_group_is_drawn_and_the_folio_is_on_its_line(
-        self, parity: PageParity, page_number: int, monkeypatch
+        self, parity: PageParity, page_number: int
     ) -> None:
         spec = _spec(parity=parity)
         pair = _two_up(spec)
         assert pair is not None
         frame = interior_frame(spec)
         # The precondition, confirmed rather than assumed: the lower slot's
-        # drawing now stops one two-up rule gap above the footer rule, clear
-        # of its stroke.
+        # drawing stops one two-up rule gap above the footer rule, clear of
+        # its stroke.
         rule_gap = _two_up_rule_gap_px(pair, footer_px=frame.footer_depth)
         assert rule_gap > frame.footer_rule.width
         assert pair.lower.page.drawing_bottom == frame.footer_rule.y - rule_gap
 
-        generator, plan, payloads = _two_up_render(parity, page_number, pair)
-        calls = _page_text_calls(generator, plan, payloads, monkeypatch)
-        folios = [call for call in calls if call["text"] == str(page_number)]
-        assert len(folios) == 1, calls
-        assert folios[0]["xy"] == (frame.folio_x, frame.baseline), folios
-        assert folios[0]["anchor"] == "mb", folios
+        stream = _two_up_stream(page_number, pair)
+        scale = stream.to_points(1.0)
+        folios = _folios_set(stream, page_number)
+        assert len(folios) == 1, folios
+        ((x, y),) = folios
+        width = advance_px(str(page_number), type_px(FOLIO_PT, DPI), interior_face_metrics())
+        assert x / scale + width / 2 == pytest.approx(frame.folio_x, abs=0.5)
+        assert stream.height_px - y / scale == pytest.approx(frame.baseline, abs=0.5)
+        # The footer rule is stroked: the page's lowest full-measure rule.
+        _, footer = frame_rules("\n".join(stream.operators))
+        assert stream.height_px - footer[2] / scale == pytest.approx(frame.footer_rule.y, abs=1.0)
 
-    def test_the_frames_own_verdict_says_the_strip_was_drawn(self) -> None:
-        """Not read off the ink: ``_draw_page_frame`` returns whether it drew
-        the footer group, and on a reserved two-up page it returns ``True``
-        where it returned ``False`` before this card."""
-        spec = _spec()
-        frame = interior_frame(spec)
-        for reserve, expected in ((True, True), (False, False)):
-            pair = _two_up(spec, reserve_footer=reserve)
-            assert pair is not None, reserve
-            canvas = Image.new("RGB", (pair.lower.width, pair.lower.height), (255, 255, 255))
-            drawn = _draw_page_frame(
-                ImageDraw.Draw(canvas),
-                frame,
-                5,
-                DPI,
-                size_label=None,
-                content_bottom=pair.lower.page.drawing_bottom,
-                content_right=pair.lower.page.drawing_right,
-                content_left=pair.lower.page.drawing_left,
-            )
-            assert drawn is expected, (reserve, drawn)
-
-    def test_the_folio_is_not_also_in_the_corner(self, monkeypatch) -> None:
+    def test_the_folio_is_not_also_in_the_corner(self) -> None:
         """One page number, not two: the corner fallback and the footer line
         are alternatives, and gaining the second must not leave the first."""
         spec = _spec(parity=PageParity.ODD)
         pair = _two_up(spec)
         assert pair is not None
         frame = interior_frame(spec)
-        generator, plan, payloads = _two_up_render(PageParity.ODD, 5, pair)
-        calls = _page_text_calls(generator, plan, payloads, monkeypatch)
-        folios = [call for call in calls if call["text"] == "5"]
+        stream = _two_up_stream(5, pair)
+        folios = _folios_set(stream, 5)
         assert len(folios) == 1, folios
-        assert folios[0]["xy"][1] == frame.baseline
-        assert folios[0]["xy"][1] != frame.page_bottom
+        ((_, y),) = folios
+        baseline = stream.height_px - y / stream.to_points(1.0)
+        assert baseline == pytest.approx(frame.baseline, abs=0.5)
+        assert abs(baseline - frame.page_bottom) > 1
 
 
 # --------------------------------------------------------------------------

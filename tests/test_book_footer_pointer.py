@@ -45,14 +45,12 @@ from typing import List, Optional, Tuple
 
 import pytest
 
-from nonogram import clues
 from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     PuzzlePagePlan,
     page_is_right_hand,
 )
-from nonogram.export import ExportPayload
 import nonogram.export.layout as layout_module
 from nonogram.export.layout import (
     INTERIOR_FOOTER_MM,
@@ -122,45 +120,6 @@ def _spec(
         min_thin_rule_mm=MIN_THIN_RULE_MM,
         parity=parity,
         **overrides,
-    )
-
-
-def _unequal_spec(parity: PageParity) -> PageSpec:
-    """Book 1's trim with a gutter and an outside margin that **differ**."""
-    return _spec(parity=parity, gutter_mm=UNEQUAL_GUTTER_MM, outside_mm=UNEQUAL_OUTSIDE_MM)
-
-
-def _grid(columns: int, rows: int, row_depth: int, column_depth: int) -> List[List[bool]]:
-    """A grid whose row clues are ``row_depth`` deep and columns ``column_depth``."""
-    if 2 * row_depth - 1 > columns or 2 * column_depth - 1 > rows:
-        raise ValueError(
-            f"a {columns}x{rows} grid cannot carry {row_depth}-deep row clues "
-            f"and {column_depth}-deep column clues"
-        )
-    grid = [[False] * columns for _ in range(rows)]
-    for step in range(row_depth):
-        grid[0][2 * step] = True
-    for step in range(column_depth):
-        grid[2 * step][0] = True
-    return grid
-
-
-def _clue_sets(columns: int, rows: int, row_depth: int, column_depth: int):
-    found = clues.compute_clues(_grid(columns, rows, row_depth, column_depth))
-    return found.rows, found.columns
-
-
-def _payload(columns: int, rows: int, row_depth: int, column_depth: int) -> ExportPayload:
-    grid = _grid(columns, rows, row_depth, column_depth)
-    found = clues.compute_clues(grid)
-    return ExportPayload(
-        grid=grid,
-        row_clues=found.rows,
-        column_clues=found.columns,
-        seed=223,
-        mode="random",
-        name="footer-pointer-test",
-        difficulty="Easy",
     )
 
 
@@ -409,11 +368,14 @@ GEOMETRY_CORPUS = {
 #: do not. Since the approved mockup's header (CARD-207 scope) each header's
 #: difficulty dots add one more 0.72 (their ring, 3 px), and a two-up page's
 #: lower header adds its rule at the page header rule's own 0.72. The fifth
-#: line is 1.1 pt since the owner raised it from 0.8 on 2026-11-08.
-SINGLE_PAGE_WEIGHTS = [0.3, 0.48, 0.72, 0.72, 1.1, 1.1, 1.3, 1.3, 1.3, 1.3]
+#: line is 1.1 pt since the owner raised it from 0.8 on 2026-11-08. Since
+#: 2026-11-09 there is no frame around the clues, which took one 1.3 pt stroke
+#: off each slot (measured: four 1.3s a single page with the frame, three
+#: without).
+SINGLE_PAGE_WEIGHTS = [0.3, 0.48, 0.72, 0.72, 1.1, 1.1, 1.3, 1.3, 1.3]
 PAIR_PAGE_WEIGHTS = [
     0.3, 0.3, 0.48, 0.72, 0.72, 0.72, 0.72, 1.1, 1.1, 1.1, 1.1,
-    1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3,
+    1.3, 1.3, 1.3, 1.3, 1.3, 1.3,
 ]  # fmt: skip
 
 
@@ -613,10 +575,3 @@ class TestFooterPointer_YieldsRatherThanCollideWithTheFolio:
                 texts = [w.text for w in export.footer_words(by_numbers[numbers].page_number)]
                 assert ("Play" in texts) is prints, (trim, numbers, texts)
                 assert str(by_numbers[numbers].page_number) in texts
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

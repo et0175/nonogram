@@ -122,11 +122,7 @@ def host_lettered_bitmap_pages(
     """The 1-based interior pages the pre-card host lookup could move.
 
     ``kinds`` is the page plan's kinds in page order and ``medium_of`` the
-    medium each is written in; pulled out as a pure function so that its
-    answer for a tree in which NOTHING is converted can be pinned to the
-    literal the card's own baseline records
-    (:meth:`TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts.
-    test_the_expected_moved_set_is_the_seven_when_nothing_is_converted`).
+    medium each is written in.
     """
     return [
         number
@@ -341,7 +337,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
 
         Measured separately from Book 1 because this is the trim where a
         face's metrics decide things Book 1's own slack hides: which of
-        ``create_guide_page``'s five fallback forms is drawn, how many rows a
+        the guide's fallback forms is drawn, how many rows a
         TOC page holds, and whether ``_draw_folio`` finds room at all.
         """
         single = [puzzle("card221-mintrim", 20, 20, 5, "easy", "Solo")]
@@ -564,33 +560,6 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             "SPILLING_PUZZLE_PAGES onto the edge if a page term moves"
         )
 
-    def test_the_expected_moved_set_is_the_seven_when_nothing_is_converted(
-        self,
-    ) -> None:
-        """CARD-379 -- the literal the control used to assert, kept as a pin.
-
-        The derivation in the control below answers [5, 7, 9, 11] in a tree
-        whose guide and contents are operators and the seven the card's own
-        baseline records (``changed_pages``: both guide pages, the contents
-        and the four dividers) in a tree where nothing is. Pinned here against
-        the baseline plan with the medium handed in, so "derived" cannot have
-        drifted from the number it replaced, and the two trees' answers are
-        each shown to differ from the other.
-        """
-        kinds = BookPDFGenerator(corpus_book()).interior_stream(
-            baseline_puzzles()
-        ).page_kinds
-
-        assert host_lettered_bitmap_pages(kinds, lambda _kind: PageMedium.RASTER) == [
-            2, 3, 4, 5, 7, 9, 11
-        ]
-        assert host_lettered_bitmap_pages(
-            kinds,
-            lambda kind: PageMedium.VECTOR
-            if kind in (PageKind.GUIDE, PageKind.TOC)
-            else PageMedium.RASTER,
-        ) == [5, 7, 9, 11]
-
     def test_the_comparison_can_tell_the_pre_card_face_from_this_one(
         self, monkeypatch
     ) -> None:
@@ -606,9 +575,8 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
 
         It is the defect itself, reproduced in one assertion: interior pages
         that are different pixels depending on the machine. The pages that
-        move are the seven the card's own baseline records
-        (``book_baseline_card221.json``'s ``changed_pages``) — both guide
-        pages, the TOC and the four dividers.
+        move are the bitmap pages that lettered through the face: the
+        dividers, now that the guide and the contents are operators.
 
         **The one host gate in this module**, and it is above every assertion
         rather than in the middle of them because the whole test is the
@@ -640,10 +608,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         )
 
         # The BITMAP pages that were lettered through the face: those, and
-        # exactly those, move. CARD-379: the expectation is derived from each
-        # page's declared medium. It used to be the literal seven, which is
-        # the answer in a tree where the guide and the contents are bitmaps
-        # and was [5, 7, 9, 11] (the dividers) the moment they were not.
+        # exactly those, move, derived from each page's declared medium.
         expected_moved = host_lettered_bitmap_pages(kinds, page_medium)
         moved = [
             number
@@ -975,7 +940,7 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
         One shape was enough to state the claim and not enough to hold it: a
         host lookup reachable only from a page the baseline book does not
         draw — the min-trim guide page's own fallback ladder, a TOC long
-        enough to split, a label long enough for ``_clipped_to``'s ellipsis
+        enough to split, a label long enough for the TOC's ellipsis
         — would have passed a watch over Book 1 alone. These are the three
         shapes the module already constructs two tests above, so the sweep
         costs three lines and one more export each.
@@ -1041,10 +1006,3 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
             "with the pre-card `_guide_face` restored the export must be "
             f"seen asking for {ARIAL_PATH}; it asked for {sorted(set(paths))}"
         )
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()
