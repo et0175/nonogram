@@ -203,8 +203,23 @@ class TestVectorGoldens_EveryInteriorPageTypeIsPinned:
         findings = golden_findings(digests_of(data), golden)
         assert findings == [], f"{findings}\n{RE_RECORD_HINT}"
 
-    def test_the_title_golden_pins_blank_and_nothing_more(self, golden) -> None:
-        assert golden["digests"]["title"] == hashlib.sha256(b"").hexdigest()
+    def test_the_title_golden_pins_blank_and_nothing_more(self, exported, golden) -> None:
+        """Page 1 is the title and copyright page, no longer blank.
+
+        The owner replaced the blank page on 2026-11-09
+        (``BookPDFGenerator.vector_title_contents``). The name is kept (it is
+        cited by id); what it pins now is that the title golden is NOT the
+        empty stream's digest, and that the page it was recorded from sets the
+        book's title and its copyright line and no folio.
+        """
+        _, data = exported
+        assert golden["digests"]["title"] != hashlib.sha256(b"").hexdigest()
+        texts = [text for *_, text in pdf_vector.placed_text(
+            pdf_vector.content_streams(data)[0]
+        )]
+        assert "Winter Pictures" in texts, texts
+        assert any(text.startswith("Copyright") for text in texts), texts
+        assert not any(text.strip().isdigit() for text in texts), texts
 
     def test_the_failure_message_says_how_to_re_record(self) -> None:
         assert RECORD_SWITCH in RE_RECORD_HINT
@@ -262,10 +277,14 @@ class TestVectorGoldens_AnOperatorChangeInAWriterRedsItsPageType:
                 lambda *a, **k: planted(original_pair(*a, **k)),
             )
         elif which == "title":
-            original_title = generator_module.BookPDFGenerator.vector_title_page
+            # Page 1 is written by ``vector_title_contents`` since the owner
+            # replaced the blank page (2026-11-09); ``vector_title_page`` is
+            # now only the blank before the Play online page, which the
+            # baseline book does not print.
+            original_title = generator_module.BookPDFGenerator.vector_title_contents
             monkeypatch.setattr(
                 generator_module.BookPDFGenerator,
-                "vector_title_page",
+                "vector_title_contents",
                 lambda self, *a, **k: planted(original_title(self, *a, **k)),
             )
         else:  # pragma: no cover

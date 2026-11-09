@@ -87,6 +87,7 @@ import json
 import random
 import sys
 import time
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
@@ -629,9 +630,14 @@ def corpus_book(book_id: str = "card-145") -> Book:
     The same stored print specification both corpora are exported on, so a
     page's geometry is the book's and not a default that happened to agree
     with it.
+
+    Its ``created_at`` is fixed (owner, 2026-11-09): interior page 1 now
+    prints the copyright year from it, and a book stamped "now" would move
+    that page's golden every New Year.
     """
     return Book(
         book_id=book_id,
+        created_at=datetime(2026, 11, 9),
         metadata=BookMetadata(
             title="Winter Pictures",
             description="The book CARD-145's memory tests export.",

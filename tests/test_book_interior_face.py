@@ -97,11 +97,12 @@ BOOK_DPI = 300
 #: Every character the interior prints, as the strings it prints them in —
 #: collected by ``test_the_recorded_repertoire_is_what_the_interior_draws``
 #: below from a real export, so this constant cannot drift away from the page.
-#: The four non-ASCII ones are the point of the list: ``·`` separates a band's
+#: The five non-ASCII ones are the point of the list: ``·`` separates a band's
 #: number from its tier (:data:`BAND_SEPARATOR`), ``—`` sets an answer
 #: caption, ``–`` spans a TOC row's puzzle range and ``…`` ends a clipped
-#: label.
-NON_ASCII_INTERIOR_CHARACTERS = ("·", "—", "–", "…")
+#: label. ``©`` opens the copyright line of interior page 1, the title and
+#: copyright page the owner asked for on 2026-11-09.
+NON_ASCII_INTERIOR_CHARACTERS = ("·", "—", "–", "…", "©")
 
 
 #: The page kinds the PRE-card ``_guide_face`` lettered: the guide's two pages,

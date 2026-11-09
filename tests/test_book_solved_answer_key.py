@@ -344,7 +344,7 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
     def test_a_book_with_no_puzzles_has_no_answer_section_at_all(self) -> None:
         pages = _interior([])
         assert len(pages) == 1 + 2, (
-            "the blank title page (CARD-206) and the 2-page guide (CARD-201) "
+            "the title page (CARD-206) and the 2-page guide (CARD-201) "
             "alone"
         )
 
@@ -640,12 +640,13 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
     ) -> None:
         """Puzzle and answer pages via :func:`drawing_of`; page 1 off its own ink.
 
-        The blank title page (interior page 1, CARD-206), the guide's two
+        The title page (interior page 1, CARD-206; blank until the owner made
+        it the title and copyright page on 2026-11-09), the guide's two
         pages and the SOLUTIONS/level divider pages carry no
         ruled grid for :func:`drawing_of` to measure, so each divider is
         skipped (``drawing_of`` itself raises on it — a page with no grid at
-        all, never a silently wrong measurement), the title page carries no
-        ink at all and cannot be measured either, and the guide's own two
+        all, never a silently wrong measurement), the title page carries only
+        centred text and cannot be measured either, and the guide's own two
         pages' parity (CARD-201) is read the same independent way
         ``tests/test_book_pdf_memory.py``'s own parity test reads it: the
         leftmost ink column, which sits at the gutter margin on a right-hand
@@ -665,11 +666,13 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
         for number, page in enumerate(pages, start=1):
             right_hand = page_is_right_hand(number)
             if number == 1:
-                # CARD-206's blank title page: no ink, so nothing to measure
-                # a side from. Asserted to be blank, which is the only thing
-                # it can say, and not counted as a parity measurement.
+                # CARD-206's title page. Blank until the owner replaced it
+                # with the title and copyright page (2026-11-09): it now
+                # carries centred text and no grid or folio, so it still has
+                # no side to measure. Asserted to carry the page's text, and
+                # not counted as a parity measurement.
                 ink = np.asarray(page.convert("L")) < 128
-                assert not ink.any(), "interior page 1 is the blank title page"
+                assert ink.any(), "interior page 1 is the title and copyright page"
                 continue
             if number in GUIDE_INTERIOR_PAGES:
                 ink = np.asarray(page.convert("L")) < 128
@@ -699,8 +702,8 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
 
         # The guide's two pages, the two-up-free puzzle pages and the answer
         # pages: everything but the two divider pages (Easy, SOLUTIONS), the
-        # table of contents page(s) (CARD-200) and the blank title page
-        # (CARD-206), which has no ink to measure a side from.
+        # table of contents page(s) (CARD-200) and the title page
+        # (CARD-206), which has no grid to measure a side from.
         assert checked == len(pages) - 2 - decided.toc_page_count - 1
 
     def test_page_is_right_hand_itself_alternates_from_page_one(self) -> None:

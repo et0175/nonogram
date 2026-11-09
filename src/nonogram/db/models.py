@@ -249,6 +249,16 @@ class Book(Base):
     # arrangement screen says so plainly rather than printing a guess
     # (CARD-332 AC-3). A wrong domain is wrong in every printed copy.
     player_domain = Column(String, nullable=True)
+    # Migration 020 (owner, 2026-11-09): what interior page 1, the title and
+    # copyright page, prints beyond the title — the series line above it, the
+    # subtitle under it, and the author line (also named in the copyright
+    # notice). Edited on the General info step beside the title. Nullable
+    # with no default and no backfill, as player_domain above and for the
+    # same reason: nobody chose any of them for an existing book, and NULL
+    # means "not set", which the page reads as "leave that line out".
+    subtitle = Column(String, nullable=True)
+    series_name = Column(String, nullable=True)
+    authors = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

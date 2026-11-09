@@ -71,6 +71,8 @@ from nonogram.admin.puzzle_review import (
 from nonogram.admin.book_manager import (
     BOOK_THEMES,
     InvalidBookDetails,
+    TITLE_PAGE_FIELDS,
+    TITLE_PAGE_TEXT_MAX,
     get_book_manager,
     BookStatus,
     revise_plan,
@@ -3129,6 +3131,15 @@ def create_app(debug=None):
         """
         return BOOK_THEMES
 
+    @app.template_global()
+    def title_page_text_max():
+        """The longest title-page line the domain stores (migration 020).
+
+        The form's ``maxlength``, from ``book_manager``'s own limit, for the
+        reason :func:`book_themes` reads the domain's list.
+        """
+        return TITLE_PAGE_TEXT_MAX
+
     # ------------------------------------------------------------------
     # CARD-132: what /books says about a book's plan (FR-039, ADR-0035)
     # ------------------------------------------------------------------
@@ -3306,6 +3317,15 @@ def create_app(debug=None):
             },
         )
 
+    def _title_page_from_form(form):
+        """The title page's optional lines a General info submission carries.
+
+        Migration 020. Only the inputs present in ``form``: the domain keeps
+        an absent one as stored (``book_manager.KEEP``), and cleans what is
+        given (``title_page_text``: stripped, blank is "not set").
+        """
+        return {name: form.get(name) for name in TITLE_PAGE_FIELDS if name in form}
+
     @app.route("/book/create", methods=["GET", "POST"])
     def create_book():
         """Create a new book.
@@ -3332,6 +3352,7 @@ def create_app(debug=None):
                     description=description,
                     theme=theme,
                     target_audience=target_audience,
+                    **_title_page_from_form(request.form),
                 )
 
                 flash(f"Book created: {book_id}", "success")
@@ -3396,6 +3417,9 @@ def create_app(debug=None):
                     description=request.form.get("description"),
                     theme=request.form.get("theme"),
                     target_audience=request.form.get("target_audience"),
+                    # Only the title-page fields the form carried: one it
+                    # left out is kept as stored, and one sent blank clears.
+                    **_title_page_from_form(request.form),
                 )
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")

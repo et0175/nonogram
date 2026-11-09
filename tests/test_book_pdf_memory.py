@@ -4300,16 +4300,28 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         assert pdf_page_count(cover) == 1
 
     def test_the_interior_starts_at_the_title_page_and_holds_no_cover(self, export):
-        """CARD-206: interior page 1 is the blank title page and the guide's
-        own first page follows it (:data:`GUIDE_INTERIOR_PAGES`)."""
+        """CARD-206: interior page 1 is the title page and the guide's
+        own first page follows it (:data:`GUIDE_INTERIOR_PAGES`).
+
+        The owner replaced the blank page with the title and copyright page
+        on 2026-11-09, so page 1 now carries ink: it is read as **text**
+        (the book's title and the copyright line, set from the content
+        stream) with no folio, and it is still not the cover."""
         interior = interior_pages_of(export.interior.getvalue())
         (cover,) = pdf_pages(export.cover.getvalue())
         guide = reference_guide_page(
             BookPDFGenerator(corpus_book()), GUIDE_INTERIOR_PAGES[0]
         )
 
-        assert np.asarray(interior[0].convert("L")).min() == 255, (
-            "interior page 1 is the blank title page — no ink of any kind"
+        title_texts = [
+            text for *_, text in pdf_vector.placed_text(
+                pdf_vector.content_streams(export.interior.getvalue())[0]
+            )
+        ]
+        assert corpus_book().metadata.title in title_texts, title_texts
+        assert any(text.startswith("Copyright") for text in title_texts), title_texts
+        assert not any(text.strip().isdigit() for text in title_texts), (
+            "interior page 1 is the title page — it prints no folio"
         )
         assert same_page(interior[GUIDE_INTERIOR_PAGES[0] - 1], guide)
         for number, page in enumerate(interior, start=1):
@@ -4383,6 +4395,8 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         usable area starts at the outside margin. On CON-018 as amended both
         side margins are 0.5 in, so the 150 px figure that reading asserts is
         unchanged; which margin it is has flipped, and the bound is the same.
+        (Owner, 2026-11-09: page 1 is now the title and copyright page and
+        does carry centred text, but still no folio; nothing below reads it.)
 
         Measured off the ink alone: the drawing's own edges — its clue
         gutter's outer edge and its grid's right border — never

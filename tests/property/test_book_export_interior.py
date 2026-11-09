@@ -534,8 +534,21 @@ def _medium_of(data: bytes, index: int, label: str) -> str:
     return medium
 
 
+#: The text-showing operators: the only marks the vector title page makes.
+_TEXT_SHOWING = frozenset({"Tj", "TJ", "'", '"'})
+
+#: The line the title and copyright page sets on every book (owner, 2026-11-09).
+_TITLE_PAGE_NOTICE = "No part of this book may be reproduced without written permission."
+
+
 def _title_page_is_blank(data: bytes, pages, label: str) -> None:
     """AC-283 — interior page 1 carries no ink, in the medium it was written.
+
+    **Owner, 2026-11-09:** the vector page 1 became the title and copyright
+    page, so on the stream arm "no ink" now reads "no ink but its type": no
+    rule, fill or image, the title page's notice set, and no folio. The name
+    is kept (it is cited); the raster arm, whose twin is still white, is not
+    changed.
 
     "No ink of any kind" is a statement about **marks**, which is why the
     bitmap arm measures ink rather than comparing against a white image: a
@@ -554,9 +567,24 @@ def _title_page_is_blank(data: bytes, pages, label: str) -> None:
             f"{label}: interior page 1 carries ink — it is the blank title page"
         )
         return
-    marks = _marks_on(pdf_vector.content_streams(data)[0])
+    # Owner, 2026-11-09: the vector page 1 is the title and copyright page
+    # (``vector_title_contents``), no longer blank. What stays "no ink of any
+    # kind" is everything but its type: it paints no rule, no fill and no
+    # image, only strings -- and among them the reproduction notice every
+    # title page sets, and no folio (no string that is only a number). The
+    # raster twin (``create_title_page``) is still the white page, above.
+    stream = pdf_vector.content_streams(data)[0]
+    marks = [mark for mark in _marks_on(stream) if mark not in _TEXT_SHOWING]
     assert marks == [], (
-        f"{label}: interior page 1 paints {marks} — it is the blank title page"
+        f"{label}: interior page 1 paints {marks} — it is the title page, "
+        f"which sets type and nothing else"
+    )
+    texts = [text for *_, text in pdf_vector.placed_text(stream)]
+    assert _TITLE_PAGE_NOTICE in texts, (
+        f"{label}: interior page 1 does not set the title page's notice: {texts}"
+    )
+    assert not any(text.strip().isdigit() for text in texts), (
+        f"{label}: interior page 1 prints a folio: {texts}"
     )
 
 
@@ -1005,7 +1033,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             if unpaired > page_count:
                 seen["finalise count with a shared page"] += 1
 
-        # Page 1 is the blank title page, page 2 the guide's first page, and
+        # Page 1 is the title page (type only, no folio), page 2 the guide's first page, and
         # no interior page is the cover — each read in the medium its page was
         # actually written in (ADR-0042/R6, CARD-299). See the three helpers'
         # own docstrings, and the block comment above them for why these are
@@ -1726,6 +1754,9 @@ class TestInteriorReadings_TheStreamArmIsReached:
     def test_the_title_pages_blankness_is_read_from_the_stream(self, monkeypatch):
         """``_title_page_is_blank`` takes the stream arm and never the bitmap.
 
+        (Since 2026-11-09 the page sets the title and copyright text, so
+        "paints nothing" below reads "paints nothing but type".)
+
         ``pages=None`` is the proof, and it is why this is not merely a second
         green assertion: the bitmap arm's first act is
         ``pages[0].convert("L")``, so a helper that fell through to it raises
@@ -1750,7 +1781,10 @@ class TestInteriorReadings_TheStreamArmIsReached:
         data = self._vector_title_interior(monkeypatch)
         inked = pdf_vector.content_streams(data)[0] + "\n0 0 10 10 re f\n"
 
-        assert _marks_on(inked) == ["f"]
+        # Since 2026-11-09 the page also sets its title and copyright type
+        # (text-showing marks, which the reading allows); the plant is the
+        # one mark that is not type.
+        assert [m for m in _marks_on(inked) if m not in _TEXT_SHOWING] == ["f"]
 
         monkeypatch.setattr(
             pdf_vector, "content_streams", lambda _data: [inked]
