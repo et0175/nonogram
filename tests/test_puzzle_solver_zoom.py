@@ -167,11 +167,14 @@ class TestSolverZoom_ButtonsStepAndClamp:
             assert a == pytest.approx(b * 1.25, abs=0.5), (b, a)
 
     def test_zoom_out_at_100_percent_is_a_no_op_and_stays_disabled(self, browser_page, live) -> None:
-        """AC-2, the 100% end."""
+        """AC-2, the 100% end — for a board that FITS at 100% (since CARD-406 a
+        board that does not fit has a Fit step below 100%; this one has none,
+        so the readout is not a control either)."""
         _open(browser_page, live, live.store(_unique_grid(15, 15, seed=19512)))
         before = _cell_widths(browser_page)
         assert _zoom_readout(browser_page) == "100%"
         assert _zoom_button(browser_page, "out").get_attribute("aria-disabled") == "true"
+        assert browser_page.locator("[data-player-zoom-readout]").get_attribute("role") is None
 
         _zoom_button(browser_page, "out").click(force=True)
 
@@ -1309,7 +1312,9 @@ class TestSolverZoom_Fit:
     is TestZoomArithmetic_PureFunctions, unchanged). The page (AC-3/AC-4): a
     30 x 30 at 390 x 844 and at 844 x 390 reaches Fit from 100% in one step,
     scrolls on neither axis there, says "Fit", and goes back up to 100%; a
-    board that fits at 100% has no Fit (Zoom out stays disabled). AC-5's
+    board that fits at 100% has no Fit (Zoom out stays disabled: the
+    existing test_zoom_out_at_100_percent_is_a_no_op_and_stays_disabled,
+    extended). AC-5's
     pinch shares pinchZoom's floor (the pure cell); AC-6 (not saved) is
     TestSolverZoom_IsNotSavedAndSendsNothing, Fit being one more zoom value.
     Plant (run 2026-11-09): removing solver.js's overshoot loop (the board's
@@ -1349,12 +1354,21 @@ class TestSolverZoom_Fit:
         page = context.new_page()
         try:
             _open(page, live, live.store(_GRID_30x30))
+            # One Maybe on the board: a "?" that kept its 12 px floor made
+            # Fit scroll (review cycle 1, F-001).
+            _set(page, ["maybe"] + ["unknown"] * (30 * 30 - 1))
             assert _zoom_readout(page) == "100%"
             assert _zoom_button(page, "out").get_attribute("aria-disabled") == "false"
             _zoom_button(page, "out").click(force=True)
             page.wait_for_timeout(300)
-            at_fit = page.evaluate("""() => { const s = document.querySelector('.player-stage');
-              return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }""")
+            overflow = """() => { const s = document.querySelector('.player-stage');
+              return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+            at_fit = page.evaluate(overflow)
+            # ...and Fit is the LARGEST such zoom: one percent more scrolls.
+            fit = float(page.locator(".player-board").evaluate("(t) => t.style.getPropertyValue('--player-zoom')"))
+            page.locator(".player-board").evaluate(f"(t) => t.style.setProperty('--player-zoom', '{fit + 0.01}')")
+            one_more = page.evaluate(overflow)
+            page.locator(".player-board").evaluate(f"(t) => t.style.setProperty('--player-zoom', '{fit}')")
             readout = _zoom_readout(page)
             out_disabled = _zoom_button(page, "out").get_attribute("aria-disabled")
             page.locator("[data-player-zoom-readout]").click()  # back to the last zoom
@@ -1366,12 +1380,6 @@ class TestSolverZoom_Fit:
         finally:
             context.close()
         assert at_fit == [0, 0], at_fit
+        assert max(one_more) > 0, one_more
         assert (readout, out_disabled) == ("Fit", "true")
         assert (back, again, up) == ("100%", "Fit", "100%")
-
-    def test_a_board_that_fits_at_100_has_no_fit(self, browser_page, live) -> None:
-        browser_page.set_viewport_size({"width": 1440, "height": 900})
-        _open(browser_page, live, live.store(_unique_grid(15, 15, seed=40602)))
-        assert _zoom_readout(browser_page) == "100%"
-        assert _zoom_button(browser_page, "out").get_attribute("aria-disabled") == "true"
-        assert browser_page.locator("[data-player-zoom-readout]").get_attribute("role") is None

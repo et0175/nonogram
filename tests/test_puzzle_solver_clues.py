@@ -3142,7 +3142,7 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         ("390x844", {"width": 390, "height": 844}, [False, True], [346, 185], [358, 398]),
         # The same board and the same mirror, 210 px wider: the row axis now
         # scrolls by 136 px, so that is all the band can hide, and it keeps.
-        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 108], [568, 475]),
+        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 113], [568, 470]),  # 108/475 until CARD-406's 44 px Fit control
     ]
 
     @pytest.mark.parametrize("name, viewport, keeping, overflow, port", ROOMS,

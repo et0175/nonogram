@@ -707,7 +707,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    clue numeral (--player-numeral-min above), it never renders below 12 px —
    below 820 px the cell itself can now be smaller than 20 px, where 0.6 x
    cell alone would drop under that floor. */
-.player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6)); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
+.player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: max(calc(var(--player-numeral-min) * min(1, var(--player-zoom))), calc(var(--player-cell) * 0.6)); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
 /* Marking (CARD-161; the brush dropdown, CARD-194, + the Region toggle,
    CARD-211): cells take
    pointer input. touch-action follows Region (solver.js toggles .is-region
@@ -1683,6 +1683,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
+  .player-zoom-readout[role="button"] { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; }
   .player-history > .btn, .player-zoom .btn, .player-probe > .btn[data-player-probe] { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
   .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

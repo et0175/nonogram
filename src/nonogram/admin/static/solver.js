@@ -428,8 +428,11 @@
 // ZOOM_MIN (100%) on every load — wireMarking's local `zoom` variable is
 // never read by anything outside this file. 100% to 300%, in ZOOM_STEP
 // (25-point) steps on the zoom buttons ([data-player-zoom-action="in"/"out"]
-// in .player-zoom) and continuously on a two-finger pinch; the readout
-// ([data-player-zoom-readout]) is plain text, not a live region. The pure
+// in .player-zoom) and continuously on a two-finger pinch — and, since
+// CARD-406, down to Fit (the floor at which the whole board fits, see
+// measureFit), one step below 100%. The readout ([data-player-zoom-readout])
+// is not a live region; while a Fit exists it is a role=button that jumps
+// between Fit and the last zoom (owner's option A, 2026-11-07). The pure
 // arithmetic (clamping, a button's next step, a pinch's ratio, and the
 // anchor-preserving scroll formula) lives in solver_state.js (ADR-0038/R4);
 // this file only reads the pointers, the DOM and .player-stage's scroll
@@ -1173,6 +1176,10 @@ function start() {
   // at that floor can still overflow by a pixel or two: while the board is
   // AT Fit and still scrolls, the floor steps down one percent at a time
   // (at most a few steps; each is a re-layout of a table already drawn).
+  // The smallest Fit there is: below it the board is a smudge, and a stage
+  // that cannot hold the board even there scrolls at this size instead
+  // (review cycle 1: a cell that refused to shrink drove the loop to 1%).
+  const FIT_MIN = 10;
   let measuringFit = false;
   function measureFit() {
     if (measuringFit) return;
@@ -1186,26 +1193,36 @@ function start() {
   function fitTheFloor() {
     const table = stage.querySelector(".player-board");
     if (!table) return;
-    // Above 100% the clue numerals are capped (CARD-404), so the board does
-    // not grow in proportion to the zoom and dividing by it would mis-state
-    // the 100% size: the floor is measured only at 100% or below, where
-    // everything scales together; above, the last floor stands.
-    if (marking.getZoom() > ZOOM_MIN) return;
-    const scale = marking.getZoom() / 100;
+    // The board's size AT 100%: above 100% the clue numerals are capped
+    // (CARD-404), so the board does not grow in proportion to the zoom and
+    // dividing by it would mis-state that size. So the table is laid out at
+    // 100% for the reading and put back, inside this one task (a forced
+    // layout, never painted); below 100% everything scales together and the
+    // division is exact.
+    const zoomNow = marking.getZoom();
+    let boardWidth;
+    let boardHeight;
+    if (zoomNow > ZOOM_MIN) {
+      table.style.setProperty("--player-zoom", "1");
+      [boardWidth, boardHeight] = [table.offsetWidth, table.offsetHeight];
+      table.style.setProperty("--player-zoom", String(zoomNow / 100));
+    } else {
+      const scale = zoomNow / 100;
+      [boardWidth, boardHeight] = [table.offsetWidth / scale, table.offsetHeight / scale];
+    }
     const margin = parseFloat(getComputedStyle(table).marginBottom) || 0;
     const room = parseFloat(getComputedStyle(stage).maxHeight);
     const height = Number.isFinite(room) ? room : stage.clientHeight;
     if (!(stage.clientWidth > 0) || !(height - margin > 0)) return;
-    let floor = fitZoom(table.offsetWidth / scale, table.offsetHeight / scale,
-      stage.clientWidth, height - margin);
+    let floor = Math.max(FIT_MIN, fitZoom(boardWidth, boardHeight, stage.clientWidth, height - margin));
     marking.setFloor(floor);
     // At Fit and still scrolling: shrink by the measured overshoot (the
     // fixed-size rules are a larger share of a smaller board), then by one
     // percent, until nothing scrolls; a handful of re-layouts at most.
-    for (let tries = 0; tries < 6 && floor > 1 && floor < ZOOM_MIN && marking.getZoom() === floor
+    for (let tries = 0; tries < 6 && floor > FIT_MIN && floor < ZOOM_MIN && marking.getZoom() === floor
       && (stage.scrollWidth > stage.clientWidth || stage.scrollHeight > stage.clientHeight); tries += 1) {
       const ratio = Math.min(stage.clientWidth / stage.scrollWidth, stage.clientHeight / stage.scrollHeight);
-      floor = Math.max(1, Math.min(floor - 1, Math.floor(floor * ratio)));
+      floor = Math.max(FIT_MIN, Math.min(floor - 1, Math.floor(floor * ratio)));
       marking.setFloor(floor);
     }
   }
@@ -2009,7 +2026,7 @@ function wireMarking(container, player) {
     if (zoomFloor < ZOOM_MIN) {
       zoomReadout.setAttribute("role", "button");
       zoomReadout.setAttribute("tabindex", "0");
-      zoomReadout.setAttribute("aria-label", atFit ? "Back to the last zoom" : "Fit the whole board");
+      zoomReadout.setAttribute("aria-label", atFit ? "Zoom: Fit. Back to the last zoom" : `Zoom ${Math.round(zoom)}%. Fit the whole board`);
       zoomReadout.title = atFit ? "Back to the last zoom" : "Fit the whole board";
     } else {
       for (const name of ["role", "tabindex", "aria-label", "title"]) zoomReadout.removeAttribute(name);
@@ -2088,7 +2105,9 @@ function wireMarking(container, player) {
     const stageBox = container.getBoundingClientRect();
     const midX = (p1.x + p2.x) / 2 - stageBox.left;
     const midY = (p1.y + p2.y) / 2 - stageBox.top;
-    applyZoom(pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2), zoomFloor), midX, midY);
+    const pinched = pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2), zoomFloor);
+    if (pinched <= zoomFloor + 1e-6 && zoom > zoomFloor + 1e-6) beforeFit = Math.max(ZOOM_MIN, zoom);
+    applyZoom(pinched, midX, midY);
   }
 
   // The trigger's name/text and which menu item is checked, from `tool`

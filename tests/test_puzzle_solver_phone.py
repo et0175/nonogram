@@ -823,8 +823,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 108], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap
-            assert seen["scroll"] == [136 if col else 0, 108 if row else 0], (corner, seen["scroll"])
+            assert seen["overflow"] == [136, 113], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control
+            assert seen["scroll"] == [136 if col else 0, 113 if row else 0], (corner, seen["scroll"])
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge

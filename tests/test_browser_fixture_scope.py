@@ -757,9 +757,6 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_fit_shows_the_whole_board_and_says_so[chromium-844-390]": (
         "CARD-406", "AC-3 on a landscape phone; the one control (no overshoot loop reds it)",
     ),
-    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_a_board_that_fits_at_100_has_no_fit": (
-        "CARD-406", "AC-4: Fit = 100 means no step below 100",
-    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_ClueStripsStopGrowing::"
     "test_capped_strips_and_exact_alignment": (
         "CARD-404",
