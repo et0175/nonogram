@@ -748,6 +748,18 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_StageEndsAboveTheFold::"
+    "test_sweep[chromium]": (
+        "CARD-403",
+        "AC-1/AC-4 (owner 2026-11-07): the stage's bottom edge and scrollbar are "
+        "in the window for a 30x30 at 100% and 200% over an 18-viewport grid",
+    ),
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_StageEndsAboveTheFold::"
+    "test_a_resize_keeps_the_board_and_its_scroll[chromium]": (
+        "CARD-403",
+        "AC-5, the jump: a resize that changes nothing keeps the table, a real "
+        "one keeps the stage's scroll",
+    ),
     "tests/test_puzzle_solver_phone.py::TestSolverPhone_CompactToolbar::"
     "test_icons_only_when_compact[390-844-True]": (
         "CARD-401",
@@ -1266,11 +1278,12 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     ),
     f"{FAMILY_PREFIX}_zoom.py::"
     "TestSolverZoom_CluesStayInViewWhileZoomed::"
-    "test_every_corner_keeps_that_cells_clues_in_view[plain 30x30 at 900x700-----]": (
+    "test_every_corner_keeps_that_cells_clues_in_view[plain 30x30 at 900x800-----]": (
         "CARD-271",
         "AC-3 on a plain board: zoomed and panned to each of the four "
         "corners, that cell's row clue and column clue are in view and a "
-        "gutter paints over the cells, not the other way round",
+        "gutter paints over the cells, not the other way round (900x700 "
+        "until CARD-403's measured stage cap moved the case 100 px taller)",
     ),
     f"{FAMILY_PREFIX}_zoom.py::"
     "TestSolverZoom_CluesStayInViewWhileZoomed::"

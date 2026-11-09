@@ -83,7 +83,7 @@ BIG_SIDE = 30
 #: AC-4: td.player-cell width at 1440 x 900 for each board, measured on main
 #: (admin.css unchanged, commit 2e40c96) before this card's rule was added,
 #: rounded to 0.001 px (the 30 x 30 measured 16.796875).
-DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 16.797}
+DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 17.016}  # 16.797 until CARD-403: the height term reads the measured stage top, 3.5 px below the one-row estimate at 1440 x 900
 
 
 def _single_digit_col_grid(width, height, seed, run_cap=9):
@@ -807,8 +807,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 0], (corner, seen["overflow"])
-            assert seen["scroll"] == [136 if col else 0, 0], (corner, seen["scroll"])
+            assert seen["overflow"] == [136, 108], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap
+            assert seen["scroll"] == [136 if col else 0, 108 if row else 0], (corner, seen["scroll"])
 
             # The mirrored row band is pinned to the scrollport's RIGHT edge
             # and the column band to its top; both wholly inside it, at every
@@ -908,7 +908,7 @@ class TestSolverPhone_MirroredGutterSticks:
         room = _room(page)
         assert room["keeping"] == [False, True], room
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
-        assert room["port"] == [358, 583] and room["overflow"] == [346, 0], room
+        assert room["port"] == [358, 398] and room["overflow"] == [346, 185], room  # 583 / 0 until CARD-403's measured stage cap
         # Past the share the rule allows, re-derived here from solver.js's
         # own constant rather than from the class it set — off the RAW cover
         # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs

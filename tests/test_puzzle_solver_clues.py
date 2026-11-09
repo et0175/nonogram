@@ -1227,7 +1227,7 @@ class TestSolverClues_TheCircleIsVisible:
         # CARD-193: below 820 px the cell floor is removed, so at 390 the
         # measured value is this grid's 14.4 px numeral-driven column floor
         # (two-digit column numbers), not the old 24 px phone floor.
-        assert cell == pytest.approx({1100: 14.4, 1440: 17.67, 390: 14.39}[viewport["width"]], abs=0.05), cell
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.91, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403: the cell's height term reads the stage's measured top (1440 was 17.67)
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -1720,7 +1720,7 @@ class TestSolverClues_BigBoardRepeatsBothAxes:
         assert _lines(seen, "rows", duplicate=True) == []
         assert _lines(seen, "columns", duplicate=True) == []
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(19.75, abs=0.05), seen["cell"]
+        assert seen["cell"] == pytest.approx(20.02, abs=0.05), seen["cell"]  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
 
 
 @pytest.mark.browser
@@ -2106,6 +2106,14 @@ _DRAWS = """() => ({
 #: The laptop viewport every browser test that never calls set_viewport_size
 #: runs at — Playwright's default, and the one most of this suite uses.
 DEFAULT_VIEWPORT = {"width": 1280, "height": 720}
+#: CARD-403 (owner finding 2026-11-07, the stage ends above the fold): the
+#: cell's height term now reads the stage's MEASURED top, and on the admin
+#: page at 1280 x 720 that top is below the one-row estimate, so a 22 x 14
+#: there is 23.25 px — under the 24 px bar, where the ladder no longer even
+#: tries the doubled rung. The two 22 x 14 cases below are about a doubled
+#: rung that MISSES the bar while the plain one clears it, so they move to a
+#: window 40 px taller, where that is true again (re-measured, not relaxed).
+LAPTOP_760 = {"width": 1280, "height": 760}
 
 #: Mid-size boards: big on the row axis, small enough that the row clues DO
 #: double at DEFAULT_VIEWPORT (measured: 26.88 px and, for the 22-wide, a
@@ -2141,7 +2149,7 @@ class TestSolverClues_TheLadderStopsAtTheFirstRungThatFits:
             ("15x15 on a laptop", _unique_grid(15, 15, seed=182), DEFAULT_VIEWPORT, 1, 0),
             # The plain board clears the bar, the doubled rung does not: the
             # plain one is re-inserted, not rebuilt, so this is 2 and not 3.
-            ("22x14 on a laptop", GRID_22x14, DEFAULT_VIEWPORT, 2, 0),
+            ("22x14 on a laptop", GRID_22x14, LAPTOP_760, 2, 0),
             # Afforded on the first rung tried: the plain board plus it.
             ("20x12 on a laptop", GRID_20x12, DEFAULT_VIEWPORT, 2, 12),
             ("30x12 wide", GRID_30x12, WIDE, 2, 12),
@@ -2208,7 +2216,7 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
 
     def test_a_22x14_whose_doubled_rung_misses_the_bar_draws_one(self, browser_page, live) -> None:
         page = browser_page
-        page.set_viewport_size(DEFAULT_VIEWPORT)
+        page.set_viewport_size(LAPTOP_760)  # DEFAULT_VIEWPORT until CARD-403, see LAPTOP_760
         _open(page, live, live.store(GRID_22x14))
 
         seen = _gutters(page)
@@ -2235,7 +2243,7 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
 
         assert _lines(seen, "rows", duplicate=True) == []
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(24.59, abs=0.05), seen["cell"]
+        assert seen["cell"] == pytest.approx(25.25, abs=0.05), seen["cell"]  # 24.59 at 1280 x 720 until CARD-403
 
 
 # ==========================================================================
@@ -2431,7 +2439,7 @@ class TestSolverClues_TheStageIsTheScrollContainer:
         assert [box["name"] for box in scrollers] == ["DIV.player-stage"], chain
         # And it is the box the board really does outgrow, so the question the
         # card asked is answered by a measurement and not by a declaration.
-        assert scrollers[0]["overflowY"] == 211, scrollers
+        assert scrollers[0]["overflowY"] == 238, scrollers  # 211 until CARD-403's measured stage cap (owner finding 2026-11-07)
 
 
 @pytest.mark.browser
@@ -2456,9 +2464,13 @@ class TestSolverClues_StayInViewOnAPlainBigBoard:
     @pytest.mark.parametrize(
         "name, viewport, overflow",
         [
-            ("the card's 1280x720", LAPTOP_720, [0, 91]),
-            ("a short window, whole band gone", SHORT_720, [0, 211]),
-            ("a narrow window, both axes", NARROW_DESKTOP, [104, 111]),
+            # Re-measured for CARD-403 (owner finding 2026-11-07: the stage
+            # ends above the fold): the stage is capped at its measured top,
+            # so each port is shorter and the vertical overflow larger. Was
+            # [0, 91], [0, 211], [104, 111].
+            ("the card's 1280x720", LAPTOP_720, [0, 118]),
+            ("a short window, whole band gone", SHORT_720, [0, 238]),
+            ("a narrow window, both axes", NARROW_DESKTOP, [104, 195]),
         ],
         ids=lambda value: value if isinstance(value, str) else "",
     )
@@ -2896,7 +2908,7 @@ class TestSolverClues_DoubledGuttersAreNotStuck:
         # Both bands would scroll clean out of view without the fix: the
         # overflow on each axis is past that axis's whole band (567.9 px and
         # 347.4 px here), so this is a case and not a formality.
-        assert seen["overflow"] == [778, 487], seen["overflow"]
+        assert seen["overflow"] == [778, 478], seen["overflow"]  # 487 until CARD-403
         assert seen["bands"] == [pytest.approx(567.9, abs=0.5),
                                  pytest.approx(347.4, abs=0.5)], seen["bands"]
         assert seen["labelledRows"] == ["sticky"], seen
@@ -3099,16 +3111,20 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
 
     #: Measured on this host, Chromium, with GRID_30x30.
     ROOMS = [
-        ("1280x720", {"width": 1280, "height": 720}, [True, True], [0, 91], [980, 492]),
-        ("1280x600", {"width": 1280, "height": 600}, [True, True], [0, 211], [980, 372]),
-        ("900x700", {"width": 900, "height": 700}, [True, True], [104, 111], [600, 472]),
+        # CARD-403 re-measured every port and vertical overflow below (the
+        # stage is capped at its measured top, owner finding 2026-11-07); the
+        # keeping verdicts are unchanged. Was: 492/91, 372/211, 472/111, and
+        # at 390x844 / 600x844 583 tall with no vertical overflow.
+        ("1280x720", {"width": 1280, "height": 720}, [True, True], [0, 118], [980, 465]),
+        ("1280x600", {"width": 1280, "height": 600}, [True, True], [0, 238], [980, 345]),
+        ("900x700", {"width": 900, "height": 700}, [True, True], [104, 195], [600, 388]),
         # The mirror, and the one case at 100 % zoom where an axis gives up:
         # 272.2 px of band over a 358 px stage is three quarters of it, so a
         # stuck band would leave six columns of thirty visible.
-        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 0], [358, 583]),
+        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 185], [358, 398]),
         # The same board and the same mirror, 210 px wider: the row axis now
         # scrolls by 136 px, so that is all the band can hide, and it keeps.
-        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 0], [568, 583]),
+        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 108], [568, 475]),
     ]
 
     @pytest.mark.parametrize("name, viewport, keeping, overflow, port", ROOMS,
