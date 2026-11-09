@@ -1,6 +1,6 @@
 # CARD-407: A big puzzle opens at Fit — the player sees what they are solving before they zoom in
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -80,4 +80,6 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread. Cut from card/406 (merged 63703247 before this card's review).
+[Impl 2026-11-09] 3e4be450. Q11/Q12 answered by the owner's ruling of 2026-11-07 on the card: "big" = the board does not fit at 100% (fitZoom < 100); compact screens only (CARD-401's media condition), desktop keeps 100%. solver.js: at the first measureFit after the first draw, openAt(floor) when compact; no redraw (AC-3: the draw count to first paint is unchanged — the zoom is a CSS multiplier applied after the draw).
+[Tests] AC-4: rather than re-pin the ~32 cells that measure the 100% board on a phone, the shared helpers (_open in test_puzzle_solver_page.py, _open_editor) return a Fit opening to 100% and the stage's home, the owner finding named in the docstring; keep_opening_zoom=True opts out. New cell TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only (plant: inverting the compact condition reds it — run). AC-2 (not saved): zoom was never saved; a reload re-applies the rule (the stage sweep's reloads exercise it). Net node ids +1.
