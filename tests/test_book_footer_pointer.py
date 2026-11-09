@@ -402,14 +402,17 @@ GEOMETRY_CORPUS = {
 
 #: Every stroke weight (pt) a puzzle page sets, held as LITERALS (measured on
 #: this tree: a single page, then a two-up page, the same five weights --
-#: 0.3 grid line, 0.48 footer hairline, 0.72 header rule, 0.8 and 1.3 the
+#: 0.3 grid line, 0.48 footer hairline, 0.72 header rule, 1.1 and 1.3 the
 #: grid's thick lines and border). The control below patches only the band
 #: back, so a drift in an area-independent weight (the footer rule 0.4 -> 0.6
 #: pt reads 0.72 for 0.48 here) would pass a comparison against itself; these
-#: do not.
-SINGLE_PAGE_WEIGHTS = [0.3, 0.48, 0.72, 0.8, 0.8, 1.3, 1.3, 1.3, 1.3]
+#: do not. Since the approved mockup's header (CARD-207 scope) each header's
+#: difficulty dots add one more 0.72 (their ring, 3 px), and a two-up page's
+#: lower header adds its rule at the page header rule's own 0.72. The fifth
+#: line is 1.1 pt since the owner raised it from 0.8 on 2026-11-08.
+SINGLE_PAGE_WEIGHTS = [0.3, 0.48, 0.72, 0.72, 1.1, 1.1, 1.3, 1.3, 1.3, 1.3]
 PAIR_PAGE_WEIGHTS = [
-    0.3, 0.3, 0.48, 0.72, 0.8, 0.8, 0.8, 0.8,
+    0.3, 0.3, 0.48, 0.72, 0.72, 0.72, 0.72, 1.1, 1.1, 1.1, 1.1,
     1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3,
 ]  # fmt: skip
 

@@ -1730,7 +1730,10 @@ class TestInteriorType_TheStreamArmIsReached:
         sub-floor residue is still the clue digits and still only them. The
         third figure is asserted below rather than left to be discovered,
         because a furniture size that silently dropped under 10 pt would
-        otherwise look like the exempt digits.
+        otherwise look like the exempt digits. The approved mockup's header
+        (CARD-207 scope) added a fourth, the tier word in capitals at
+        ``max(10 pt, 0.75 x`` the band's 14.16 pt``)`` = **10.62 pt**, also
+        above the floor.
 
         It is also the whole of the finding: those 8.64 pt digits are exactly
         the ones CON-020 **exempts**, and nothing in the stream says so. The
@@ -1752,9 +1755,9 @@ class TestInteriorType_TheStreamArmIsReached:
 
         found = pdf_vector.type_sizes(stream)
 
-        assert sorted(set(found)) == [8.64, 10.08, 14.16], sorted(set(found))
-        # CARD-306's furniture is the middle figure, and it clears the floor.
-        assert 10.08 >= FLOOR_PT, FLOOR_PT
+        assert sorted(set(found)) == [8.64, 10.08, 10.62, 14.16], sorted(set(found))
+        # CARD-306's furniture and the header's tier word clear the floor.
+        assert 10.08 >= FLOOR_PT and 10.62 >= FLOOR_PT, FLOOR_PT
         assert [size for size in found if size < FLOOR_PT] == [8.64] * found.count(
             8.64
         ), sorted(set(found))
@@ -2564,11 +2567,13 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
         assert [face for face in marked if face.exempt], "the mark did not survive"
         assert marked == pdf_vector.marked_type_sizes(clean)
         painting = frozenset({"Tj", "TJ", "S", "s", "f", "F", "f*", "B", "re", "Do"})
+        # ``f`` is the clue gutters' tint and ``B`` the header's difficulty
+        # dots (CARD-207 scope); neither is inside the mark's bracket.
         assert {
             token
             for token in pdf_vector.operator_tokens(written)
             if token in painting
-        } == {"Tj", "S", "re"}, sorted(
+        } == {"Tj", "S", "re", "f", "B"}, sorted(
             set(pdf_vector.operator_tokens(written))
         )
         # **One pair for the whole clue set, not one per digit** — 2

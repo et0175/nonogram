@@ -37,6 +37,7 @@ from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
     DPI,
     TWO_UP_MIN_CELL_MM,
+    TWO_UP_RULE_GAP_MM,
     CellCapPolicy,
     OrientationPolicy,
     PageParity,
@@ -231,9 +232,11 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
         pair = _pair(ten, ten, spec)
 
         assert pair.upper.page is not None
-        assert abs(_mm(pair.upper.page.drawing_top) - (9.525 + 12.0)) <= HALF_PIXEL_MM + 1e-9
+        # The band foot is one band below the top margin; the drawing sits a
+        # rule gap below that foot, so it does not touch the header rule.
+        assert abs(_mm(pair.upper.page.band_bottom) - (9.525 + 12.0)) <= HALF_PIXEL_MM + 1e-9
+        assert pair.upper.page.drawing_top - pair.upper.page.band_bottom == 35  # 3 mm, floored
         assert pair.upper.page.vertical_bound == "slot"
-        assert pair.upper.page.band_bottom == pair.upper.page.drawing_top
 
     @pytest.mark.parametrize("spec", [BOOK1_ODD, BOOK1_EVEN], ids=["odd", "even"])
     def test_the_single_page_now_sits_lower_than_the_upper_slot(self, spec: PageSpec) -> None:
@@ -270,7 +273,7 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
 
         gap = twenty.page.drawing_top - pair.upper.page.drawing_top
 
-        assert gap == 213, (
+        assert gap == 178, (
             "the single page's own float, in device pixels, on this module's "
             "profile — not a tolerance",
             gap,
@@ -285,6 +288,8 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
             twenty.page.drawing_bottom - twenty.page.drawing_top
         )
         derived = area_top + SPARE_ABOVE * spare - pair.upper.page.drawing_top
+        # 178 = the pre-gap 213, less the slot's rule gap (3 mm, floored to 35 px).
+        assert 213 - gap == int(TWO_UP_RULE_GAP_MM / 25.4 * DPI) == 35
 
         assert abs(gap - derived) <= 1, (gap, derived, spare)
 
@@ -355,10 +360,18 @@ class TestPairLayout_SlotGeometry:
         upper, lower = pair.upper.page, pair.lower.page
         assert upper is not None and lower is not None
 
-        # The upper slot starts at the top margin, the lower one ends at the bottom margin.
+        # The upper slot starts at the top margin; the lower drawing ends one
+        # rule gap above the bottom margin, so it does not touch the footer rule.
         assert abs(_mm(upper.usable_top) - 9.525) <= HALF_PIXEL_MM + 1e-9
-        assert abs(_mm(lower.drawing_bottom) - (279.4 - 9.525)) <= HALF_PIXEL_MM + 1e-9
-        assert lower.usable_bottom == lower.drawing_bottom
+        assert abs(_mm(lower.drawing_bottom) - (279.4 - 9.525 - TWO_UP_RULE_GAP_MM)) <= (
+            3 * HALF_PIXEL_MM + 1e-9
+        )
+        assert abs(_mm(lower.usable_bottom - lower.drawing_bottom) - TWO_UP_RULE_GAP_MM) <= (
+            3 * HALF_PIXEL_MM
+        )
+        # Each drawing sits one rule gap below its own band's foot.
+        for page in (upper, lower):
+            assert page.drawing_top - page.band_bottom == 35  # 3 mm, floored to whole px
         # One boundary between the slots; the lower band lies between the drawings.
         assert upper.usable_bottom == lower.usable_top
         assert upper.drawing_bottom <= lower.usable_top < lower.drawing_top
@@ -366,8 +379,11 @@ class TestPairLayout_SlotGeometry:
             band = header_band(slot)
             assert abs(_mm(band.height) - 12.0) <= 2 * HALF_PIXEL_MM
             assert slot.page is not None and slot.page.fits
-        # The spare height (236.35 − 28 × 7.5 = 26.35 mm) falls between the slots.
-        assert _mm(lower.usable_top - upper.drawing_bottom) == pytest.approx(26.35, abs=2 * HALF_PIXEL_MM)
+        # The spare height (236.35 − 28 × 7.5 = 26.35 mm), less three rule
+        # gaps, falls between the slots.
+        assert _mm(lower.usable_top - upper.drawing_bottom) == pytest.approx(
+            26.35 - 3 * TWO_UP_RULE_GAP_MM, abs=6 * HALF_PIXEL_MM
+        )
 
     def test_each_slot_is_centred_across_the_usable_width_on_either_parity(self) -> None:
         """CARD-224: each slot is centred across the page's one shared usable

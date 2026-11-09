@@ -84,7 +84,7 @@ CON018_COLUMNS = {
 #: own object would make the comparison below compare a value with itself.
 CON018_GRID_RULES = GridRules(
     cell=GridRule(width_pt=0.3, grey=0.35),
-    fifth=GridRule(width_pt=0.8, grey=0.0),
+    fifth=GridRule(width_pt=1.1, grey=0.0),
     border=GridRule(width_pt=1.3, grey=0.0),
 )
 

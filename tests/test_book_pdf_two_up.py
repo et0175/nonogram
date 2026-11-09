@@ -54,6 +54,7 @@ from nonogram.admin.book_answer_key import Answer, plan_small_answer_pages
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
+from nonogram.admin import book_vector
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
@@ -102,6 +103,23 @@ PAIR_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 #: this file writes every other figure out.
 FOOTER_STRIP_PX = 117
 RESERVED_PAIR_HEIGHT_MM = PAIR_HEIGHT_MM - FOOTER_STRIP_PX / (300 / 25.4)
+
+#: The breathing room a two-up page leaves between each rule and a drawing
+#: (the upper drawing below its band's foot, the lower drawing below its own
+#: band's foot and above the footer rule): 3 mm, or a quarter of the vertical
+#: slack the fit leaves when that is less. The cell and the pairing are
+#: unchanged by it, and it is floored to whole device pixels. Written out
+#: here, not imported from ``layout``.
+TWO_UP_RULE_GAP_MM = 3.0
+
+
+def _two_up_gap_mm(cells_down: int, cell_mm: float = STANDARD_CELL_MM) -> float:
+    """The gap a two-up page whose two drawings are ``cells_down`` tall in all
+    leaves at each rule, in millimetres."""
+    slack_mm = RESERVED_PAIR_HEIGHT_MM - cells_down * cell_mm
+    px_per_mm = 300 / 25.4
+    # Floored to whole device pixels, as the layout does (35 px for 3 mm).
+    return int(min(TWO_UP_RULE_GAP_MM, max(slack_mm, 0.0) / 4) * px_per_mm) / px_per_mm
 
 #: **Every boundary fixture below was re-chosen for that figure**, as CARD-222
 #: did when CON-018's margins moved and CARD-248 did when the strip arrived.
@@ -507,19 +525,43 @@ def _band_lines(page: ContentStream) -> list[str]:
     Read from the text layer poppler finds in the stream written out as a
     one-page PDF -- an engine that did not write it, and not ``band_identity``.
     A two-up page carries one per slot, upper first.
+
+    Since CARD-207 a puzzle header is two pieces on one baseline, ``Puzzle N``
+    at the band's size and the tier in capitals, smaller, flush right; words
+    are therefore gathered by **baseline** (each box's top plus its share of
+    the face's ascent), and a row reading ``Puzzle N TIER`` is read back as
+    the band's line ``Puzzle N · Tier``.
     """
     data = write_vector_pdf([page], 1).getvalue()
     with tempfile.TemporaryDirectory(prefix="two-up-words-") as directory:
         words = pdf_vector.word_boxes(data, 1, out_dir=Path(directory))
-    rows: dict[float, list[pdf_vector.Word]] = {}
-    for word in words:
-        rows.setdefault(round(word.top, 1), []).append(word)
+    metrics = book_vector.interior_face_metrics()
+    ascent_share = metrics.ascent / (metrics.ascent - metrics.descent)
+    placed = sorted(
+        (word.top + ascent_share * (word.bottom - word.top), word) for word in words
+    )
+    rows: list[tuple[float, list[pdf_vector.Word]]] = []
+    for baseline, word in placed:
+        if rows and baseline - rows[-1][0] < 0.5:
+            rows[-1][1].append(word)
+        else:
+            rows.append((baseline, [word]))
     return [
         line
-        for _, row in sorted(rows.items())
-        for line in [" ".join(w.text for w in sorted(row, key=lambda w: w.left))]
+        for _, row in rows
+        for line in [
+            _HEADER_ROW.sub(
+                lambda m: f"{m[1]} · {m[2].capitalize()}",
+                " ".join(w.text for w in sorted(row, key=lambda w: w.left)),
+            )
+        ]
         if _BAND_SHAPE.fullmatch(line)
     ]
+
+
+#: A puzzle header's row as poppler reads it (CARD-207): the number, then the
+#: tier word in capitals.
+_HEADER_ROW = re.compile(r"^(Puzzle \d+) (EASY|MEDIUM|HARD)$")
 
 
 def _same_ink(first: Optional[_Ink], second: Optional[_Ink]) -> bool:
@@ -1089,12 +1131,17 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
     #: CARD-248, where they used to end on the margin itself — and its band is
     #: the 12 mm above them:
     #: 279.4 − 11.938 − 9.906 − 97.5 − 12 = 148.056 mm.
+    #: Since the two-up breathing room (:data:`TWO_UP_RULE_GAP_MM`) the lower
+    #: drawing ends one gap above the footer rule and starts one gap below its
+    #: band's foot, so the band is two gaps higher: 148.056 − 2 × 2.963 (35 px) = 142.129 mm.
     UPPER_BAND_TOP_MM = TOP_MM
     LOWER_BAND_TOP_MM = (
         BOOK1_HEIGHT_MM
         - BOTTOM_MM
         - FOOTER_STRIP_PX / PX_PER_MM
+        - _two_up_gap_mm(26)
         - 13 * STANDARD_CELL_MM
+        - _two_up_gap_mm(26)
         - BAND_MM
     )
 
@@ -1111,7 +1158,7 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
     def test_the_lower_band_sits_where_the_pair_leaves_it(self):
         """The millimetres the crops below are taken at, stated before use."""
-        assert abs(self.LOWER_BAND_TOP_MM - 148.056) < 1e-3
+        assert abs(self.LOWER_BAND_TOP_MM - 142.129) < 1e-3
 
     def test_the_upper_band_reads_puzzle_one_and_the_lower_puzzle_two(self):
         page, raw = self._page()
@@ -1244,10 +1291,11 @@ class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
 
     **Declared residue: page parity (ADR-0039/R3).** AC-251 cannot see which
     parity a band was drawn on. Measured here: the reference band's left edge is
-    1061 px on interior pages 5, 6, 7 and 8, and a two-up page drawn from page 6
-    and from page 7 has its upper band at 1061 as well. The reason is that both
-    slots are centred over the one usable width (CARD-224), so the band does
-    not move with the gutter side. Plants on ``puzzle_pages``' plans (probe-scoped module, reds beyond the
+    155 px on interior pages 5, 6, 7 and 8 (1061 while the band was one centred
+    line, before CARD-207's header set "Puzzle N" flush left), and a two-up page
+    drawn from page 6 and from page 7 has its upper band at 155 as well. The
+    reason is that the gutter and the outside margin are both 0.5 in, so the
+    usable left edge does not move with the gutter side. Plants on ``puzzle_pages``' plans (probe-scoped module, reds beyond the
     two M8 reds): a ``page_number + 1`` plant reds 3, all of them tests added
     here that call ``puzzle_pages`` directly and assert the plan's
     ``page_number`` -- so the position is pinned at that entry only, and still
@@ -1256,7 +1304,7 @@ class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
     ``numbers + 1`` plant reds 34, because it perturbs every test that reads the
     plan's numbers; that is not the review's 2, whose plant I did not
     reproduce. ``test_the_band_left_edge_does_not_depend_on_page_parity`` pins
-    the 1061 fact
+    the 155 fact
     so a change to the centring is noticed, and its control moves the edge by
     one pixel (``shift_px=1``) and is refused. Page position is held for single
     pages by the folio test in ``tests/test_book_pdf_levels.py``; nothing in this file reads a two-up page's folio.
@@ -1343,23 +1391,28 @@ class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
         assert self._single(1, "Easy").dpi == self._two_up().dpi == 300
 
     def test_the_band_left_edge_does_not_depend_on_page_parity(self):
-        """Declared residue, measured (see the class docstring): 1061 on pages
-        5 to 8, for the reference and for the two-up page's upper band."""
+        """Declared residue, measured (see the class docstring): 155 on pages
+        5 to 8, for the reference and for the two-up page's upper band.
+
+        CARD-207: the band's leftmost ink is the header's "Puzzle N", set flush
+        with the usable left edge (150 px, the gutter and the outside margin
+        both being 0.5 in) plus the "P"'s side bearing; it was 1061 while the
+        line was centred."""
         puzzle = _puzzle(**_SMALL_PAIR)
         lefts = {
             page: _reference_band(puzzle, page, "Puzzle 1 · Easy", like=self.STREAM).left
             for page in (5, 6, 7, 8)
         }
-        assert set(lefts.values()) == {1061}, lefts
+        assert set(lefts.values()) == {155}, lefts
         for first in (6, 7):
             two_up = interior_images([self._two_up(first)])[0]
-            assert _band_ink(two_up, TOP_MM).left == 1061, first
+            assert _band_ink(two_up, TOP_MM).left == 155, first
         # The control, just past the bound: one pixel moves the edge, and the
         # comparison used by AC-251 refuses it.
         moved = _reference_band(
             puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM, shift_px=1
         )
-        assert moved.left == 1062
+        assert moved.left == 156
         assert not _same_ink(
             moved, _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
         )
@@ -1436,9 +1489,14 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
     SPARE_ABOVE = 0.42
 
     #: The gap between the two top rows on this fixture, in device pixels
-    #: (16.34 mm). Pinned as a literal *beside* the derivation in the test
-    #: below, so a drift has to move two independent answers to stay green.
-    ROW_GAP_PX = 193
+    #: (13.38 mm; 193 px, 16.34 mm, before the two-up page left
+    #: :data:`TWO_UP_RULE_GAP_MM` below the upper band's foot). Pinned as a
+    #: literal *beside* the derivation in the test below, so a drift has to
+    #: move two independent answers to stay green.
+    ROW_GAP_PX = 158
+
+    #: The upper slot's own top row: its band's foot plus the two-up gap.
+    UPPER_ROW_MM = TOP_MM + BAND_MM + _two_up_gap_mm(26)
 
     #: How far inside each of the area's two rules the ink is read, in device
     #: pixels. Each rule is stroked from its own boundary row, so a crop on the
@@ -1509,10 +1567,10 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         depth_mm = _down(_puzzle(**self.BIG)) * _mm(single.cell)
         spare_mm = (self.AREA_BOTTOM_MM - self.AREA_TOP_MM) - depth_mm
         assert spare_mm > 20.0, (spare_mm, "this page must have real spare")
-        return self.AREA_TOP_MM + self.SPARE_ABOVE * spare_mm - (TOP_MM + BAND_MM)
+        return self.AREA_TOP_MM + self.SPARE_ABOVE * spare_mm - self.UPPER_ROW_MM
 
     def test_the_two_top_rows_differ_by_the_single_pages_own_float(self):
-        """AC-378's own claim: the two rows are 193 px -- 16.34 mm -- apart, which
+        """AC-378's own claim: the two rows are 158 px -- 13.38 mm -- apart, which
         is the figure the two placements predict, and not merely unequal."""
         pages = self._pages()
 
@@ -1589,10 +1647,12 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
             if isinstance(raw[5], ContentStream)
             else upper.top
         )
+        # The upper slot's own row is its band's foot plus the two-up gap, so
+        # a single page pinned to the band's foot sits one gap ABOVE it.
         retired_gap_mm = (TOP_MM + BAND_MM) - _mm(top_edge_px)
-        assert abs(retired_gap_mm) < 0.2, (
+        assert abs(retired_gap_mm + _two_up_gap_mm(26)) < 0.2, (
             retired_gap_mm,
-            "AC-252's placement really is the upper slot's own row",
+            "AC-252's placement really is the upper slot's own row, less the gap",
         )
         assert retired_gap_mm != pytest.approx(self._predicted_gap_mm(single), abs=0.2), (
             "the retired fixed top edge would pass the gap assertion"
@@ -1627,12 +1687,17 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         the bound on either side (-1.23 and +0.77 px), where the old first-
         inked-line reading could not tell a 1 px shift from the 2.73 px it
         already carried.
+
+        **Since the two-up gap** the stated row is the band's foot plus
+        :data:`TWO_UP_RULE_GAP_MM` floored to whole pixels (35 px), so the
+        drawing keeps its old sub-pixel phase and the boundary still measures
+        -0.23 px against the stated row.
         """
         pages = self._pages()
         upper, _ = drawings_of(pages[5])
         boundary = frame_centre_of(pages[5], upper)
 
-        stated_px = (TOP_MM + BAND_MM) * PX_PER_MM
+        stated_px = self.UPPER_ROW_MM * PX_PER_MM
         error_px = boundary.frame_top - stated_px
         assert abs(error_px) <= 0.5 + 1e-9, (error_px, "the frame is not on the row")
         # The measured figure, written in the test (ADR-0039/R3).
@@ -1664,11 +1729,13 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         )
         pages = interior_images(raw)
         upper, lower = drawings_of(pages[5])
-        stated = (TOP_MM + BAND_MM) * PX_PER_MM
+        stated = self.UPPER_ROW_MM * PX_PER_MM
         boundary = frame_centre_of(pages[5], upper)
 
         assert boundary.top_rule_px == 6, "the frame rule was read, not assumed"
         if isinstance(raw[5], ContentStream):
+            # Unchanged by the two-up gap: it is whole pixels (35 px), so the
+            # stated row moves with the drawing.
             ink_error, boundary_error = -2.73, -0.23
         else:
             ink_error, boundary_error = +0.27, +0.77

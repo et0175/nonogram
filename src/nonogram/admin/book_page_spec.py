@@ -177,7 +177,8 @@ MIN_SIDE_MARGIN_MM = 6.35
 
 #: ADR-0037/R2's three rule weights for a book puzzle grid, **the owner's own
 #: figures** from the artifact "Puzzle page layout" (2026-10-14): 0.3 pt cell
-#: lines in grey, 0.8 pt every fifth line, 1.3 pt outer border. Stated once,
+#: lines in grey, 0.8 pt every fifth line (raised to 1.1 pt by the owner on
+#: 2026-11-08, so the fifths read clearly), 1.3 pt outer border. Stated once,
 #: here, and read by every book-side sheet through :data:`BOOK1_PROFILE`.
 #:
 #: **Confirmed by the owner on 2026-10-25** against the alternative that stood
@@ -203,7 +204,7 @@ MIN_SIDE_MARGIN_MM = 6.35
 #: cell lines read as light guidance under them.
 GRID_RULES = GridRules(
     cell=GridRule(width_pt=0.3, grey=0.35),
-    fifth=GridRule(width_pt=0.8, grey=0.0),
+    fifth=GridRule(width_pt=1.1, grey=0.0),
     border=GridRule(width_pt=1.3, grey=0.0),
 )
 

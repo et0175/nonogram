@@ -27,6 +27,7 @@ from PIL import Image
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
 from nonogram import clues
+from tests.helpers.pdf_vector import header_lines
 
 #: The literals the criteria are checked against.
 CUSTOM_TITLE = "First snow on the hill"
@@ -627,30 +628,16 @@ def _make_undrawable(app, puzzle_id):
     app.puzzle_review_service.puzzles[puzzle_id]["clues_rows"] = 12
 
 
-#: One text object in a content stream: ``/F1 <size> Tf <x> <y> Td (<text>) Tj``.
-_SHOWN = re.compile(
-    r"/\w+\s+-?\d+(?:\.\d+)?\s+Tf\s+-?\d+(?:\.\d+)?\s+(?P<y>-?\d+(?:\.\d+)?)\s+Td\s+"
-    r"\((?P<text>(?:\\.|[^()\\])*)\)\s+Tj"
-)
-
-#: The band's own shape, written as a pattern rather than built with the
-#: ``BAND`` template the assertions below compare against.
-_BAND_TEXT = re.compile(r"Puzzle \d+ \u00b7 \w+")
-
-
 def _bands_written_on(stream):
     """The band lines an operators puzzle page SHOWS, upper line first.
 
     Read from the stream the generator wrote, not from ``band_identity``'s
     return: a band that is composed correctly and written elsewhere, or not at
-    all, does not appear here.
+    all, does not appear here. Since CARD-207's header the line is set as two
+    pieces (the emboldened number flush left, the tier in capitals flush
+    right); ``header_lines`` joins them back into the band's line.
     """
-    found = [
-        (float(match.group("y")), match.group("text"))
-        for match in _SHOWN.finditer(stream.render().decode("cp1252"))
-        if _BAND_TEXT.fullmatch(match.group("text"))
-    ]
-    return [text for _, text in sorted(found, reverse=True)]
+    return header_lines(stream.render().decode("cp1252"))
 
 
 def _bands_the_export_prints(app, client, monkeypatch, book_id, arms=None):
@@ -1010,9 +997,13 @@ class TestBookDetail_TheBandReadingFollowsTheMedium:
         from nonogram.admin.book_vector import ContentStream
 
         stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
-        stream.text("Puzzle 2 \u00b7 Hard", 300, 2000, 14.0)
-        stream.text("Puzzle 1 \u00b7 Easy", 300, 400, 14.0)
+        stream.text("Puzzle 2", 300, 2000, 14.0, embolden_pt=0.5)
+        stream.text("HARD", 2000, 2000, 10.5)
+        stream.text("Puzzle 1", 300, 400, 14.0, embolden_pt=0.5)
+        stream.text("EASY", 2000, 400, 10.5)
+        # Not a header: an un-emboldened number (a contents row), and a tier
+        # word on no number's baseline.
         stream.text("Puzzle 3", 300, 800, 14.0)
-        stream.text("Hard", 300, 900, 14.0)
+        stream.text("HARD", 2000, 900, 10.5)
         assert _bands_written_on(stream) == ["Puzzle 1 \u00b7 Easy", "Puzzle 2 \u00b7 Hard"][::-1][::-1]
         assert _bands_written_on(ContentStream(width_px=10, height_px=10, dpi=300)) == []

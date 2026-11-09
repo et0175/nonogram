@@ -41,10 +41,11 @@ silently.
 
 from __future__ import annotations
 
+import math
 import random
 
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
 from nonogram.admin.book_vector import ContentStream
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -173,6 +174,10 @@ POINT_MM = 25.4 / 72
 FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * POINT_MM
 #: FR-032's optical figure (AC-366/AC-367).
 SPARE_ABOVE = 0.42
+#: The most room a two-up page leaves between a rule and a drawing
+#: (``export.layout.TWO_UP_RULE_GAP_MM``, written out: this module imports no
+#: geometry). See :func:`_two_up_rule_gap_mm`.
+TWO_UP_RULE_GAP_MM = 3.0
 #: How close to zero spare this module stops predicting which of the two rows
 #: the drawing takes: a few device pixels of stroke clearance, declared
 #: generously as 2 mm because the exact figure is the heavy rule's and this
@@ -457,6 +462,34 @@ def _extent(puzzle: dict) -> tuple[int, int, int, int]:
     row_depth, column_depth = _clue_depths(puzzle["_rows"], puzzle["_columns"])
     columns, rows = puzzle["width"], puzzle["height"]
     return columns, rows, row_depth + columns, column_depth + rows
+
+
+def _two_up_rule_gap_mm(
+    sheet: Sheet, upper: tuple[int, int, int, int], lower: tuple[int, int, int, int]
+) -> float:
+    """The room a two-up page leaves below each band's foot, from the sheet's millimetres.
+
+    ``upper``/``lower`` are :func:`_extent` tuples. FR-040's shared cell is
+    the largest, capped, at which both drawings fit the pair's height (the
+    usable height less both bands and the footer strip) and the usable width;
+    and, where the lower drawing would leave less than the folio's fixed
+    reserve (``_folio_reserve_px``, the generator's own figure) of spare
+    width, the cell is re-fitted as though the usable width were that much
+    narrower. The vertical slack that cell leaves pays for the gap, which is
+    ``TWO_UP_RULE_GAP_MM`` capped at a quarter of that slack (three gaps
+    spent, at least one more left between the slots), floored to a whole
+    device pixel so the drawing keeps its band foot's sub-pixel phase.
+    """
+    down = upper[3] + lower[3]
+    across = max(upper[2], lower[2])
+    pair_height_mm = sheet.height_mm - TOP_MM - BOTTOM_MM - FOOTER_STRIP_MM - 2 * BAND_MM
+    width_mm = sheet.usable_width_mm
+    cell = min(STANDARD_CELL_MM, pair_height_mm / down, width_mm / across)
+    folio_reserve_mm = _folio_reserve_px(300) / PX_PER_MM
+    if width_mm - lower[2] * cell < folio_reserve_mm:
+        cell = min(STANDARD_CELL_MM, pair_height_mm / down, (width_mm - folio_reserve_mm) / across)
+    slack_mm = pair_height_mm - down * cell
+    return math.floor(min(TWO_UP_RULE_GAP_MM, max(slack_mm, 0.0) / 4) * PX_PER_MM) / PX_PER_MM
 
 
 def _trim_px(sheet: Sheet) -> tuple[float, float]:
@@ -957,16 +990,20 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
 
     FR-040 lets two puzzles of one tier share a page. The clause this property
     states about such a page is that **the upper puzzle's** drawing top edge is
-    the band's own foot — top margin plus band — on every two-up page, whatever
-    the pair holds. Both drawings are still portrait and unrotated.
+    one two-up rule gap below the band's own foot — top margin plus band plus
+    ``TWO_UP_RULE_GAP_MM``, capped at a quarter of the pair's vertical slack
+    (:func:`_two_up_rule_gap_mm`) — on every two-up page; the band's foot
+    itself is one row whatever the pair holds, while the gap below it follows
+    the pair's slack. Both drawings are still portrait and unrotated.
 
     **CARD-224 split this claim in two, and the split is the point.** A
     *single* puzzle page's drawing now floats at 42% of its puzzle area's
     spare height (FR-032 as amended 2026-10-17), while a two-up slot's stays
-    at its slot's band foot — splitting the page's area between two slots is
+    a rule gap below its slot's band foot — splitting the page's area between two slots is
     CARD-226's, out of that card's scope. This corpus holds pages of both
     kinds, so the expected top edge is chosen per page kind below: the band's
-    foot for a two-up page, the sheet's own 42% figure for a single one.
+    foot plus the rule gap for a two-up page, the sheet's own 42% figure for a
+    single one.
     **AC-252, which asserted the two were equal, is retired** (2026-10-17/18,
     with AC-190): **AC-378** states that the two rows differ and is pinned by
     ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``
@@ -1025,6 +1062,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     boundary_errors: list[float] = []
     sample = None
     two_up_tops: set[int] = set()
+    two_up_band_feet: set[int] = set()
     single_tops: set[int] = set()
     index = 0
     # title 1 (CARD-206), guide 2-3, the TOC, the "Easy" divider
@@ -1045,7 +1083,8 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
             assert (drawing.columns, drawing.rows) == (columns, rows), (page_number, offset)
             counted += 1
         if len(drawings) == 2:
-            # A two-up page's upper slot starts on the band's own foot.
+            # A two-up page's upper slot starts one rule gap below the band's
+            # own foot (the gap derived from the pair's slack, not read back).
             #
             # **CARD-322 (owner ruling 2026-11-06, one reading on the one
             # remaining medium) re-expressed the cell CARD-336 left on the ink
@@ -1057,16 +1096,21 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
             # pages); the interior has one medium now, and the claim is the
             # one reading it always had: the frame BOUNDARY (the centre of
             # the frame's top rule, ``frame_centre_of``) lies within half a
-            # pixel of the band's foot. Its control is below the loop: the
-            # same page moved one pixel is read again and leaves the bound.
+            # pixel of the band's foot plus the two-up rule gap (a whole
+            # number of pixels, so the half-pixel bound is unchanged). Its
+            # control is below the loop: the same page moved one pixel is
+            # read again and leaves the bound.
+            gap_mm = _two_up_rule_gap_mm(sheet, first_extent, _extent(puzzles[index + 1]))
+            expected_top_mm = band_foot_mm + gap_mm
             boundary_top_px = frame_centre_of(page, drawings[0]).frame_top
             boundary_top_mm = _mm(boundary_top_px)
-            assert abs(boundary_top_mm - band_foot_mm) <= HALF_PIXEL_MM + 1e-9, (
-                page_number, boundary_top_mm, band_foot_mm
+            assert abs(boundary_top_mm - expected_top_mm) <= HALF_PIXEL_MM + 1e-9, (
+                page_number, boundary_top_mm, expected_top_mm
             )
-            boundary_errors.append(abs(boundary_top_px - band_foot_mm * PX_PER_MM))
-            sample = sample or (page, band_foot_mm * PX_PER_MM)
+            boundary_errors.append(abs(boundary_top_px - expected_top_mm * PX_PER_MM))
+            sample = sample or (page, expected_top_mm * PX_PER_MM)
             two_up_tops.add(drawings[0].top)
+            two_up_band_feet.add(drawings[0].top - round(gap_mm * PX_PER_MM))
             two_up += 1
             assert drawings[1].top > drawings[0].top, "the lower slot is below it"
         else:
@@ -1091,7 +1135,9 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
         index += len(drawings)
         page_number += 1
 
-    assert len(two_up_tops) == 1, "every two-up page's upper slot shares one row"
+    # The band's foot is the one shared row; the drawing below it moves with
+    # its own pair's rule gap.
+    assert len(two_up_band_feet) == 1, "every two-up page's upper slot shares one row"
     assert len(single_tops) > 1, (
         "FR-032's fixed top edge is retired (AC-190): single pages of "
         "different depths float to different rows"
@@ -1101,7 +1147,8 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     )
     assert counted == len(puzzles), counted
     # The measured figures, written in the test (ADR-0039/R3): every two-up
-    # boundary reading is inside half a device pixel of the band's foot.
+    # boundary reading is inside half a device pixel of the band's foot plus
+    # its pair's rule gap.
     assert boundary_errors and max(boundary_errors) <= 0.5 + 1e-9, boundary_errors
     # The control that can fail: the first two-up page moved ONE pixel down is
     # read by the same calls and its boundary leaves the half-pixel bound.

@@ -61,8 +61,9 @@ CARD-224) — degrading to the band's foot, one band below the top margin, on a
 sheet whose area cannot hold the drawing clear of both of its rules. It hung at
 the band's foot unconditionally until CARD-224, and that fixed row survives
 here only as :func:`_fixed_top_mm`, the control the placement ACs need. A
-two-up slot and a packed answer tile still start at their own slot's band foot;
-only a *single* page's drawing floats. Nothing in :func:`_expected_box` reads
+two-up slot starts one two-up rule gap (``TWO_UP_RULE_GAP_MM``) below its own
+slot's band foot and a packed answer tile at its own; only a *single* page's
+drawing floats. Nothing in :func:`_expected_box` reads
 ``compute_layout``, so a frame in the right place is two answers agreeing
 rather than one answer restated.
 
@@ -116,6 +117,7 @@ from nonogram.export.layout import (
     GridRules,
     OrientationPolicy,
     PageParity,
+    TWO_UP_RULE_GAP_MM,
     PageSpec,
     compute_layout,
     compute_pair_layout,
@@ -185,14 +187,15 @@ MIN_THIN_RULE_MM = 0.25
 
 #: ADR-0037/R2's three grid-rule weights and their tones, exactly as the
 #: owner's artifact "Puzzle page layout" states them — 0.3 pt cell lines in
-#: grey, 0.8 pt every fifth, 1.3 pt border — and **written out here rather
+#: grey, 1.1 pt every fifth (0.8 pt until the owner raised it on 2026-11-08),
+#: 1.3 pt border — and **written out here rather
 #: than imported**, for the reason every other CON-018 figure in this file is
 #: written out: :func:`_spec` is the profile stated independently of the
 #: panel, so a spec that borrowed the panel's own ``GRID_RULES`` object would
 #: make ``test_the_profile_is_the_panels_sheet`` compare a value with itself.
 GRID_RULES = GridRules(
     cell=GridRule(width_pt=0.3, grey=0.35),
-    fifth=GridRule(width_pt=0.8, grey=0.0),
+    fifth=GridRule(width_pt=1.1, grey=0.0),
     border=GridRule(width_pt=1.3, grey=0.0),
 )
 
@@ -815,10 +818,15 @@ class TestPuzzleFrame_PairIsFramedPerPuzzle:
 
         assert pair.upper.frame.left == single.frame.left, "both are centred alike"
         # CARD-224: the single page's drawing floats at 42% of its puzzle
-        # area's spare while the slot's sits at its slot's band foot, so the
-        # two tops are a known distance apart instead of equal — the slot's
-        # is the band's foot, and the single page's is lower.
-        assert pair.upper.frame.top == pair.upper.page.band_bottom
+        # area's spare while the slot's sits one rule gap
+        # (TWO_UP_RULE_GAP_MM) below its slot's band foot, so the two tops
+        # are a known distance apart instead of equal — the slot's is the
+        # band's foot plus that gap, and the single page's is lower.
+        assert pair.upper.frame.top == pair.upper.page.drawing_top
+        assert abs(
+            (pair.upper.frame.top - pair.upper.page.band_bottom) * 25.4 / DPI
+            - TWO_UP_RULE_GAP_MM
+        ) <= 25.4 / DPI
         assert single.frame.top > pair.upper.frame.top
         assert pair.upper.frame.width == single.frame.width
 
@@ -845,8 +853,8 @@ USABLE_WIDTH_MM = BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM
 #: as this page's own pixels: 117 px, 9.878 mm; 353 px, 29.878 mm before CARD-392), and the height its two
 #: drawings are left with. The strip carries both puzzles' QR groups and the
 #: page's folio, so it comes out of the pair's height before anything is
-#: fitted — and the lower slot's drawing now stops on the footer rule rather
-#: than on the bottom margin. Written out here, as this file writes every
+#: fitted — and the lower slot's drawing now stops one two-up rule gap above
+#: the footer rule rather than on the bottom margin. Written out here, as this file writes every
 #: other figure out.
 FOOTER_STRIP_PX = 117
 FOOTER_STRIP_MM = FOOTER_STRIP_PX / PX_PER_MM
@@ -1030,6 +1038,21 @@ def _shared_cell_mm(upper: dict, lower: dict) -> float:
     )
 
 
+def _two_up_rule_gap_mm(upper: dict, lower: dict) -> float:
+    """The room a two-up page leaves between each drawing and the rule above it.
+
+    Each two-up drawing sits ``TWO_UP_RULE_GAP_MM`` below its own band's foot,
+    and the lower one ends the same gap above the footer reserve, so neither
+    touches the header, band or footer rule — capped at a quarter of the
+    vertical slack the fit left (three gaps spent, at least one more left
+    between the slots), so the gap never changes the cell or the pairing.
+    Written out from the page's millimetres rather than read from
+    ``compute_pair_layout``.
+    """
+    slack_mm = PAIR_HEIGHT_MM - (_down(upper) + _down(lower)) * _shared_cell_mm(upper, lower)
+    return min(TWO_UP_RULE_GAP_MM, max(slack_mm, 0.0) / 4)
+
+
 def _expected_pair_boxes(
     upper: dict,
     lower: dict,
@@ -1049,13 +1072,15 @@ def _expected_pair_boxes(
     moved up to half a pixel in the direction the answer is about.
 
     Each drawing is **centred** across the usable width (CARD-224, FR-032) on
-    the **shared** cell; the upper one's top edge is its own slot's band foot
-    (top margin plus band — the row every placed drawing used before CARD-224,
-    and the row a two-up slot still uses: the 42% float is the single page's,
-    and splitting a page's puzzle area between two slots is CARD-226's) and the
-    lower one's bottom edge is the **footer rule** — one
+    the **shared** cell; the upper one's top edge is one two-up rule gap
+    (``TWO_UP_RULE_GAP_MM``, capped at a quarter of the pair's vertical slack)
+    below its own slot's band foot (top margin plus band — the row every placed
+    drawing used before CARD-224: the 42% float is the single page's, and
+    splitting a page's puzzle area between two slots is CARD-226's) and the
+    lower one's bottom edge is that gap above the **footer rule** — one
     :data:`FOOTER_STRIP_MM` above the bottom margin since CARD-248, where it
-    was the margin itself before — with its own band in the 12 mm above it,
+    was the margin itself before — with its own band in the 12 mm above its
+    drawing's top less that gap,
     which is the placement ``tests/test_book_pdf_two_up.py`` states AC-251's
     lower band from.
 
@@ -1092,15 +1117,18 @@ def _expected_pair_boxes(
             (top_mm + _down(puzzle) * cell) * PX_PER_MM,
         )
 
+    gap_mm = _two_up_rule_gap_mm(upper, lower)
+
     return (
-        box(upper, TOP_MM + BAND_MM),
+        box(upper, TOP_MM + BAND_MM + gap_mm),
         box(
             lower,
-            # CARD-248: the lower drawing's bottom edge is the **footer rule**
-            # — one 29.878 mm strip above the bottom margin — not the margin
-            # itself, because the page now reserves a footer carrying both
-            # puzzles' QR groups and its own folio.
-            BOOK1_HEIGHT_MM - BOTTOM_MM - FOOTER_STRIP_MM - _down(lower) * cell,
+            # CARD-248: the lower drawing's bottom edge sits above the
+            # **footer rule** — one footer strip above the bottom margin —
+            # not on the margin itself, because the page now reserves a
+            # footer carrying both puzzles' QR groups and its own folio; and
+            # one rule gap above that rule, so the two do not touch.
+            BOOK1_HEIGHT_MM - BOTTOM_MM - FOOTER_STRIP_MM - gap_mm - _down(lower) * cell,
             is_lower=True,
         ),
     )
@@ -1164,7 +1192,8 @@ def _runs_down(dark: np.ndarray, column: int, lo: int, hi: int) -> list[list[int
 #: FR-032's fixed-top-edge clause (AC-378/AC-379). A 20 px window above the
 #: drawing's top edge therefore reached that rule and read it as the frame's
 #: own top side; the drawings this constant is used on are measured at their
-#: own slot's band foot, so the float does not move the figure.
+#: own slot's band foot (plus the two-up rule gap, which only moves them
+#: further from that rule), so the float does not move the figure.
 #: Measured, not guessed: the heaviest rule the book strokes is 6 px, so 12 px
 #: is twice the widest a rule can be and still 6 px clear of the header rule.
 _RULE_WINDOW_PX = 12
@@ -1326,13 +1355,19 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
     """Every frame rule on a printed pair is the heavy weight, and pure black."""
 
     #: The owner's three declared grid weights in points (ADR-0037/R2 as
-    #: amended 2026-10-17, CARD-227: 0.3 pt grey cell lines, 0.8 pt every fifth
-    #: line, 1.3 pt outer border). Written out, not imported from the writer.
-    DECLARED_PT = (0.3, 0.8, 1.3)
+    #: amended 2026-10-17, CARD-227: 0.3 pt grey cell lines, 1.1 pt every fifth
+    #: line — 0.8 pt until the owner raised it on 2026-11-08 — 1.3 pt outer
+    #: border). Written out, not imported from the writer.
+    DECLARED_PT = (0.3, 1.1, 1.3)
     #: What poppler inks them as at 300 DPI, MEASURED on this page (CARD-322,
     #: CARD-342's finding): 2 / 4 / 6 pixel runs, grey 89 for the first and
-    #: pure black for the other two, no blend pixels. It is ceil(pt*300/72) =
-    #: ceil(1.25), ceil(3.33), ceil(5.42).
+    #: pure black for the other two, no blend pixels. For the thin and border
+    #: weights that is ceil(pt*300/72) = ceil(1.25), ceil(5.42); the 1.1 pt
+    #: fifth (4.58 px nominal) still inks as a 4 px run, as the 0.8 pt fifth
+    #: (3.33 px) did — re-measured on 2026-11-08 across every grid rule of
+    #: this book's pages, so the raster tells the fifth from its neighbours by
+    #: run width but not the new figure from the old: the STREAM tests below
+    #: are what pin 1.1 pt.
     MEASURED_PX = (2, 4, 6)
 
     @staticmethod
@@ -1394,7 +1429,7 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
         return pdf_vector.stroke_widths("\n".join(raw[TWO_UP_PAGE - 1].operators))
 
     def test_the_two_up_stream_strokes_the_three_declared_weights(self) -> None:
-        """Exact widths from the STREAM: 0.3, 0.8 and 1.3 pt, thin < fifth < border."""
+        """Exact widths from the STREAM: 0.3, 1.1 and 1.3 pt, thin < fifth < border."""
         widths = self._two_up_stream_widths()
         assert self.weight_findings(widths) == []
         assert self.DECLARED_PT[0] < self.DECLARED_PT[1] < self.DECLARED_PT[2]
@@ -1406,9 +1441,9 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
         for weight in self.DECLARED_PT:
             planted = [w for w in widths if round(w, 4) != weight]
             assert self.weight_findings(planted), weight
-        merged = [0.3 if round(w, 4) == 0.8 else w for w in widths]
+        merged = [0.3 if round(w, 4) == 1.1 else w for w in widths]
         assert self.weight_findings(merged), "fifth merged into thin"
-        merged = [1.3 if round(w, 4) == 0.8 else w for w in widths]
+        merged = [1.3 if round(w, 4) == 1.1 else w for w in widths]
         assert self.weight_findings(merged), "fifth merged into border"
 
     def test_a_grid_row_shows_exactly_the_three_weights_at_their_positions(self, pages) -> None:
@@ -1417,15 +1452,15 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
         for drawing in drawings_of(pages[TWO_UP_PAGE - 1]):
             row = drawing.grid_top + round(drawing.cell / 2)
             runs = _runs_across(dark, row, drawing.grid_left, drawing.grid_right + _RULE_WINDOW_PX)
-            assert self.weight_findings([0.3, 0.8, 1.3], runs) == []
+            assert self.weight_findings(list(self.DECLARED_PT), runs) == []
             assert self._weights(dark, drawing) == self.MEASURED_PX
             # Plants on the row itself: an extra genuine run width, and two
             # weights merged (every fifth rule drawn as a thin one).
             extra = [list(run) for run in runs]
             extra[1] = extra[1] + [extra[1][-1] + 1]
-            assert self.weight_findings([0.3, 0.8, 1.3], extra)
+            assert self.weight_findings(list(self.DECLARED_PT), extra)
             flat = [list(run)[:2] if len(run) == 4 else list(run) for run in runs]
-            assert self.weight_findings([0.3, 0.8, 1.3], flat)
+            assert self.weight_findings(list(self.DECLARED_PT), flat)
 
     def test_every_frame_side_is_the_border_weight_and_no_new_weight(self, pages) -> None:
         page = pages[TWO_UP_PAGE - 1]
@@ -1603,8 +1638,9 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
             assert drawing.cell / PX_PER_MM == pytest.approx(expected, abs=0.05)
 
     def test_the_upper_slot_still_starts_on_the_bands_own_foot(self, pages) -> None:
-        """CARD-118's EC-022, as CARD-224 leaves it: top margin plus band on a
-        pair, where a single page's drawing now floats below that row.
+        """CARD-118's EC-022, as CARD-224 leaves it: top margin plus band (plus
+        the two-up rule gap, ``TWO_UP_RULE_GAP_MM``) on a pair, where a single
+        page's drawing now floats below that row.
 
         The equality this test asserted until CARD-224 (``upper.top ==
         alone.top``, AC-252's own claim) is false by that card's design: the
@@ -1622,7 +1658,10 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
         upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
         alone = drawing_of(pages[SINGLE_PAGE - 1])
 
-        assert abs(upper.top / PX_PER_MM - (TOP_MM + BAND_MM)) <= 0.5
+        # The row is the band's foot plus the two-up rule gap since the slots
+        # stopped sitting flush against the rules above them.
+        gap_mm = _two_up_rule_gap_mm(UPPER_PUZZLE, LOWER_PUZZLE)
+        assert abs(upper.top / PX_PER_MM - (TOP_MM + BAND_MM + gap_mm)) <= 0.5
         assert alone.top > upper.top, "the single page's drawing floats below it"
         assert lower.top > upper.top, "the lower slot is a second drawing below it"
 
@@ -2475,14 +2514,14 @@ class TestBookPuzzleFrame_GridClearsBothRules:
     the frame's two rules really drawn on them, so the sweep's own model of
     where those rules are cannot be the only evidence.
 
-    **One declared exception, measured rather than excluded.** A two-up page's
-    *lower* slot has its drawing's bottom edge exactly on the footer rule:
-    CARD-248 reserves one footer strip out of the pair's height, so that
-    boundary and the hairline are the same row, and the slot's heavy border is
-    stroked on it. That is the pairing geometry's own doing, and repacking two
-    slots is CARD-226's (this card's G-4). The ink test below asserts the
-    coincidence instead of skipping the page, so it fails if it ever becomes a
-    gap or an overlap.
+    **The exception once declared here is retired.** A two-up page's *lower*
+    slot used to have its drawing's bottom edge exactly on the footer rule
+    (CARD-248 reserved one footer strip out of the pair's height, so that
+    boundary and the hairline were the same row), and the ink test below
+    asserted the coincidence so it would fail if it ever became a gap. It
+    has: the lower drawing now ends ``TWO_UP_RULE_GAP_MM`` (capped at a quarter
+    of the pair's slack) above the footer rule, so the ink test holds that
+    slot to the same clearance as every other drawing and measures the gap.
     """
 
     SHEETS = {
@@ -2756,19 +2795,24 @@ class TestBookPuzzleFrame_GridClearsBothRules:
             for position, drawing in enumerate(drawings):
                 assert drawing.top > header_row + 3, (index, drawing.top, header_row)
                 if len(drawings) == 2 and position == 1:
-                    # **A measured, declared exception: a two-up page's lower
-                    # slot sits ON the footer rule, and that is CARD-248's
-                    # geometry, not this card's.** That card reserves exactly
-                    # one footer strip out of the pair's height, so the lower
-                    # drawing's bottom edge *is* the footer rule's own row —
-                    # its heavy border and the hairline are stroked on the
-                    # same pixel. CARD-224 moves a drawing inside its slot and
-                    # does not repack the two slots (its G-4: the slot split
-                    # is CARD-226's), so the exception is recorded here rather
-                    # than silently excluded: this assertion fails if the
-                    # coincidence ever becomes a gap or an overlap, which is
-                    # what a reader of AC-3 needs to know.
-                    assert abs(drawing.grid_bottom - footer_row) <= 3, (
+                    # **The exception this branch used to declare is gone.**
+                    # Until the two-up rule gap, CARD-248's footer strip left
+                    # a two-up page's lower drawing sitting ON the footer
+                    # rule — its heavy border and the hairline stroked on the
+                    # same pixel — and this branch pinned that coincidence so
+                    # it would fail the day it became a gap. It has: the lower
+                    # drawing now ends TWO_UP_RULE_GAP_MM (capped at a quarter
+                    # of the pair's slack) above the footer reserve. So the
+                    # lower slot clears the footer rule like every other
+                    # drawing, and the clearance is that gap, measured: the
+                    # border's leading ink sits up to half its 6 px rule
+                    # inside the box's edge, hence 3 px more than the rows'
+                    # own 3 px of slack.
+                    gap_px = _two_up_rule_gap_mm(UPPER_PUZZLE, LOWER_PUZZLE) * PX_PER_MM
+                    assert drawing.grid_bottom < footer_row - 3, (
+                        index, drawing.grid_bottom, footer_row
+                    )
+                    assert abs((footer_row - drawing.grid_bottom) - gap_px) <= 3 + 3, (
                         index, drawing.grid_bottom, footer_row
                     )
                 else:

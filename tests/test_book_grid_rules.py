@@ -1,7 +1,7 @@
 """The printed grid's three rule weights — CARD-227, ADR-0037/R2.
 
 The owner's artifact "Puzzle page layout" (2026-10-14) asks for a three-weight
-hierarchy: **0.3 pt** cell lines in grey, **0.8 pt** every fifth line on both
+hierarchy: **0.3 pt** cell lines in grey, **1.1 pt** every fifth line (0.8 pt until the owner raised it on 2026-11-08) on both
 axes, **1.3 pt** outer border. The owner confirmed those figures on 2026-10-25
 against the ×1.6-scaled 0.48 / 1.28 / 2.08 pt that stood in their place for
 eight days — a scaling that was never a design opinion but an arithmetic
@@ -44,7 +44,7 @@ evidence. They are measured here, through the same door
 weight                declared   300 DPI inked  1200 DPI inked  tone
 ====================  =========  =============  ==============  =====
 cell line             0.3 pt     2 px           5 px            89
-every fifth line      0.8 pt     4 px           14 px           0
+every fifth line      1.1 pt     4 px           ?? px           0
 outer border          1.3 pt     6 px           22 px           0
 ====================  =========  =============  ==============  =====
 
@@ -87,6 +87,7 @@ from PIL import ImageDraw, Image
 from nonogram.admin import book_vector_draw
 from nonogram.admin.book_page_spec import GRID_RULES
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _stroke_drawing
+from nonogram.admin.book_puzzle_vector import CLUE_SHADE
 from nonogram.admin.book_vector import POINTS_PER_INCH, write_vector_pdf
 from nonogram.export import png
 from nonogram.export.layout import (
@@ -125,7 +126,7 @@ A_PUZZLE_PAGE = 6
 #: against these literals, so the production constant and the artifact are two
 #: statements that have to agree rather than one read twice.
 CELL_PT = 0.3
-FIFTH_PT = 0.8
+FIFTH_PT = 1.1
 BORDER_PT = 1.3
 CELL_GREY = 0.35
 HEAVY_GREY = 0.0
@@ -151,6 +152,11 @@ CELL_GREY_BYTE = 89
 #: a few levels off white, and counting it as ink would make a 2 px rule read
 #: as 4. 250 keeps the faintest *chosen* tone (89) and drops the fringe.
 PAPER_LEVEL = 250
+
+#: The same margin under the clue gutters' tint (CARD-207 scope:
+#: ``book_puzzle_vector.CLUE_SHADE``), which is paper too: the border's outer
+#: edge on the row-clue side lies on it, and 241 reads as ink against 250.
+TINT_PAPER_LEVEL = round(255 * CLUE_SHADE) - (255 - PAPER_LEVEL)
 
 
 class Drawn:
@@ -247,7 +253,15 @@ class Drawn:
         if not sheet:
             return every
         assert every[-len(sheet):] == sheet, (every[-len(sheet):], sheet)
-        return every[: -len(sheet)]
+        # The header (CARD-207 scope) is drawn after the grid and before the
+        # furniture, opening at its emboldened number (``2 Tr``); it sets one
+        # width, its difficulty dots' ring, so it is taken off by position too
+        # and checked by what follows it: the three dots it rings.
+        head = self.text.index("BT 2 Tr ")
+        header = pdf_vector.stroke_widths(self.text[head:])[: -len(sheet)]
+        assert len(header) == 1, header
+        assert pdf_vector.operator_tally(self.text[head:])["B"] == 3, header
+        return every[: -len(sheet) - len(header)]
 
     def stroke_tones(self) -> list[float]:
         """Every stroke tone (``G``) the page sets, in order."""
@@ -284,12 +298,14 @@ class Drawn:
         reach = max(2, int(layout.cell * scale / 2) - 1)
         found: dict[str, Counter] = {"cell": Counter(), "fifth": Counter(), "border": Counter()}
         scanline = page[middle].tolist()
+        tinted = layout.grid_left * scale if self.has_furniture else 0
         for line in layout.vertical_lines:
             centre = int(round(line.position * scale))
             span, darkest = 0, 255
             for offset in range(-reach, reach + 1):
                 index = centre + offset
-                if 0 <= index < len(scanline) and scanline[index] < PAPER_LEVEL:
+                paper = TINT_PAPER_LEVEL if index < tinted else PAPER_LEVEL
+                if 0 <= index < len(scanline) and scanline[index] < paper:
                     span += 1
                     darkest = min(darkest, scanline[index])
                 elif span and offset > 0:
@@ -329,7 +345,7 @@ def at_the_floor(tmp_path_factory) -> Drawn:
 
 
 class TestBookGridRules_HasThreeWeights:
-    """AC-1: ordinary cell lines 0.3 pt, every fifth 0.8 pt, border 1.3 pt.
+    """AC-1: ordinary cell lines 0.3 pt, every fifth 1.1 pt, border 1.3 pt.
 
     **Read from the stream, not off ink** (ADR-0042/R6). The generator stated
     these numbers; recovering them by counting dark pixels would be the
@@ -428,7 +444,7 @@ class TestBookGridRules_HasThreeWeights:
         """
         for label, (cell, fifth, border) in (
             ("fifth ties the cell line", (0.3, 0.3, 1.3)),
-            ("border ties the fifth", (0.3, 0.8, 0.8)),
+            ("border ties the fifth", (0.3, 1.1, 1.1)),
             ("inverted", (1.3, 0.8, 0.3)),
         ):
             with pytest.raises(ValueError, match="three distinct rule weights"):
@@ -630,7 +646,7 @@ class TestBookGridRules_FifthLinesOnBothAxes:
     def test_the_stream_strokes_both_axes_at_the_fifth_weight(
         self, ragged: Drawn
     ) -> None:
-        """The stream half: 0.8 pt is really set, and on lines of both axes.
+        """The stream half: 1.1 pt is really set, and on lines of both axes.
 
         Read out of the written PDF rather than off the ``Layout`` alone,
         because "COMP-007 tiered it" and "the page was stroked at it" are two
@@ -698,7 +714,7 @@ class TestBookGridRules_RaggedLastBand:
 
         A 20-wide grid's far boundary is index 20, which **is** a multiple of
         five. Tiered by the modulo alone it would be a fifth line, and the
-        page would close on a 0.8 pt edge instead of a 1.3 pt one. The 22-wide
+        page would close on a 1.1 pt edge instead of a 1.3 pt one. The 22-wide
         case above cannot see that: 22 is not a multiple of five, so it passes
         under either rule.
         """
@@ -825,9 +841,14 @@ class TestBookGridRules_PointsNotPixels:
                 ("border", BORDER_PT),
             ):
                 declared = points * dpi / 72
+                # The heavy tiers may ink one pixel under their declared width:
+                # since the fifth line went to 1.1 pt (4.58 px at 300 DPI) the
+                # renderer's phase inks it 4. The cell line keeps the strict
+                # floor, because its 1 px dropout is the defect AC-6 is for.
+                floor = declared if tier == "cell" else declared - 1
                 assert spans[tier], (tier, dpi)
                 for span, _dark in spans[tier]:
-                    assert declared <= span <= declared + 2, (
+                    assert floor <= span <= declared + 2, (
                         tier,
                         dpi,
                         declared,
@@ -969,7 +990,7 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
         5 px at 1200 DPI, over the floor, and the door lets it through.
         """
         assert rasterise_rule_px(CELL_PT, 1200) == 5
-        assert rasterise_rule_px(FIFTH_PT, 300) == 3
+        assert rasterise_rule_px(FIFTH_PT, 300) == 5
         assert rasterise_rule_px(BORDER_PT, 300) == 5
         assert RASTER_RULE_FLOOR_PX == 2
 
@@ -990,9 +1011,9 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
         with pytest.raises(ValueError, match="at least 2 device pixels"):
             refuse_rasterised_rule(1, CELL_PT, dpi=300)
         # The point exclusion on its own, at a count that CLEARS the floor:
-        # 0.8 pt is 3 px and 1.3 pt is 5 px at 300 DPI, both above 2.
+        # 1.1 pt is 5 px and 1.3 pt is 5 px at 300 DPI, both above 2.
         with pytest.raises(ValueError, match="declared physical"):
-            refuse_rasterised_rule(3, FIFTH_PT, dpi=300)
+            refuse_rasterised_rule(5, FIFTH_PT, dpi=300)
         with pytest.raises(ValueError, match="declared physical"):
             refuse_rasterised_rule(5, BORDER_PT, dpi=300)
         refuse_rasterised_rule(hero.layout.thin_rule, CELL_PT, dpi=300)
@@ -1011,7 +1032,7 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
         """The floor branch, on both sides of its boundary, and its exemption.
 
         Added in fix round 1 for cycle 1's F-002: before it the predicate was
-        a point exclusion, so a 1 px stroke beside a declared 0.8 pt fifth
+        a point exclusion, so a 1 px stroke beside a declared 1.1 pt fifth
         line — the dropout R2's 2026-10-17 amendment refused, just not that
         figure's own count — was **admitted**. It is now a region.
 

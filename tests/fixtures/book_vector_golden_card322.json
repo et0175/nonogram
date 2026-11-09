@@ -1,15 +1,15 @@
 {
   "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
   "digests": {
-    "answer_full": "d3775b05104a70e25eb259df94834f25eec2fce9bbbe1911eeb372733ce2bcb3",
-    "answer_packed_one": "6c9ea7444091eb291f95d655e221f4153b5509ff983a05cc1e919cfd1b04ac68",
-    "answer_packed_two": "6d8c0ecf2258fa835fcb23c84e8b4c933502f40559161f9ae06782a7d8c506b3",
-    "guide_1": "5ee822cf686bb7355af3a6a6591f0a58ad57d293b59784598f4feb3d2eb67779",
-    "guide_2": "dac5732768b4da75acd5dbef16c3666889d5f2113868ea0f8097016f108e9278",
+    "answer_full": "5aba4eab2ccd6f4af7975ffd4fa316c9ff440bbe7cf0fdfe6c5d73129ebf9d53",
+    "answer_packed_one": "6a2f13dd8ee30d625c732b67739ead5ca8589e86dac61d3dbdbe47e133fa96d4",
+    "answer_packed_two": "b58bfd4c3b4c0cf2e177c635e8d5f25af7a84555f6ad26a6d67043a5a3de3d88",
+    "guide_1": "6418e3a889b0567dafc5f3fc48efbca599bef719a75c9af0349dda8ada5a717d",
+    "guide_2": "90ccbbf574cb56ce029ea7ef4ab7a9a8e744d5175dde35ec27bd06ead1809bf2",
     "play": "ac74b15fe37b4677ebe5634ae93cae4b4d50aaa35e2827615863982b8037281e",
-    "puzzle_single_15x15": "11466f589a4c8dd4c9a303cb62e514b92e65a8b9911e7fe1e26a6b38d031cd6d",
-    "puzzle_single_30x30": "670ed3013eb69b255c5eb2e6818aeaa3eb1c7e9464611bfaf7623eb2b770c480",
-    "puzzle_two_up": "8ee5eb77636b6414842d54d24487dc2e3aaec4302b97422757fd5b45f602878a",
+    "puzzle_single_15x15": "0ceec5849be23ca3cbea038e966d94890bb4e8e05b607b7bc84805f069db1698",
+    "puzzle_single_30x30": "57341dc45af8a91c53b38abb61f705e07155bb50d5b43e1a475fe3faa55cb5ad",
+    "puzzle_two_up": "8f65fb1e3330bf96cffd85e6b56056b704ea7777188b7656525119896ca926f2",
     "title": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "toc": "d84f43c994ae32f9bf1da547e6f2a09b3d0af3f972c65b6a6e9df9c8a1ae1106"
   },

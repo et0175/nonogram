@@ -47,6 +47,7 @@ so the two agree on where the grid is before either measures anything in it.
 
 from __future__ import annotations
 
+import math
 import random
 import re
 import tempfile
@@ -917,11 +918,11 @@ _FIFTH_RULE_RENDERS: list[tuple[int, int, int]] = []
 
 #: ADR-0037/R2's three grid weights, written out here (a second statement of
 #: them, not ``book_page_spec.GRID_RULES`` read back): the cell lines at
-#: 0.3 pt in a 0.35 grey, the every-fifth line at 0.8 pt and the border at
-#: 1.3 pt, both in pure black.
+#: 0.3 pt in a 0.35 grey, the every-fifth line at 1.1 pt (the owner raised it
+#: from 0.8 pt on 2026-11-08) and the border at 1.3 pt, both in pure black.
 CELL_RULE_PT = 0.3
 CELL_RULE_GREY = 0.35
-FIFTH_RULE_PT = 0.8
+FIFTH_RULE_PT = 1.1
 BORDER_RULE_PT = 1.3
 
 _STROKE_GREY = re.compile(rf"^({pdf_vector.NUMBER}) G$")
@@ -1077,7 +1078,7 @@ class TestBookPdf_EveryFifthGridLineWider:
 
         * *in the stream*, read from the written file: the rules of every
           fifth line are stroked wider than every rule between them, and the
-          widths are exactly R2's 0.3 / 0.8 / 1.3 pt (written out here, not
+          widths are exactly R2's 0.3 / 1.1 / 1.3 pt (written out here, not
           imported) on the cell lines, the fifths and the border;
         * *in poppler's raster of it*: the three tiers are ordered and
           disjoint in ink width, each within the span ADR-0037's 2026-10-28
@@ -1137,8 +1138,12 @@ class TestBookPdf_EveryFifthGridLineWider:
                 # different poppler or a different phase can move a tier by a
                 # pixel; the +2 is slack for that, not a tolerance on the
                 # product, and the EDGE_* / HALF_PIXEL_MM bounds are untouched.
+                # Since the fifth went to 1.1 pt (owner, 2026-11-08) it is
+                # declared 4.58 px and poppler inks it 4, so the lower edge is
+                # one pixel under the declared width; the tier ordering just
+                # below is what keeps the three weights apart.
                 assert all(
-                    declared_px <= width <= declared_px + 2 for width in tiers[tier]
+                    declared_px - 1 <= width <= declared_px + 2 for width in tiers[tier]
                 ), (tier, declared_px, sorted(set(tiers[tier])))
             assert max(tiers["cell"]) < min(tiers["fifth"])
             assert max(tiers["fifth"]) < min(tiers["border"])
@@ -2404,7 +2409,50 @@ def _lines_of_words(words: Sequence[Word]) -> list[_TextLine]:
                 size=round(height_pt / em_height * px_per_pt),
             )
         )
-    return found
+    return _joined_headers(found, metrics.ascent / 1000.0)
+
+
+#: The puzzle header's tier word, as CARD-207's header sets it: in capitals.
+_HEADER_TIER_WORDS = ("EASY", "MEDIUM", "HARD")
+
+
+def _joined_headers(lines: list[_TextLine], ascent_em: float) -> list[_TextLine]:
+    """``lines`` with each puzzle header read back as one band line.
+
+    Since CARD-207 a puzzle page's header is two pieces on one baseline:
+    ``Puzzle N`` flush left at the band's size and the tier in capitals flush
+    right, smaller. A ``Puzzle N`` line and a tier word to its right whose
+    baselines (top plus the face's ascent at each line's own size) agree to
+    :data:`BOX_TOLERANCE_PX` are one header, read as ``"Puzzle N · Tier"`` at
+    the number's size and position; every other line is left as it is, so a
+    stray tier word or a second number still reads as a line of its own.
+    """
+
+    def baseline(line: _TextLine) -> float:
+        return line.top + ascent_em * line.size
+
+    paired: dict[int, int] = {}
+    for index, line in enumerate(lines):
+        if not re.fullmatch(r"Puzzle \d+", line.text):
+            continue
+        for other, word in enumerate(lines):
+            if (
+                other not in paired.values()
+                and word.text in _HEADER_TIER_WORDS
+                and word.left > line.left
+                and abs(baseline(word) - baseline(line)) <= BOX_TOLERANCE_PX
+            ):
+                paired[index] = other
+                break
+    joined = []
+    for index, line in enumerate(lines):
+        if index in paired.values():
+            continue
+        if index in paired:
+            tier = lines[paired[index]].text.capitalize()
+            line = line._replace(text=f"{line.text} \u00b7 {tier}")
+        joined.append(line)
+    return joined
 
 
 def _words_of(page: ContentStream) -> list[Word]:
@@ -2599,14 +2647,22 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         """The top band strip's ink, rules aside, is one line of the band.
 
         AC-1 on the Hard puzzle's page (COMP-007's header) and AC-2 on the
-        upper slot of each two-up page (``_set_band``). The 12 mm strip
-        reaches into the drawing's top frame rule (measured: its last 2 px),
-        so rows holding a rule are cleared first; what is left must be one run
-        of rows whose ink has the extent and the ink of the line set once at
-        the band's size. A copy offset down into the frame's rows still leaves
-        its upper part in the strip, as a second run of rows or a taller first
-        one (measured: a second ``_set_band`` draw at y+60 and at y+80 each
-        failed this test, while found-once stayed green).
+        upper slot of each two-up page. The 12 mm strip reaches into the
+        drawing's top frame rule (measured: its last 2 px), so rows holding a
+        rule are cleared first; what is left must be one run of rows. A copy
+        offset down into the frame's rows still leaves its upper part in the
+        strip, as a second run of rows or a taller first one (measured: a
+        second ``_set_band`` draw at y+60 and at y+80 each failed this test,
+        while found-once stayed green).
+
+        **CARD-207: the line is the approved mockup's header.** "Puzzle N" at
+        the band's size, emboldened, flush with the usable left edge, and the
+        tier in capitals at ``max(10 pt, 0.75 x`` the band's size) flush with
+        the usable right edge, the difficulty dots between. So the run's
+        leftmost ink is the number's (its box that of "Puzzle N" set once at
+        the band's size, plus the emboldening), its rightmost ink is the tier
+        word's (the box of the word set once at its size), each within a
+        side bearing of its usable edge, and the two sit on one baseline.
         """
         reading = once_export.readings[page_number - 1]
         strip = np.asarray(_band_strip(reading.image).convert("L")) < INK_LEVEL
@@ -2614,13 +2670,37 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         text[_rule_rows(strip)] = False
         rows = _spans(text.any(axis=1), 1)
         assert len(rows) == 1, rows
-        top, bottom = rows[0]
-        ink = _cropped(text[top : bottom + 1])
-        reference = _set_once(_once_bands()[number], BAND_FONT_PX)
-        assert abs(ink.shape[0] - reference.shape[0]) <= BOX_TOLERANCE_PX, (ink.shape, reference.shape)
-        assert abs(ink.shape[1] - reference.shape[1]) <= BOX_TOLERANCE_PX, (ink.shape, reference.shape)
+        band = _once_bands()[number]
+        label, _, tier = band.partition(" \u00b7 ")
+        word = tier.upper()
+        tier_px = round(max(10.0 * DPI / 72.0, 0.75 * BAND_FONT_PX))
+        bold_px = math.ceil(BAND_FONT_PX * 0.04)
+        # CON-018's margins: a recto's inside (gutter) margin is on its left.
+        recto = page_number % 2 == 1
+        usable_left = round((GUTTER_MM if recto else OUTSIDE_MM) * PX_PER_MM)
+        usable_right = round(
+            (BOOK1_WIDTH_MM - (OUTSIDE_MM if recto else GUTTER_MM)) * PX_PER_MM
+        )
+        bearing = BAND_FONT_PX // 8
+        columns = _spans(text.any(axis=0), BAND_FONT_PX // 3)
+        middle = text.shape[1] // 2
+        number_ink = _cropped(text[:, : middle])
+        word_left = columns[-1][0]
+        word_ink = _cropped(text[:, word_left:])
+        number_ref = _set_once(label, BAND_FONT_PX)
+        word_ref = _set_once(word, tier_px)
+        assert abs(number_ink.shape[0] - number_ref.shape[0]) <= BOX_TOLERANCE_PX + bold_px, (number_ink.shape, number_ref.shape)
+        assert abs(number_ink.shape[1] - number_ref.shape[1]) <= BOX_TOLERANCE_PX + bold_px, (number_ink.shape, number_ref.shape)
+        assert abs(word_ink.shape[0] - word_ref.shape[0]) <= BOX_TOLERANCE_PX, (word_ink.shape, word_ref.shape)
+        assert abs(word_ink.shape[1] - word_ref.shape[1]) <= BOX_TOLERANCE_PX, (word_ink.shape, word_ref.shape)
+        ink_columns = np.flatnonzero(text.any(axis=0))
+        assert 0 <= ink_columns[0] - usable_left <= bearing, (ink_columns[0], usable_left)
+        assert 0 <= usable_right - ink_columns[-1] <= bearing, (ink_columns[-1], usable_right)
+        number_foot = np.flatnonzero(text[:, : middle].any(axis=1))[-1]
+        word_foot = np.flatnonzero(text[:, word_left:].any(axis=1))[-1]
+        assert abs(number_foot - word_foot) <= BOX_TOLERANCE_PX + 1, (number_foot, word_foot)
         if reading.words is None:
-            assert _mismatch(ink, reference) <= INK_MISMATCH_LIMIT
+            assert _mismatch(word_ink, word_ref) <= INK_MISMATCH_LIMIT
         else:
             # CARD-356: the glyph template is a raster instrument and has no
             # subject on a page written as operators (see
@@ -2629,7 +2709,7 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
             # exactly: one line, the band, at the band's size.
             zone = _band_zone(_lines_of_words(reading.words))
             assert [(line.text, line.size) for line in zone] == [
-                (_once_bands()[number], BAND_FONT_PX)
+                (band, BAND_FONT_PX)
             ]
 
     def test_the_two_up_page_carries_each_slots_band_once_upper_first(
@@ -3137,6 +3217,12 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
             if medium != pdf_vector.VECTOR:
                 continue
             shown = _bands_shown(stream, set(bands.values()))
+            # CARD-207: a puzzle page's header shows its band as two pieces
+            # (``Puzzle N`` emboldened, the tier in capitals), each its own
+            # Tj; ``header_lines`` joins them back into the band's line.
+            shown.update(
+                line for line in pdf_vector.header_lines(stream) if line in bands.values()
+            )
             if shown:
                 counted[number] = shown
         operators_pages = {

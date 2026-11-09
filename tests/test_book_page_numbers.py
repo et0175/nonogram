@@ -44,6 +44,7 @@ could in principle agree with a wrong implementation).
 
 from __future__ import annotations
 
+import math
 import re
 import tempfile
 from dataclasses import dataclass
@@ -76,7 +77,12 @@ from nonogram.admin.book_pdf_generator import (
 )
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.difficulty import Tier
-from nonogram.export.layout import compute_pair_layout, interior_frame
+from nonogram.export.layout import (
+    DPI,
+    TWO_UP_RULE_GAP_MM,
+    compute_pair_layout,
+    interior_frame,
+)
 from nonogram.export.png import BACKGROUND
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
 from tests.helpers.pdf_vector import word_boxes
@@ -774,6 +780,19 @@ def _tight_fit_single_page_puzzle() -> Dict[str, object]:
     }
 
 
+def _two_up_rule_gap_px(placement) -> int:
+    """The rule gap a two-up slot leaves below its band's foot, read off the slot.
+
+    Each two-up drawing sits ``TWO_UP_RULE_GAP_MM`` below its own band's foot
+    (capped at a quarter of the pair's vertical slack, floored to a whole
+    pixel), and the lower one ends the same gap above the content's bottom.
+    Asserted to be a real, positive gap no larger than the 3 mm cap.
+    """
+    gap = placement.drawing_top - placement.band_bottom
+    assert 0 < gap <= math.floor(TWO_UP_RULE_GAP_MM / 25.4 * DPI), gap
+    return gap
+
+
 def _folio_calls(monkeypatch: pytest.MonkeyPatch, page_number: int, draw_call) -> List[_TextCall]:
     """Spy on one direct page-drawing call (not a whole interior walk) and
     tag every ``draw.text`` it makes with ``page_number`` — the same
@@ -862,12 +881,13 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         self, monkeypatch
     ) -> None:
         """A two-up pair whose lower slot's drawing reaches both the page's
-        bottom margin (true on *every* two-up page, by construction) and its
-        outer side margin (confirmed by direct measurement: a 10-row,
-        25-column, depth-1 pair on Book 1's trim does both) is the one case
-        a naive "reuse ``solved_puzzle_page``'s vertical-only check" fix
-        could not pass: the lower slot's vertical slack reads zero on every
-        two-up page regardless, so checking only that would silently omit
+        bottom margin (to within the two-up rule gap, ``TWO_UP_RULE_GAP_MM``,
+        on *every* two-up page, by construction) and its outer side margin
+        (confirmed by direct measurement: a 10-row, 25-column, depth-1 pair
+        on Book 1's trim does both) is the one case a naive "reuse
+        ``solved_puzzle_page``'s vertical-only check" fix could not pass: the
+        lower slot's vertical slack is at most that gap on every two-up page
+        regardless, too little for the folio, so checking only that would silently omit
         the folio from the whole book (AC-1 would then fail) — this is the
         case where drawing unconditionally (review cycle 1's own code)
         really does print on top of the grid.
@@ -892,7 +912,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             spec,
         )
         assert pair is not None
-        assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == 0
+        # The lower drawing stops one two-up rule gap above the bottom margin.
+        assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == (
+            _two_up_rule_gap_px(pair.lower.page)
+        )
         assert pair.lower.page.usable_right - pair.lower.page.drawing_right == 0
 
         plan = PuzzlePagePlan(page_number, (1, 2), pair)
@@ -948,9 +971,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
                 folio_reserve_px=reserve_px,
             )
             assert pair is not None, page_number
-            # The lower slot's vertical slack is still always zero on a pair
-            # laid out without CARD-248's footer strip (CARD-200's folio sits
-            # in the one row this corner ever competes for). Its *horizontal*
+            # The lower slot's vertical slack is still only the two-up rule
+            # gap on a pair laid out without CARD-248's footer strip
+            # (CARD-200's folio sits in the one row this corner ever
+            # competes for). Its *horizontal*
             # slack at the outer corner is at least the fixed reserve —
             # **CARD-224**: since that card centres every slot, the gap is
             # half the slot's own spare rather than exactly the reserve, so
@@ -958,7 +982,9 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             # assertion is ">=", with both figures reported. The reserve is
             # still taken out of the *fit* (G-1: FR-040's pairing verdict is
             # unchanged), which is why it is still passed in here.
-            assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == 0, (
+            assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == (
+                _two_up_rule_gap_px(pair.lower.page)
+            ), (
                 page_number
             )
             right_hand = page_is_right_hand(page_number)

@@ -69,10 +69,10 @@ from nonogram.export.layout import (
     DIFFICULTY_DOT_GAP_RATIO,
     DIFFICULTY_DOT_RATIO,
     INTERIOR_FOOTER_LINE_PT,
-    INTERIOR_HEADER_RULE_PT,
     HeaderBand,
     Layout,
     difficulty_dots,
+    interior_header_rule_px,
 )
 
 __all__ = [
@@ -368,7 +368,7 @@ def two_up_page_stream(
             # the first, at the same weight (the approved mockup's two-up).
             rule_y = band.center_y + band.height * 0.35
             stream.stroke_grey(grey)
-            stream.stroke_width(INTERIOR_HEADER_RULE_PT)
+            stream.stroke_width(stream.to_points(interior_header_rule_px()))
             stream.line(layout.page.usable_left, rule_y, layout.page.usable_right, rule_y)
         draw_puzzle_slot(
             stream,

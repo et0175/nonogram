@@ -36,6 +36,7 @@ import pytest
 from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_pdf_generator import PageKind, page_frame
+from nonogram.admin.book_puzzle_vector import CLUE_SHADE
 from nonogram.admin.book_page_spec import book_page_spec
 from tests.helpers import pdf_vector, qr_reader
 from tests.helpers.book_corpus import (
@@ -225,8 +226,10 @@ class TestPlayPage_IsTheOnlyPageWithACode:
 
         A restored placeholder checkerboard is not a decodable code, so the
         reader alone would not see it; it is caught by what it was drawn with,
-        a filled rectangle (``re f``), which no puzzle or two-up page paints
-        any more.
+        a filled rectangle (``re f``). Since the approved mockup's header
+        (CARD-207 scope) a puzzle page paints exactly two of those per puzzle,
+        the row- and column-clue gutters' tint, each at ``CLUE_SHADE``; a
+        checkerboard's black cells would be more fills, at another tone.
         """
         _poppler()
         generator = interior_generator(_book())
@@ -248,6 +251,14 @@ class TestPlayPage_IsTheOnlyPageWithACode:
         streams = pdf_vector.content_streams(data)
         puzzle_pages = [entry.page_number for entry in plan.pages if hasattr(entry, "numbers")]
         assert len(puzzle_pages) == 3, "the baseline holds a two-up page and two single pages"
+        slots = {entry.page_number: len(entry.numbers) for entry in plan.pages if hasattr(entry, "numbers")}
         for number in puzzle_pages:
-            assert pdf_vector.operator_tally(streams[number - 1])["f"] == 0, number
+            stream = streams[number - 1]
+            assert pdf_vector.operator_tally(stream)["f"] == 2 * slots[number], number
+            pieces = stream.split(" re f")[:-1]
+            prefix = ""
+            for piece in pieces:
+                prefix += piece
+                fills = [level for level, op in pdf_vector.tones(prefix) if op == "g"]
+                assert fills and fills[-1] == CLUE_SHADE, (number, fills[-1:])
 

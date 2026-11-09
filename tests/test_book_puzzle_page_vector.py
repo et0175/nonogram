@@ -101,8 +101,11 @@ from nonogram.export.layout import (
     InteriorFrame,
     Layout,
     PageRule,
+    DIFFICULTY_DOT_GAP_RATIO,
+    DIFFICULTY_DOT_RATIO,
     PageSpec,
     compute_layout,
+    difficulty_dots,
     footer_pointer,
     header_band,
     interior_frame,
@@ -167,9 +170,36 @@ class Shown:
     y: Decimal
     size: Decimal
     grey: Decimal
+    #: The stroke a text-render-mode-2 string is emboldened with, in points;
+    #: zero for plain text. Only the header's ``Puzzle N`` carries one.
+    embolden: Decimal = Decimal(0)
 
 
-Mark = Stroke | Shown
+@dataclass(frozen=True)
+class Dot:
+    """One round mark: a closed four-Bézier circle, filled and stroked (``B``).
+
+    ``numbers`` is ``(centre_x, centre_y, right, bottom, left, top)`` in
+    points — the start point and the four on-curve endpoints as the stream
+    writes them; the control points are checked by :func:`marks_of` to be a
+    circle's and are not part of the identity.
+    """
+
+    numbers: tuple[Decimal, ...]
+    width: Decimal
+    grey: Decimal
+    fill: Decimal
+
+
+Mark = Stroke | Shown | Dot
+
+#: The clue gutters' tint, the approved mockup's #f1f2f4 as a grey level
+#: (CARD-207 scope). Restated rather than read off the writer, and held equal
+#: to ``book_puzzle_vector.CLUE_SHADE`` by the tone test.
+CLUE_SHADE = Decimal("0.945")
+
+#: The book's tier ladder, in order: a tier's dots fill up to its rank.
+TIER_LADDER = ("Easy", "Medium", "Hard")
 
 #: The :attr:`Stroke.width` a **filled** rectangle is recorded with. A fill
 #: has no stroke width — the ``f`` operator does not read one — so recording
@@ -397,7 +427,36 @@ class Expected:
             for entry in self.layout.clue_entries
         ]
 
+    def shading(self) -> list[Mark]:
+        """The clue gutters' tint: one filled box per gutter, under everything."""
+        layout = self.layout
+        marks: list[Mark] = []
+        if layout.row_gutter_cells:
+            left = layout.grid_left - layout.row_gutter_cells * layout.cell
+            marks.append((left, layout.grid_top, layout.grid_left, layout.grid_bottom))
+        if layout.column_gutter_cells:
+            top = layout.grid_top - layout.column_gutter_cells * layout.cell
+            marks.append((layout.grid_left, top, layout.grid_right, layout.grid_top))
+        return [
+            Stroke(
+                "box_fill",
+                (self._x(left), self._y(bottom), self._x(right - left), self._x(bottom - top)),
+                FILLED,
+                CLUE_SHADE,
+            )
+            for left, top, right, bottom in marks
+        ]
+
     def band(self, band: HeaderBand, text: str, room: int) -> list[Mark]:
+        """The approved mockup's header (CARD-207 scope), from the band alone.
+
+        ``Puzzle N`` emboldened with its pen on the usable left edge; the tier
+        in capitals ending on the usable right edge, on the same baseline, at
+        three quarters of the number's size floored at CON-020's 10 pt; and the
+        tier's three dots ending one dot short of the word, centred on the
+        word's cap height. Both pieces are sized by the one band rule (shrunk
+        once if the whole line would not fit ``room``).
+        """
         if band.height <= 0 or not text:
             return []
         size = band.font_size
@@ -411,10 +470,69 @@ class Expected:
                 round(band.font_size * _MIN_BAND_FONT_RATIO),
                 int(Decimal(size) * usable / (advance * size)),
             )
-        return [self.shown(text, band.center_x, band.center_y, size)]
+        placement = self.layout.page
+        assert placement is not None, "a book page's Layout is placed"
+        number, _, tier = text.partition(" · ")
+        middle = Decimal(self.metrics.ascent + self.metrics.descent) / 2000
+        baseline = Decimal(band.center_y) + middle * size
+        size_pt = self._x(size)
+        marks: list[Mark] = [
+            Shown(
+                number,
+                self._x(placement.usable_left),
+                self._y(baseline),
+                size_pt,
+                self.grey,
+                (size_pt * Decimal("0.04")).quantize(PLACES, rounding=ROUND_HALF_EVEN),
+            )
+        ]
+        if not tier:
+            return marks
+        word = tier.upper()
+        tier_px = max(
+            Decimal(str(INTERIOR_FOOTER_LINE_PT)) * self.layout.dpi / 72,
+            Decimal(size) * Decimal("0.75"),
+        )
+        word_left = Decimal(placement.usable_right) - self._advance(word, tier_px)
+        marks.append(Shown(word, self._x(word_left), self._y(baseline), self._x(tier_px), self.grey))
+        diameter = tier_px * Decimal("0.55")
+        box_h = diameter / Decimal(str(DIFFICULTY_DOT_RATIO))
+        box_w = diameter * (1 + Decimal(str(DIFFICULTY_DOT_GAP_RATIO))) * len(TIER_LADDER)
+        row_right = word_left - diameter * Decimal("0.75")
+        centre = baseline - Decimal(self.metrics.cap_height) / self.metrics.units_per_em * tier_px / 2
+        dots = difficulty_dots(
+            _half_even(row_right - box_w),
+            _half_even(centre - box_h / 2),
+            _half_even(row_right),
+            _half_even(centre + box_h / 2),
+            filled=TIER_LADDER.index(tier) + 1,
+            total=len(TIER_LADDER),
+        )
+        assert dots is not None, (text, tier_px)
+        radius = Decimal(dots.diameter - dots.stroke) / 2
+        paper = Decimal(str(book_vector_draw.PAPER_GREY))
+        for index, (left, top, right, bottom) in enumerate(dots.dots):
+            cx = Decimal(left + right + 1) / 2
+            cy = Decimal(top + bottom + 1) / 2
+            marks.append(
+                Dot(
+                    (
+                        self._x(cx), self._y(cy),
+                        self._x(cx + radius), self._y(cy + radius),
+                        self._x(cx - radius), self._y(cy - radius),
+                    ),
+                    self._x(dots.stroke),
+                    self.grey,
+                    self.grey if index < dots.filled else paper,
+                )
+            )
+        return marks
 
     def page(self, band: HeaderBand, text: str, room: int) -> list[Mark]:
-        return self.grid() + self.frame() + self.clues() + self.band(band, text, room)
+        return (
+            self.shading() + self.grid() + self.frame() + self.clues()
+            + self.band(band, text, room)
+        )
 
     # -- CARD-306: the sheet's furniture ------------------------------------
 
@@ -547,6 +665,16 @@ _PATTERNS = {
     "text": re.compile(
         rf"^({_N}) g BT /(\w+) ({_N}) Tf ({_N}) ({_N}) Td \((.*)\) Tj ET$"
     ),
+    # The header's emboldened ``Puzzle N``: text render mode 2 (fill, then
+    # stroke) inside its own ``q``/``Q``, so the tone and width it sets are
+    # the string's and leave the page's state as it found it.
+    "bold_text": re.compile(
+        rf"^q ({_N}) g ({_N}) G ({_N}) w BT 2 Tr /(\w+) ({_N}) Tf ({_N}) ({_N}) Td "
+        rf"\((.*)\) Tj ET Q$"
+    ),
+    # A round mark (the header's difficulty dots): ``m``, four ``c``, ``h``, ``B``.
+    "move": re.compile(rf"^({_N}) ({_N}) m$"),
+    "curve": re.compile(rf"^({_N}) ({_N}) ({_N}) ({_N}) ({_N}) ({_N}) c$"),
     # CARD-314's marked-content brackets, which are neither a mark nor
     # graphics state: a ``BMC``/``EMC`` pair is a statement ABOUT the operators
     # between it, carried in the stream and painting nothing (PDF 1.7 §14.6).
@@ -567,8 +695,9 @@ def marks_of(stream_text: str) -> list[Mark]:
     **Default-DENY** (ADR-0039/R2): a line this parser cannot classify is an
     ``AssertionError`` naming it, never a mark quietly skipped. That is what
     makes "the page emits nothing else" a claim rather than a filter — an
-    image XObject's ``Do``, a Bézier's ``c``, a clipping path's ``W`` would
-    each stop the suite here.
+    image XObject's ``Do``, a Bézier outside a closed circle (a header dot,
+    read by :func:`_round_mark`), a clipping path's ``W`` would each stop the
+    suite here.
 
     A **fill** tone and a **filled rectangle** were two of those until
     CARD-306, and the history is worth keeping because it is the shape of the
@@ -584,7 +713,8 @@ def marks_of(stream_text: str) -> list[Mark]:
 
     **Default-DENY is unchanged by that.** A filled shape this module cannot
     place is still an ``AssertionError`` naming it: ``re f`` is read, ``re B``
-    (fill *and* stroke) is not, ``Do`` is not, ``c`` is not, ``W`` is not.
+    (fill *and* stroke) is not, ``Do`` is not, ``W`` is not, and ``c`` is
+    read only as one of the four curves of a ``B``-painted circle.
     (The ``g`` that is read *inside* a text object is a third thing again —
     there it is the glyphs' tone.)
     """
@@ -592,7 +722,8 @@ def marks_of(stream_text: str) -> list[Mark]:
     grey: Decimal | None = None
     fill: Decimal | None = None
     marks: list[Mark] = []
-    for row in stream_text.splitlines():
+    rows = iter(stream_text.splitlines())
+    for row in rows:
         if not row.strip():
             continue
         if _PATTERNS["marked"].match(row):
@@ -625,12 +756,50 @@ def marks_of(stream_text: str) -> list[Mark]:
             marks.append(
                 Shown(text, Decimal(x), Decimal(y), Decimal(size), Decimal(fill))
             )
+        elif match := _PATTERNS["bold_text"].match(row):
+            tone, stroke_tone, stroke, _resource, size, x, y, text = match.groups()
+            assert tone == stroke_tone, row  # emboldened in its own ink
+            marks.append(
+                Shown(
+                    text, Decimal(x), Decimal(y), Decimal(size), Decimal(tone),
+                    Decimal(stroke),
+                )
+            )
+        elif match := _PATTERNS["move"].match(row):
+            assert width is not None and grey is not None and fill is not None, row
+            marks.append(_round_mark(match, rows, width, grey, fill))
         else:
             raise AssertionError(
                 f"the page emitted an operator this module does not know how to "
                 f"read, so nothing can be said about it: {row!r}"
             )
     return marks
+
+
+def _round_mark(start, rows: Iterator[str], width: Decimal, grey: Decimal, fill: Decimal) -> Dot:
+    """The :class:`Dot` a path opened at ``start`` draws — or an ``AssertionError``.
+
+    Default-DENY in the same sense as :func:`marks_of`: the only path this
+    page may open is a circle — exactly four Béziers, closed, filled and
+    stroked — and each control point must sit ``kappa * r`` along the
+    tangent, so a polygon or any other curve is refused rather than read.
+    """
+    cx, top = (Decimal(n) for n in start.groups())
+    curves = []
+    for _ in range(4):
+        row = next(rows)
+        match = _PATTERNS["curve"].match(row)
+        assert match, f"a path on this page is a circle of four Béziers, not {row!r}"
+        curves.append(tuple(Decimal(n) for n in match.groups()))
+    tail = (next(rows), next(rows))
+    assert tail == ("h", "B"), tail
+    (_, _, _, _, right, cy), (_, _, _, _, _, bottom), (_, _, _, _, left, _), last = curves
+    assert last[4:] == (cx, top), (last, cx, top)
+    radius = right - cx
+    pull = radius * Decimal(str(4 * (math.sqrt(2) - 1) / 3))
+    assert abs((curves[0][0] - cx) - pull) <= Decimal("0.002"), curves
+    assert abs((top - curves[0][1])) == 0 and abs(curves[0][3] - (cy + pull)) <= Decimal("0.002"), curves
+    return Dot((cx, cy, right, bottom, left, top), width, grey, fill)
 
 
 # --------------------------------------------------------------------------
@@ -1171,6 +1340,11 @@ class TestPuzzlePage_CarriesNoImageXObject:
         independent ways of counting the same rectangles, which is what makes
         it a check and not a restatement.
 
+        **The approved mockup's header (CARD-207 scope) widened the set by
+        exactly what it draws**: ``q``/``Q``/``Tr`` for the emboldened
+        ``Puzzle N``, ``c``/``h``/``B`` for its three difficulty dots, and
+        ``f`` again for the clue gutters' tint. ``Do`` is still absent.
+
         **A differently-right clue-digit mark reds here by design**
         (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
         ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
@@ -1192,14 +1366,28 @@ class TestPuzzlePage_CarriesNoImageXObject:
             # moved — asserted beside the alphabet below, and by the owner
             # render AC-6 asks for.
             "BMC", "EMC",
+            # The header: the emboldened number, and the three dots' circles.
+            "q", "Q", "Tr", "c", "h", "B",
+            # The clue gutters' tint.
+            "f",
         }
-        assert tally["m"] == tally["l"]
-        assert tally["S"] - tally["m"] == tally["re"] == 1  # the drawing's frame
+        # Every subpath is a straight line or one of the header's three dots.
+        assert tally["m"] == tally["l"] + tally["h"]
+        assert tally["h"] == tally["B"] == 3 and tally["c"] == 4 * tally["h"], tally
+        assert tally["q"] == tally["Q"] == tally["Tr"] == 1, tally
+        # The rectangles: the drawing's frame, stroked, and the two gutters, filled.
+        assert tally["f"] == 2, tally["f"]
+        assert tally["S"] - (tally["m"] - tally["h"]) == tally["re"] - tally["f"] == 1
         # The mark is one pair for the whole clue set, not one per digit.
         assert tally["BMC"] == tally["EMC"] == 1, (tally["BMC"], tally["EMC"])
 
     def test_the_page_draws_no_bezier(self, hero: Case) -> None:
-        """No curve — stated as "no Bézier", which is what can be measured.
+        """No curve but the header's dots — stated in Béziers, which is what can be measured.
+
+        **Since the approved mockup's header (CARD-207 scope)** the page does
+        carry curves: the three difficulty dots, four Béziers each, drawn by
+        the one round-mark site. So the claim is now that those are the only
+        ones — twelve ``c`` operators, every point of them inside the band.
 
         **Not** "no round shape", and the difference is a measurement rather
         than a quibble: ``ContentStream`` offers ``begin_path``/``line_to``/
@@ -1215,7 +1403,14 @@ class TestPuzzlePage_CarriesNoImageXObject:
         (written,) = pdf_vector.content_streams(
             write_vector_pdf([hero.stream], 1).getvalue()
         )
-        assert "c" not in pdf_vector.operator_tally(written)
+        assert pdf_vector.operator_tally(written)["c"] == 4 * len(TIER_LADDER)
+        top = _pt(Decimal(hero.layout.height - (hero.band.center_y - hero.band.height / 2)), hero.layout.dpi)
+        bottom = _pt(Decimal(hero.layout.height - (hero.band.center_y + hero.band.height / 2)), hero.layout.dpi)
+        curves = [row.split() for row in written.splitlines() if row.endswith(" c")]
+        assert len(curves) == 4 * len(TIER_LADDER), curves
+        for numbers in curves:
+            for y in numbers[1:6:2]:
+                assert bottom <= Decimal(y) <= top, (numbers, bottom, top)
 
     def test_the_raster_twin_of_the_same_page_does_carry_one(self, twin: Twin) -> None:
         """The control: this reading can fail, and here is it failing.
@@ -1324,7 +1519,7 @@ class TestPropertyTest_PuzzlePage_EveryCoordinateComesFromTheLayout:
         (written,) = pdf_vector.content_streams(
             write_vector_pdf([moved], 1).getvalue()
         )
-        assert marks_of(written)[0] != case.expected[0]
+        assert marks_of(written)[0] != case.oracle.grid()[0]
 
     def test_the_oracle_and_the_writer_round_the_same_way(self) -> None:
         """Exactly, not approximately — and this is where that is measured.
@@ -1465,9 +1660,18 @@ class TestPropertyTest_PuzzlePage_WriterDerivesNoGeometry:
             for line in case.layout.grid_lines
         }
         greys = {mark.grey for case in corpus for mark in case.found}
+        fills = {mark.fill for case in corpus for mark in case.found if isinstance(mark, Dot)}
 
         assert len(stated) == 2, stated
-        assert greys == stated, (greys, stated)
+        # The one tone the Layout does not state: the clue gutters' tint, the
+        # approved mockup's (CARD-207 scope).
+        assert Decimal(str(book_puzzle_vector.CLUE_SHADE)) == CLUE_SHADE
+        assert greys == stated | {CLUE_SHADE}, (greys, stated)
+        # A dot is filled with the ink or, outlined, with the paper.
+        assert fills == {
+            Decimal(str(book_vector_draw.INK_GREY)),
+            Decimal(str(book_vector_draw.PAPER_GREY)),
+        }, fills
 
 
 def _replace_layout(layout: Layout, **changes) -> Layout:
@@ -1526,7 +1730,7 @@ class TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt:
         # listed, so a mark that stopped being drawn reds here too.
         furniture = _furniture_words(hero.furniture)
         assert len(furniture) >= 4, furniture
-        assert sorted(found) == sorted(expected + hero.text.split() + furniture), (
+        assert sorted(found) == sorted(expected + _header_words(hero.text) + furniture), (
             len(found),
             len(expected),
             furniture,
@@ -1696,11 +1900,11 @@ class TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle:
         pdf = write_vector_pdf(streams, len(streams)).getvalue()
 
         shown = [
-            text
+            line
             for written in pdf_vector.content_streams(pdf)
-            for text in _shown_strings(written)
+            for line in pdf_vector.header_lines(written)
         ]
-        assert set(bands) <= set(shown), (sorted(set(bands) - set(shown)))
+        assert shown == bands, (shown, bands)
         assert all(re.fullmatch(r"Puzzle \d+(?: · \w+)?", band) for band in bands), bands
 
     def test_no_page_of_the_puzzle_section_shows_a_picture_title(self) -> None:
@@ -1732,21 +1936,27 @@ class TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle:
             write_vector_pdf([stream], 1).getvalue()
         )
         assert "ZZZ-UNMISTAKABLE-ZZZ" not in written
-        assert "Puzzle 7 · Medium" in written
+        assert pdf_vector.header_lines(written) == ["Puzzle 7 · Medium"]
 
     @needs_poppler
     def test_a_reader_can_select_the_band(self, hero: Case, tmp_path) -> None:
         """And it is ink a reader gets, not only an operand.
 
-        ``·`` is U+00B7, is not ASCII, and is the one character on the page
-        that a wrong ``/Encoding`` would turn into a different glyph. Read
-        back through poppler for that reason.
+        Since the approved mockup's header (CARD-207 scope) the band sets its
+        two pieces apart — ``Puzzle 4`` and ``HARD`` — so poppler is asked for
+        both. ``·`` is U+00B7, is not ASCII, and is the one character a wrong
+        ``/Encoding`` would turn into a different glyph; the header no longer
+        sets it, and the footer pointer on the same page does, so it is read
+        back there.
         """
         pdf = write_vector_pdf([hero.stream], 1).getvalue()
         extracted = pdf_vector.extracted_text(pdf, out_dir=tmp_path)
 
-        assert hero.text in extracted, (hero.text, extracted[:200])
-        assert " · " in hero.text
+        number, _, tier = hero.text.partition(" · ")
+        assert number in extracted and tier.upper() in extracted, (hero.text, extracted[:200])
+        assert hero.furniture.pointer is not None
+        assert " · " in hero.furniture.pointer[0]
+        assert hero.furniture.pointer[0] in extracted, extracted[-200:]
 
     def test_the_band_fits_the_way_the_raster_page_fits_it(
         self, corpus: list[Case]
@@ -1809,6 +2019,16 @@ class TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle:
         assert shrunk < case.band.font_size
         assert shrunk >= round(case.band.font_size * _MIN_BAND_FONT_RATIO)
         assert metrics.advance(long_line) * shrunk <= room * _BAND_WIDTH_RATIO
+
+
+def _header_words(text: str) -> list[str]:
+    """The words a reader finds in the header ``band_identity``'s ``text`` sets.
+
+    ``Puzzle N`` flush left and the tier in capitals flush right (CARD-207
+    scope); the separator is not set.
+    """
+    number, _, tier = text.partition(" · ")
+    return number.split() + ([tier.upper()] if tier else [])
 
 
 def _shown_strings(stream_text: str) -> list[str]:
@@ -1960,7 +2180,8 @@ class TestPuzzlePageStream_TheBareWriterDrawsOnlyTheDrawingAndTheBand:
         shown = [mark.text for mark in marks_of(written) if isinstance(mark, Shown)]
         expected = [str(entry.value) for entry in hero.layout.clue_entries]
 
-        assert sorted(shown) == sorted(expected + [hero.text])
+        number, _, tier = hero.text.partition(" · ")
+        assert sorted(shown) == sorted(expected + [number, tier.upper()])
         # The control: the production page of the *same* layout shows more,
         # so this reading is a statement about the module and not about a
         # page that has no furniture anywhere.
@@ -2052,15 +2273,18 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         # positions above are still device pixels, which is the half of this
         # test that ``scale`` is for.
         widths = {mark.width for mark in lines}
-        assert widths == {Decimal("0.3"), Decimal("0.8"), Decimal("1.3")}, widths
+        assert widths == {Decimal("0.3"), Decimal("1.1"), Decimal("1.3")}, widths
 
     def test_the_thin_rules_are_stroked_before_the_heavy_ones(
         self, hero: Case
     ) -> None:
         """The ordering claim, which is the one a set comparison cannot make."""
         thin = Decimal("0.3")
+        # Stroked marks only: the gutters' tint is filled, before every rule.
         order = [
-            mark.width == thin for mark in hero.found if isinstance(mark, Stroke)
+            mark.width == thin
+            for mark in hero.found
+            if isinstance(mark, Stroke) and mark.width != FILLED
         ]
         assert any(order) and not all(order), order
         assert order == sorted(order, reverse=True), order
@@ -2134,7 +2358,7 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         **That reach arm is keyed on the layout's own ``thin_rule``, not on a
         declared figure's count** (review cycle 1, F-007). It used to be
         ``counts[1] in inked``, which was true only by a coincidence of this
-        book's fitted cell: ``counts[1]`` is ``round(0.8 pt at 300 DPI)`` = 3
+        book's fitted cell: ``counts[1]`` was ``round(0.8 pt at 300 DPI)`` = 3 (5 since the fifth went to 1.1 pt)
         and ``layout.thin_rule`` is also 3, so on a book whose thin rule
         fitted to 4 px the arm would have reddened with nothing wrong. The
         page is known to ink ``thin_rule`` for a reason that has nothing to do
@@ -2158,13 +2382,13 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         )
 
         # Both media still carry a hierarchy of their own.
-        assert stated == [Decimal("0.3"), Decimal("0.8"), Decimal("1.3")], stated
+        assert stated == [Decimal("0.3"), Decimal("1.1"), Decimal("1.3")], stated
         assert inked == sorted(
             {twin.case.layout.thin_rule, twin.case.layout.thick_rule}
         ), (inked, twin.case.layout.thin_rule, twin.case.layout.thick_rule)
 
         # The refused configuration is not on the page: 1 px is absent.
-        assert counts == [1, 3, 5], counts
+        assert counts == [1, 5, 5], counts
         assert counts[0] not in inked, (inked, counts)
         # ... and the reading can see a width the page is known to ink for a
         # reason independent of the declared figures, so its silence about
@@ -2174,8 +2398,9 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
             twin.case.layout.thin_rule,
         )
         # The coincidence F-007 named, declared rather than relied on: on this
-        # book thin_rule and counts[1] happen to be the same 3 px.
-        assert twin.case.layout.thin_rule == counts[1] == 3, (
+        # book thin_rule and counts[1] were the same 3 px until the fifth went
+        # to 1.1 pt (5 px); the reach arm above never depended on it.
+        assert (twin.case.layout.thin_rule, counts[1]) == (3, 5), (
             twin.case.layout.thin_rule,
             counts,
         )
@@ -2223,9 +2448,9 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         for case in corpus:
             assert len(case.stream.operators) == len(
                 case.expected
-            ) + _state_operators(case.layout) + _furniture_state_operators(
-                case.furniture
-            ), case.label
+            ) + _state_operators(case.layout) + _header_state_operators(
+                case.puzzle_marks
+            ) + _furniture_state_operators(case.furniture), case.label
 
     def test_the_operator_count_holds_on_a_page_of_many_widths(
         self, corpus: list[Case]
@@ -2278,7 +2503,9 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
             _state_operators(striped),
             naive,
         )
-        assert len(stream.operators) == len(expected) + _state_operators(striped)
+        assert len(stream.operators) == len(expected) + _state_operators(
+            striped
+        ) + _header_state_operators(expected)
 
     def test_the_shared_raster_twin_is_the_bitmap_the_fixture_drew(
         self, twin: Twin
@@ -2358,7 +2585,19 @@ def _state_operators(layout: Layout) -> int:
         + changes(tones)
         + (2 if layout.frame is not None else 0)
         + MARKED_CONTENT_OPERATORS
+        + 1  # the clue gutters' tint, set once whether or not a gutter is drawn
     )
+
+
+def _header_state_operators(marks: Sequence[Mark]) -> int:
+    """The operators the header's dots emit beside their marks (CARD-207 scope).
+
+    One ``G`` and one ``w`` for the row, and per dot its fill ``g`` plus the
+    six path operators (``m``, four ``c``, ``h``) a :class:`Dot` is read from
+    with its ``B``. The emboldened number is one line, read as one mark.
+    """
+    dots = sum(1 for mark in marks if isinstance(mark, Dot))
+    return (2 if dots else 0) + 7 * dots
 
 
 #: The ``BMC``/``EMC`` pair CARD-314 brackets a page's clue digits with — two

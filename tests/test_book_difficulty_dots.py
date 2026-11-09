@@ -99,6 +99,7 @@ import contextlib
 import inspect
 import math
 import random
+import re
 import textwrap
 from unittest import mock
 from collections import Counter
@@ -6896,6 +6897,21 @@ def _vector_arm_reading(
     return tuple(found), tuple(declared)
 
 
+def _page_own_dots(page: ArmPage) -> tuple[Mark, ...]:
+    """The arm page's **own** round marks: its header's difficulty dots.
+
+    Since the approved mockup's header (CARD-207 scope) the page the vector
+    arm plants on already carries one glyph, drawn by the one round-mark site.
+    It is the corpus's first baseline page, where
+    :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_books_own_vector_sheets_carry_no_round_mark`
+    accounts for it as a header's three dots; a plant's accounting is then
+    made on top of it, with these declared, so the plant is all that is left.
+    """
+    found, _ = _vector_arm_reading(_stream_text(page.stream), (), page.height_px)
+    assert len(found) == len(TIERS), found
+    return found
+
+
 def _appended(page: ArmPage, write: object) -> str:
     """``page``'s stream with whatever ``write`` records appended to it.
 
@@ -7043,6 +7059,68 @@ def vector_corpus() -> dict[str, tuple[int, list[ContentStream]]]:
         name: (len(rows()), _vector_pages(rows()))
         for name, rows in VECTOR_CORPUS_SOURCES
     }
+
+
+def _vector_bands(puzzles: Sequence[dict]) -> list[tuple[float, float, float, float]]:
+    """Each :func:`_vector_pages` page's header band, as a box in points.
+
+    The same recipe, page for page: the layout recomputed from the same spec,
+    and COMP-007's :func:`header_band` across the usable measure, put into the
+    stream's domain (y up) by :func:`_declared_in_points`.
+    """
+    generator = BookPDFGenerator(corpus_book())
+    payloads = [
+        BookPDFGenerator._payload(row)
+        for row in book_pdf_generator.print_order(puzzles)
+    ]
+    sizes = generator.cell_sizes(payloads)
+    bands = []
+    for number, payload in enumerate(payloads, start=1):
+        spec = generator._puzzle_page_spec(
+            FIRST_PUZZLE_PAGE + number - 1, sizes.get(generator._grid_size(payload))
+        )
+        layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+        band, placement = header_band(layout), layout.page
+        assert placement is not None, "a book page is a placed page"
+        top = band.center_y - band.height / 2
+        box = (placement.usable_left, top, placement.usable_right, top + band.height)
+        bands.append(_declared_in_points(box, layout.height))
+    return bands
+
+
+@pytest.fixture(scope="module")
+def vector_bands() -> dict[str, list[tuple[float, float, float, float]]]:
+    """``{book: each page's header band in points}``, in :func:`vector_corpus`' order."""
+    return {name: _vector_bands(rows()) for name, rows in VECTOR_CORPUS_SOURCES}
+
+
+#: One dot of the one round-mark site as it reaches the stream
+#: (``draw_difficulty_dots``): its fill tone, a ``round_mark`` of one moveto,
+#: four curves and a close, painted ``B`` -- inked inside and out, which no
+#: other writer of a puzzle page paints.
+_SITE_DOT = re.compile(r"(?m)^(?P<fill>[\d.]+) g\n(?:[^\n]* [mch]\n|h\n){6}B$")
+
+#: The header's tier words, in capitals, in rank order.
+_HEADER_TIER_WORDS = {f"({tier.value.upper()}) Tj": rank for rank, tier in enumerate(TIERS, 1)}
+
+
+def _header_dots(
+    text: str, band: tuple[float, float, float, float]
+) -> list[StreamMark]:
+    """The round marks of ``text`` that are a header's difficulty dots.
+
+    Since the approved mockup's header (CARD-207 scope) a puzzle page prints
+    its tier's dots beside the tier word, through the one round-mark site. A
+    header dot is a round subpath painted ``B`` -- the site's paint, inked
+    inside and out -- that lies inside the page's header ``band``.
+    """
+    x0, y0, x1, y1 = band
+    return [
+        mark
+        for mark in round_stream_marks(text)
+        if mark.paint == "B"
+        and x0 <= mark.x0 and mark.x1 <= x1 and y0 <= mark.y0 and mark.y1 <= y1
+    ]
 
 
 # --------------------------------------------------------------------------
@@ -7341,20 +7419,45 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         )
 
     def test_the_books_own_vector_sheets_carry_no_round_mark(
-        self, vector_corpus: Mapping[str, tuple[int, list[ContentStream]]]
+        self,
+        vector_corpus: Mapping[str, tuple[int, list[ContentStream]]],
+        vector_bands: Mapping[str, list[tuple[float, float, float, float]]],
     ) -> None:
-        """ADR-0042/R6's half of the declared check, with its denominator."""
+        """ADR-0042/R6's half of the declared check, with its denominator.
+
+        Since the approved mockup's header (CARD-207 scope) a puzzle page does
+        carry round marks, and the claim is restated rather than dropped:
+        **every round mark on a puzzle page is a header dot drawn by the one
+        site** -- three per header, painted as only that site paints them, one
+        size on one line, inside the band, as many filled as the tier word
+        beside them ranks -- and there is no other.
+        """
         subpaths = 0
         shaped = 0
+        headers = 0
         rogue: list[tuple[str, int, tuple[float, float, float, float]]] = []
         for name, (_, streams) in vector_corpus.items():
-            for number, stream in enumerate(streams):
-                marks = stream_marks(_stream_text(stream))
+            assert len(vector_bands[name]) == len(streams), name
+            for number, (stream, band) in enumerate(zip(streams, vector_bands[name])):
+                text = _stream_text(stream)
+                marks = stream_marks(text)
                 subpaths += len(marks)
                 shaped += sum(1 for mark in marks if not mark.is_degenerate)
+                dots = _header_dots(text, band)
                 rogue.extend(
-                    (name, number, mark.box) for mark in marks if mark.is_round
+                    (name, number, mark.box)
+                    for mark in marks
+                    if mark.is_round and mark not in dots
                 )
+                (rank,) = [r for word, r in _HEADER_TIER_WORDS.items() if word in text]
+                assert len(dots) == len(TIERS), (name, number, len(dots))
+                assert len({round(mark.width, 3) for mark in dots}) == 1, (name, number)
+                assert len({round(mark.y0, 3) for mark in dots}) == 1, (name, number)
+                fills = [float(m["fill"]) for m in _SITE_DOT.finditer(text)]
+                assert len(fills) == len(TIERS), (name, number, fills)
+                assert sum(1 for fill in fills if fill < 1.0) == rank, (name, number, fills)
+                headers += 1
+        assert headers == sum(len(streams) for _, streams in vector_corpus.values())
         assert subpaths >= VECTOR_CORPUS_MIN_SUBPATHS, (
             f"only {subpaths} painted subpaths across the corpus — these pages "
             "have stopped carrying the shapes this test exists to tolerate"
@@ -7368,7 +7471,9 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         )
 
     def test_the_closest_a_vector_page_comes_to_a_round_mark_is_derived(
-        self, vector_corpus: Mapping[str, tuple[int, list[ContentStream]]]
+        self,
+        vector_corpus: Mapping[str, tuple[int, list[ContentStream]]],
+        vector_bands: Mapping[str, list[tuple[float, float, float, float]]],
     ) -> None:
         """The margin, and it is a **derivation** rather than a recorded number.
 
@@ -7384,14 +7489,21 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         that sets it: ``aspect`` exactly 1.0, so the whole margin rests on
         ``fill`` — the same hand the raster reading's margin rests in on the
         book's own pages, for the same reason.
+
+        The header's difficulty dots (CARD-207 scope) are round by design and
+        are left out, by what they are (:func:`_header_dots`): the margin is
+        that of every *other* shape on the page, which the cell above holds to
+        none being round.
         """
         derived = (4.0 / math.pi - 1.0) / ROUND_FILL_TOLERANCE
         closest: StreamMark | None = None
         margin = float("inf")
-        for _, streams in vector_corpus.values():
-            for stream in streams:
-                for mark in stream_marks(_stream_text(stream)):
-                    if mark.is_degenerate:
+        for name, (_, streams) in vector_corpus.items():
+            for stream, band in zip(streams, vector_bands[name]):
+                text = _stream_text(stream)
+                dots = _header_dots(text, band)
+                for mark in stream_marks(text):
+                    if mark.is_degenerate or mark in dots:
                         continue
                     distance = max(
                         abs(mark.aspect - 1.0) / ROUND_ASPECT_TOLERANCE,
@@ -7432,25 +7544,28 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
             *arm_page.box, filled=_rank(PLANTED_TIER), total=len(TIERS)
         )
         assert dots is not None
+        own = _page_own_dots(arm_page)
         text = _appended(arm_page, lambda stream: _write_the_glyph(stream, dots))
         found, declared = _vector_arm_reading(text, dots.dots, arm_page.height_px)
         assert len(declared) == len(dots.dots), (
             "every dot is declared on this medium, filled or outlined"
         )
-        assert len(found) == len(dots.dots), (
-            f"{len(dots.dots)} dots were written and {len(found)} round "
-            "subpaths are in the stream"
+        assert len(found) == len(dots.dots) + len(own), (
+            f"{len(dots.dots)} dots were written beside the header's "
+            f"{len(own)} and {len(found)} round subpaths are in the stream"
         )
+        declared += own  # the header's dots: the page's own, declared as such
         assert _unaccounted(found, declared) == (), (
             "a dot written through the medium's own round primitive is not "
             "matched by its own declared box"
         )
         # And the same page without the glyph declares nothing and finds
-        # nothing, so the balance above is not a balance of two empty sets.
+        # only its header's dots, so the balance above is not a balance of
+        # the page's own marks alone.
         bare_found, bare_declared = _vector_arm_reading(
             _stream_text(arm_page.stream), (), arm_page.height_px
         )
-        assert bare_found == () and bare_declared == ()
+        assert bare_found == own and bare_declared == ()
 
     def test_a_rogue_glyph_in_the_stream_is_unaccounted(
         self, arm_page: ArmPage
@@ -7487,13 +7602,15 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
                 stream.close_path()
                 stream.paint("fill")
 
+        own = _page_own_dots(arm_page)
         text = _appended(arm_page, rogue)
         found, declared = _vector_arm_reading(text, (), arm_page.height_px)
         assert declared == (), "a rogue route declares nothing"
-        assert len(found) == len(dots.dots), (
-            f"{len(dots.dots)} polygons were painted and {len(found)} measure round"
+        assert len(found) == len(dots.dots) + len(own), (
+            f"{len(dots.dots)} polygons were painted beside the header's "
+            f"{len(own)} dots and {len(found)} measure round"
         )
-        assert _unaccounted(found, declared) == found, (
+        assert _unaccounted(found, own) == found[len(own):], (
             "every one of them is undeclared, so every one is the verdict"
         )
 
@@ -7579,7 +7696,7 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
             "reads none of"
         )
         found, _ = _vector_arm_reading(text, (), arm_page.height_px)
-        assert found == ()
+        assert found == _page_own_dots(arm_page), "only the header's own dots"
 
         page = arm_page.bitmap.copy()
         _rogue_typed_dingbat(ImageDraw.Draw(page), arm_page.box)
@@ -7910,18 +8027,19 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         )
         assert dots is not None
         text = _appended(arm_page, lambda stream: _write_the_glyph(stream, dots))
+        own = _page_own_dots(arm_page)  # the header's dots, declared as such
 
         # one dot too few declared: the undeclared one is the verdict
         found, short = _vector_arm_reading(
             text, dots.dots[:-1], arm_page.height_px
         )
-        assert len(_unaccounted(found, short)) == 1
+        assert len(_unaccounted(found, short + own)) == 1
 
         # one dot too many declared: the verdict is empty and the counts are not
         over = dots.dots + (dots.dots[0],)
         found, declared = _vector_arm_reading(text, over, arm_page.height_px)
-        assert _unaccounted(found, declared) == ()
-        assert len(found) != len(declared), (
+        assert _unaccounted(found, declared + own) == ()
+        assert len(found) != len(declared + own), (
             "a declaration nobody drew is invisible to the verdict alone, which "
             "is why the count is asserted beside it"
         )

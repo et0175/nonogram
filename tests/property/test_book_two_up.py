@@ -49,6 +49,7 @@ test asserting its own minimum case counts for both verdicts.
 from __future__ import annotations
 
 import dataclasses
+import math
 import random
 
 from nonogram.clues import compute_clues
@@ -211,6 +212,27 @@ def _mm(pixels: float) -> float:
     return pixels / PX_PER_MM
 
 
+#: The most room a two-up page leaves between a rule and a drawing, written
+#: out rather than imported (``export.layout.TWO_UP_RULE_GAP_MM``): 3 mm.
+TWO_UP_RULE_GAP_MM = 3.0
+
+
+def _expected_rule_gap_px(spec: PageSpec, first: Puzzle, second: Puzzle, cell_mm: float) -> int:
+    """The two-up rule gap in whole device pixels, from the page's millimetres.
+
+    Each slot's drawing sits this far below its own band's foot, and the lower
+    drawing ends this far above the bottom of the content area (the bottom
+    margin here: these pairs reserve no footer). It is ``TWO_UP_RULE_GAP_MM``,
+    capped at a quarter of the vertical slack the fit left (three gaps spent,
+    at least one more left between the slots), floored to a whole pixel. Float
+    millimetres against the layout's exact fractions, so it can land one pixel
+    off at a floor boundary; callers compare it within that pixel.
+    """
+    down = sum(_depth(columns) + len(rows) for rows, columns in (first, second))
+    slack_mm = spec.height_mm - spec.top_mm - spec.bottom_mm - 2 * spec.band_mm - down * cell_mm
+    return math.floor(min(TWO_UP_RULE_GAP_MM, max(slack_mm, 0.0) / 4) * PX_PER_MM)
+
+
 #: CARD-222's puzzle area and CARD-224's split, in millimetres, written out
 #: rather than imported from ``export.layout`` (the independence every number
 #: in this module keeps): the header rule sits an eighth of the band's depth
@@ -302,18 +324,29 @@ def test_PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea() -> N
         assert abs(_mm(upper.usable_top) - spec.top_mm) <= HALF_PIXEL_MM + 1e-9
         assert abs(_mm(lower.usable_bottom) - (spec.height_mm - spec.bottom_mm)) <= HALF_PIXEL_MM + 1e-9
 
-        # The upper drawing's top is the single page's fixed row (FR-032).
-        assert abs(_mm(upper.drawing_top) - (spec.top_mm + spec.band_mm)) <= HALF_PIXEL_MM + 1e-9
+        # The upper band's foot is the single page's fixed row (FR-032); its
+        # drawing sits one two-up rule gap below that foot, the lower drawing
+        # the same gap below its own band's foot and above the bottom margin.
+        gap = upper.drawing_top - upper.band_bottom
+        assert abs(gap - _expected_rule_gap_px(spec, first, second, pair.cell_mm)) <= 1, (
+            spec, gap
+        )
+        assert abs(_mm(upper.band_bottom) - (spec.top_mm + spec.band_mm)) <= HALF_PIXEL_MM + 1e-9
+        assert abs(_mm(upper.drawing_top) - (spec.top_mm + spec.band_mm) - _mm(gap)) <= (
+            HALF_PIXEL_MM + 1e-9
+        )
+        assert abs((lower.usable_bottom - lower.drawing_bottom) - gap) <= 1, (spec, gap)
 
         # Each band is 12 mm and sits above its own drawing; the slots touch, never overlap.
         for slot in (pair.upper, pair.lower):
             band = header_band(slot)
             assert slot.page is not None
             assert band.height == slot.page.band_bottom - slot.page.usable_top
-            # A two-up slot's band foot *is* its drawing's top edge: the 42%
-            # float is the single page's (CARD-224; splitting a page's
-            # puzzle area between two slots is CARD-226's).
-            assert slot.page.band_bottom == slot.page.drawing_top
+            # A two-up slot's drawing sits one rule gap (whole pixels) below
+            # its band's foot, the same gap on both slots: the 42% float is
+            # the single page's (CARD-224; splitting a page's puzzle area
+            # between two slots is CARD-226's).
+            assert slot.page.drawing_top - slot.page.band_bottom == gap
             assert slot.page.vertical_bound == "slot"
             assert abs(_mm(band.height) - spec.band_mm) <= 2 * HALF_PIXEL_MM + 1e-9
         assert upper.usable_bottom == lower.usable_top
@@ -716,7 +749,7 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
 
     **CARD-224: vertically the two are now one translation apart.** A single
     page's drawing floats at 42% of its puzzle area's spare height while a
-    slot's sits at its slot's band foot, so every ``y`` below is compared
+    slot's sits one two-up rule gap below its slot's band foot, so every ``y`` below is compared
     after subtracting the one offset between the two drawings' top edges
     (measured once, from those two edges) — a shift, not a loosened
     tolerance: the x axis, the widths, the majors, the indices, the clue
@@ -761,11 +794,16 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
         exact += at_cap
         fitted += not at_cap
 
-        # CARD-224's one licensed difference: the single page's own float.
-        # Measured off the two drawings' top edges, and checked to be the
-        # 42% figure (within the pixel each side rounds by) rather than
-        # whatever difference happened to be there.
+        # CARD-224's one licensed difference: the single page's own float,
+        # less the slot's two-up rule gap. Measured off the two drawings' top
+        # edges, and checked to be the 42% figure less that gap (within the
+        # pixel each side rounds by) rather than whatever difference happened
+        # to be there.
         shift = single.page.drawing_top - pair.upper.page.drawing_top
+        gap = pair.upper.page.drawing_top - pair.upper.page.band_bottom
+        assert abs(gap - _expected_rule_gap_px(spec, first, second, pair.cell_mm)) <= 1, (
+            spec, gap
+        )
         area_top, area_bottom = _puzzle_area_mm(spec)
         down = _depth(first[1]) + len(first[0])
         spare_mm = (area_bottom - area_top) - down * single.page.cell_mm
@@ -775,6 +813,7 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
             )
         else:
             expected_shift_mm = 0.0
+        expected_shift_mm -= _mm(gap)
         assert abs(_mm(shift) - expected_shift_mm) <= 3 * HALF_PIXEL_MM + 1e-9, (
             spec, shift, expected_shift_mm
         )

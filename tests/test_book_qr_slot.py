@@ -20,6 +20,7 @@ are in ``tests/test_book_footer_pointer.py``.
 from __future__ import annotations
 
 import ast
+import math
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -36,6 +37,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     INTERIOR_FOOTER_MM,
+    TWO_UP_RULE_GAP_MM,
     OrientationPolicy,
     PageParity,
     PageSpec,
@@ -216,6 +218,30 @@ def _two_up(
     )
 
 
+def _two_up_rule_gap_px(pair, *, footer_px: int) -> int:
+    """The rule gap a two-up page leaves between each rule and each drawing.
+
+    Read off the lower slot (its drawing's top less its band's real foot) and
+    checked against the gap re-derived from the pair's own placements:
+    ``TWO_UP_RULE_GAP_MM``, capped at a quarter of the vertical slack the fit
+    left -- the content height (``footer_px`` above the bottom margin) less
+    both bands and both drawings -- floored to a whole device pixel, within the
+    pixel the placements' own rounding can cost. The same gap stands below the
+    upper band's foot and between the lower drawing and the content's bottom.
+    """
+    upper, lower = pair.upper.page, pair.lower.page
+    gap = lower.drawing_top - lower.band_bottom
+    assert upper.drawing_top - upper.band_bottom == gap
+    slack = (lower.usable_bottom - footer_px) - upper.usable_top - sum(
+        (page.band_bottom - page.usable_top) + (page.drawing_bottom - page.drawing_top)
+        for page in (upper, lower)
+    )
+    expected = math.floor(min(TWO_UP_RULE_GAP_MM * PX_PER_MM, max(slack, 0) / 4))
+    assert abs(gap - expected) <= 1, (gap, expected, slack)
+    assert lower.usable_bottom - footer_px - lower.drawing_bottom == gap
+    return gap
+
+
 def _two_up_render(
     spec_parity: PageParity,
     page_number: int,
@@ -297,21 +323,28 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
         """The card's own "the room already exists" claim, re-derived: a pair
         whose slots sit at least one strip apart commits the identical cell
         with the strip reserved — the strip is taken out of that gap, not out
-        of the cell."""
+        of the cell. "That gap" is the pair's whole vertical slack: the room
+        between the slots plus the three two-up rule gaps
+        (``TWO_UP_RULE_GAP_MM``) spent out of it, which is what the bare and
+        reserved pairs are compared on, since the rule gap itself shrinks
+        once a quarter of a tighter slack is less than its 3 mm."""
         spec = _spec()
         checked = 0
         for rows in (10, 11, 12, 13):
             bare = _two_up(spec, (10, rows, 1, 1), reserve_footer=False)
             reserved = _two_up(spec, (10, rows, 1, 1))
             assert bare is not None and reserved is not None, rows
-            gap = bare.lower.page.usable_top - bare.upper.page.drawing_bottom
+            bare_rule_gap = _two_up_rule_gap_px(bare, footer_px=0)
+            reserved_rule_gap = _two_up_rule_gap_px(reserved, footer_px=FOOTER_STRIP_PX)
+            gap = (
+                bare.lower.page.usable_top - bare.upper.page.drawing_bottom
+            ) + 3 * bare_rule_gap
             assert gap >= FOOTER_STRIP_PX, (rows, gap)
             assert reserved.cell_mm == bare.cell_mm, (rows, bare.cell_mm, reserved.cell_mm)
             # And the gap really did pay for it.
             assert (
                 reserved.lower.page.usable_top - reserved.upper.page.drawing_bottom
-                == gap - FOOTER_STRIP_PX
-            )
+            ) + 3 * reserved_rule_gap == gap - FOOTER_STRIP_PX
             checked += 1
         assert checked == 4
 
@@ -510,8 +543,11 @@ class TestTwoUpFooter_TwoUpPagesNowCarryTheirFolio:
         assert pair is not None
         frame = interior_frame(spec)
         # The precondition, confirmed rather than assumed: the lower slot's
-        # drawing now stops exactly on the footer rule.
-        assert pair.lower.page.drawing_bottom == frame.footer_rule.y
+        # drawing now stops one two-up rule gap above the footer rule, clear
+        # of its stroke.
+        rule_gap = _two_up_rule_gap_px(pair, footer_px=frame.footer_depth)
+        assert rule_gap > frame.footer_rule.width
+        assert pair.lower.page.drawing_bottom == frame.footer_rule.y - rule_gap
 
         generator, plan, payloads = _two_up_render(parity, page_number, pair)
         calls = _page_text_calls(generator, plan, payloads, monkeypatch)
@@ -569,8 +605,9 @@ class TestTwoUpFooter_UsesTheSameFooterGeometryAsASinglePage:
     def test_the_strip_the_pair_reserves_is_the_strip_the_frame_draws(self) -> None:
         """One figure, read by both: the reserve handed to
         ``compute_pair_layout`` is ``InteriorFrame.footer_depth``, and the
-        lower slot's resulting slack is exactly that -- so the drawing stops
-        on the rule the frame strokes, by construction."""
+        lower slot's resulting slack is exactly that plus the two-up rule gap
+        (``TWO_UP_RULE_GAP_MM``) -- so the drawing stops that gap above the
+        rule the frame strokes, by construction."""
         for parity in (PageParity.ODD, PageParity.EVEN):
             spec = _spec(parity=parity)
             frame = interior_frame(spec)
@@ -579,8 +616,12 @@ class TestTwoUpFooter_UsesTheSameFooterGeometryAsASinglePage:
             pair = _two_up(spec)
             assert pair is not None
             placement = pair.lower.page
-            assert placement.usable_bottom - placement.drawing_bottom == frame.footer_depth
-            assert placement.drawing_bottom == frame.footer_rule.y
+            rule_gap = _two_up_rule_gap_px(pair, footer_px=frame.footer_depth)
+            assert rule_gap > 0
+            assert placement.usable_bottom - placement.drawing_bottom == (
+                frame.footer_depth + rule_gap
+            )
+            assert placement.drawing_bottom == frame.footer_rule.y - rule_gap
 
     def test_there_is_one_footer_depth_constant_and_one_pointer_placer(self) -> None:
         """Read off the source: nothing in the package states a second footer

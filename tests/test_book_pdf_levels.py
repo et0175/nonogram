@@ -134,6 +134,7 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
+from nonogram.admin import book_vector
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.admin.book_pdf_generator import (
     DPI,
@@ -396,15 +397,36 @@ def band_lines(page: ContentStream) -> List[str]:
     one-page PDF -- an engine that did not write the file, and not
     ``band_identity``. Clue digits, the QR invitation and the grid-size label
     do not have the shape of a band, so on a puzzle page this is the band.
+
+    Since CARD-207 a puzzle page's header is two pieces on one baseline,
+    ``Puzzle N`` at the band's size and the tier in capitals, smaller, flush
+    right; words are therefore gathered by **baseline** (each box's top plus
+    its share of the face's ascent), and a row reading ``Puzzle N TIER`` is
+    read back as the band's line ``Puzzle N · Tier``.
     """
-    rows: dict = {}
-    for word in _words_of(page):
-        rows.setdefault(round(word.top, 1), []).append(word)
+    metrics = book_vector.interior_face_metrics()
+    ascent_share = metrics.ascent / (metrics.ascent - metrics.descent)
+    placed = sorted(
+        (word.top + ascent_share * (word.bottom - word.top), word)
+        for word in _words_of(page)
+    )
+    rows: list = []
+    for baseline, word in placed:
+        if rows and baseline - rows[-1][0] < 0.5:
+            rows[-1][1].append(word)
+        else:
+            rows.append((baseline, [word]))
     lines = [
         " ".join(w.text for w in sorted(row, key=lambda w: w.left))
-        for row in rows.values()
+        for _, row in rows
     ]
+    lines = [_HEADER_ROW.sub(lambda m: f"{m[1]} · {m[2].capitalize()}", line) for line in lines]
     return [line for line in lines if _BAND_SHAPE.fullmatch(line)]
+
+
+#: A puzzle header's row as poppler reads it (CARD-207): the number, then the
+#: tier word in capitals.
+_HEADER_ROW = re.compile(r"^(Puzzle \d+) (EASY|MEDIUM|HARD)$")
 
 
 def footer_floor(words: Sequence) -> float:

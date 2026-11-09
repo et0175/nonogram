@@ -300,6 +300,7 @@ __all__ = [
     "guide_spread_layout",
     "header_band",
     "interior_frame",
+    "interior_header_rule_px",
     "play_page_layout",
     "rasterise_rule_px",
     "refuse_rasterised_rule",
@@ -1853,6 +1854,16 @@ class InteriorFrame:
         return self.page_bottom - self.footer_rule.y
 
 
+def interior_header_rule_px() -> int:
+    """The header rule's stroke on the device grid: INTERIOR_HEADER_RULE_PT, never thinner.
+
+    The one width every header rule on a sheet is stroked at, the page's own
+    (:func:`interior_frame`) and a two-up page's lower-slot rule alike, so the
+    two cannot come out at different weights.
+    """
+    return _pt_to_px_at_least(INTERIOR_HEADER_RULE_PT)
+
+
 def _pt_to_px_at_least(points: float) -> int:
     """A rule weight in points as the fewest whole pixels that measure at least it."""
     return _mm_to_px_at_least(points * MM_PER_POINT)
@@ -1930,7 +1941,7 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
     gutter_on_left = page_spec.parity is PageParity.ODD
     return InteriorFrame(
         header_rule=PageRule(
-            left=left, right=right, y=header_y, width=_pt_to_px_at_least(INTERIOR_HEADER_RULE_PT)
+            left=left, right=right, y=header_y, width=interior_header_rule_px()
         ),
         footer_rule=PageRule(
             left=left, right=right, y=footer_y, width=_pt_to_px_at_least(INTERIOR_FOOTER_RULE_PT)
@@ -3541,6 +3552,8 @@ def compute_layout(
 #: A named constant rather than a :class:`PageSpec` field: it is the owner's
 #: rule for every book, not a property of a trim.
 TWO_UP_MIN_CELL_MM = 7.0
+# Most room a two-up page leaves between a rule and a drawing (see compute_pair_layout).
+TWO_UP_RULE_GAP_MM = 3.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -3961,7 +3974,17 @@ def compute_pair_layout(
     upper_band_top = _exact_px(page_spec.top_mm)
     page_bottom = _exact_px(page_spec.height_mm) - _exact_px(page_spec.bottom_mm)
     content_bottom = _exact_px(page_spec.height_mm) - _exact_px(reserved_bottom_mm)
-    lower_band_top = content_bottom - lower_down * pitch - band
+    # Breathing room between the page's rules and the two drawings: the
+    # drawings would otherwise sit flush against the header rule (upper),
+    # the footer rule (lower) and the lower slot's own band rule. Taken only
+    # from the vertical slack the fit left between the slots, never from the
+    # fit itself, so which pairs pair and at what cell is unchanged; three
+    # gaps are spent and at least one more is left between the slots.
+    slack = content_bottom - (upper_band_top + band + (upper_down + lower_down) * pitch + band)
+    # Whole device pixels, so each drawing keeps the sub-pixel phase its band
+    # foot gives it and every rule rounds exactly as it did without the gap.
+    gap = Fraction(math.floor(min(_exact_px(TWO_UP_RULE_GAP_MM), max(slack, Fraction(0)) / 4)))
+    lower_band_top = content_bottom - gap - lower_down * pitch - band - gap
     cell_mm = float(exact_cell_mm)
     return PairLayout(
         upper=_slot_layout(
@@ -3972,6 +3995,7 @@ def compute_pair_layout(
             pitch=pitch,
             band_top=upper_band_top,
             slot_bottom=lower_band_top,
+            drawing_offset=gap,
         ),
         lower=_slot_layout(
             lower_rows,
@@ -3981,6 +4005,7 @@ def compute_pair_layout(
             pitch=pitch,
             band_top=lower_band_top,
             slot_bottom=page_bottom,
+            drawing_offset=gap,
         ),
         cell_mm=cell_mm,
     )
@@ -4009,6 +4034,7 @@ def _slot_layout(
     pitch: Fraction,
     band_top: Fraction,
     slot_bottom: Fraction,
+    drawing_offset: Fraction = Fraction(0),
 ) -> Layout:
     """One slot of a two-up page: a placed-page :class:`Layout` at a given cell.
 
@@ -4076,7 +4102,7 @@ def _slot_layout(
     # page are centred on the same axis however differently wide they are.
     spare = usable_width_px - drawing_columns * pitch
     left = usable_left_px + max(spare, Fraction(0)) / 2
-    top = band_top + _exact_px(page_spec.band_mm)
+    top = band_top + _exact_px(page_spec.band_mm) + drawing_offset
 
     xs = _boundaries(left, pitch, drawing_columns)
     ys = _boundaries(top, pitch, drawing_rows)
@@ -4128,7 +4154,7 @@ def _slot_layout(
             usable_top=_round_px(band_top),
             usable_right=_round_px(usable_left_px + usable_width_px),
             usable_bottom=_round_px(slot_bottom),
-            band_bottom=_round_px(top),
+            band_bottom=_round_px(top - drawing_offset),
             drawing_left=xs[0],
             drawing_top=ys[0],
             drawing_right=grid_right,
