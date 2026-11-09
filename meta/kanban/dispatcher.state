@@ -480,13 +480,7 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
-  # CARD-408 DISPATCHED 2026-11-09T18:41Z (player-phone thread); serial after 407.
-  - card: CARD-408
-    branch: card/408-hint-into-view
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-408
-    started: 2026-11-09T18:41Z
-    estimate: 3c (1d)
-    cut_from: 938f858f
+# CARD-408 CLEARED 2026-11-09T19:51Z: merged 86c4eaf4, done, review 9.0 on cycle 3 (7.0, 8.0), estimate 3c -> 1.0. Player-set gate 1392 passed. Entry dropped.
 # CARD-407 CLEARED 2026-11-09T18:40Z: merged 6f4bab4f, done, review 8.5 on cycle 1, estimate 2c -> 0.5. Player-set gate 1389 passed. Entry dropped.
 # CARD-406 CLEARED 2026-11-09T17:45Z: merged 63703247, done, review 9.0 on cycle 3 (5.0, 7.5), estimate 4c -> 0.75. Player-set gate 1388 passed. Entry dropped.
 # CARD-405 CLEARED 2026-11-09T14:37Z: merged 975409ea, done, review 9.0 on cycle 2 (7.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1385 passed. Entry dropped.

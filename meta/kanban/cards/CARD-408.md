@@ -1,6 +1,6 @@
 # CARD-408: Hint and Check bring what they point at into view — the hinted row or column, or the filled cell — at any zoom and in both orientations
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/408-hint-into-view
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-408
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 7, first bullet (marked essential): "Scroll the board so the hinted row or column, or the filled cell, is in view, at any zoom and in both orientations. This is the essential one."
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-403, CARD-404
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Real dependencies: CARD-403 (it fixes which element scrolls; a scroll-into-view written against today's nested scroller would move the page as well) and CARD-404 (the sticky bands are what the target must not hide under; their depth changes with it). -->
-**Review score:** —
+**Review score:** 9.0 (cycle 3)
 **Started:** 2026-11-09T18:41Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T19:51Z
+**Actual:** 3 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** 86c4eaf4
 **Blocked by:** —
 
 ## Why this card exists
@@ -90,4 +90,6 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 [Tests] New TestSolverZoom_HintComesIntoView: the pure cell (7 cases incl. the upper clamp) and 844 x 390 / 1440 x 900. Plants run: revealScroll ignoring the band (pure cell red), no bringIntoView in setLadderLine (both browser cells red), rowBand = 0 and colBand = 0 in bringIntoView (1440 x 900 red). Node ids +3 (all in the browser registry); none removed; tests/test_puzzle_solver_hint.py untouched (AC-7).
 [Review 1/3] Score: 7.0 — F-001 (no band exercised) fixed by the 1440 x 900 viewport; F-002 (clue box) fixed as above; F-003 this note; F-004 the axis-specific assertion; F-005 an upper-clamp case; F-006 (row band read from the first row clue, assumed left) holds while the mirror is inert (CARD-405), noted; F-007 the function moved above cellUnder's comment. Report meta/review/20261109T190847Z-CARD-408-cycle1.yml.
 [Review 2/3] Score: 8.0 — F-101 (the both-axis bring-in snapped a sideways scroll back on every press, AC-5): fixed — across the line its cells; along it only its clue box, and only when that axis's band is not kept (a kept band pins the clue in view already). F-102: the test now scrolls 150 px along the line before rung 2 and asserts no movement where the band is kept (1440 x 900) and the clue brought back fully where it is not (844 x 390); the plant "always bring the clue in" reds 1440 x 900 (run). F-103: the measured numbers are the test's own assertions above (in-view on both viewports, page scroll constant). Report meta/review/20261109T193500Z-CARD-408-cycle2.yml.
+[Review 3/3] Score: 9.0 — certified; the reviewer's probe on 30 x 30 and its transpose at 200/300% on all four viewports: no snap-back where the band is kept, the clue brought back where it is not, rung 3 on both axes, the page never scrolls. F-201 (swapping the band class the clue guard reads survives — only visible with exactly one band kept) and F-202 (a 218 px column clue cannot fit a 131 px landscape stage) accepted as low. Report meta/review/20261109T193416Z-CARD-408-cycle3.yml.
+[Closing note, merge gate, merged 86c4eaf4] Player set (owner ruling 2026-11-09): 1392 passed, 9 skipped (DATABASE_URL unset), 0 failed. Full suite owed at the wave close. Accuracy: 3 cycles / 3c = 1.0. Net node ids +3.
 
