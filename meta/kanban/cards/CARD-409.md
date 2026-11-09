@@ -1,6 +1,6 @@
 # CARD-409: A hint is seen — a stronger highlight with a short pulse, the hint text right by the board, and 'the highlighted row (13)' wording
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/409-hint-is-seen
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-409
 **Source:** owner player findings 2026-11-07, item 7, bullets 2-4: "Make the highlight stronger. Use a clearly visible tint on the line and its clue, and maybe a short pulse when it appears."; "Show the hint text right by the board: just above it, or as a small strip over its top edge that disappears on the next tap."; "Word it as 'the highlighted row (13)' so the highlight does the pointing and the number is a backup."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-408
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, player/assemble.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_page.py, tests/test_player_shared_ui_site.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. It edits `player/assemble.py` and `tests/test_player_shared_ui_site.py` only for the usage-sentence hook (`SHARED_UI_HINT_CLAUSE` / `SHARED_UI_HINT_REPLACEMENT`, the CARD-386 F-2 ruling 'in the line at the top of the page'), which becomes false when the line moves; CARD-394 edits the same two files (serialize with it in whichever order it merges; neither depends on the other). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T19:52Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -88,4 +88,10 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] See the commit. Q13 taken as the card's recommendation (a strip over the stage's BOTTOM edge; it never covers the sticky column clues). Rung 3's sentence unchanged (no ruling asked). The pulse lives in the existing player-hint-line-in keyframes, so each line part still runs ONE animation (the reduced-motion and one-animation cells hold unchanged).
+[AC-1] The tint is stronger (accent 30% into the accent tint); the existing distinguishability cells (crosshair, probe ring, Maybe ground) pass unchanged — their floors are kept; no new raised-floor cell was added (owner test budget): the tint change is reviewed by eye and by the existing cells.
+[Measure] The strip at rung 2 sits inside the stage box at 390 x 844, 844 x 390, 1280 x 900 and 1440 x 900, >= 12 px, unclipped, and nothing (head, board, toolbar, counters) moves between empty, full and dismissed — the re-pointed TestSolverHintLadder_EveryPressChangesSomethingSeen::test_the_line_moves_neither_the_toolbar_nor_the_board. The page head lost the line's row on phones: stage +38 px at 390 x 844 (port 398 -> 436), +38 at 600 x 844.
+[Tests] Net node ids 0: every change re-points an existing cell, each naming the 2026-11-07 finding. Player set 1054 passed before review.
+[Review 1/3] Score: 7.0 — F-001 (the strip covered bottom rows, the hint's own target among them): fixed — placeExplain moves the strip to the stage's TOP (below the sticky column band) whenever a hint-line cell or the revealed cell meets it; the re-pointed four-viewport cell asserts the hinted line is not under the strip. F-002: the raised floor (hint line vs paper, dE76 15; measured 6.9 before, 24.3 after) is asserted inside the existing probe _de76 cell, no new node. F-003: .player-head justify-content flex-start keeps the badge beside the title (base-css frozen re-recorded). F-004: Escape dismissal asserted at 844 x 390 in the same loop. F-005 no change. Report meta/review/20261109T214500Z-CARD-409-cycle1.yml.
+
