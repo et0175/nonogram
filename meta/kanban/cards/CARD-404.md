@@ -1,6 +1,6 @@
 # CARD-404: Clue strips stop growing with the zoom — the numbers cap at a readable size while the cells grow — and the strips stay pinned at every zoom
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/404-clue-numerals-capped
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-404
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, items 3 and 6 ("The clue strips zoom too. At 200% the row clues take about 135 px ... Keeping the clue text at a fixed readable size while only the cells grow would roughly double the playing area. Alignment should stay of course." with the owner's own spec: cap the numbers around 13-14 px; the cap only limits growth when zooming IN; a column's box stays narrow when zoomed out so a two-digit clue keeps today's small size; the along-the-line dimension keeps zooming with the cells). Item 3: "At 100% and above the clue strips stay pinned (row clues at the side, column clues at the top)."
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-401/402/403 (admin.css; serialize), CARD-405 and CARD-406/408/410 (all depend on the strip geometry this card fixes). -->
-**Review score:** —
+**Review score:** 9.0 (cycle 2)
 **Started:** 2026-11-09T11:54Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T13:25Z
+**Actual:** 2 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** e1c2575a
 **Blocked by:** —
 
 ## Why this card exists
@@ -92,3 +92,7 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 [AC-3 measure] Shared-UI preview, 30x30 class (puzzle 5260), cells outside the clue bands (columns x rows): 390x844 200% 4x14 -> 6x15, 300% 1x7 -> 4x10; 1280x720 200% 33x11 -> 35x13, 300% 20x5 -> 23x8; bands 187x210 (200%) / 278x314 (300%) -> 152x171 at both.
 [Tests] New TestSolverZoom_ClueStripsStopGrowing (cap, equal strips at 200/300%, alignment at 100/200/300%; plant uncap -> red at 200%). Re-pinned with the decision named in place: desktop numerals, column slot = clue cell, GIVES_UP_AT rows 225 -> 325 (never), bands/overflows of the doubled 30x25, mid-size cells, small-board resize tests to 440x480 (the bands fit 1024x768 now), the phone predictor (measured top + cap). Touch/drag tests bring the target cell clear of the now-sticky bands first. Net node ids +1 (registry). 
 [Review 1/3] Score: 5.0 — critical AC-5 (decided by the owner, ruling 1), important: margin fix (ruling 3), AC-4 reading (ruling 2), notes (this note); minor: the CARD-271 solver.js comment restated, crosshair comment and slot tolerance explained (ab2e7a85). Report meta/review/20261109T125050Z-CARD-404-cycle1.yml.
+[Measure, viewport matrix] No horizontal page scroll and no clipped control at 390x844, 844x390, 1280x720, 1440x900 on the 15x15 and the 30x30 (same shared-UI sweep as CARD-401/403); 844x390 keeps neither band at 200/300% on the 30x30 (ruling 1). Node-id set difference vs main: +1 (TestSolverZoom_ClueStripsStopGrowing::test_capped_strips_and_exact_alignment); no id removed or renamed.
+[Review 2/3] Score: 9.0 — certified; 5/5 mutants killed by the reviewer. Minors fixed (attributions, the overflow figure); the viewport-matrix note is the line above. Report meta/review/20261109T130015Z-CARD-404-cycle2.yml.
+[Closing note, merge gate, merged e1c2575a] Player set (owner ruling 2026-11-09): 1385 passed, 9 skipped (DATABASE_URL unset), 0 failed. Full suite owed at the wave close. Accuracy: 2 cycles / 4c = 0.5. Net node ids +1.
+
