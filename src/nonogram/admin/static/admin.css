@@ -580,7 +580,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-board .major-right, .player-clue.is-col:last-child, .player-cell:last-child { border-right: var(--player-rule-major) solid var(--grid-ink); }
 .player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
 /* A row-clue gutter on the RIGHT of the grid — CARD-193's mirror (boards
-   wider than 15 columns draw their one gutter there, on phones only) and,
+   wider than 15 columns drew their one gutter there, on phones only, until
+   CARD-405 retired it on 2026-11-07; the rules stay for CARD-212's
+   duplicate) and,
    since CARD-212, the second gutter a big board repeats its row clues into.
    Both are the same geometry, so both come from one marker: solver.js puts
    .is-right on the box (and on the corner above it) that sits on that side.
@@ -1151,8 +1153,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 }
 .player-board .player-clue-num { position: relative; }
 .player-board .player-clue.is-row .player-clue-num { height: var(--player-cell); line-height: normal; margin: calc(var(--player-rule-major) / -2) 1.45ch calc(var(--player-rule-major) / -2) 0; }
-/* In a row gutter on the RIGHT of the grid (CARD-193's mirror, CARD-212's
-   duplicate) that 1.45 ch gap is mirrored too: it goes on the number's LEFT.
+/* In a row gutter on the RIGHT of the grid (CARD-193's mirror until
+   CARD-405, CARD-212's duplicate) that 1.45 ch gap is mirrored too: it goes on the number's LEFT.
    The gap is what gives a ring its room beside the digits, and in a
    right-hand gutter the number that needs it is the FIRST one — the one
    against the grid, whose ring otherwise hangs over the board's heavy frame

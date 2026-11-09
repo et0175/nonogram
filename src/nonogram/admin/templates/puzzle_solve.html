@@ -109,8 +109,9 @@
   view. Nothing of it is rendered here: the board is solver.js's, and which
   gutters it draws is decided there, per axis (a side past 15 is big) and only
   while the cells that leaves are at least 24 px on a side. A board that
-  cannot afford a duplicate keeps exactly the rendering it had before, the
-  phone mirror (CARD-193) included. The duplicate gutter is aria-hidden, so a
+  cannot afford a duplicate keeps one gutter per axis, at the left and on
+  top (the phone mirror of CARD-193 was retired by CARD-405, owner finding
+  2026-11-07: sticky bands and the crosshair keep the clues in view). The duplicate gutter is aria-hidden, so a
   screen reader still reads each clue once, from the gutter with the label.
 
   A click follows the selected brush (CARD-189): a first click gives the cell

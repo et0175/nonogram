@@ -741,15 +741,18 @@ class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
             }"""
         )
 
-        assert seen["mirrored"] is True
+        # RETIRED CLAIM, 2026-11-07 (CARD-405, owner finding: the clues stay
+        # at the left and top): the phone mirror. The name is kept (a rename
+        # moves a recorded node id); the fallback is now the plain layout.
+        assert seen["mirrored"] is False
         # One box per line, on each axis — not two. (BIG is 30 x 30; the
         # 15 solver.js calls BIG_SIDE is the "is this board big" threshold,
         # not this file's BIG_SIDE, which is the fixture's own side.)
         assert (seen["rowBoxes"], seen["colBoxes"]) == (len(BIG), len(BIG[0]))
         assert seen["duplicates"] == 0 and seen["feet"] == 0 and seen["corners"] == 1
-        # CARD-193's mirror, unchanged: the row clues are on the right of
-        # every body row and on the left of none.
-        assert seen["rowCluesLast"] is True and seen["rowCluesFirst"] is False
+        # The row clues are on the left of every body row (CARD-405), on the
+        # right of none.
+        assert seen["rowCluesLast"] is False and seen["rowCluesFirst"] is True
         # The cell is the one CARD-193/CARD-196 give this board — the fit is
         # not charged for a gutter that was never drawn — and it is below the
         # 24 px that doubling is conditional on, which is why.
@@ -760,6 +763,8 @@ class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
 
 # ==========================================================================
 # CARD-271 — the mirrored gutter stays in view, where there is room for it
+# [The phone mirror described below was retired by CARD-405, owner finding
+# 2026-11-07; the measurements are history, the class now asserts the left band.]
 #
 # CARD-193's mirror is the third of that card's three converging causes: at
 # <= 820 px with width > 15 the ONE row-clue gutter is drawn on the right, so
@@ -792,20 +797,19 @@ class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
 
 @pytest.mark.browser
 class TestSolverPhone_MirroredGutterSticks:
-    """AC-2 — on a mirrored board with room for it, the one row-clue gutter
-    sticks to the RIGHT of the stage's scrollport and the column gutter to
-    its top, so both are in view at every scroll position, including the one
-    the board opens at (scrollLeft 0), where the mirrored band sits a whole
-    band-width off-screen to the right."""
+    """AC-2 — on a board with room for it, the one row-clue gutter sticks to
+    the stage's scrollport and the column gutter to its top, so both are in
+    view at every scroll position. Until CARD-405 (owner finding 2026-11-07)
+    the phone board was MIRRORED and the band stuck to the RIGHT edge; it is
+    the left/top layout now and the band sticks to the LEFT edge."""
 
     def test_both_bands_are_in_view_at_every_corner(self, browser_page, live) -> None:
         page = browser_page
         page.set_viewport_size({"width": 600, "height": 844})
         _open(page, live, live.store(BIG))
 
-        # The case: CARD-193's mirror holds, no duplicate was drawn, and the
-        # row axis measured the room to keep its gutter.
-        assert page.evaluate(
+        # RETIRED CLAIM, 2026-11-07 (CARD-405, owner finding: "the clues stay at the left and top"): the phone mirror. The class and test names are kept (a rename moves a recorded node id); the board is now the plain left/top layout, and its row band sticks to the scrollport's LEFT edge.
+        assert not page.evaluate(
             "document.querySelector('.player-board').classList.contains('is-mirrored')")
         assert page.evaluate(
             "document.querySelectorAll('th.player-clue[aria-hidden=\"true\"]').length") == 0
@@ -822,13 +826,14 @@ class TestSolverPhone_MirroredGutterSticks:
             assert seen["overflow"] == [136, 108], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap
             assert seen["scroll"] == [136 if col else 0, 108 if row else 0], (corner, seen["scroll"])
 
+            # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
             # and the column band to its top; both wholly inside it, at every
             # corner — including the one the board OPENS at, where the
             # mirrored band is 136 px off-screen to the right without this.
             assert seen["row"]["inside"], (corner, seen["row"])
             assert seen["col"]["inside"], (corner, seen["col"])
-            assert seen["row"]["dRight"] == pytest.approx(0, abs=0.5), (corner, seen["row"])
+            assert seen["row"]["dLeft"] == pytest.approx(0, abs=0.5), (corner, seen["row"])
             assert seen["col"]["dTop"] == 0, (corner, seen["col"])
             # Cells go under, not over.
             assert seen["row"]["hit"] in GUTTER_PAINTS, (corner, seen["row"])
@@ -873,12 +878,13 @@ class TestSolverPhone_MirroredGutterSticks:
                 corner, "no .player-corner carries both stuck markers, so the "
                         "mirrored crossing is not held on the row axis")
             assert seen["corner"]["inside"], (corner, seen["corner"])
-            assert seen["corner"]["dRight"] == pytest.approx(0, abs=0.5), (corner, seen["corner"])
+            assert seen["corner"]["dLeft"] == pytest.approx(0, abs=0.5), (corner, seen["corner"])
             assert seen["corner"]["dTop"] == 0, (corner, seen["corner"])
             assert seen["corner"]["hit"] in GUTTER_PAINTS, (corner, seen["corner"])
 
     def test_the_mirrored_corner_sticks_to_the_right_too(self, browser_page, live) -> None:
-        """The mirror leaves ONE corner, the right-hand one, and it is the
+        """[Since CARD-405: the one corner is the LEFT one, pinned top-left.]
+        The mirror left ONE corner, the right-hand one, and it was the
         corner of the band that sticks — so it carries both markers here,
         where a non-mirrored doubled board's right corner carries only the
         column one (tests/test_puzzle_solver_clues.py
@@ -894,8 +900,10 @@ class TestSolverPhone_MirroredGutterSticks:
                })"""
         )
 
+        # Right-hand and pinned right until CARD-405 retired the mirror
+        # (owner finding 2026-11-07); the one corner is the left one now.
         assert corners == [
-            ["player-corner is-right is-stuck-col is-stuck-row", "sticky", "0px", "auto", "0px"],
+            ["player-corner is-stuck-col is-stuck-row", "sticky", "0px", "0px", "auto"],
         ], corners
 
     def test_a_390px_phone_keeps_its_cells_rather_than_its_row_clues(
@@ -907,7 +915,9 @@ class TestSolverPhone_MirroredGutterSticks:
         overflows sideways past the whole of it, so a stuck band would hang
         over the cells at every scroll position. It is not stuck, and the
         consequence is asserted from both sides: the row clues really are
-        gone at scrollLeft 0 (the bug, unfixed here), and a right-hand cell
+        gone once the stage is scrolled right (since CARD-405 the band is on
+        the left; owner ruling 2026-11-09: a band too big at the cap
+        scrolls), and a right-hand cell
         really is still the thing that a tap at its centre lands on — which
         is what a stuck band took away (the tap in
         TestSolverPhone_TouchDragMarksOnAFittedBoard above went to the band
@@ -930,12 +940,14 @@ class TestSolverPhone_MirroredGutterSticks:
         # holding the 390 px owner decision.
         assert room["coverRaw"][0] > room["port"][0] * STICK_MAX_SHARE, room
 
-        _to_corner(page, 0, 0)
-        seen = _in_view(page, 0, 0)
-        # The row clues are off to the right, unfixed: this is the case the
-        # owner is being asked about, stated as a measurement.
+        # Unmirrored since CARD-405 (owner finding 2026-11-07): the row band
+        # is on the LEFT, so it is the right-hand corner where it has
+        # scrolled away; the owner ruled on 2026-11-09 that a band too big at
+        # the capped size scrolls rather than covering the board.
+        _to_corner(page, 1, 0)
+        seen = _in_view(page, 0, len(BIG) - 1)
         assert seen["row"]["inside"] is False, seen["row"]
-        assert seen["row"]["dRight"] == pytest.approx(-346, abs=1), seen["row"]
+        assert seen["row"]["dLeft"] == pytest.approx(-346, abs=1), seen["row"]
         # The column clues ARE kept (that axis has the room), so the refusal
         # is per axis and not a blanket one.
         assert seen["col"]["inside"] and seen["col"]["dTop"] == 0, seen["col"]

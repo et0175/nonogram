@@ -101,17 +101,16 @@ class TestSolverMirror_RowCluesOnTheRightAboveFifteen:
         page = browser_page
         puzzle_id = live.store(GRID_25x15)
 
+        # RETIRED CLAIM, 2026-11-07 (CARD-405, owner finding: "the clues stay at the left and top"; the sticky bands and the crosshair keep them in view): the phone mirror. The test keeps its name only because a rename would move a recorded node id; it now asserts that a phone draws the SAME left/top layout as the desktop.
         page.set_viewport_size(PHONE)
         _open(page, live, puzzle_id)
         phone = _structure(page)
 
-        assert phone["isMirrored"] is True
-        assert _is_corner(phone["headFirst"]) is False
-        assert _is_col_clue(phone["headFirst"]) is True
-        assert _is_corner(phone["headLast"]) is True
+        assert phone["isMirrored"] is False
+        assert _is_corner(phone["headFirst"]) is True
         for first, last in zip(phone["rowFirst"], phone["rowLast"]):
-            assert _is_cell(first), first
-            assert _is_row_clue(last), last
+            assert _is_row_clue(first), first
+            assert _is_cell(last), last
         # The row clues still read top to bottom in payload order (AC-5).
         assert phone["rowClueTexts"] == [[str(n) for n in clue] for clue in ROW_CLUES_25x15]
 
@@ -139,11 +138,12 @@ class TestSolverMirror_RowCluesOnTheRightAboveFifteen:
         assert _is_row_clue(fifteen["rowFirst"][0])
         assert _is_cell(fifteen["rowLast"][0])
 
+        # Sixteen wide used to mirror at phone width (CARD-193). RETIRED CLAIM, 2026-11-07 (CARD-405, owner finding: "the clues stay at the left and top"; the sticky bands and the crosshair keep them in view): the phone mirror. The test keeps its name only because a rename would move a recorded node id; it now asserts that a phone draws the SAME left/top layout as the desktop.
         _open(page, live, live.store(GRID_16_WIDE))
         sixteen = _structure(page)
-        assert sixteen["isMirrored"] is True
-        assert _is_cell(sixteen["rowFirst"][0])
-        assert _is_row_clue(sixteen["rowLast"][0])
+        assert sixteen["isMirrored"] is False
+        assert _is_row_clue(sixteen["rowFirst"][0])
+        assert _is_cell(sixteen["rowLast"][0])
 
 
 # ==========================================================================
@@ -183,39 +183,20 @@ class TestSolverMirror_HeavyLinesMatchTheLeftLayout:
         puzzle_id = live.store(GRID_25x15)
         width = len(GRID_25x15[0])
 
-        page.set_viewport_size(PHONE)
-        _open(page, live, puzzle_id)
-        mirrored = page.evaluate(_BORDERS)
-
-        thin = min(mirrored["colRight"])
-        heavy = max(mirrored["colRight"])
-        assert heavy > thin
-        # Every fifth real column stays heavy on its own right border
-        # (solver.js's .major-right class is unaffected by the mirror).
-        assert [c for c in range(width - 1) if mirrored["colRight"][c] > thin] == [4, 9, 14, 19]
-        # The last real column's OWN right border is no longer the heavy
-        # frame edge (that responsibility moves to the row-clue box's left
-        # border in mirrored mode — see admin.css .player-board.is-mirrored).
-        assert mirrored["colRight"][width - 1] == thin
-        # The heavy line between the last column and the row clues: on the
-        # row-clue box's LEFT (mirrored) rather than its right.
-        assert mirrored["rowClueLeft"] == heavy
-        assert mirrored["rowClueRight"] == thin
-        # The corner's heavy line to the last column clue is on its LEFT
-        # now, and it no longer draws a border on its new outer-right edge.
-        assert mirrored["cornerLeft"] == heavy
-        assert mirrored["cornerRight"] == 0
-        assert mirrored["cornerBottom"] == heavy  # unaffected by the mirror (vertical)
-
-        page.set_viewport_size(DESKTOP)
-        _open(page, live, puzzle_id)
-        plain = page.evaluate(_BORDERS)
-
-        assert plain["colRight"][width - 1] == max(plain["colRight"])  # the un-mirrored frame edge
-        assert plain["rowClueRight"] == max(plain["colRight"])  # heavy, on the LEFT-side gutter
-        assert plain["rowClueLeft"] == min(plain["colRight"])
-        assert plain["cornerRight"] == max(plain["colRight"])
-        assert plain["cornerLeft"] == 0
+        # RETIRED CLAIM, 2026-11-07 (CARD-405, owner finding: "the clues stay at the left and top"; the sticky bands and the crosshair keep them in view): the phone mirror. The test keeps its name only because a rename would move a recorded node id; it now asserts that a phone draws the SAME left/top layout as the desktop. The phone's heavy lines are therefore the plain
+        # pattern below, read at phone width first.
+        for viewport in (PHONE, DESKTOP):
+            page.set_viewport_size(viewport)
+            _open(page, live, puzzle_id)
+            plain = page.evaluate(_BORDERS)
+            thin, heavy = min(plain["colRight"]), max(plain["colRight"])
+            assert heavy > thin
+            assert [c for c in range(width - 1) if plain["colRight"][c] > thin] == [4, 9, 14, 19]
+            assert plain["colRight"][width - 1] == heavy  # the un-mirrored frame edge
+            assert plain["rowClueRight"] == heavy  # heavy, on the LEFT-side gutter
+            assert plain["rowClueLeft"] == thin
+            assert plain["cornerRight"] == heavy
+            assert plain["cornerLeft"] == 0
 
 
 # ==========================================================================
@@ -233,11 +214,16 @@ class TestSolverMirror_MarkingWorksOnAMirroredBoard:
         page = browser_page
         page.set_viewport_size(PHONE)
         _open(page, live, live.store(GRID_25x15))
-        assert page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        # Mirrored until CARD-405 (owner finding 2026-11-07); the rightmost
+        # column is now the board's own right edge, not beside the clues.
+        assert not page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
 
         _tool(page, "Black")  # CARD-194: via the menu
         width = len(GRID_25x15[0])
         row, col = 6, width - 1
+        # Unmirrored, the rightmost column can lie past the phone's stage;
+        # bring it to the middle (clear of the sticky row band) first.
+        page.evaluate(f"() => document.querySelector('td.player-cell[data-row=\"{row}\"][data-col=\"{col}\"]').scrollIntoView({{block: 'center', inline: 'center', behavior: 'instant'}})")
         page.mouse.click(*_centre(page, row, col))
 
         states = page.evaluate(
@@ -255,8 +241,8 @@ class TestSolverMirror_MarkingWorksOnAMirroredBoard:
 
 @pytest.mark.browser
 class TestSolverMirror_CrossingTheBreakpointKeepsTheBoard:
-    """Crossing 820 px toggles the mirror (via the matchMedia listener
-    start() registers) without losing anything solver_state.js tracks:
+    """Crossing 820 px redraws the board (via the matchMedia listener
+    start() registers; it toggled the mirror until CARD-405) without losing anything solver_state.js tracks:
     the recorded board (marks), the undo/redo history or the localStorage
     save. A live-region announcement or a stray network request would also
     signal a full reload, so both are watched too."""
@@ -278,8 +264,14 @@ class TestSolverMirror_CrossingTheBreakpointKeepsTheBoard:
 
         requests = []
         page.on("request", lambda request: requests.append(request.url))
+        draws = "performance.getEntriesByName('nonogram-player-board-draw').length"
+        drawn_before = page.evaluate(draws)
         page.set_viewport_size(PHONE)  # crosses 820 px: matchMedia fires "change"
-        page.wait_for_function("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        # The redraw still happens (the phone cell floor follows 820 px); the
+        # mirror it used to toggle is retired (CARD-405, owner finding
+        # 2026-11-07), so the board is redrawn un-mirrored.
+        page.wait_for_function(f"{draws} > {drawn_before}")
+        assert not page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
 
         after_mirror = page.evaluate("[...window.puzzlePlayer.getBoard().cells]")
         assert after_mirror == before
@@ -305,7 +297,8 @@ class TestSolverMirror_CrossingTheBreakpointKeepsTheBoard:
         assert saved_after == saved_before
 
         # Crossing back to desktop keeps the (redone) board and un-mirrors.
+        drawn_phone = page.evaluate(draws)
         page.set_viewport_size(DESKTOP)
-        page.wait_for_function("!document.querySelector('.player-board').classList.contains('is-mirrored')")
+        page.wait_for_function(f"{draws} > {drawn_phone}")
         back = page.evaluate("[...window.puzzlePlayer.getBoard().cells]")
         assert back == before

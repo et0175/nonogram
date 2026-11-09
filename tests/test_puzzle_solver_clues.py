@@ -2097,12 +2097,16 @@ class TestSolverClues_RowRingsStayInsideTheirOwnBand:
         page = browser_page
         page.set_viewport_size({"width": 390, "height": 844})
         _open(page, live, live.store(_unique_grid(30, 30, seed=19330)))
-        assert page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        # RETIRED CLAIM, 2026-11-07 (CARD-405, owner finding: the clues stay
+        # at the left and top): the phone mirror. The name is kept (a rename
+        # would move a recorded node id); the claim is now that the phone's
+        # ONE gutter is the left one and its rings stay inside it.
+        assert not page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
 
         rings = page.evaluate(_BAND_RINGS)
 
-        assert rings and all(r["right"] for r in rings)  # mirrored: no left gutter
-        assert [r for r in rings if r["clear"]["left"] < 0] == []
+        assert rings and not any(r["right"] for r in rings)  # left gutter only
+        assert [r for r in rings if r["clear"]["right"] < 0] == []
 
 
 #: One entry per board solver.js built, and what it settled on (CARD-212:
