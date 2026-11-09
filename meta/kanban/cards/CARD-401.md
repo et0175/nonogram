@@ -1,6 +1,6 @@
 # CARD-401: Icon-only toolbar on phones and short screens — Region shows two cells, the title and tier badge share a line
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -19,7 +19,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/templates/_icons.html, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-400 (none: disjoint production files), CARD-402/403/404 (all edit admin.css and puzzle_solve.html: serialize). -->
-**Review score:** —
+**Review score:** 9.5 (cycle 1)
 **Started:** 2026-11-09T09:05Z
 **Closed:** —
 **Actual:** —
@@ -90,4 +90,15 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge executing from /Users/omelnikova/MyProjects/forge_1 (no version comparison run; the orchestrator is the player-phone thread, 2026-11-09).
+[Impl 2026-11-09] Commit 7902d5a8 on card/401-icon-only-toolbar. Owner-question defaults taken (no recorded answer found; the owner's "go ahead and fix your findings" of 2026-11-09 is the authority): **Q4** Region is TWO cells at every width (one definition) — this moves the 1280/1440 tools-group interior (trigger 136 -> 151, toggle offset 144 -> 159, slot still 208), an explicit exception to AC-5's "to the pixel", re-pinned and dated in the test; **Q3** icons: undo, redo (mirrored undo), refresh (Reset), bulb (Hint), tick (Check, admin only), dashed square (Probe, the probe cells' own dashed outline). Zoom −/+ keep their text glyphs (already one-character icons): a recorded deviation from AC-1's literal "no text node"; swap to SVG if the owner wants it strict.
+[Measure 2026-11-09] Shared-UI preview built from main (before) and from the branch (after), the same admin files the panel serves; toolbar [top, height] px and board top, 15x15 (0b910577ca) and 30x30 (52603b6dee) identical:
+  | viewport | toolbar before | toolbar after | board top before -> after | title + badge one line |
+  | 390x844  | 113, 188 (4 rows) | 102, 92 (2 rows: tools+history, zoom+counter) | 318 -> 210 (-108) | yes / yes (h1 2.5 -> 1.9 rem) |
+  | 844x390  | 87, 95 (2 rows) | 75, 48 (1 row) | 198 -> 139 (-59) | yes / yes |
+  | 1280x720 | 87, 48 | 87, 48 | 151 -> 151 | yes / yes |
+  | 1440x900 | 87, 48 | 87, 48 | 151 -> 151 | yes / yes |
+  No horizontal page scroll at any of the eight. The probe bar is a third compact row at 390 (its own bar, CARD-411's). --player-chrome-h untouched (CARD-403 owns it); at 390 the stage top is now closer to what it assumes, not further.
+[Solved banner] On compact screens the banner shows the tick and the NAME; "Solved:" is visually hidden (.player-solved-label). The name wraps to at most two lines at --text-xs inside the 101 px slot (~25 characters) and is clamped with an ellipsis beyond that; accepted as the trade for the board not moving on solve (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth unchanged, including its 120-character names at 390). The public site drops titles from the served schema, so there the banner shows what solver.js writes for an untitled puzzle.
+[Tests] Changed (claims retired with the 2026-11-07 finding named in each docstring): test_puzzle_solver_brush_menu.py slot-geometry test (390 now asserted at 101/44/52 instead of skipped; 1280/1440 re-measured) and the two Region cell-count tests (3 -> 2; names kept per G-T); test_puzzle_solver_hint.py Hint/Check on Reset's row at 390. New: TestSolverPhone_CompactToolbar (2 viewport cells + the visible solved name). Net collected node ids +3 (review F5 dropped the redundant 1280 cell, d3f030bd). Plant: dropping the (max-height: 500px) arm reds the 844x390 cell alone (run by the author and by the reviewer); hiding the name visually reds the AC-6 cell (reviewer).
+[Review 1/3] 9.5 — no critical/important. F1 (worktree evidence) and F3 (title line) answered by the [Measure] note; F2 (Q4) by [Impl]; F4 (clamp) accepted in [Solved banner]; F5 fixed d3f030bd; F6 recorded in [Impl]. Report: meta/review/20261109T092612Z-CARD-401-cycle1.yml.
