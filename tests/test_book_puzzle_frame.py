@@ -1,89 +1,31 @@
-"""CARD-144/CARD-146 — a frame around the puzzle on book pages (ADR-0036/R1, CON-019).
+"""The puzzle frame's layout, and the placed book page's geometry.
 
-    CARD-144 AC (new)  TestPuzzleFrame_BookPageCarriesTheFrame
-    CARD-144 AC (new)  TestPuzzleFrame_DefaultPageSpecIsUnchanged
-    CARD-144 AC (new)  TestPuzzleFrame_GeometryIsUnmovedByTheFrame
-    CARD-144 AC (new)  TestPuzzleFrame_UsesTheHeavyRuleOnly
-    CARD-144 AC (new)  TestPuzzleFrame_PairIsFramedPerPuzzle
-    CARD-146 AC-1      TestPuzzleFrame_PairIsFramedOnThePrintedPage
-    CARD-146 AC-2      TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly
-    CARD-146 AC-3      TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage
-    CARD-146 AC-4      TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame
-    CARD-224 AC-378    TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame
-                       ::test_the_upper_slot_still_starts_on_the_bands_own_foot
-                       (the ink half: this module's own rendered pages. The
-                       PDF-level statement is
-                       ``tests/test_book_pdf_two_up.py``'s
-                       ``TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``,
-                       and the layout-level one
-                       ``tests/test_layout_two_up.py``'s
-                       ``TestPairLayout_UpperSlotSitsAtItsOwnBandFoot``.
-                       AC-379 — the two slots sharing the page's own puzzle
-                       area — is owed to CARD-226 and has no test here.)
+The owner removed the frame around the clues from book pages on 2026-11-09:
+the book spec states ``frame=False`` (``BOOK_PUZZLE_FRAME``). The frame
+remains a layout mechanism — the guide's diagrams draw their clue box through
+it — so its layout-level claims stay here, stated on a placed sheet
+(:func:`_spec`, which leaves the frame to the placed-page default):
 
-**CARD-144 measured the pair; CARD-146 prints it.** ``compute_pair_layout``
-computed a ``PuzzleFrame`` for both slots of a two-up page from the day
-CARD-144 landed — ``TestPuzzleFrame_PairIsFramedPerPuzzle`` below is that
-evidence, and it was green the whole time — but the *page* is composed by
-``book_pdf_generator._stroke_drawing``, which reimplements grid stroking from
-the slot's own line tuples (the native-reimplementation convention) and simply
-never stroked ``slot.frame``. Interior page 3 of the baseline book, the two-up
-page, was byte-identical to its pre-frame recording while the single-puzzle
-pages moved. The four CARD-146 classes are therefore all stated on the
-**printed page**, never on the layout object: a criterion that reads
-``slot.frame`` would have passed before the gap was closed.
+    TestPuzzleFrame_BookPageCarriesTheFrame     the frame is the drawing's box;
+                                                the book's own spec is unframed
+    TestPuzzleFrame_DefaultPageSpecIsUnchanged  no CLI/web sheet is framed (CON-019)
+    TestPuzzleFrame_GeometryIsUnmovedByTheFrame the frame moves no field
+    TestPuzzleFrame_UsesTheHeavyRuleOnly        the frame adds no stroke weight
 
-The owner asked for the classic printed look: one rectangle around clues and
-grid, the two clue bands boxed off from the grid, an empty corner. It is **ink
-and not geometry** — every side of it lands on a boundary ``compute_layout``
-had already placed — and it is confined to **book pages**, because CON-019
-holds the CLI's and the web's A4 output byte-identical and the owner chose to
-keep that intact rather than amend it.
+On the printed interior of a real book (CARD-146, FR-040):
 
-**No FR is named above, deliberately.** The frame is the owner's decision of
-2026-09-23, recorded as intake at
-``meta/architecture/inputs/raw-requirements.md:265`` and not yet formalised
-into a requirement with acceptance criteria — so the "AC (new)" rows above are
-this module's own names for the properties it pins, not ids from
-``requirements.yml``. This card first cited FR-041, which is the **level
-order and divider** requirement (CARD-128's), and that was wrong in a way a
-missing citation would not have been: it made untraced scope look traced.
+    TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly       three declared weights, no fourth
+    TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame the pair's cell, origin and trim
+                       (``::test_the_upper_slot_still_starts_on_the_bands_own_foot``
+                       is CARD-224 AC-378's ink half)
 
-What is measured, and against what
-----------------------------------
-Where the frame is expected to be is worked out here from CON-018's profile in
-**inches**, the way ``tests/test_book_pdf.py`` and
-``tests/test_book_pdf_two_up.py`` state a book page's arithmetic: the cell is
-``min(7.5 mm, usable width / drawing columns, usable height / drawing rows)``,
-the drawing is centred across the usable width, and its top edge **floats** at
-42% of CARD-222's puzzle-area spare height (FR-032 as amended 2026-10-17,
-CARD-224) — degrading to the band's foot, one band below the top margin, on a
-sheet whose area cannot hold the drawing clear of both of its rules. It hung at
-the band's foot unconditionally until CARD-224, and that fixed row survives
-here only as :func:`_fixed_top_mm`, the control the placement ACs need. A
-two-up slot starts one two-up rule gap (``TWO_UP_RULE_GAP_MM``) below its own
-slot's band foot and a packed answer tile at its own; only a *single* page's
-drawing floats. Nothing in :func:`_expected_box` reads
-``compute_layout``, so a frame in the right place is two answers agreeing
-rather than one answer restated.
+Then CARD-224's placement of a single page's drawing (centred, at 42% of the
+puzzle area's spare, clear of both rules) and CARD-218's controls on the
+module's one shared render.
 
-What the frame looks like on paper is then read off the **rendered raster**
-(:func:`~nonogram.export.png.render_image`), not off the ``PuzzleFrame`` that
-placed it: the four sides are checked for unbroken ink, the corner box for the
-absence of it, and the stroke's own pixels for their width, their colour and
-which side of the boundary they fall on.
-
-Where the stroke sits
----------------------
-Pillow centres a stroke on its coordinate, so half of a rule drawn on a box's
-edge falls outside the box. The frame is drawn **on** its four boundaries, not
-inside them, because that is what the grid's own outer border already does —
-:class:`~nonogram.export.layout.PuzzleFrame` states the reasoning.
-:meth:`TestPuzzleFrame_UsesTheHeavyRuleOnly.test_the_frame_straddles_its_boundary_exactly_as_the_grids_border_does`
-is what pins it: it compares the frame's left rule's pixel offsets about the
-drawing's left edge with the grid's right border's offsets about the grid's
-right edge, and requires them equal and straddling zero. An inset frame, or one
-drawn half a rule out of step with the border it continues, fails there.
+Expected positions are worked out here from CON-018's profile in **inches**
+(:func:`_expected_box`), never read from ``compute_layout``, so a drawing in
+the right place is two answers agreeing.
 """
 
 from __future__ import annotations
@@ -98,7 +40,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
@@ -106,7 +48,6 @@ from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _folio_reserve_px,
-    _stroke_drawing,
 )
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
@@ -120,17 +61,16 @@ from nonogram.export.layout import (
     TWO_UP_RULE_GAP_MM,
     PageSpec,
     compute_layout,
-    compute_pair_layout,
     interior_frame,
 )
 # The one private this module reads: the boundary
 # ``test_a_gap_of_exactly_one_clearance_floats`` pins is not reachable through
 # ``compute_layout`` at any trim (see that test), so it is stated on the
 # placement itself. The same convention as this file's ``_folio_reserve_px``
-# and ``_stroke_drawing`` imports above.
+# import above.
 from nonogram.export.layout import _placed_drawing_top
-from nonogram.export.png import BACKGROUND, render_image
-from tests.helpers.page_ink import Drawing, FrameCentre, drawing_of, frame_centre_of
+from nonogram.export.png import render_image
+from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 # CARD-219: the readers the shared-render controls at the end of this file are
@@ -364,7 +304,7 @@ def _expected_box(
 def _footer_group_omitted(layout, spec) -> bool:
     """Whether the page's footer group is omitted: the drawing reaches past the rule.
 
-    The condition ``_draw_page_frame`` applies (``content_bottom`` against the
+    The condition ``draw_sheet_furniture`` applies (``content_bottom`` against the
     footer rule's own row), read off ``interior_frame``. Until CARD-391 these
     tests proxied it through the QR icon's room check, which answered the same
     question on the same figure.
@@ -438,23 +378,17 @@ def _groups(indices: np.ndarray) -> list[list[int]]:
     return groups
 
 
-def _ink_columns(dark: np.ndarray, row: int) -> list[list[int]]:
-    """The groups of ink columns on one pixel row."""
-    return _groups(np.flatnonzero(dark[row]))
-
-
-def _ink_rows(dark: np.ndarray, column: int) -> list[list[int]]:
-    """The groups of ink rows down one pixel column."""
-    return _groups(np.flatnonzero(dark[:, column]))
-
-
 # --------------------------------------------------------------------------
 # AC: a book page carries the frame
 # --------------------------------------------------------------------------
 
 
 class TestPuzzleFrame_BookPageCarriesTheFrame:
-    """A closed rectangle around clues and grid, the bands boxed, corner empty."""
+    """A framed placed sheet's frame is its drawing's box; the book's is off.
+
+    The book spec switches the frame off, but the guide's diagrams still draw
+    their clue box through it (``guide_example_layout`` frames its spec).
+    """
 
     CASE = dict(columns=20, rows=20, row_depth=4, column_depth=5)
 
@@ -463,16 +397,11 @@ class TestPuzzleFrame_BookPageCarriesTheFrame:
     def spec(cls) -> PageSpec:
         return _spec()
 
-    @pytest.fixture(scope="class")
-    @classmethod
-    def page(cls, spec) -> Image.Image:
-        return render_image(_payload(**cls.CASE), page_spec=spec)
-
     def test_the_frame_is_the_drawings_own_box(self, spec) -> None:
         layout = compute_layout(*_clue_sets(**self.CASE), spec)
         frame = layout.frame
 
-        assert frame is not None, "a book page's layout carries a frame"
+        assert frame is not None, "a placed sheet's layout carries a frame"
         expected = _expected_box(spec, **self.CASE)
         measured = (frame.left, frame.top, frame.right, frame.bottom)
         assert all(
@@ -482,67 +411,21 @@ class TestPuzzleFrame_BookPageCarriesTheFrame:
         # The two sides that are not new ink: they are the grid's own border.
         assert (frame.right, frame.bottom) == (layout.grid_right, layout.grid_bottom)
 
-    def test_the_four_sides_are_unbroken_ink(self, spec, page) -> None:
-        frame = compute_layout(*_clue_sets(**self.CASE), spec).frame
-        dark = _dark(page)
+    def test_the_panels_own_book_page_spec_is_not_framed(self) -> None:
+        """The book prints no frame around its clues (owner, 2026-11-09).
 
-        for side, ink in (
-            ("top", dark[frame.top, frame.left : frame.right + 1]),
-            ("bottom", dark[frame.bottom, frame.left : frame.right + 1]),
-            ("left", dark[frame.top : frame.bottom + 1, frame.left]),
-            ("right", dark[frame.top : frame.bottom + 1, frame.right]),
-        ):
-            assert ink.all(), f"the frame's {side} side is broken"
-
-    def test_the_corner_box_is_empty(self, spec, page) -> None:
-        layout = compute_layout(*_clue_sets(**self.CASE), spec)
-        frame = layout.frame
-        dark = _dark(page)
-        rule = layout.thick_rule
-
-        corner = dark[
-            frame.top + rule : layout.grid_top - rule,
-            frame.left + rule : layout.grid_left - rule,
-        ]
-        assert corner.size, "the corner box has an inside to be empty"
-        assert not corner.any(), "the corner box where the two gutters meet is blank"
-
-    def test_each_clue_band_is_boxed_off_from_the_grid(self, spec, page) -> None:
-        """Both bands are closed on all four sides — the band/grid divider included."""
-        layout = compute_layout(*_clue_sets(**self.CASE), spec)
-        frame = layout.frame
-        dark = _dark(page)
-
-        # The column-clue band: frame top above it, the grid's top border below,
-        # the grid's left border to its left, the frame's right side beyond it.
-        assert dark[frame.top, layout.grid_left : frame.right + 1].all()
-        assert dark[layout.grid_top, layout.grid_left : frame.right + 1].all()
-        assert dark[frame.top : layout.grid_top + 1, layout.grid_left].all()
-        assert dark[frame.top : layout.grid_top + 1, frame.right].all()
-        # The row-clue band, the same four sides transposed.
-        assert dark[layout.grid_top : frame.bottom + 1, frame.left].all()
-        assert dark[layout.grid_top : frame.bottom + 1, layout.grid_left].all()
-        assert dark[layout.grid_top, frame.left : layout.grid_left + 1].all()
-        assert dark[frame.bottom, frame.left : layout.grid_left + 1].all()
-
-    def test_the_panels_own_book_page_spec_is_framed(self) -> None:
-        """The sheet the book really prints on is a framed one (ADR-0036/R2).
-
-        The frame is decided by COMP-007, from the fact that a book page is a
-        *placed* page, so the panel that builds the spec goes on deciding no
-        geometry and still gets the frame.
+        The panel states it outright (``BOOK_PUZZLE_FRAME``) rather than
+        leaving it to the placed-page default, which would frame the page.
         """
-        # Owner decision 2026-11-09: no frame around the clues. The panel's
-        # spec now states the frame (``BOOK_PUZZLE_FRAME``), off by default;
-        # this module turns it back on (tests/helpers/legacy_book_layout.py),
-        # and what it measures is the frame COMP-007 draws when it is on.
         from nonogram.admin import book_page_spec as module
 
+        assert module.BOOK_PUZZLE_FRAME is False
         for page_number in (1, 2, 7, 8):
             spec = book_page_spec(None, page_number)
-            assert spec.frame is module.BOOK_PUZZLE_FRAME, "the panel states the book's frame"
-            assert spec.framed, f"interior page {page_number} is a framed page"
-            assert compute_layout(*_clue_sets(15, 15, 3, 3), spec).frame is not None
+            assert spec.parity is not None, "a book page is a placed page"
+            assert spec.frame is False, "and the panel switches its frame off"
+            assert not spec.framed, f"interior page {page_number} is not framed"
+            assert compute_layout(*_clue_sets(15, 15, 3, 3), spec).frame is None
 
 
 # --------------------------------------------------------------------------
@@ -665,16 +548,6 @@ class TestPuzzleFrame_GeometryIsUnmovedByTheFrame:
             "a framed page and an unframed one differ in the frame and nowhere else"
         )
 
-    def test_the_rendered_page_is_the_unframed_one_plus_the_frames_own_ink(self) -> None:
-        """Ink is only ever *added*: no pixel the unframed page inked is now white."""
-        spec = _spec()
-        case = dict(columns=20, rows=20, row_depth=4, column_depth=5)
-        framed = _dark(render_image(_payload(**case), page_spec=spec))
-        plain = _dark(render_image(_payload(**case), page_spec=replace(spec, frame=False)))
-
-        assert not (plain & ~framed).any(), "the frame erased ink the page already had"
-        assert (framed & ~plain).any(), "the frame drew nothing at all"
-
 
 # --------------------------------------------------------------------------
 # AC: the heavy rule and no other (ADR-0037/R2, G-2)
@@ -691,11 +564,6 @@ class TestPuzzleFrame_UsesTheHeavyRuleOnly:
     def spec(cls) -> PageSpec:
         return _spec()
 
-    @pytest.fixture(scope="class")
-    @classmethod
-    def page(cls, spec) -> Image.Image:
-        return render_image(_payload(**cls.CASE), page_spec=spec)
-
     def test_the_frame_carries_the_layouts_heavy_rule_and_no_new_weight(self, spec) -> None:
         layout = compute_layout(*_clue_sets(**self.CASE), spec)
 
@@ -706,148 +574,16 @@ class TestPuzzleFrame_UsesTheHeavyRuleOnly:
         assert layout.thick_rule == 2 * layout.thin_rule
         assert layout.thin_rule / PX_PER_MM >= MIN_THIN_RULE_MM
 
-    def test_every_side_is_exactly_the_heavy_rule_thick_on_the_page(self, spec, page) -> None:
-        layout = compute_layout(*_clue_sets(**self.CASE), spec)
-        frame = layout.frame
-        dark = _dark(page)
-        # A row inside the column-clue band, clear of the frame's own top side:
-        # the ink groups there are the frame's left side, the grid's verticals
-        # and the frame's right side.
-        row = frame.top + 2 * layout.thick_rule
-        columns = _ink_columns(dark, row)
-        assert len(columns) >= 3
-        assert len(columns[0]) == frame.width, "the frame's left side is the heavy rule"
-        assert len(columns[-1]) == frame.width, "and so is its right side"
-
-        # A column inside the row-clue band, clear of the frame's left side.
-        column = frame.left + 2 * layout.thick_rule
-        rows = _ink_rows(dark, column)
-        assert len(rows) >= 2
-        assert len(rows[0]) == frame.width, "the frame's top side is the heavy rule"
-        assert len(rows[-1]) == frame.width, "and so is its bottom side"
-
-    def test_the_frames_pixels_are_pure_black(self, spec, page) -> None:
-        frame = compute_layout(*_clue_sets(**self.CASE), spec).frame
-        pixels = np.asarray(page.convert("RGB"))
-
-        strips = (
-            pixels[frame.top, frame.left : frame.right + 1],
-            pixels[frame.bottom, frame.left : frame.right + 1],
-            pixels[frame.top : frame.bottom + 1, frame.left],
-            pixels[frame.top : frame.bottom + 1, frame.right],
-        )
-        for strip in strips:
-            assert np.array_equal(strip, np.zeros_like(strip)), (
-                "a frame rule is pure black, never an anti-aliased grey"
-            )
-
-    def test_the_frame_straddles_its_boundary_exactly_as_the_grids_border_does(
-        self, spec, page
-    ) -> None:
-        """The card's rendering trap, pinned.
-
-        Pillow centres a stroke on its coordinate. The frame is drawn **on**
-        the drawing's edges, not inset from them, so its left side straddles
-        the drawing's left edge exactly as the grid's right border straddles
-        the grid's right edge. Equal offsets, both sides of zero — an inset
-        frame would sit entirely at offsets >= 0 and fail here.
-        """
-        layout = compute_layout(*_clue_sets(**self.CASE), spec)
-        frame = layout.frame
-        dark = _dark(page)
-
-        row = frame.top + 2 * layout.thick_rule
-        columns = _ink_columns(dark, row)
-        left_offsets = [column - frame.left for column in columns[0]]
-        border_offsets = [column - layout.grid_right for column in columns[-1]]
-
-        assert left_offsets == border_offsets, (
-            "the frame's left side and the grid's right border are drawn to "
-            f"different rules: {left_offsets} against {border_offsets}"
-        )
-        assert min(left_offsets) < 0 < max(left_offsets), (
-            f"the frame is not centred on its boundary: offsets {left_offsets}"
-        )
-
-
-# --------------------------------------------------------------------------
-# AC: a two-up page frames each puzzle separately (FR-040)
-# --------------------------------------------------------------------------
-
-
-class TestPuzzleFrame_PairIsFramedPerPuzzle:
-    """Two puzzles to a page are two frames, not one around the pair."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pair(cls):
-        found = compute_pair_layout(
-            _clue_sets(10, 10, 2, 2), _clue_sets(12, 12, 3, 3), _spec()
-        )
-        assert found is not None, "this pair really does fit two-up"
-        return found
-
-    def test_each_slot_carries_its_own_frame_on_its_own_drawing(self, pair) -> None:
-        for slot in (pair.upper, pair.lower):
-            frame, placement = slot.frame, slot.page
-            assert frame is not None
-            assert (frame.left, frame.top, frame.right, frame.bottom) == (
-                placement.drawing_left,
-                placement.drawing_top,
-                placement.drawing_right,
-                placement.drawing_bottom,
-            )
-            assert frame.width == slot.thick_rule == 2 * slot.thin_rule
-
-    def test_the_two_frames_are_separate_and_neither_encloses_the_pair(self, pair) -> None:
-        upper, lower = pair.upper.frame, pair.lower.frame
-
-        assert upper.bottom < lower.top, "the upper frame closes above the lower's"
-        assert lower.top > pair.upper.page.usable_bottom - 1, (
-            "the lower frame belongs to the lower slot"
-        )
-        assert upper != lower
-
-    def test_a_slot_is_framed_exactly_as_the_single_page_it_would_have_been(self) -> None:
-        """The pair's frame is the single page's, so there is one frame rule.
-
-        The two clue sets differ, so what is compared is the *shape* of the
-        answer — the frame's box is the slot's own drawing box, at the slot's
-        own heavy rule — rather than two identical rectangles.
-        """
-        spec = _spec()
-        single = compute_layout(*_clue_sets(10, 10, 2, 2), spec)
-        pair = compute_pair_layout(
-            _clue_sets(10, 10, 2, 2), _clue_sets(10, 10, 2, 2), spec
-        )
-        assert pair is not None
-
-        assert pair.upper.frame.left == single.frame.left, "both are centred alike"
-        # CARD-224: the single page's drawing floats at 42% of its puzzle
-        # area's spare while the slot's sits one rule gap
-        # (TWO_UP_RULE_GAP_MM) below its slot's band foot, so the two tops
-        # are a known distance apart instead of equal — the slot's is the
-        # band's foot plus that gap, and the single page's is lower.
-        assert pair.upper.frame.top == pair.upper.page.drawing_top
-        assert abs(
-            (pair.upper.frame.top - pair.upper.page.band_bottom) * 25.4 / DPI
-            - TWO_UP_RULE_GAP_MM
-        ) <= 25.4 / DPI
-        assert single.frame.top > pair.upper.frame.top
-        assert pair.upper.frame.width == single.frame.width
-
 
 # ==========================================================================
-# CARD-146 — the frame reaches the printed two-up page
+# CARD-146 — the printed two-up page
 # ==========================================================================
 #
-# Everything below is stated on the **rendered interior** of a real book, the
-# way ``tests/test_book_pdf_two_up.py`` states FR-040: the pages come out of
-# ``BookPDFGenerator.interior_pages``, and where they are expected to put ink
-# is worked out here from CON-018's profile in inches. ``compute_pair_layout``
-# is not consulted for a single expected coordinate — it was *already* right
-# before this card, which is exactly why a criterion phrased over it would
-# have been green on a page with no frame on it.
+# Stated on the **rendered interior** of a real book: the pages come out of
+# ``BookPDFGenerator.interior_pages``, and where they should put ink is worked
+# out here from CON-018's profile in inches, not read from
+# ``compute_pair_layout``. The book prints no frame (owner, 2026-11-09); what
+# is pinned here is the pair's weights and geometry.
 
 
 #: The page's usable width, and the height left once a page reserves a band for
@@ -1068,14 +804,8 @@ def _expected_pair_boxes(
 ) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
     """Where the two drawings sit on a two-up page: ``(left, top, right, bottom)``.
 
-    Both boxes in device pixels — **fractional**, deliberately, exactly as
-    :func:`_expected_box` leaves a single page's. A boundary lands on a whole
-    pixel only by luck, and the two questions asked of these numbers want
-    different things of the fraction: "is there ink on this rule" wants a whole
-    pixel inside a six-pixel stroke (:func:`_pixel_box`), and "which side of the
-    boundary do the stroke's pixels fall on" wants the boundary itself, because
-    a boundary rounded to a whole pixel first is a boundary that has already
-    moved up to half a pixel in the direction the answer is about.
+    Both boxes in device pixels, **fractional**, as :func:`_expected_box`
+    leaves a single page's: a boundary rounded first has already moved.
 
     Each drawing is **centred** across the usable width (CARD-224, FR-032) on
     the **shared** cell; the upper one's top edge is one two-up rule gap
@@ -1145,26 +875,6 @@ def _expected_pair_boxes(
 # 5 = odd); the 1-page table of contents moves both pages by one, flipping
 # each one's parity, so the defaults flip too — no caller in this file
 # passes `parity` explicitly, so this is the one place that needs it.
-def _expected_single_box(puzzle: dict, parity: PageParity = PageParity.EVEN):
-    """The same rectangle for the puzzle that prints alone, on its own page."""
-    return _expected_box(
-        _spec(parity=parity),
-        puzzle["columns"],
-        puzzle["rows"],
-        puzzle["row_depth"],
-        puzzle["column_depth"],
-    )
-
-
-def _pixel_box(box: tuple[float, float, float, float]) -> tuple[int, int, int, int]:
-    """One expected box at whole-pixel precision, for asking a page about ink.
-
-    Safe to round because every side of the frame is the heavy rule — six
-    device pixels at the cell a book prints, and never under
-    ``2 * MIN_THIN_RULE_MM`` — so a whole pixel within half a pixel of the
-    boundary is a pixel the stroke covers whichever way the boundary fell.
-    """
-    return tuple(round(edge) for edge in box)  # type: ignore[return-value]
 
 
 def _runs_across(dark: np.ndarray, row: int, lo: int, hi: int) -> list[list[int]]:
@@ -1176,13 +886,6 @@ def _runs_across(dark: np.ndarray, row: int, lo: int, hi: int) -> list[list[int]
     slot's own span. Both bounds are always stated by the caller.
     """
     return [[lo + index for index in run] for run in _groups(np.flatnonzero(dark[row, lo:hi]))]
-
-
-def _runs_down(dark: np.ndarray, column: int, lo: int, hi: int) -> list[list[int]]:
-    """The same down one pixel column, bounded to one slot's rows."""
-    return [
-        [lo + index for index in run] for run in _groups(np.flatnonzero(dark[lo:hi, column]))
-    ]
 
 
 #: How far either side of a boundary a rule's own pixels can possibly fall: a
@@ -1204,161 +907,14 @@ def _runs_down(dark: np.ndarray, column: int, lo: int, hi: int) -> list[list[int
 #: is twice the widest a rule can be and still 6 px clear of the header rule.
 _RULE_WINDOW_PX = 12
 
-#: How lopsided a stroke centred on its boundary may still measure, in device
-#: pixels, once two unavoidable whole-pixel steps are spent:
-#:
-#: * the boundary itself is a fraction of a pixel, and the layout puts the rule
-#:   on the whole pixel nearest it — up to 1 px of the difference;
-#: * Pillow centres an **even**-width stroke with one more pixel on one side
-#:   than the other — the remaining 1 px.
-#:
-#: So the two halves of a heavy rule read as far apart as 3 px while the rule is
-#: exactly where CARD-144 put it. That still leaves the property teeth: a frame
-#: drawn even **one** pixel in from its boundary measures 5 px apart, and one
-#: inset by the half rule that a "draw it inside the box" reading would give
-#: has no ink outside the boundary at all.
-_STRADDLE_SLACK_PX = 3.0
-
 
 # --------------------------------------------------------------------------
-# AC-1: a printed pair is two framed puzzles
-# --------------------------------------------------------------------------
-
-
-class TestPuzzleFrame_PairIsFramedOnThePrintedPage:
-    """Each of a two-up page's two drawings carries its own closed frame.
-
-    Read off the interior's page 3 with the project's own ink measurer
-    (``tests/helpers/two_up_ink.drawings_of``, which splits the page and then
-    measures each half exactly as a single puzzle page is measured). That
-    helper decides ``framed`` by asking the page two questions — is the
-    outermost full-length rule *on* the drawing's own edge, and is the rule
-    immediately inside it stroked just as heavily — so nothing here is told
-    where a frame is; it is found or it is not.
-    """
-
-    def test_both_slots_read_back_as_framed_drawings(self, pages) -> None:
-        """The gap, stated: before this card both slots read ``framed=False``."""
-        upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
-
-        assert upper.framed is True, "the upper slot printed without its frame"
-        assert lower.framed is True, "the lower slot printed without its frame"
-
-    def test_the_single_page_of_the_same_book_is_framed_too(self, pages) -> None:
-        """The positive control: the measurer can see a frame it is shown one.
-
-        Page 4 was already framed before this card, so a run where page 3 is
-        bare and page 4 is not is the gap; a run where *both* are bare is a
-        broken measurer, and this tells the two apart.
-        """
-        assert drawing_of(pages[SINGLE_PAGE - 1]).framed is True
-
-    def test_each_slots_frame_is_that_slots_own_drawing_box(self, pages) -> None:
-        """Four sides of unbroken ink on the rectangle CON-018's millimetres put there."""
-        dark = _dark(pages[TWO_UP_PAGE - 1])
-        boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-
-        for slot, box in zip(("upper", "lower"), boxes):
-            left, top, right, bottom = _pixel_box(box)
-            for side, ink in (
-                ("top", dark[top, left : right + 1]),
-                ("bottom", dark[bottom, left : right + 1]),
-                ("left", dark[top : bottom + 1, left]),
-                ("right", dark[top : bottom + 1, right]),
-            ):
-                assert ink.all(), f"the {slot} slot's frame is broken on its {side} side"
-
-    def test_each_slot_reads_back_its_own_gutters_from_behind_the_frame(
-        self, pages
-    ) -> None:
-        """The frame is a *whole clue gutter* out from the grid, on both axes.
-
-        The two sides a frame actually adds are its left and its top; its right
-        and bottom land on the grid's border, which was inked before this card.
-        So the evidence that the new ink is a frame and not a re-stroke of what
-        was already there is that the outermost rule stands the clues' own depth
-        away from the grid's — which is what makes the corner box exist.
-        """
-        drawings = drawings_of(pages[TWO_UP_PAGE - 1])
-
-        for drawing, puzzle in zip(drawings, (UPPER_PUZZLE, LOWER_PUZZLE)):
-            assert (drawing.columns, drawing.rows) == (
-                puzzle["columns"],
-                puzzle["rows"],
-            ), "the slot does not read back its own grid from behind the frame"
-            assert (
-                _gutter_cells(drawing.left, drawing.grid_left, drawing.cell)
-                == puzzle["row_depth"]
-            )
-            assert (
-                _gutter_cells(drawing.top, drawing.grid_top, drawing.cell)
-                == puzzle["column_depth"]
-            )
-
-    def test_the_corner_box_of_each_slot_is_closed_and_empty(self, pages) -> None:
-        """Where the two clue gutters meet: ruled on all four sides, blank inside."""
-        page = pages[TWO_UP_PAGE - 1]
-        dark = _dark(page)
-        drawings = drawings_of(page)
-        boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-
-        for drawing, box in zip(drawings, boxes):
-            left, top, _right, _bottom = _pixel_box(box)
-            rule = round(drawing.cell / 20) + 2  # clear of every stroke's own pixels
-            corner = dark[
-                top + rule : drawing.grid_top - rule,
-                left + rule : drawing.grid_left - rule,
-            ]
-            assert corner.size, "the corner box has an inside to be empty"
-            assert not corner.any(), "the corner box where the two gutters meet is blank"
-
-    def test_each_clue_band_of_each_slot_is_boxed_off_from_the_grid(self, pages) -> None:
-        """Both bands closed on all four sides — the band/grid divider included."""
-        page = pages[TWO_UP_PAGE - 1]
-        dark = _dark(page)
-        drawings = drawings_of(page)
-        boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-
-        for drawing, box in zip(drawings, boxes):
-            left, top, right, bottom = _pixel_box(box)
-            grid_left, grid_top = drawing.grid_left, drawing.grid_top
-            # The column-clue band: the frame's top above it, the grid's own top
-            # border below, the grid's left border beside it, the frame's right
-            # side beyond.
-            assert dark[top, grid_left : right + 1].all()
-            assert dark[grid_top, grid_left : right + 1].all()
-            assert dark[top : grid_top + 1, grid_left].all()
-            assert dark[top : grid_top + 1, right].all()
-            # The row-clue band, the same four sides transposed.
-            assert dark[grid_top : bottom + 1, left].all()
-            assert dark[grid_top : bottom + 1, grid_left].all()
-            assert dark[grid_top, left : grid_left + 1].all()
-            assert dark[bottom, left : grid_left + 1].all()
-
-    def test_the_pair_is_two_rectangles_and_not_one_around_both(self, pages) -> None:
-        """Nothing is ruled across the strip between the slots."""
-        dark = _dark(pages[TWO_UP_PAGE - 1])
-        upper_box, lower_box = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-        upper_bottom, lower_top = _pixel_box(upper_box)[3], _pixel_box(lower_box)[1]
-
-        assert upper_bottom < lower_top, "the upper frame closes above the lower's"
-        between = dark[upper_bottom + 10 : lower_top - 10]
-        assert between.size, "there is a strip between the two slots to inspect"
-        # The lower slot's band is lettered in this strip, so there IS ink here
-        # — but no *rule*: no pixel column is unbroken ink right through it,
-        # which is what a side of one rectangle enclosing both pairs would be.
-        assert not between.all(axis=0).any(), (
-            "a rule runs down the strip between the two slots"
-        )
-
-
-# --------------------------------------------------------------------------
-# AC-2: the heavy rule and no other, on a two-up page (ADR-0037/R2, G-2)
+# AC-2: three declared weights and no fourth, on a two-up page (ADR-0037/R2)
 # --------------------------------------------------------------------------
 
 
 class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
-    """Every frame rule on a printed pair is the heavy weight, and pure black."""
+    """A printed pair strokes the three declared weights and no fourth."""
 
     #: The owner's three declared grid weights in points (ADR-0037/R2 as
     #: amended 2026-10-17, CARD-227: 0.3 pt grey cell lines, 1.1 pt every fifth
@@ -1468,38 +1024,6 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
             flat = [list(run)[:2] if len(run) == 4 else list(run) for run in runs]
             assert self.weight_findings(list(self.DECLARED_PT), flat)
 
-    def test_every_frame_side_is_the_border_weight_and_no_new_weight(self, pages) -> None:
-        page = pages[TWO_UP_PAGE - 1]
-        dark = _dark(page)
-        drawings = drawings_of(page)
-        boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-
-        for drawing, box in zip(drawings, boxes):
-            left, top, right, bottom = _pixel_box(box)
-            _thin, _fifth, thick = self._weights(dark, drawing)
-            assert bottom - top > 4 * thick, "these crops really are inside the drawing"
-            columns = _runs_across(
-                dark, top + 2 * thick, left - _RULE_WINDOW_PX, right + _RULE_WINDOW_PX
-            )
-            assert len(columns) >= 3
-            assert abs(columns[0][0] - left) <= thick, (
-                "the leftmost rule in this band is not on the drawing's own left "
-                f"edge ({columns[0][0]} against {left}) -- there is no frame here, "
-                "only the grid's border a whole clue gutter further in"
-            )
-            assert len(columns[0]) == thick, "the frame's left side is not the border weight"
-            assert len(columns[-1]) == thick, "nor is its right side"
-            rows = _runs_down(
-                dark, left + 2 * thick, top - _RULE_WINDOW_PX, bottom + _RULE_WINDOW_PX
-            )
-            assert len(rows) >= 2
-            assert abs(rows[0][0] - top) <= thick, (
-                "the topmost rule in this gutter is not on the drawing's own top "
-                f"edge ({rows[0][0]} against {top})"
-            )
-            assert len(rows[0]) == thick, "the frame's top side is not the border weight"
-            assert len(rows[-1]) == thick, "nor is its bottom side"
-
     def test_the_pair_and_the_single_page_stroke_the_same_three_weights(self, pages) -> None:
         """Not the same pixel counts' cells (the pages print different cells) but
         the same three widths, so a fourth weight invented for the pair shows."""
@@ -1510,128 +1034,14 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
             assert self._weights(_dark(two_up), drawing) == reference
         assert drawing_of(single).cell != drawings_of(two_up)[0].cell
 
-    def test_the_frames_pixels_are_pure_black(self, pages) -> None:
-        pixels = np.asarray(pages[TWO_UP_PAGE - 1].convert("RGB"))
-
-        for box in _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE):
-            left, top, right, bottom = _pixel_box(box)
-            for strip in (
-                pixels[top, left : right + 1],
-                pixels[bottom, left : right + 1],
-                pixels[top : bottom + 1, left],
-                pixels[top : bottom + 1, right],
-            ):
-                assert np.array_equal(strip, np.zeros_like(strip)), (
-                    "a frame rule on a two-up page is pure black, never a grey"
-                )
-
 
 # --------------------------------------------------------------------------
-# AC-3: placement on a pair straddles its boundary as a single page's does
-# --------------------------------------------------------------------------
-
-
-class TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage:
-    """The two presentations agree: both frames sit **on** their boundary.
-
-    Pillow centres a stroke on its coordinate, so half a rule drawn on a box's
-    edge falls outside the box. CARD-144 chose that for a single page because
-    it is what the grid's own outer border already does. A pair drawn with an
-    *inset* frame — a whole rule in from the edge the horizontal rules start
-    at — would still look framed in a thumbnail and would still pass every
-    "is there ink here" question; what tells the two apart is which side of the
-    boundary the stroke's pixels fall on, and that is what is measured here,
-    against boundaries worked out in millimetres.
-    """
-
-    @staticmethod
-    def _straddle(dark: np.ndarray, row: int, boundary: float) -> tuple[float, float]:
-        """How far a rule's ink reaches either side of ``boundary``, in pixels.
-
-        The stroke is read in a window narrow enough to hold one rule and no
-        other (:data:`_RULE_WINDOW_PX`); ``(outside, inside)`` is how far its
-        ink extends below ``boundary`` and how far above it, counting a pixel
-        as the unit interval it covers. A stroke centred on the boundary gives
-        two roughly equal halves, both positive. A stroke drawn *inside* its
-        box gives ``outside <= 0``.
-        """
-        window = round(boundary)
-        runs = _runs_across(
-            dark, row, window - _RULE_WINDOW_PX, window + _RULE_WINDOW_PX
-        )
-        assert len(runs) == 1, f"the window about {boundary:.2f} holds {len(runs)} rules"
-        return boundary - runs[0][0], (runs[0][-1] + 1) - boundary
-
-    def _assert_centred(self, dark, row: int, boundary: float, what: str) -> float:
-        """``boundary`` falls inside the stroke, with equal ink either side."""
-        outside, inside = self._straddle(dark, row, boundary)
-
-        assert outside > 0, (
-            f"{what} is drawn inside its boundary, not on it: its ink starts "
-            f"{-outside:.2f} px past {boundary:.2f}"
-        )
-        assert inside > 0, f"{what} is drawn outside its boundary altogether"
-        assert abs(outside - inside) <= _STRADDLE_SLACK_PX, (
-            f"{what} is out of step with its boundary: {outside:.2f} px of ink "
-            f"outside it against {inside:.2f} px inside"
-        )
-        return outside + inside
-
-    def test_each_slots_left_side_straddles_the_drawings_left_edge(self, pages) -> None:
-        """And the grid's right border, which the frame continues, agrees."""
-        dark = _dark(pages[TWO_UP_PAGE - 1])
-        boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-
-        for slot, (left, top, right, _bottom) in zip(("upper", "lower"), boxes):
-            row = round(top) + 30  # inside the column-clue band
-            frame = self._assert_centred(dark, row, left, f"the {slot} slot's frame")
-            border = self._assert_centred(dark, row, right, f"the {slot} slot's border")
-            assert frame == border, (
-                f"the {slot} slot's frame is {frame} px of ink where the grid's "
-                f"own border beside it is {border}"
-            )
-
-    def test_a_two_up_slot_and_a_single_page_place_the_stroke_alike(self, pages) -> None:
-        """The card's whole claim, in one comparison, on one book.
-
-        The two pages print different cells and their drawings start at
-        different fractions of a pixel, so what must agree is not a coordinate
-        and not a list of offsets: it is that both presentations answer the
-        *same* question the same way — the boundary falls inside the stroke,
-        with equal ink either side of it. A pair framed a rule inside its box
-        fails here and nowhere else in this module.
-        """
-        two_up, single = pages[TWO_UP_PAGE - 1], pages[SINGLE_PAGE - 1]
-        boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
-        single_left, single_top, _right, _bottom = _expected_single_box(SINGLE_PUZZLE)
-
-        alone = self._straddle(_dark(single), round(single_top) + 30, single_left)
-        assert min(alone) > 0, f"the single page's frame is not on its edge: {alone}"
-
-        for slot, (left, top, _r, _b) in zip(("upper", "lower"), boxes):
-            paired = self._straddle(_dark(two_up), round(top) + 30, left)
-            assert min(paired) > 0, (
-                f"the {slot} slot's frame is not on its edge: {paired}"
-            )
-            assert sum(paired) == sum(alone), (
-                f"the {slot} slot strokes {sum(paired)} px where a single page "
-                f"of the same book strokes {sum(alone)}"
-            )
-            assert abs(
-                (paired[0] - paired[1]) - (alone[0] - alone[1])
-            ) <= _STRADDLE_SLACK_PX, (
-                f"the {slot} slot places its frame at {paired} about its own "
-                f"boundary where a single page places it at {alone}"
-            )
-
-
-# --------------------------------------------------------------------------
-# AC-4: ink only — no cell, origin or page geometry moved (G-3)
+# AC-4: the pair's cell, origin and page size
 # --------------------------------------------------------------------------
 
 
 class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
-    """CARD-127's and CARD-118's measured figures, on the framed pair."""
+    """CARD-127's and CARD-118's measured figures, on the printed pair."""
 
     def test_the_pair_still_prints_at_the_shared_cell_fr_040_measures(
         self, pages
@@ -1674,20 +1084,9 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
     def test_both_slots_sit_where_con_018s_millimetres_put_them(self, pages) -> None:
         """Origin and extent, against the arithmetic — not against the layout.
 
-        **The origin is a boundary, so CARD-336 reads it as one.** ``left``
-        and ``top`` below are the millimetres CON-018 puts the slot's own box
-        at; ``Drawing.left``/``.top`` are the frame rule's *leading inked
-        line*, which sits outside that box by half a rule and — measured —
-        by a different amount in each medium: 0 px where Pillow butt-caps
-        four lines, 2.5 px where a PDF rasteriser strokes one mitred ``re``.
-        Against this page's own arithmetic that reads as 0.4961 px in raster
-        and **2.5039 px in vector**, past the 1.5 px
-        :data:`EDGE_TOLERANCE_PX` — a renderer that moved nothing.
-        :func:`~tests.helpers.page_ink.frame_centre_of` reports the rule's
-        centre instead, read off the rule's own measured width, and the same
-        page then reads **0.0039 px in vector and 0.9961 px in raster** —
-        inside the bound in both media, where the ink reading is inside it in
-        only one. No tolerance moved (G-1).
+        The book prints no frame, so ``left``/``top`` are where the grid rules
+        start: they butt-cap on the drawing's own box, which makes them that
+        boundary itself rather than a rule's inked edge.
         """
         page = pages[TWO_UP_PAGE - 1]
         drawings = drawings_of(page)
@@ -1696,13 +1095,12 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
         for drawing, puzzle, (left, top, right, bottom) in zip(
             drawings, (UPPER_PUZZLE, LOWER_PUZZLE), boxes
         ):
-            centre = frame_centre_of(page, drawing)
-            assert abs(centre.frame_left - left) <= EDGE_TOLERANCE_PX
-            assert abs(centre.frame_top - top) <= EDGE_TOLERANCE_PX
+            assert abs(drawing.left - left) <= EDGE_TOLERANCE_PX
+            assert abs(drawing.top - top) <= EDGE_TOLERANCE_PX
             # ``grid_left``/``grid_right`` are their rule group's first pixel and
             # both rules are heavy, so the half stroke cancels in the difference:
             # the grid's own *extent* is compared, and it is the drawing's box
-            # less the two clue gutters — unmoved by the frame around it.
+            # less the two clue gutters.
             assert abs(
                 (drawing.grid_right - drawing.grid_left)
                 - (right - left - puzzle["row_depth"] * drawing.cell)
@@ -1712,122 +1110,13 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
                 - (bottom - top - puzzle["column_depth"] * drawing.cell)
             ) <= EDGE_TOLERANCE_PX
 
-    def test_the_stroked_slot_is_the_unframed_one_plus_the_frames_own_ink(self) -> None:
-        """``_stroke_drawing`` only ever *adds*: no pixel it inked is now white.
-
-        The function this card changed, driven directly, with the frame present
-        and with it dropped — which is the one comparison that can be made at
-        all, because the panel's own sheet is always a framed one (a placed page
-        is framed, ADR-0036/R2) and there is no unframed two-up page to render.
-        """
-        pair = compute_pair_layout(
-            _clue_sets(**UPPER_PUZZLE), _clue_sets(**LOWER_PUZZLE), _spec()
-        )
-        assert pair is not None
-
-        for slot in (pair.upper, pair.lower):
-            assert slot.frame is not None, "COMP-007 measured a frame for this slot"
-            framed = _stroked(slot)
-            plain = _stroked(replace(slot, frame=None))
-
-            assert not (plain & ~framed).any(), "stroking the frame erased grid ink"
-            assert (framed & ~plain).any(), "the frame put no ink on the page at all"
-            # And what it added is only the two sides a frame adds — the left
-            # and top edges of the drawing — never anything inside the grid.
-            added = np.argwhere(framed & ~plain)
-            assert added[:, 0].min() < slot.frame.top + slot.thick_rule
-            assert added[:, 1].min() < slot.frame.left + slot.thick_rule
-
     def test_the_page_size_is_the_books_own_trim(self, pages) -> None:
-        """G-3's outermost figure: the frame moved no page geometry at all."""
+        """G-3's outermost figure: every page is the book's own trim."""
         for page in pages:
             assert page.size == (
                 round(BOOK1_WIDTH_MM * PX_PER_MM),
                 round(BOOK1_HEIGHT_MM * PX_PER_MM),
             )
-
-
-def _stroked(slot) -> np.ndarray:
-    """``_stroke_drawing``'s ink for one slot, on a page of the slot's own size."""
-    image = Image.new("RGB", (slot.width, slot.height), BACKGROUND)
-    _stroke_drawing(ImageDraw.Draw(image), slot)
-    return _dark(image)
-
-
-# --------------------------------------------------------------------------
-# Property: every pair the walk can make prints as two framed puzzles
-# --------------------------------------------------------------------------
-
-#: How many pairs the corpus below must hold. Stated as a constant *and* as a
-#: literal in the assertion, so the floor can fail: a corpus that shrank to
-#: half its size fails on the constant, and a constant quietly lowered to match
-#: a shrunken corpus fails on the literal (the idiom
-#: ``tests/test_books_list_plan_stats.py`` uses).
-TWO_UP_CORPUS_PAIRS = 24
-
-
-def test_PropertyTest_TwoUpFrame_EveryPrintedPairIsTwoFramedPuzzles() -> None:
-    """Over a seeded corpus of pairs, trims and parities (no ``hypothesis``).
-
-    Each case is stroked through the function this card changed and then
-    measured off the ink, so what is asserted is what a printer would see:
-
-    * both slots read back as **framed** drawings;
-    * each reads back its own grid and its own clue gutters from behind the
-      frame, so the frame is a whole gutter out from the grid's border and not
-      a re-stroke of it;
-    * the frame's weight is the heavy rule and no third weight appears.
-
-    Only pairs ``compute_pair_layout`` accepts are counted — FR-040 declines a
-    pair that would print under 7.0 mm — and the count is floored so the corpus
-    cannot silently stop exercising the page kind this card exists for.
-    """
-    rng = random.Random(146)
-    trims = ((BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM), SIX_BY_NINE_MM)
-    pairs = 0
-    for width_mm, height_mm in trims:
-        for parity in PageParity:
-            for _ in range(16):
-                columns = rng.randint(10, 14)
-                rows = rng.randint(10, 14)
-                row_depth = rng.randint(1, (columns + 1) // 2)
-                column_depth = rng.randint(1, (rows + 1) // 2)
-                spec = _spec(width_mm=width_mm, height_mm=height_mm, parity=parity)
-                same = _clue_sets(columns, rows, row_depth, column_depth)
-                found = compute_pair_layout(same, same, spec)
-                if found is None:
-                    continue
-
-                page = Image.new(
-                    "RGB", (found.upper.width, found.upper.height), BACKGROUND
-                )
-                draw = ImageDraw.Draw(page)
-                for slot in (found.upper, found.lower):
-                    _stroke_drawing(draw, slot)
-
-                drawings = drawings_of(page)
-                assert len(drawings) == 2, (
-                    f"{columns}x{rows} twice on {width_mm:g}x{height_mm:g} {parity} "
-                    f"reads as {len(drawings)} drawings"
-                )
-                for drawing, slot in zip(drawings, (found.upper, found.lower)):
-                    assert drawing.framed is True, (
-                        f"{columns}x{rows} on {width_mm:g}x{height_mm:g} {parity}: "
-                        "a slot printed without its frame"
-                    )
-                    assert (drawing.columns, drawing.rows) == (columns, rows)
-                    assert (
-                        _gutter_cells(drawing.left, drawing.grid_left, drawing.cell)
-                        == row_depth
-                    )
-                    assert (
-                        _gutter_cells(drawing.top, drawing.grid_top, drawing.cell)
-                        == column_depth
-                    )
-                    assert slot.frame.width == slot.thick_rule == 2 * slot.thin_rule
-                pairs += 1
-
-    assert pairs >= TWO_UP_CORPUS_PAIRS >= 24, f"the corpus shrank to {pairs} pairs"
 
 
 # --------------------------------------------------------------------------
@@ -1927,93 +1216,6 @@ def test_the_frame_is_a_field_of_the_layout_and_not_a_line_of_the_grid() -> None
     assert "frame" in {field.name for field in dataclasses.fields(layout)}
 
 
-def _gutter_cells(edge: int, border: int, cell: float) -> int:
-    """How many whole cells of clue gutter stand between ``edge`` and ``border``.
-
-    ``edge`` is the drawing's outer edge as ``page_ink`` reads it — where the
-    rules of the *other* axis start, which is half a heavy stroke inside the
-    rule group's own first pixel that ``border`` reports. Rounding to whole
-    cells is what makes the two comparable: a gutter is a whole number of
-    cells deep by construction, and half a rule is not a fraction of one.
-    """
-    return round(abs(border - edge) / cell)
-
-
-def test_the_frame_never_reaches_an_answer_tile() -> None:
-    """FR-042's packed answer key is out of scope and carries no frame **on paper**.
-
-    Read off the rendered key, not off the layout object. The structural
-    reading — ``AnswerTile`` has no ``frame`` field — is true of every tree
-    this card could have produced, under every mutation of the frame code, so
-    on its own it proves nothing. What the card claims is that a *printed*
-    answer page carries no rectangle around its tiles, and the only way to say
-    that is to render one and measure it.
-
-    Measured with the project's own ink measurer, against a framed puzzle page
-    on the **same sheet** as a positive control, so the test fails from either
-    side: a frame that leaked onto the key reads ``framed=True`` there, and a
-    measurer that cannot see a frame at all reads ``framed=False`` on the
-    puzzle page. The first is how CARD-144's first cycle shipped — the
-    measurer asked only "does the leftmost rule sit on the drawing's own
-    edge?", which an answer tile satisfies trivially because it carries no
-    clue gutter, so the key's pages reported a frame they do not have and read
-    one column and one row short of their true extent, with every test green.
-    Both halves are asserted here.
-    """
-    from nonogram.export.layout import compute_answer_page_layout
-    from nonogram.export.png import render_answer_page
-
-    from tests.helpers.page_ink import drawing_of
-
-    spec = _spec()
-    columns, rows, row_depth, column_depth = 16, 12, 4, 3
-
-    # One answer on the page, so the rules the measurer counts are that one
-    # tile's grid and nothing else. ``_grid`` fills only row 0 and column 0 and
-    # never the last cell of either, so the grid's outer ring stays blank and
-    # no revealed run is ever as long as the rule beside it — which is what
-    # makes counting rules safe on this particular answer page.
-    key = render_answer_page(
-        [(_grid(columns, rows, row_depth, column_depth), "1")], 4, spec
-    )
-    on_the_key = drawing_of(key)
-
-    assert on_the_key.framed is False, "the frame reached FR-042's answer key"
-    assert (on_the_key.columns, on_the_key.rows) == (columns, rows), (
-        "the answer tile's grid does not read back its own extent"
-    )
-    # A tile has no clue gutter and no rule outside its grid's border, so the
-    # drawing's own left and top edges ARE that border, to within the half of
-    # its stroke that falls outside it: **zero** cells stand between them,
-    # where a framed drawing always has the clues' own depth.
-    assert _gutter_cells(on_the_key.left, on_the_key.grid_left, on_the_key.cell) == 0
-    assert _gutter_cells(on_the_key.top, on_the_key.grid_top, on_the_key.cell) == 0
-
-    # The positive control on the same sheet: a puzzle page of this book IS
-    # framed, and reads its own extent from behind the frame.
-    puzzle = render_image(
-        _payload(columns, rows, row_depth, column_depth), page_spec=spec
-    )
-    on_the_puzzle = drawing_of(puzzle)
-
-    assert on_the_puzzle.framed is True, "the measurer cannot see the frame it looks for"
-    assert (on_the_puzzle.columns, on_the_puzzle.rows) == (columns, rows)
-    # There the gutters are real: as many whole cells deep as the clues run.
-    assert (
-        _gutter_cells(on_the_puzzle.left, on_the_puzzle.grid_left, on_the_puzzle.cell)
-        == row_depth
-    )
-    assert (
-        _gutter_cells(on_the_puzzle.top, on_the_puzzle.grid_top, on_the_puzzle.cell)
-        == column_depth
-    )
-
-    # The cheap structural companion, kept: no tile carries a frame field either.
-    page = compute_answer_page_layout([(10, 10)] * 4, 4, spec)
-    for tile in page.tiles:
-        assert not hasattr(tile, "frame")
-
-
 def test_the_book_spec_is_the_sheet_these_tests_state_by_hand() -> None:
     """CON-018's profile written out here is the sheet the panel builds (AC-178).
 
@@ -2031,9 +1233,9 @@ def test_the_book_spec_is_the_sheet_these_tests_state_by_hand() -> None:
     for field in dataclasses.fields(PageSpec):
         ours, theirs = getattr(mine, field.name), getattr(panels, field.name)
         if field.name == "frame":
-            # The one field the panel now states (owner, 2026-11-09): the
-            # book's frame switch, which this module turns back on.
-            assert theirs is panel.BOOK_PUZZLE_FRAME, field.name
+            # The one field the panel states and ``_spec`` does not: the
+            # book's frame, off (owner, 2026-11-09).
+            assert theirs is panel.BOOK_PUZZLE_FRAME is False, field.name
             continue
         if isinstance(ours, float) and isinstance(theirs, float):
             assert ours == pytest.approx(theirs), field.name
@@ -2203,12 +1405,8 @@ def test_the_placed_page_walk_reads_a_parity_where_there_is_one() -> None:
 # (each slot floating in its own slot's spare) is owed to CARD-226 by this
 # card's G-4 and is not tested here.
 #
-# AC-5 is the existing caption-slot classes in ``tests/test_book_solved_page.py``
-# and ``tests/test_layout_page_spec.py``, which this card leaves in force (G-3)
-# and which it had to re-aim: centring restores the horizontal spare CARD-204's
-# flush anchor had spent, so the caption width at which the clamp fires moved,
-# and those files now carry a title in each of the three regimes rather than
-# one that has quietly stopped reaching the margin.
+# AC-5 is the caption-slot classes in ``tests/test_layout_page_spec.py``
+# (the solved page's own caption classes went with the caption, 2026-11-09).
 #
 # **Where the numbers come from.** The puzzle area is restated here in
 # millimetres from CARD-222's own two figures (:data:`HEADER_RULE_LIFT_SHARE`,
@@ -3272,707 +2470,6 @@ class TestBookPuzzleFrame_NoEmptyLowerThird:
 
 
 # --------------------------------------------------------------------------
-# CARD-336 — the frame-centre oracle: AC-1 (the reading IS a boundary, in
-# both media, against a coordinate) and AC-3 (the placed-edge population of
-# this module and of `tests/property/test_book_pdf_geometry.py`, derived)
-# --------------------------------------------------------------------------
-
-
-#: How far a frame-centre reading may sit from the boundary ``compute_layout``
-#: itself states, in device pixels. **Half a pixel**, and it is arithmetic
-#: rather than a tolerance: the frame rule inks an even number of pixel lines
-#: (six, measured, in both media), so the centre of its run is a half-integer
-#: while the boundary it is stroked on is a whole pixel. Measured at exactly
-#: +0.5 px in raster and −0.5 px in vector, Pillow inking ``c-2..c+3`` and
-#: poppler ``c-3..c+2`` for one boundary ``c``.
-FRAME_CENTRE_TOLERANCE_PX = 0.5
-
-
-#: And how far the two media's readings of the **same** page may sit from each
-#: other: one pixel — the two half pixels above, and CARD-330's own measured
-#: figure for a content stream's operand against the boundary (0.0847 mm at
-#: 300 DPI). The *ink* reading of the same page disagrees across the media by
-#: **three** pixels, which is the control below.
-FRAME_CENTRE_CROSS_MEDIUM_PX = 1.0
-
-
-#: The vector medium's declared frame stroke, in device pixels: ADR-0037/R2's
-#: heavy rule is 1.3 pt and a point is 1/72 in, so 5.4167 px at 300 DPI. It is
-#: here only to be shown **different from the width the page inks** (six), so
-#: that a reading keyed on the declared figure is visibly not a reading of the
-#: page.
-DECLARED_VECTOR_RULE_PX = 1.3 * DPI / 72
-
-
-@dataclasses.dataclass(frozen=True)
-class _BothMedia:
-    """One book puzzle page drawn both ways, and the boundary it was laid at.
-
-    Attributes:
-        coordinate: ``compute_layout``'s own :class:`PuzzleFrame` for this
-            page — the drawing's two outer boundaries, as the geometry states
-            them and before any ink exists. Every assertion below is made
-            against this and never against the other medium's ink.
-        raster: The page as ``BookPDFGenerator._blank_page`` draws it, which
-            is Pillow stroking four butt-capped lines.
-        vector: The same page as ``.vector_puzzle_page`` writes it, read back
-            through ``interior_images`` — poppler's raster of one mitred
-            ``re`` — at the page's own DPI, so both sides are device pixels
-            in one domain (CARD-330).
-    """
-
-    coordinate: object
-    raster: Image.Image
-    vector: Image.Image
-
-
-@pytest.fixture(scope="module")
-def both_media() -> _BothMedia:
-    """The same page in each medium, drawn once for this file (CARD-218's rule).
-
-    Deliberately **not** the module's shared ``pages`` fixture: that one is a
-    whole interior in whichever medium the registry declares, and what AC-1
-    needs is one page in *each*, with no registry touched (G-2). The two
-    writers take the same arguments, so the page is the same page and the
-    medium is the only difference between the two sides.
-    """
-    case = dict(columns=20, rows=20, row_depth=4, column_depth=5)
-    page_number = SINGLE_PAGE
-    generator = BookPDFGenerator(_book())
-    payload = BookPDFGenerator._payload(
-        _book_puzzle(**case, puzzle_id="card336-ac1")
-    )
-    cells = generator.cell_sizes([payload])
-    spec = generator._puzzle_page_spec(
-        page_number, cells.get(BookPDFGenerator._grid_size(payload))
-    )
-    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
-    assert layout.frame is not None, "this page must be a framed book page"
-    stream = generator.vector_puzzle_page(payload, 1, page_number, cells)
-    return _BothMedia(
-        coordinate=layout.frame,
-        raster=generator._blank_page(payload, 1, page_number, cells),
-        vector=interior_images([stream])[0],
-    )
-
-
-class TestFrameCentre_TheReadingIsABoundaryInBothMedia:
-    """CARD-336 AC-1: ``frame_centre_of`` reports where the drawing **is**.
-
-    ADR-0042/R6's own note asked for "an oracle that reads the frame rule's
-    CENTRE rather than its first inked line". This is the judgement of that
-    oracle, and it is complete with no page converted: the two writers are
-    both on `main` today, the coordinate both are laid against is
-    ``compute_layout``'s, and nothing here reads ``_RASTER_DECLARATIONS``.
-
-    Every assertion is against the **coordinate**. The cross-medium cell
-    compares two *boundary* readings, neither of which is an ink extent, so
-    no claim here is one medium's ink measured against the other's.
-    """
-
-    def test_each_mediums_reading_is_the_boundary_the_layout_states(
-        self, both_media
-    ) -> None:
-        """Both sides, each against ``layout.frame``, to within half a pixel."""
-        frame = both_media.coordinate
-        for medium, page in (
-            ("raster", both_media.raster),
-            ("vector", both_media.vector),
-        ):
-            boundary = frame_centre_of(page, drawing_of(page))
-            assert abs(boundary.frame_left - frame.left) <= (
-                FRAME_CENTRE_TOLERANCE_PX + 1e-9
-            ), (medium, boundary.frame_left, frame.left)
-            assert abs(boundary.frame_top - frame.top) <= (
-                FRAME_CENTRE_TOLERANCE_PX + 1e-9
-            ), (medium, boundary.frame_top, frame.top)
-
-    def test_the_two_media_read_the_same_page_as_the_same_boundary(
-        self, both_media
-    ) -> None:
-        """And they agree with each other, within one pixel."""
-        here = frame_centre_of(both_media.raster, drawing_of(both_media.raster))
-        there = frame_centre_of(both_media.vector, drawing_of(both_media.vector))
-
-        assert abs(here.frame_left - there.frame_left) <= (
-            FRAME_CENTRE_CROSS_MEDIUM_PX + 1e-9
-        ), (here, there)
-        assert abs(here.frame_top - there.frame_top) <= (
-            FRAME_CENTRE_CROSS_MEDIUM_PX + 1e-9
-        ), (here, there)
-
-    def test_the_control_the_ink_reading_cannot_make_either_claim(
-        self, both_media
-    ) -> None:
-        """The control that CAN fail (ADR-0039/R1), and the defect's measure.
-
-        The same two claims on :class:`~tests.helpers.page_ink.Drawing`'s own
-        extents: the vector page's ink sits **3 px** from the boundary and
-        the two media's ink readings sit 3 px from each other — so neither
-        bound above is met by the reading this card replaces, and both bounds
-        are therefore load-bearing rather than generous.
-        """
-        frame = both_media.coordinate
-        here = drawing_of(both_media.raster)
-        there = drawing_of(both_media.vector)
-
-        assert abs(there.left - frame.left) > FRAME_CENTRE_TOLERANCE_PX, there.left
-        assert abs(there.top - frame.top) > FRAME_CENTRE_TOLERANCE_PX, there.top
-        assert abs(here.left - there.left) > FRAME_CENTRE_CROSS_MEDIUM_PX, (
-            here.left,
-            there.left,
-        )
-        assert abs(here.top - there.top) > FRAME_CENTRE_CROSS_MEDIUM_PX, (
-            here.top,
-            there.top,
-        )
-
-    def test_the_rule_width_is_the_pages_and_not_the_declared_figure(
-        self, both_media
-    ) -> None:
-        """Item 1's requirement, asserted: the width comes off the page.
-
-        The reading reports the width it used, and it is the number of pixel
-        lines the rule really inks — counted here a second time, off the
-        page, without the helper. In the vector medium that is **six** lines
-        where the stroke is *declared* at 5.4167 px (ADR-0037/R2's 1.3 pt),
-        so a reading keyed on the declared figure would be reading the
-        writer's constant and not the page: the two are asserted unequal.
-        """
-        for medium, page in (
-            ("raster", both_media.raster),
-            ("vector", both_media.vector),
-        ):
-            drawing = drawing_of(page)
-            boundary = frame_centre_of(page, drawing)
-            dark = _dark(page)
-            # Recounted here, independently of the helper: the inked run that
-            # holds the drawing's own left edge, taken on a row through the
-            # MIDDLE of the grid's first cell — never the drawing's midpoint,
-            # which lands on a grid rule and reads the whole drawing as one
-            # run (measured, and the first draft of this cell did exactly
-            # that). The same down the page for the top side.
-            row = drawing.grid_top + round(drawing.cell / 2)
-            column = drawing.grid_left + round(drawing.cell / 2)
-            across = [
-                run
-                for run in _groups(np.flatnonzero(dark[row]))
-                if run[0] <= drawing.left <= run[-1]
-            ]
-            down = [
-                run
-                for run in _groups(np.flatnonzero(dark[:, column]))
-                if run[0] <= drawing.top <= run[-1]
-            ]
-            assert [len(run) for run in across] == [boundary.left_rule_px], (
-                medium, boundary, [len(run) for run in across]
-            )
-            assert [len(run) for run in down] == [boundary.top_rule_px], (
-                medium, boundary, [len(run) for run in down]
-            )
-            assert boundary.left_rule_px == boundary.top_rule_px, (medium, boundary)
-
-        vector = frame_centre_of(both_media.vector, drawing_of(both_media.vector))
-        assert vector.left_rule_px != pytest.approx(DECLARED_VECTOR_RULE_PX), (
-            "the page inks the declared stroke width exactly, so this cell can "
-            "no longer tell a reading of the page from a reading of the constant"
-        )
-        assert vector.left_rule_px == 6, vector.left_rule_px
-
-    def test_a_drawing_whose_outer_rule_is_not_a_frames_is_refused(self) -> None:
-        """ADR-0039/R2, in the reading itself: it refuses rather than guessing.
-
-        An unframed drawing's leftmost full-height rule is the grid's own
-        left border, a whole clue gutter inside the drawing's left edge, so
-        the reading cannot be a frame's centre and says so — rather than
-        reporting the grid's border as the drawing's boundary.
-        """
-        case = dict(columns=20, rows=20, row_depth=4, column_depth=5)
-        page = render_image(
-            _payload(**case), page_spec=replace(_spec(), frame=False)
-        )
-        drawing = drawing_of(page)
-        assert drawing.framed is False, "this control needs an unframed drawing"
-        with pytest.raises(ValueError, match="does not hold the drawing's own"):
-            frame_centre_of(page, drawing)
-
-
-class TestFrameCentre_EveryPlacedEdgeSiteIsClassified:
-    """CARD-336 AC-3 and its EC(ADR-0039/R2): the population is **derived**.
-
-    The two modules in this card's ``Touches`` each declare their own
-    placed-edge bound — ``HALF_PIXEL_MM`` there, :data:`EDGE_TOLERANCE_PX`
-    here — and an assertion read against that bound is a placed-edge site.
-    That is the same derivation shape ``tests/test_book_pdf.py``'s
-    ``TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`` uses over
-    ``EDGE_TOLERANCE_MM``, and it is a derivation rather than a list: a site
-    added tomorrow is in the population the day it is written, and a site
-    this walk cannot place is a **FAILURE** (ADR-0039/R2) rather than a pass.
-
-    Every site lands in exactly one of four classes:
-
-    ``boundary``
-        it reads a :class:`~tests.helpers.page_ink.FrameCentre` field — this
-        card's re-expression.
-    ``cancelling``
-        every ink extent it reads is paired with another inside one
-        expression, so the half rule cancels out of the difference. The
-        reading the ``Drawing`` comment calls "ink with ink".
-    ``no_extent``
-        it reads no ink extent at all: a coordinate against a coordinate, or
-        a reading from some other helper.
-    :data:`PLACED_EDGE_ON_THE_INK_BY_DECLARATION`
-        it differences an ink extent against a coordinate **and says why**,
-        with its measurement. One site qualifies, and that is the finding
-        this card raises rather than a tolerance it widened (G-1).
-
-    **Which fields are which is read off the two dataclasses**, not written
-    out: the ink extents are :class:`~tests.helpers.page_ink.Drawing`'s own
-    fields less the three that are not edges, and the boundaries are
-    ``FrameCentre``'s. A field renamed on either moves this walk with it, and
-    the two names are asserted disjoint so that no attribute can be both.
-    """
-
-    _MODULE_BOUNDS = {
-        "tests/property/test_book_pdf_geometry.py": "HALF_PIXEL_MM",
-        "tests/test_book_puzzle_frame.py": "EDGE_TOLERANCE_PX",
-    }
-    _INK_READERS = frozenset({"drawing_of", "drawings_of"})
-    _BOUNDARY_READERS = frozenset({"frame_centre_of"})
-
-    #: The floor, anchored to the two modules' own site counts as measured on
-    #: 2026-11-04. Not a target: a walk that finds fewer sites than this has
-    #: narrowed, which is the permissive direction, and a bound renamed out of
-    #: existence is the quietest way for that to happen.
-    _SITE_FLOOR = {
-        "tests/property/test_book_pdf_geometry.py": 9,
-        "tests/test_book_puzzle_frame.py": 9,
-    }
-
-    @staticmethod
-    def _ink_edges() -> frozenset[str]:
-        """``Drawing``'s ink extents: its fields, less the three that are not."""
-        fields = set(Drawing.__dataclass_fields__)
-        not_an_edge = {"columns", "rows", "framed"}
-        assert not_an_edge <= fields, sorted(not_an_edge - fields)
-        return frozenset(fields - not_an_edge)
-
-    @staticmethod
-    def _boundary_fields() -> frozenset[str]:
-        """``FrameCentre``'s boundaries: its fields, less the measured widths."""
-        fields = set(FrameCentre.__dataclass_fields__)
-        widths = {name for name in fields if name.endswith("_rule_px")}
-        assert widths, sorted(fields)
-        return frozenset(fields - widths)
-
-    @classmethod
-    def _tree(cls, path: str) -> ast.Module:
-        root = Path(__file__).resolve().parent.parent
-        return ast.parse((root / path).read_text(encoding="utf-8"), filename=path)
-
-    @staticmethod
-    def _functions(tree: ast.Module) -> dict[ast.AST, str]:
-        """Every function of ``tree``, by its class-qualified name."""
-        found: dict[ast.AST, str] = {}
-
-        def walk(node: ast.AST, prefix: str) -> None:
-            for child in ast.iter_child_nodes(node):
-                if isinstance(child, ast.ClassDef):
-                    walk(child, f"{prefix}{child.name}::")
-                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    found[child] = prefix + child.name
-                    walk(child, f"{prefix}{child.name}.")
-                else:
-                    walk(child, prefix)
-
-        walk(tree, "")
-        return found
-
-    @staticmethod
-    def _bindings(function: ast.AST, module: ast.Module) -> dict[str, list[ast.AST]]:
-        """``name -> [the expressions it was bound from]``.
-
-        The function's own statements and the module's **top level** — never
-        another function's, which would make one file's every local name
-        resolvable from every other site in it.
-        """
-        table: dict[str, list[ast.AST]] = {}
-
-        def bind(target: ast.AST, value: ast.AST) -> None:
-            if isinstance(target, ast.Name):
-                table.setdefault(target.id, []).append(value)
-            elif isinstance(target, (ast.Tuple, ast.List)):
-                for element in target.elts:
-                    bind(element, value)
-            elif isinstance(target, ast.Starred):
-                bind(target.value, value)
-
-        for node in list(module.body) + list(ast.walk(function)):
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    bind(target, node.value)
-            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and node.value:
-                bind(node.target, node.value)
-            elif isinstance(node, (ast.For, ast.AsyncFor)):
-                bind(node.target, node.iter)
-            elif isinstance(
-                node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
-            ):
-                for generator in node.generators:
-                    bind(generator.target, generator.iter)
-            elif isinstance(node, ast.withitem) and node.optional_vars:
-                bind(node.optional_vars, node.context_expr)
-        return table
-
-    @classmethod
-    def _readers_behind(
-        cls, name: str, table: dict[str, list[ast.AST]], seen: set[str] | None = None
-    ) -> set[str]:
-        """Which oracle ``name`` came from — to a fixed point through locals.
-
-        The closure is what makes a house-style binding resolvable: the
-        geometry module writes ``by_number = {n: drawing_of(...)}`` and then
-        ``drawing = by_number[n]``, so a depth-1 reading would place the
-        second name nowhere at all.
-        """
-        seen = set() if seen is None else seen
-        if name in seen:
-            return set()
-        seen.add(name)
-        found: set[str] = set()
-        for value in table.get(name, ()):
-            for node in ast.walk(value):
-                if isinstance(node, ast.Call):
-                    called = (
-                        node.func.id
-                        if isinstance(node.func, ast.Name)
-                        else getattr(node.func, "attr", "")
-                    )
-                    if called in cls._INK_READERS:
-                        found.add("ink")
-                    if called in cls._BOUNDARY_READERS:
-                        found.add("boundary")
-                elif isinstance(node, ast.Name) and node.id != name:
-                    found |= cls._readers_behind(node.id, table, seen)
-        return found
-
-    @staticmethod
-    def _root(node: ast.AST) -> str | None:
-        while isinstance(node, (ast.Attribute, ast.Subscript)):
-            node = node.value
-        return node.id if isinstance(node, ast.Name) else None
-
-    @classmethod
-    def _contributing(
-        cls,
-        expression: ast.AST,
-        table: dict[str, list[ast.AST]],
-        seen: set[str] | None = None,
-    ) -> list[ast.AST]:
-        """``expression`` and every expression its local names were bound from.
-
-        Without this the walk reads only what is written inside the ``assert``,
-        and this tree's house style puts the measurement one line above it
-        (``left_spare = ...`` then ``assert abs(left_spare - right_spare)``).
-        """
-        seen = set() if seen is None else seen
-        trees = [expression]
-        for node in ast.walk(expression):
-            if isinstance(node, ast.Name) and node.id not in seen:
-                seen.add(node.id)
-                for value in table.get(node.id, ()):
-                    trees += cls._contributing(value, table, seen)
-        return trees
-
-    @staticmethod
-    def _multiple(site: ast.AST, bound: str) -> float:
-        """The constant ``site`` multiplies ``bound`` by, or 1 for a bare read."""
-        for node in ast.walk(site):
-            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-                for one, other in ((node.left, node.right), (node.right, node.left)):
-                    if (
-                        isinstance(one, ast.Name)
-                        and one.id == bound
-                        and isinstance(other, ast.Constant)
-                    ):
-                        return other.value
-        return 1
-
-    @classmethod
-    def _partition(cls, path: str, tree: ast.Module | None = None) -> list:
-        """``[((path, qualified name, multiple), class)]`` for ``path``'s sites.
-
-        A **list**, and that is this walk's own measured lesson rather than a
-        style choice: keyed on that triple, a dict loses one site of
-        ``tests/property/test_book_pdf_geometry.py``, whose
-        ``..._MirroredMarginsCentreDrawingForEveryParity_pdf_pages`` carries
-        **two** sites at four half pixels — one re-expressed and one
-        cancelling. Nine sites became eight keys and the lost one was never
-        classified. The same shape ``tests/test_book_pdf.py``'s
-        ``_COLLIDING_SITES`` records, met again here;
-        :meth:`test_one_key_really_does_hold_two_sites` is what keeps the
-        regression red rather than quiet.
-        """
-        bound = cls._MODULE_BOUNDS[path]
-        tree = cls._tree(path) if tree is None else tree
-        ink_edges, boundaries = cls._ink_edges(), cls._boundary_fields()
-        out: list[tuple[tuple[str, str, float], str]] = []
-        for function, qualified in cls._functions(tree).items():
-            table = cls._bindings(function, tree)
-            for site in ast.walk(function):
-                if not isinstance(site, ast.Assert):
-                    continue
-                if not any(
-                    isinstance(node, ast.Name) and node.id == bound
-                    for node in ast.walk(site)
-                ):
-                    continue
-                trees = cls._contributing(site, table)
-                ink: list[ast.AST] = []
-                boundary: list[ast.AST] = []
-                unresolved: list[str] = []
-                for sub in trees:
-                    for attr in ast.walk(sub):
-                        if not isinstance(attr, ast.Attribute):
-                            continue
-                        base = cls._root(attr.value)
-                        readers = cls._readers_behind(base, table) if base else set()
-                        if attr.attr in boundaries and "boundary" in readers:
-                            boundary.append(attr)
-                        elif attr.attr in ink_edges and "ink" in readers:
-                            ink.append(attr)
-                        elif attr.attr in ink_edges and base is None:
-                            unresolved.append(ast.unparse(attr))
-                parents: dict[int, ast.AST] = {}
-                for sub in trees:
-                    for node in ast.walk(sub):
-                        for child in ast.iter_child_nodes(node):
-                            parents[id(child)] = node
-                marked = {id(node) for node in ink}
-                unpaired = []
-                for attr in ink:
-                    current, paired = attr, False
-                    while (current := parents.get(id(current))) is not None:
-                        if isinstance(current, (ast.BinOp, ast.Compare, ast.Call)):
-                            inside = sum(
-                                1 for node in ast.walk(current) if id(node) in marked
-                            )
-                            if inside >= 2:
-                                paired = True
-                                break
-                    if not paired:
-                        unpaired.append(attr)
-                key = (path, qualified, cls._multiple(site, bound))
-                if unresolved:
-                    verdict = f"UNCLASSIFIED {sorted(unresolved)}"
-                elif boundary and not unpaired:
-                    verdict = "boundary"
-                elif ink and not unpaired:
-                    verdict = "cancelling"
-                elif not ink and not boundary:
-                    verdict = "no_extent"
-                else:
-                    verdict = "ink_against_a_coordinate"
-                out.append((key, verdict))
-        return sorted(out, key=lambda entry: (entry[0][1], entry[0][2], entry[1]))
-
-    def test_the_two_readings_cannot_name_the_same_attribute(self) -> None:
-        """The walk tells them apart by field name, so the names are disjoint."""
-        assert not self._ink_edges() & self._boundary_fields(), sorted(
-            self._ink_edges() & self._boundary_fields()
-        )
-
-    @pytest.mark.parametrize("path", sorted(_MODULE_BOUNDS))
-    def test_the_bound_this_walk_derives_from_still_exists(self, path: str) -> None:
-        """A renamed bound empties the population silently — so it is asserted.
-
-        The name has to be a module-level assignment of the module it is
-        claimed for, and the walk has to find at least as many sites as were
-        measured there.
-        """
-        bound = self._MODULE_BOUNDS[path]
-        tree = self._tree(path)
-        assigned = {
-            target.id
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            for target in node.targets
-            if isinstance(target, ast.Name)
-        }
-        assert bound in assigned, (path, bound, "no module-level assignment")
-        found = self._partition(path, tree)
-        assert len(found) >= self._SITE_FLOOR[path], (path, len(found), found)
-
-    @pytest.mark.parametrize("path", sorted(_MODULE_BOUNDS))
-    def test_every_placed_edge_site_lands_in_exactly_one_class(
-        self, path: str
-    ) -> None:
-        """The partition is total: nothing unclassified, nothing on the ink
-        against a coordinate that has not declared itself."""
-        found = self._partition(path)
-        unclassified = [
-            entry for entry in found if entry[1].startswith("UNCLASSIFIED")
-        ]
-        assert not unclassified, unclassified
-        on_the_ink = {
-            key for key, verdict in found if verdict == "ink_against_a_coordinate"
-        }
-        assert on_the_ink <= set(PLACED_EDGE_ON_THE_INK_BY_DECLARATION), sorted(
-            on_the_ink - set(PLACED_EDGE_ON_THE_INK_BY_DECLARATION)
-        )
-
-    def test_every_declaration_is_a_site_that_is_really_on_the_ink(self) -> None:
-        """ADR-0039/R3: the exemption is a claim and carries its own control.
-
-        A declaration for a site that has been re-expressed, renamed or
-        deleted is a dead exemption, and a dead exemption is how a real one
-        gets added later without anyone reading it. Every entry has to name a
-        site the walk still finds **and** still places on the ink.
-        """
-        found: list = []
-        for path in self._MODULE_BOUNDS:
-            found += self._partition(path)
-        for key, reason in PLACED_EDGE_ON_THE_INK_BY_DECLARATION.items():
-            verdicts = [verdict for site, verdict in found if site == key]
-            assert verdicts, (key, "no such placed-edge site")
-            assert set(verdicts) == {"ink_against_a_coordinate"}, (key, verdicts)
-            assert "CARD-" in reason, (key, "a declaration names the card that owns it")
-
-    def test_the_control_a_site_put_back_on_the_ink_is_caught(self) -> None:
-        """The control that CAN fail (ADR-0039/R1), for the claim as stated.
-
-        A module shaped exactly like the re-expressed sites, except that one
-        of them reads the ink extent again: the walk must place it on the ink
-        against a coordinate, and must place the boundary twin beside it in
-        the ``boundary`` class. Caught with the mutation, missed without.
-        """
-        shape = """
-EDGE_TOLERANCE_PX = 1.5
-
-def test_re_expressed(page):
-    drawing = drawing_of(page)
-    boundary = frame_centre_of(page, drawing)
-    assert abs(boundary.frame_left - 10) <= EDGE_TOLERANCE_PX
-
-def test_put_back_on_the_ink(page):
-    drawing = drawing_of(page)
-    assert abs(drawing.left - 10) <= 2 * EDGE_TOLERANCE_PX
-"""
-        path = "tests/test_book_puzzle_frame.py"
-        found = dict(self._partition(path, ast.parse(shape)))
-        assert found[(path, "test_re_expressed", 1)] == "boundary", found
-        assert (
-            found[(path, "test_put_back_on_the_ink", 2)]
-            == "ink_against_a_coordinate"
-        ), found
-
-    def test_one_key_really_does_hold_two_sites(self) -> None:
-        """The collision is measured, so a dict-keyed regression cannot be quiet.
-
-        If this ever reports one site per key, the walk may be keyed on a dict
-        again without losing anything today — and would lose the next
-        collision silently. See :meth:`_partition`.
-        """
-        found = self._partition("tests/property/test_book_pdf_geometry.py")
-        keys = [key for key, _verdict in found]
-        assert len(keys) > len(set(keys)), keys
-
-    def test_no_bound_was_widened(self) -> None:
-        """AC-4 / G-1, asserted rather than claimed.
-
-        :data:`EDGE_TOLERANCE_PX` is unmoved, and the geometry module's
-        ``HALF_PIXEL_MM`` carries the same **multiset** of site multiples it
-        carried before this card: ``{2: x2, 3: x4, 4: x2}`` across eight
-        constant-multiple sites, plus the definition and one bare read. There
-        is no ``1 x`` multiple in that file and never was — an earlier
-        wording of this card's AC-4 said "four site multiples unchanged at
-        3/3/2/1", which was the multiple each of the four FAILING assertions
-        carried and not the file's site count; re-derived with ``ast`` here so
-        that the figure is the file's rather than a card's memory of it.
-        """
-        assert EDGE_TOLERANCE_PX == 1.5, EDGE_TOLERANCE_PX
-
-        path = "tests/property/test_book_pdf_geometry.py"
-        tree = self._tree(path)
-        parents = {
-            id(child): node
-            for node in ast.walk(tree)
-            for child in ast.iter_child_nodes(node)
-        }
-        multiples: dict[float, int] = {}
-        bare = 0
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Name) and node.id == "HALF_PIXEL_MM"):
-                continue
-            parent = parents.get(id(node))
-            if isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Mult):
-                other = parent.right if parent.left is node else parent.left
-                if isinstance(other, ast.Constant):
-                    multiples[other.value] = multiples.get(other.value, 0) + 1
-                    continue
-            bare += 1
-        assert multiples == {2: 2, 3: 4, 4: 2}, multiples
-        assert sum(multiples.values()) == 8, multiples
-        assert bare == 2, bare
-        assert 1 not in multiples, multiples
-
-
-#: CARD-336 AC-3: the placed-edge sites of the two ``Touches`` modules that
-#: stay on the **ink** extent against a coordinate, each with the measurement
-#: that says why reading the boundary does not close it. Keyed on
-#: ``(module, class-qualified test name, the multiple of the module's own
-#: bound that site reads)`` — never a line number, which rots.
-#:
-#: Held to naming only real, still-on-the-ink sites by
-#: :meth:`TestFrameCentre_EveryPlacedEdgeSiteIsClassified.test_every_declaration_is_a_site_that_is_really_on_the_ink`,
-#: so this cannot rot into a blanket exemption (ADR-0039/R3).
-#:
-#: **The other declared residue: two re-expressed sites that CLEAR their bound
-#: with 0.4 % of margin.** These two are deliberately **not** keys of the
-#: mapping below — that mapping is held to sites still on the ink, and these
-#: are closed and green. They are declared here anyway, for the same reason the
-#: entry below is declared: a residue this card cannot improve is written down
-#: with its figures, so that a corpus change, a poppler version or one
-#: differently-landing trim reds them against an explanation instead of against
-#: nothing. CARD-336's F-7, re-derived at the merge gate over the same 136
-#: cases of
-#: ``test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages``:
-#:
-#: ======================================  =======  ==========  =======
-#: site, in that module and that node id   bound    vector      raster
-#: ======================================  =======  ==========  =======
-#: ``frame_left`` vs ``drawing_left_mm``   2 x      **1.992x**  1.983x
-#: ``left_spare`` vs ``right_spare``       4 x      **3.984x**  3.965x
-#: ======================================  =======  ==========  =======
-#:
-#: **Why the bound is the exact worst case — arithmetic, not luck.** The
-#: reading is a rule's centre, and a rule of even inked width centres on a
-#: half-integer, so it carries +/-0.5 px against the boundary. The millimetre
-#: figure it is compared with is itself rounded to a device coordinate,
-#: carrying a further +/-0.5 px. One device pixel is 2 x ``HALF_PIXEL_MM`` —
-#: so 2 x **is** the derived worst case of a single-edge comparison, and 4 x is
-#: twice it because the spare-margin site differences two such edges. 1.992x
-#: is therefore *at* the derived bound, not inside it by accident.
-#:
-#: **And the bound was not widened to admit it** (G-1). What the INK reads on
-#: the same corpus, for contrast: **6.992x** and 7.333x on the two single-edge
-#: sites and **13.984x** on the spare site, all three RED in vector. The margin
-#: is 0.4 %; the alternative was 3.5x the bound. Widening is what G-1 forbids,
-#: and these figures are what make that refusal checkable rather than a claim.
-PLACED_EDGE_ON_THE_INK_BY_DECLARATION: dict = {}
-#: **EMPTIED by CARD-322 (owner ruling 2026-11-06, the placed-edge cells).** The
-#: one entry this mapping held, the geometry module's
-#: ``..._PortraitWithFixedTopEdgeForEveryExtent_two_up_pages`` site at its ONE
-#: half-pixel bound, was declared on the ink because no single reading met the
-#: bound in both media. The interior is one medium now, and that site reads the
-#: frame BOUNDARY (``frame_centre_of``), measured at or under 0.46x the same
-#: bound, with a 1 px control; it is no longer on the ink and so no longer a
-#: declaration. The mapping stays (empty) because the guard tests below are
-#: written against it and ``test_every_declaration_is_a_site_that_is_really_on_the_ink``
-#: is what will refuse a future entry that names a site not on the ink.
-
-
-# --------------------------------------------------------------------------
 # CARD-218 fix round 1 — what the controls below are allowed to conclude
 #
 # The nine readers these controls are built on used to be written out here and
@@ -4300,9 +2797,3 @@ class TestPuzzleFrame_TheSharedInteriorIsNotMutated:
             "fixture is no longer module-scoped"
         )
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

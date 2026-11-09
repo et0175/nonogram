@@ -1,62 +1,18 @@
-"""CARD-198 — the book's answer key becomes one full solved page per puzzle.
+"""The book's answer key: how answers are planned onto pages and wired into
+the interior, and what the vector answer pages print.
 
-    AC-1  TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder
-    AC-2  TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues
-    AC-3  TestBookSolvedAnswerKey_PageCountIsOnePerPuzzleNotPacked
-    AC-4  TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading
-    AC-5  TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed
-    AC-7  TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount
+Every answer up to ``limits.MAX_SIZE`` packs (``PACKED_MAX_WIDTH/HEIGHT``,
+owner decision 2026-11-09): a run of answers of one level is cut into pages
+of four, then a page of two, then a page of one (CARD-202's walk,
+:func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`). The
+CARD-297 block further down reads the answer and contents pages' content
+streams.
 
-CARD-202 narrows CARD-198's rule for small answers (width<=PACKED_MAX_WIDTH,
-height<=PACKED_MAX_HEIGHT; 15x20 when the card shipped, 20x25 since the owner
-raised the limit):
-they pack 2-or-4 to a page, with clues, instead of CARD-198's one full page
-each. Its own classes, appended below the CARD-198 ones above (same file,
-same module docstring — the card's own AC naming puts every one of these in
-"a new or extended tests/test_book_solved_answer_key.py class"):
-
-    AC-1   TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage
-    AC-2   TestBookSolvedAnswerKey_MixedBookPacksOnlyTheSmallOnes
-    AC-2b  TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly
-    AC-3   TestBookSolvedAnswerKey_ThresholdIsWidthAndHeightNotLongestSide
-    AC-4   TestBookSolvedAnswerKey_PackedSlotsStillShowClues
-    AC-5   TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording
-    AC-6   TestBookSolvedAnswerKey_PackedCountStillMatchesTheProducedCount
-    AC-7   TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198
-    AC-8   TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted
-
-CARD-198 replaced the packed 6-up/4-up answer key (``book_answer_key``,
-CARD-134) with one call to :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.solved_puzzle_page`
-(CARD-197, reused verbatim — G-1) per drawable puzzle, in book order, behind
-the unchanged SOLUTIONS divider. This module pins the generator's wiring —
-that :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`
-calls that primitive once per puzzle with the right arguments, in the right
-place, the right number of times, and preserves the malformed-grid abort
-contract — never CARD-197's own pixel-level drawing (that is
-``tests/test_book_solved_page.py``'s job, and it is G-1's that this card does
-not edit it).
-
-CARD-202's own classes below pin the same kind of thing one layer further in:
-that :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`
-calls :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` (the
-pure packing decision, unit-tested directly here too — a page's own geometry
-is COMP-007's, exercised by ``tests/property/test_book_answer_tiles.py`` and
-``tests/test_book_solved_page.py``-adjacent layout tests, not re-derived
-here) and draws each planned page through
-:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._packed_answer_page`
-or :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.solved_puzzle_page`
-— never a bespoke third drawing path.
-
-**Puzzles here never pair.** Every puzzle is built with clue gutters 3 deep on
-a :data:`FULL_SIDE` square (one column wider than ``PACKED_MAX_WIDTH``, so it
-never qualifies for packing either — it was an 18x18 while the limit was 15
-wide; the owner raised it to 20x25, under which an 18x18 packs — or, for
-AC-7's larger book, 6 deep on a 22x22 — the same shape
-``tests/test_book_finalise_gutter.py``'s own ``alone`` uses, chosen there for
-exactly this reason), so FR-040's two-up pairing never shortens the puzzle
-section and the interior's make-up is arithmetic, not a verdict of the pairing
-walk. That is what lets :func:`first_answer_page` below predict exactly where
-the answer section starts from the puzzle count and the level count alone.
+**Puzzles here never pair** on the puzzle pages unless a test says so: the
+default puzzle is an :data:`ALONE_SIDE` square with gutter-deep clues, the
+shape ``tests/test_book_finalise_gutter.py``'s ``alone`` uses, so the puzzle
+section's length is arithmetic and :func:`first_answer_page` can predict
+where the answer section starts.
 """
 
 from __future__ import annotations
@@ -75,7 +31,6 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _as_planned,
     _degrade_infeasible_packed_pages,
-    band_identity,
     page_frame,
     page_is_right_hand,
 )
@@ -85,19 +40,15 @@ from nonogram.admin.book_answer_key import (
     PackedAnswerPage,
     answer_caption,
     plan_small_answer_pages,
-    qualifies_for_packing,
 )
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import (
     ANSWER_TEXT_FONT_MM,
     BACKGROUND,
-    FOLIO_PT,
     POINTS_PER_INCH,
-    _band_font,
-    type_px,
 )
 from nonogram.difficulty import Tier
-from nonogram.export.layout import ANSWER_TILE_GAP_MM, compute_packed_solved_layout
+from nonogram.limits import MAX_SIZE
+from nonogram.export.layout import compute_packed_solved_layout
 
 from tests.helpers.book_corpus import GUIDE_INTERIOR_PAGES
 from tests.helpers.page_ink import drawing_of
@@ -113,11 +64,9 @@ GUTTER_MM = 0.5 * 25.4
 OUTSIDE_MM = 0.375 * 25.4
 
 
-#: The side of this file's default "full page" puzzle: one column wider than
-#: the packing limit, so its answer always takes CARD-198's full page. Derived
-#: from the constant, so the premise follows the owner's limit (it was a
-#: hard-coded 18 while the limit was 15 wide).
-FULL_SIDE = PACKED_MAX_WIDTH + 1
+#: The side of this file's default puzzle: large enough that two never share
+#: a puzzle page (see the module docstring).
+ALONE_SIDE = 22
 
 
 def _cm(millimetres: float) -> str:
@@ -186,8 +135,8 @@ def _grid(columns: int, rows: int, depth: int = 3, mark: int = 0) -> List[List[b
 
 
 def _puzzle(
-    columns: int = FULL_SIDE,
-    rows: int = FULL_SIDE,
+    columns: int = ALONE_SIDE,
+    rows: int = ALONE_SIDE,
     *,
     number: int = 1,
     depth: int = 3,
@@ -278,69 +227,18 @@ def _page_reading(page) -> Tuple[object, ...]:
     raise TypeError(f"a book page is a bitmap or a content stream, not {type(page).__name__}")
 
 
-def _answer_twin(gen: BookPDFGenerator, payload, number: int, page_number: int, title):
-    """The full answer page, drawn **directly** in the medium its kind declares.
-
-    The expectation the interior's wiring is held to: the same
-    ``(payload, puzzle_number, page_number, title)`` handed straight to the
-    writer of the declared medium, not through ``interior_stream``. The vector
-    writer is called as the module, not through ``gen.pages``, so the
-    expectation does not share the seam it is checking.
-    """
-    if book_pdf_generator.page_medium(book_pdf_generator.PageKind.ANSWER) is (
-        book_pdf_generator.PageMedium.VECTOR
-    ):
-        return book_answer_vector.answer_page(
-            gen.page_spec(page_number), gen.dpi, payload, number, page_number, title
-        )
-    return gen.solved_puzzle_page(payload, number, page_number, title=title)
-
-
 def _packed_twin(gen: BookPDFGenerator, plan, payloads, page_number: int, titles):
-    """The packed answer page, drawn directly in the medium its kind declares."""
-    if book_pdf_generator.page_medium(book_pdf_generator.PageKind.ANSWER) is (
-        book_pdf_generator.PageMedium.VECTOR
-    ):
-        return book_answer_vector.packed_answer_page(
-            gen.page_spec(page_number), gen.dpi, plan, payloads, page_number, titles
-        )
-    return gen._packed_answer_page(plan, payloads, page_number, titles)
+    """The packed answer page, drawn directly by the vector writer.
+
+    Called as the module, not through ``gen.pages``, so the expectation does
+    not share the seam the interior's wiring is checked through.
+    """
+    return book_answer_vector.packed_answer_page(
+        gen.page_spec(page_number), gen.dpi, plan, payloads, page_number, titles
+    )
 
 
-# --------------------------------------------------------------------------
-# AC-1 — one answer page per puzzle, in book order, behind the SOLUTIONS page
-# --------------------------------------------------------------------------
-
-
-class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
-    """AC-1 — N drawable puzzles make exactly N answer pages, numbered 1..N."""
-
-    def test_the_answer_section_holds_exactly_one_page_per_puzzle(self) -> None:
-        book = _book()
-        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), tiers=["easy"] * 3)
-        pages = _interior(puzzles, book)
-        start = first_answer_page(book, puzzles)
-
-        answer_pages = pages[start - 1 :]
-        assert len(answer_pages) == len(puzzles) == 3
-
-    def test_the_pages_print_in_book_order_one_to_n(self) -> None:
-        """Each page's own band carries the puzzle number that page prints."""
-        book = _book()
-        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), tiers=["easy"] * 4)
-        pages = _interior(puzzles, book)
-        start = first_answer_page(book, puzzles)
-        gen = BookPDFGenerator(book)
-
-        for offset, puzzle in enumerate(puzzles):
-            page = pages[start - 1 + offset]
-            expected = _answer_twin(
-                gen, gen._payload(puzzle), offset + 1, start + offset, puzzle["puzzle_name"]
-            )
-            assert _page_reading(page) == _page_reading(expected), (
-                f"answer page at offset {offset} is not puzzle {offset + 1}'s"
-            )
-
+class TestBookSolvedAnswerKey_AnEmptyBookHasNoAnswerSection:
     def test_a_book_with_no_puzzles_has_no_answer_section_at_all(self) -> None:
         pages = _interior([])
         assert len(pages) == 1 + 2, (
@@ -349,119 +247,28 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
         )
 
 
-# --------------------------------------------------------------------------
-# AC-2 — each page matches a direct call to solved_puzzle_page
-# --------------------------------------------------------------------------
-
-
-class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
-    """AC-2 — interior_stream calls CARD-197's primitive correctly per puzzle.
-
-    This pins the *wiring*: the band's number and tier, the caption's number
-    and title (custom book title winning over the picture's own name,
-    FR-041), the clues and the fill — all exactly what calling
-    :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.solved_puzzle_page`
-    directly with the same ``(payload, puzzle_number, page_number, title)``
-    would draw. Not CARD-197's own pixel-level drawing — that is
-    ``tests/test_book_solved_page.py``'s job (G-1).
-    """
-
-    def test_a_puzzle_with_its_own_name_matches_a_direct_call(self) -> None:
-        book = _book()
-        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, 12), tiers=["easy", "medium"])
-        pages = _interior(puzzles, book)
-        start = first_answer_page(book, puzzles)
-        gen = BookPDFGenerator(book)
-
-        for offset, puzzle in enumerate(puzzles):
-            number = offset + 1
-            expected = _answer_twin(
-                gen, gen._payload(puzzle), number, start + offset, puzzle["puzzle_name"]
-            )
-            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
-
-    def test_a_custom_book_title_wins_over_the_pictures_own_name(self) -> None:
-        """FR-041: ``books.puzzle_titles`` beats ``puzzle_name`` in the caption."""
-        puzzles = [
-            _puzzle(FULL_SIDE, FULL_SIDE, number=1, name="Snowflake", tier="easy"),
-        ]
-        book = _book({"p1": "Winter Star"})
-        pages = _interior(puzzles, book)
-        start = first_answer_page(book, puzzles)
-        gen = BookPDFGenerator(book)
-
-        expected = _answer_twin(gen, gen._payload(puzzles[0]), 1, start, "Winter Star")
-        assert _page_reading(pages[start - 1]) == _page_reading(expected)
-
-        # The control: captioned with the picture's own name, it must not match.
-        # Same medium as the page by construction (_answer_twin), so this ``!=``
-        # is a difference of content and not of medium.
-        uncustomised = _answer_twin(gen, gen._payload(puzzles[0]), 1, start, "Snowflake")
-        assert _page_reading(pages[start - 1])[0] == _page_reading(uncustomised)[0]
-        assert _page_reading(pages[start - 1]) != _page_reading(uncustomised)
-
+class TestBookSolvedAnswerKey_AnUnnamedPuzzleIsNamedByNumberAlone:
     def test_a_puzzle_with_no_name_at_all_is_still_captioned_by_number_alone(
         self,
     ) -> None:
-        puzzle = _puzzle(FULL_SIDE, FULL_SIDE, number=1, name=None, tier="easy")
+        """The answer page names it "1" and sets no dangling separator or "None"."""
+        puzzle = _puzzle(12, 12, number=1, tier="easy")
         puzzle["puzzle_name"] = None
         book = _book()
         pages = _interior([puzzle], book)
         start = first_answer_page(book, [puzzle])
-        gen = BookPDFGenerator(book)
-
-        expected = _answer_twin(gen, gen._payload(puzzle), 1, start, None)
-        assert _page_reading(pages[start - 1]) == _page_reading(expected)
+        page = pages[start - 1]
+        assert isinstance(page, ContentStream), type(page)
+        (text,) = pdf_vector.content_streams(_written([page]))
+        shown = _strings(text)
+        assert "1" in shown, shown
+        assert not [s for s in shown if "None" in s or CAPTION_SEPARATOR.strip() in s], shown
         assert answer_caption(1, None) == "Puzzle 1"
 
 
-# --------------------------------------------------------------------------
-# AC-3 — the reported count is one per puzzle, and the guard still holds
-# --------------------------------------------------------------------------
-
-
-class TestBookSolvedAnswerKey_PageCountIsOnePerPuzzleNotPacked:
-    """AC-3 — ``answer_page_count`` is the drawable-puzzle count, unpacked."""
-
-    def test_answer_page_count_equals_the_drawable_puzzle_count(self) -> None:
-        book = _book()
-        puzzles = _book_of(*[(FULL_SIDE, FULL_SIDE)] * 9, tiers=["easy"] * 9)
-        stream = BookPDFGenerator(book).interior_stream(puzzles)
-
-        assert stream.answer_page_count == 9
-        # The control this AC asks for explicitly: packed six-up would have
-        # reported 2 for nine small same-tier answers (INV-011's old rule).
-        assert stream.answer_page_count != 2
-
-    def test_a_producer_short_of_its_planned_count_still_raises(self) -> None:
-        """``_as_planned`` (CARD-145), unedited, still guards the real call.
-
-        ``interior_page_count`` is monkeypatched to report one page more
-        than the walk actually produces — the same shape a change to the
-        answer term's arithmetic that forgot to update the plan would take —
-        so the mismatch is caught by the unedited ``_as_planned`` guard
-        exactly as it already does for the puzzle section
-        (``tests/test_book_pdf_memory.py``).
-        """
-        import nonogram.admin.book_pdf_generator as bpg
-
-        book = _book()
-        puzzles = _book_of(*[(FULL_SIDE, FULL_SIDE)] * 3, tiers=["easy"] * 3)
-        real = bpg.interior_page_count
-
-        def one_more(*args, **kwargs):
-            return real(*args, **kwargs) + 1
-
-        bpg.interior_page_count = one_more
-        try:
-            stream = BookPDFGenerator(book).interior_stream(puzzles)
-            with pytest.raises(RuntimeError, match="its page plan says"):
-                list(stream.pages)
-        finally:
-            bpg.interior_page_count = real
-
+class TestBookSolvedAnswerKey_ThePlanGuardStillHolds:
     def test_as_planned_itself_still_raises_on_an_undercount(self) -> None:
-        """The guard's own unit shape, pinned directly (CARD-145, unedited)."""
+        """The guard's own unit shape, pinned directly (CARD-145)."""
 
         def two_pages():
             yield Image.new("RGB", (10, 10), "white")
@@ -472,35 +279,18 @@ class TestBookSolvedAnswerKey_PageCountIsOnePerPuzzleNotPacked:
 
 
 # --------------------------------------------------------------------------
-# AC-4 — the level is visible per page; no separate heading or divider
+# AC-4 — no per-level heading page inside the answer section
 # --------------------------------------------------------------------------
 
 
 class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
-    """AC-4 — 2 easy then 1 medium: bands show it, no extra page or line does."""
+    """2 easy then 1 medium: one answer page per level run, no heading page."""
 
     @staticmethod
-    def _book_and_pages() -> Tuple[Book, List[dict], List[Image.Image]]:
+    def _book_and_pages() -> Tuple[Book, List[dict], list]:
         book = _book()
-        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), tiers=["easy", "easy", "medium"])
+        puzzles = _book_of(*[(ALONE_SIDE, ALONE_SIDE)] * 3, depth=6, tiers=["easy", "easy", "medium"])
         return book, puzzles, _interior(puzzles, book)
-
-    def test_pages_one_and_two_band_easy_and_page_three_bands_medium(self) -> None:
-        book, puzzles, pages = self._book_and_pages()
-        start = first_answer_page(book, puzzles)
-        gen = BookPDFGenerator(book)
-
-        for offset, tier in enumerate(("easy", "easy", "medium")):
-            puzzle = puzzles[offset]
-            expected = _answer_twin(
-                gen, gen._payload(puzzle), offset + 1, start + offset, puzzle["puzzle_name"]
-            )
-            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
-            # band_identity is what the page was asked to draw; confirm the
-            # tier fed to it is the one this offset's puzzle actually carries.
-            assert band_identity(offset + 1, puzzles[offset]["difficulty_tier"]).endswith(
-                tier.capitalize()
-            )
 
     def test_the_answer_section_opens_with_exactly_one_divider_the_solutions_one(
         self,
@@ -511,46 +301,31 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
         gen = BookPDFGenerator(book)
 
         # The page immediately before the answer section is the SOLUTIONS
-        # divider: with no picture uploaded, the approved mockup's opener,
-        # reached through the same ``divider_page`` call the walk makes (it
-        # names the span, so it takes the book's puzzle count).
+        # opener, reached through the same ``divider_page`` call the walk makes.
         assert _page_reading(pages[start - 2]) == _page_reading(
             gen.divider_page(
                 SOLUTIONS_SLOT, start - 1, "SOLUTIONS", puzzle_count=len(puzzles)
             )
         )
-
-        # And every page from the first answer page on is a *puzzle* page —
-        # built by solved_puzzle_page, never create_divider_page — so there
-        # is no second divider hiding inside the answer run.
-        for offset, puzzle in enumerate(puzzles):
-            page = pages[start - 1 + offset]
-            not_a_divider = gen.create_divider_page(start + offset, "Easy")
-            if isinstance(page, Image.Image):
-                assert _page_reading(page) != _page_reading(not_a_divider)
-            else:
-                # An operator page cannot be a divider: a divider is a bitmap
-                # (CARD-231 replaces it, it does not convert it), and a
-                # cross-medium ``!=`` would say nothing. So the claim here is
-                # the medium itself, with the divider's declared raster as the
-                # other half -- both stated rather than inferred from ``!=``.
-                assert isinstance(page, ContentStream), type(page)
-                assert isinstance(not_a_divider, Image.Image), type(not_a_divider)
-                assert (
-                    book_pdf_generator.page_medium(book_pdf_generator.PageKind.DIVIDER)
-                    is book_pdf_generator.PageMedium.RASTER
-                )
+        # Every page after it is a vector answer page; a divider is a bitmap
+        # (its kind declares raster), so none hides inside the answer run.
+        answer_run = pages[start - 1 :]
+        assert len(answer_run) == 2, "the easy pair, then the medium one"
+        assert all(isinstance(page, ContentStream) for page in answer_run)
+        assert (
+            book_pdf_generator.page_medium(book_pdf_generator.PageKind.DIVIDER)
+            is book_pdf_generator.PageMedium.RASTER
+        )
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
         """1 title (CARD-206) + 2 guide (CARD-201) + 1 TOC (CARD-200) +
-        2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 13.
+        2 dividers + 3 puzzles + SOLUTIONS + 2 answer pages = 12.
 
-        A per-level heading page inside the answer section (the alternative
-        CARD-198's own "What to implement" considered and rejected) would
-        make this 14 or 15 instead.
+        A per-level heading page inside the answer section would make it 13
+        or 14.
         """
         book, puzzles, pages = self._book_and_pages()
-        assert len(pages) == 1 + 2 + 1 + 2 + 3 + 1 + 3 == 13
+        assert len(pages) == 1 + 2 + 1 + 2 + 3 + 1 + 2 == 12
 
 
 # --------------------------------------------------------------------------
@@ -564,7 +339,7 @@ class TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed:
     def test_a_ragged_grid_aborts_naming_the_puzzle_with_a_value_error_cause(
         self,
     ) -> None:
-        puzzle = _puzzle(FULL_SIDE, FULL_SIDE, number=4)
+        puzzle = _puzzle(ALONE_SIDE, ALONE_SIDE, number=4)
         puzzle["grid"] = [row[:] for row in puzzle["grid"]]
         puzzle["grid"][2] = puzzle["grid"][2][:-1]
 
@@ -577,7 +352,7 @@ class TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed:
 
     @pytest.mark.parametrize("grid", [[], [[]]])
     def test_an_empty_grid_aborts_the_same_way(self, grid: list) -> None:
-        puzzle = _puzzle(FULL_SIDE, FULL_SIDE, number=9)
+        puzzle = _puzzle(ALONE_SIDE, ALONE_SIDE, number=9)
         puzzle["grid"] = grid
 
         with pytest.raises(RuntimeError) as raised:
@@ -594,8 +369,8 @@ class TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed:
         tripwires keep (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`'s
         own docstring).
         """
-        good = _puzzle(FULL_SIDE, FULL_SIDE, number=1)
-        bad = _puzzle(FULL_SIDE, FULL_SIDE, number=2)
+        good = _puzzle(ALONE_SIDE, ALONE_SIDE, number=1)
+        bad = _puzzle(ALONE_SIDE, ALONE_SIDE, number=2)
         bad["grid"] = []
 
         with pytest.raises(RuntimeError, match="could not be laid out"):
@@ -620,20 +395,6 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
     """
 
     PUZZLES = 12
-
-    def test_the_answer_section_is_longer_than_the_old_packed_count_would_be(
-        self,
-    ) -> None:
-        book = _book()
-        puzzles = _book_of(*[(22, 22)] * self.PUZZLES, depth=6, tiers=["easy"] * self.PUZZLES)
-        start = first_answer_page(book, puzzles)
-        pages = _interior(puzzles, book)
-
-        answer_pages = pages[start - 1 :]
-        assert len(answer_pages) == self.PUZZLES == 12
-        # The old packed key would have put 12 same-tier, <=20-longest-side
-        # answers on ceil(12 / 6) = 2 six-up pages.
-        assert len(answer_pages) > 2
 
     def test_every_interior_pages_measured_side_matches_its_declared_parity(
         self,
@@ -721,8 +482,7 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
 
 
 # ==========================================================================
-# CARD-202 — small answers (width<=PACKED_MAX_WIDTH, height<=PACKED_MAX_HEIGHT)
-# pack 2-or-4 to a page
+# CARD-202 — answers pack 4, then 2, then 1 to a page, one level per page
 # ==========================================================================
 
 
@@ -766,7 +526,6 @@ class TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage:
 
         assert [p.numbers for p in plan] == [(1, 2, 3, 4), (5, 6)]
         assert [p.capacity for p in plan] == [4, 2]
-        # Fewer pages than CARD-198's one-per-puzzle (AC-1's own wording).
         assert len(plan) == 2 < len(answers)
 
     def test_the_wiring_draws_exactly_what_the_pure_walk_planned(self) -> None:
@@ -824,71 +583,6 @@ class TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage:
         assert [p.capacity for p in plan] == [2, 2]
 
 
-class TestBookSolvedAnswerKey_MixedBookPacksOnlyTheSmallOnes:
-    """AC-2 — small puzzles pack; large ones keep CARD-198's full page; order holds."""
-
-    #: 1, 2: small Easy (pack together); 3: large Easy (22x22, full page);
-    #: 4: small Easy again, alone in its own run (packs 2-up with one slot).
-    PUZZLES = ((10, 10, "easy"), (10, 10, "easy"), (22, 22, "easy"), (12, 12, "easy"))
-
-    def test_small_ones_pack_and_the_large_one_still_gets_a_full_page(
-        self,
-    ) -> None:
-        answers = _answers_for(_small_book_of(*self.PUZZLES, depth=3))
-        plan = plan_small_answer_pages(list(answers))
-
-        assert len(plan) == 3
-        packed_first, full, packed_last = plan
-        assert isinstance(packed_first, PackedAnswerPage)
-        assert packed_first.numbers == (1, 2)
-        assert isinstance(full, Answer)
-        assert full.number == 3
-        assert isinstance(packed_last, PackedAnswerPage)
-        assert packed_last.numbers == (4,)
-
-    def test_every_puzzle_number_appears_exactly_once_in_order(self) -> None:
-        """No puzzle's answer is skipped, duplicated, or printed out of order."""
-        answers = _answers_for(_small_book_of(*self.PUZZLES, depth=3))
-        plan = plan_small_answer_pages(list(answers))
-
-        numbers = [
-            number
-            for entry in plan
-            for number in (
-                entry.numbers if isinstance(entry, PackedAnswerPage) else (entry.number,)
-            )
-        ]
-        assert numbers == [1, 2, 3, 4]
-
-    def test_the_generator_renders_the_same_mixed_sequence(self) -> None:
-        """Integration: the real generator's answer section matches the plan."""
-        book = _book()
-        puzzles = _small_book_of(*self.PUZZLES, depth=3)
-        stream = BookPDFGenerator(book).interior_stream(puzzles)
-
-        assert stream.answer_page_count == 3
-        pages = list(stream.pages)
-        start = first_answer_page(book, puzzles)
-        gen = BookPDFGenerator(book)
-        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
-        titles = gen.custom_titles()
-
-        plan = plan_small_answer_pages(list(_answers_for(puzzles)))
-        for offset, entry in enumerate(plan):
-            if isinstance(entry, PackedAnswerPage):
-                expected = _packed_twin(gen, entry, payloads, start + offset, titles)
-            else:
-                _puzzle_id, payload = payloads[entry.number - 1]
-                expected = _answer_twin(
-                    gen,
-                    payload,
-                    entry.number,
-                    start + offset,
-                    puzzles[entry.number - 1]["puzzle_name"],
-                )
-            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
-
-
 class TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly:
     """AC-2b — 3 Easy then 2 Medium: no packed page ever mixes tiers."""
 
@@ -919,63 +613,6 @@ class TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly:
         for entry in plan_small_answer_pages(list(answers)):
             assert isinstance(entry, PackedAnswerPage)
             assert len({a.level for a in entry.answers}) == 1
-
-
-class TestBookSolvedAnswerKey_ThresholdIsWidthAndHeightNotLongestSide:
-    """AC-3 — W x H qualifies; one wider or one taller does not (both sides checked).
-
-    W x H is ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT``, read off the
-    constants: 15x20 when CARD-202 shipped (the test names below still carry
-    those figures, and are cited elsewhere, so they are not renamed), 20x25
-    since the owner raised the limit. The one-over cases are 21 wide and 26
-    tall.
-    """
-
-    def test_exactly_15x20_qualifies(self) -> None:
-        assert (PACKED_MAX_WIDTH, PACKED_MAX_HEIGHT) == (20, 25), (
-            "the owner's limit; this class's one-over cases are 21 and 26"
-        )
-        assert qualifies_for_packing(
-            Answer(number=1, width=PACKED_MAX_WIDTH, height=PACKED_MAX_HEIGHT, level=None)
-        )
-
-    def test_16_wide_does_not_qualify_even_though_it_is_still_20_tall(self) -> None:
-        """One column over the width limit (21), at the full height limit."""
-        assert not qualifies_for_packing(
-            Answer(number=1, width=PACKED_MAX_WIDTH + 1, height=PACKED_MAX_HEIGHT, level=None)
-        )
-
-    def test_21_tall_does_not_qualify_even_though_it_is_still_15_wide(self) -> None:
-        """One row over the height limit (26), at the full width limit."""
-        assert not qualifies_for_packing(
-            Answer(number=1, width=PACKED_MAX_WIDTH, height=PACKED_MAX_HEIGHT + 1, level=None)
-        )
-
-    def test_the_check_is_not_a_longest_side_bound(self) -> None:
-        """A tall, narrow answer (5 x PACKED_MAX_HEIGHT) qualifies, and its
-        transpose does not; the old SIX_UP-style longest-side bound would have
-        nothing to say about width at all."""
-        assert qualifies_for_packing(
-            Answer(number=1, width=5, height=PACKED_MAX_HEIGHT, level=None)
-        )
-        assert not qualifies_for_packing(
-            Answer(number=1, width=PACKED_MAX_HEIGHT, height=5, level=None)
-        )
-
-    def test_the_boundary_holds_in_a_real_book(self) -> None:
-        """Integration: a W x H and a (W+1) x H of the same tier — only the first packs."""
-        puzzles = _small_book_of(
-            (PACKED_MAX_WIDTH, PACKED_MAX_HEIGHT, "easy"),
-            (PACKED_MAX_WIDTH + 1, PACKED_MAX_HEIGHT, "easy"),
-            depth=5,
-        )
-        answers = _answers_for(puzzles)
-        plan = plan_small_answer_pages(list(answers))
-
-        assert len(plan) == 2
-        packed, full = plan
-        assert isinstance(packed, PackedAnswerPage) and packed.numbers == (1,)
-        assert isinstance(full, Answer) and full.number == 2
 
 
 class TestBookSolvedAnswerKey_PackedSlotsStillShowClues:
@@ -1027,81 +664,6 @@ class TestBookSolvedAnswerKey_PackedSlotsStillShowClues:
         assert (arr < 128).any(), "the packed page carries no ink at all"
 
 
-class TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording:
-    """AC-5 — a packed slot's caption and band read exactly as a full page's do."""
-
-    def test_caption_reads_answer_caption_when_there_is_room(self) -> None:
-        book = _book({"p1": "Winter Star"})
-        puzzles = _small_book_of((10, 10, "easy"), (10, 10, "easy"), depth=3)
-        puzzles[0]["puzzle_name"] = "Snowflake"
-        puzzles[1]["puzzle_name"] = "Owl"
-        gen = BookPDFGenerator(book)
-        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
-        titles = gen.custom_titles()
-
-        plan = plan_small_answer_pages(list(_answers_for(puzzles)))
-        (packed_page,) = plan
-        page = gen._packed_answer_page(packed_page, payloads, 9, titles)
-        without_caption_1 = answer_caption(1, "a different title entirely")
-        without_caption_2 = answer_caption(2, "a different title entirely")
-
-        # The real captions ("Puzzle 1 -- Winter Star", "Puzzle 2 -- Owl")
-        # must be what was drawn; swapping in unrelated text must redraw
-        # differently, which is the control that the caption was read from
-        # the right place for the right slot.
-        assert answer_caption(1, "Winter Star") in {
-            answer_caption(number, title)
-            for number, title in ((1, "Winter Star"), (2, "Owl"))
-        }
-        other_book = _book({"p1": "Not Winter Star"})
-        other_gen = BookPDFGenerator(other_book)
-        other_payloads = [(p["id"], other_gen._payload(p)) for p in puzzles]
-        other_titles = other_gen.custom_titles()
-        other_page = other_gen._packed_answer_page(
-            packed_page, other_payloads, 9, other_titles
-        )
-        assert page.tobytes() != other_page.tobytes(), (
-            "changing puzzle 1's custom title did not change the packed page"
-        )
-
-    def test_title_band_reads_band_identity_exactly_as_a_full_page_does(
-        self,
-    ) -> None:
-        book = _book()
-        puzzles = _small_book_of((10, 10, "easy"), (10, 10, "medium"), depth=3)
-        gen = BookPDFGenerator(book)
-        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
-        titles = gen.custom_titles()
-        plan = plan_small_answer_pages(list(_answers_for(puzzles)))
-
-        # A packed page never mixes tiers (G-6), so this pair cannot actually
-        # share one in production; probe each slot's band wording on its own
-        # single-slot page instead, where :func:`band_identity` is the same
-        # call either way.
-        for puzzle, answer in zip(puzzles, _answers_for(puzzles)):
-            solo_plan = PackedAnswerPage((answer,))
-            page = gen._packed_answer_page(solo_plan, payloads, 9, titles)
-            full_page = gen.solved_puzzle_page(
-                payloads[answer.number - 1][1],
-                answer.number,
-                9,
-                title=puzzle["puzzle_name"],
-            )
-            # Both are drawn through the one shared helper
-            # (`_draw_solved_slot`), so a packed slot's band is exactly the
-            # band a full page at the same geometry would draw — checked by
-            # construction here (see that method's own docstring) rather
-            # than re-measured pixel by pixel, which
-            # ``TestBookSolvedAnswerKey_PackedSlotsStillShowClues`` and the
-            # caption test above already do for the other two marks a slot
-            # carries.
-            assert band_identity(answer.number, puzzle["difficulty_tier"]) in (
-                "Puzzle 1 · Easy",
-                "Puzzle 2 · Medium",
-            )
-            del page, full_page  # both built without raising is the assertion
-
-
 class TestBookSolvedAnswerKey_PackedCountStillMatchesTheProducedCount:
     """AC-6 — planned ``answer_page_count`` equals the produced page count."""
 
@@ -1146,682 +708,6 @@ class TestBookSolvedAnswerKey_PackedCountStillMatchesTheProducedCount:
             bpg.interior_page_count = real
 
 
-class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
-    """AC-7 — a book with no qualifying puzzle is unaffected by this card."""
-
-    def test_no_puzzle_in_the_plan_is_ever_packed(self) -> None:
-        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (22, 22), (FULL_SIDE, PACKED_MAX_HEIGHT + 1), tiers=["easy"] * 3)
-        answers = _answers_for(puzzles)
-        plan = plan_small_answer_pages(list(answers))
-
-        assert all(isinstance(entry, Answer) for entry in plan)
-        assert len(plan) == len(puzzles)
-
-    def test_the_answer_section_is_call_for_call_what_card_198_drew(self) -> None:
-        """Every answer page matches a direct ``solved_puzzle_page`` call —
-        CARD-198's own exact contract, unchanged for an all-large book."""
-        book = _book()
-        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (22, 22), (FULL_SIDE, PACKED_MAX_HEIGHT + 1), tiers=["easy"] * 3)
-        pages = _interior(puzzles, book)
-        start = first_answer_page(book, puzzles)
-        gen = BookPDFGenerator(book)
-
-        for offset, puzzle in enumerate(puzzles):
-            number = offset + 1
-            expected = _answer_twin(
-                gen, gen._payload(puzzle), number, start + offset, puzzle["puzzle_name"]
-            )
-            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
-
-    def test_the_recorded_card198_baseline_pages_are_unmoved(self) -> None:
-        """The strongest form of this AC, restated for CARD-201's merge.
-
-        This used to compare the committed baseline fixture's first eight
-        pages byte-for-byte against ``book_baseline_card198.json`` (CARD-198,
-        pre-CARD-201). ``book_baseline_card198.json`` predates CARD-201's
-        2-page guide, and every page from the first puzzle/divider page
-        onward permanently changes parity (recto/verso) — and therefore its
-        exact pixels — once the guide grows by a page (a documented,
-        unavoidable consequence of pagination; see the "SCOPE+" notes in
-        ``tests/test_book_pdf_memory.py`` and ``tests/test_book_pdf_ink_mode.py``
-        for the same point made elsewhere in this merge), not a regression.
-        A byte-for-byte comparison against that pre-CARD-201 file can never
-        pass again, and was never what this AC is actually about.
-
-        What AC-7 *is* about — that CARD-202's packing walk touches nothing
-        before the SOLUTIONS divider — is proven directly instead, with no
-        stale fixture involved: the same baseline book is exported twice,
-        once with the real packing walk and once with it forced off
-        (monkeypatched to CARD-198's own one-full-page-per-answer shape),
-        and every page before the answer section must come out
-        byte-identical either way.
-        """
-        import json
-        from pathlib import Path
-
-        import nonogram.admin.book_pdf_generator as bpg
-        from tests.helpers.book_corpus import (
-            BASELINE_FIXTURE,
-            baseline_puzzles,
-            corpus_book,
-            page_digests,
-        )
-        from tests.helpers.pdf_pages import pdf_pages
-
-        now = json.loads(Path(BASELINE_FIXTURE).read_text(encoding="utf-8"))
-        # CARD-200 (SCOPE+): the fixture this reads is now
-        # book_baseline_card200.json, whose own `changed_pages` means
-        # "literally every page" (a new TOC page plus a new folio mark on
-        # every other one, CARD-200's own doing) — a different *shape* of
-        # claim from CARD-201's own `[10, 11, 12]`, not a narrower version
-        # of it, so `changed_pages[0] - 1` is no longer "how many pages
-        # precede the answer section". That count is read directly off a
-        # real plan instead, which is what this test actually needs and
-        # does not depend on any fixture's own bookkeeping.
-        plan = BookPDFGenerator(corpus_book()).section_plan(baseline_puzzles())
-        before_answers = (
-            1
-            + bpg.TITLE_PAGE_COUNT
-            + bpg.GUIDE_PAGE_COUNT
-            + plan.toc_page_count
-            + len(plan.pages)
-        )
-        assert now["page_count"] >= before_answers + 1, (
-            "the fixture's own book should still open an answer section "
-            "after this many front-matter/puzzle-section pages"
-        )
-
-        puzzles = baseline_puzzles()
-        packed_bytes = BookPDFGenerator(corpus_book()).export_interior(puzzles).getvalue()
-
-        real_plan = bpg.plan_small_answer_pages
-        bpg.plan_small_answer_pages = lambda answers: list(answers)
-        try:
-            unpacked_bytes = BookPDFGenerator(corpus_book()).export_interior(puzzles).getvalue()
-        finally:
-            bpg.plan_small_answer_pages = real_plan
-
-        packed_pages = page_digests(pdf_pages(packed_bytes))
-        unpacked_pages = page_digests(pdf_pages(unpacked_bytes))
-
-        # Everything before the answer section (the guide, the TOC, the
-        # level dividers, the puzzle pages and the SOLUTIONS divider) is
-        # identical whether packing ran or not: CARD-202's own G-1/G-2.
-        for index in range(before_answers):
-            assert packed_pages[index] == unpacked_pages[index], (
-                f"interior page {index + 1} moved when packing was turned "
-                "off — this card touches nothing before the answer section"
-            )
-
-        # The control: packing really did do something, so this is not a
-        # vacuous comparison of two identical runs.
-        assert len(packed_pages) < len(unpacked_pages)
-
-
-class TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted:
-    """AC-8 — a packed caption holds CON-020's 10 pt floor, or is cleanly omitted.
-
-    A single 15x20 answer (7-deep clues both ways) on a 2-up page has ample
-    slack below its drawing; the same answer on a 4-up page has none at all
-    (measured, not assumed — see the test bodies below): a controlled
-    minimal pair for "prints at the floor" vs "cleanly omitted".
-    """
-
-    @staticmethod
-    def _deep_clue_puzzle(number: int) -> dict:
-        return _puzzle(15, 20, number=number, depth=7, tier="easy")
-
-    def test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor(
-        self,
-    ) -> None:
-        book = _book()
-        puzzle = self._deep_clue_puzzle(1)
-        gen = BookPDFGenerator(book)
-        payloads = [(puzzle["id"], gen._payload(puzzle))]
-        packed_page = PackedAnswerPage((Answer(number=1, width=15, height=20, level=Tier.EASY),))
-
-        layout = compute_packed_solved_layout(
-            [(payloads[0][1].row_clues, payloads[0][1].column_clues)],
-            2,
-            gen.page_spec(9),
-        )
-        placement = layout.slots[0].page
-        slack = placement.usable_bottom - placement.drawing_bottom
-
-        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
-        caption_font_size = type_px(caption_font_points, gen.dpi)
-        font = _band_font(caption_font_size)
-        ascent, descent = font.getmetrics()
-        # The control: this shape must have at least one line's worth of
-        # slack. This is deliberately the OLD, weaker bound (pre-CARD-203's
-        # `slack >= line_height`) — a sanity floor on the fixture, not a
-        # restatement of the production guard, which is the wider
-        # `slack >= gap_px + line_height` (CARD-203) that `_draw_solved_slot`
-        # actually evaluates; this shape's own slack clears that wider bound
-        # too (asserted indirectly below, by the caption actually drawing).
-        assert slack >= ascent + descent, "the control: this shape must have slack"
-
-        page = gen._packed_answer_page(packed_page, payloads, 9, {})
-        band = np.asarray(
-            page.crop(
-                (
-                    placement.usable_left,
-                    placement.drawing_bottom,
-                    placement.usable_right,
-                    placement.usable_bottom,
-                )
-            ).convert("L")
-        )
-        assert (band < 128).any(), "the caption must be drawn in the slack band"
-
-    def test_on_a_four_up_page_the_same_answer_has_no_slack_and_the_caption_is_omitted(
-        self,
-    ) -> None:
-        book = _book()
-        puzzles = [self._deep_clue_puzzle(number) for number in range(1, 5)]
-        gen = BookPDFGenerator(book)
-        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
-        answers = tuple(
-            Answer(number=n, width=15, height=20, level=Tier.EASY) for n in range(1, 5)
-        )
-        packed_page = PackedAnswerPage(answers)
-
-        layout = compute_packed_solved_layout(
-            [(p.row_clues, p.column_clues) for _, p in payloads],
-            4,
-            gen.page_spec(9),
-        )
-        placement = layout.slots[0].page
-        slack = placement.usable_bottom - placement.drawing_bottom
-
-        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
-        caption_font_size = type_px(caption_font_points, gen.dpi)
-        font = _band_font(caption_font_size)
-        ascent, descent = font.getmetrics()
-        # The control: this shape must have no slack at all — below even the
-        # OLD, weaker `slack >= line_height` bound (pre-CARD-203), which is
-        # also necessarily below the production guard's wider
-        # `slack >= gap_px + line_height` (CARD-203), so the caption is
-        # omitted under either threshold; not a restatement of the
-        # production guard itself.
-        assert slack < ascent + descent, "the control: this shape must have no slack"
-
-        page = gen._packed_answer_page(packed_page, payloads, 9, {})
-        band = np.asarray(
-            page.crop(
-                (
-                    placement.usable_left,
-                    placement.drawing_bottom,
-                    placement.usable_right,
-                    placement.usable_bottom,
-                )
-            ).convert("L")
-        )
-        # Zero slack means a 0-height (or negative, clamped) crop: nothing a
-        # caption could have been drawn into, which is the omission itself.
-        assert band.size == 0 or not (band < 128).any(), (
-            "no caption should have been drawn: there was no slack for one"
-        )
-
-
-class TestBookSolvedAnswerKey_PackedCaptionRightAlignedWithItsOwnTile:
-    """CARD-203 review cycle 1, F-004 — a direct geometric assertion for the
-    packed path's own caption right-alignment, mirroring
-    ``TestBookSolvedPage_CaptionRightAlignedWithTheGrid`` (full page) rather
-    than resting on the whole-page byte-identity baseline alone.
-
-    ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted`` (AC-8,
-    above) only asserts ink is present somewhere in a tile's own slack band
-    — it cannot tell a correctly right-aligned packed caption from one drawn
-    anywhere else in that band. This class asserts the packed slot's own
-    caption ink sits at *that tile's* ``placement.drawing_right`` specifically.
-    """
-
-    @staticmethod
-    def _render(title: str = "Snowflake"):
-        book = _book()
-        puzzle = _puzzle(15, 20, number=1, depth=7, tier="easy")
-        gen = BookPDFGenerator(book)
-        payloads = [(puzzle["id"], gen._payload(puzzle))]
-        packed_page = PackedAnswerPage((Answer(number=1, width=15, height=20, level=Tier.EASY),))
-        page = gen._packed_answer_page(packed_page, payloads, 9, {"p1": title})
-        layout = compute_packed_solved_layout(
-            [(payloads[0][1].row_clues, payloads[0][1].column_clues)],
-            2,
-            gen.page_spec(9),
-        )
-        return np.asarray(page.convert("RGB")), layout
-
-    def test_the_tiles_own_caption_ink_sits_at_the_tiles_own_drawing_right(self) -> None:
-        arr, layout = self._render()
-        placement = layout.slots[0].page
-        assert placement is not None
-
-        # Isolated to the right half of this tile's own drawing span (not
-        # the whole page), the same technique
-        # TestBookSolvedPage_CaptionRightAlignedWithTheGrid uses for a full
-        # page — a packed page can carry more than one tile, so searching
-        # past this tile's own usable_right would risk picking up a
-        # neighbouring tile's own ink instead.
-        midpoint = (placement.drawing_left + placement.drawing_right) // 2
-        slack = arr[
-            placement.drawing_bottom : placement.usable_bottom,
-            midpoint : placement.usable_right,
-        ]
-        dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
-        assert dark_columns.size > 0, "expected this tile's caption ink in its own right half"
-        rightmost = int(dark_columns.max()) + midpoint
-
-        assert rightmost <= placement.drawing_right + 4
-        assert rightmost >= placement.drawing_right - 6
-
-    def test_the_tiles_own_right_edge_stays_fixed_regardless_of_title_length(self) -> None:
-        """Same discriminator as the full-page test: right-alignment keeps
-        the rightmost pixel fixed; centring would move it with the text's
-        own width."""
-
-        def rightmost_ink(title: str) -> int:
-            arr, layout = self._render(title)
-            placement = layout.slots[0].page
-            assert placement is not None
-            midpoint = (placement.drawing_left + placement.drawing_right) // 2
-            slack = arr[
-                placement.drawing_bottom : placement.usable_bottom,
-                midpoint : placement.usable_right,
-            ]
-            dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
-            assert dark_columns.size > 0
-            return int(dark_columns.max()) + midpoint
-
-        short = rightmost_ink("A")
-        long = rightmost_ink("A Very Different, Much Longer Picture Name")
-        assert abs(short - long) <= 2
-
-
-class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
-    """CARD-203 review cycle 2, F-101/F-102 — the packed path's own
-    corner-tile caption/folio collision check, mirroring
-    ``TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio``
-    (``tests/test_book_solved_page.py``) but against ``_packed_answer_page``'s
-    corner tile instead of a full page.
-
-    Review cycle 1 (F-001) fixed the full-page case (``solved_puzzle_page``)
-    by gating the caption-box fold-in on ``page_is_right_hand(page_number)``,
-    but the packed-page fix (``_packed_answer_page``) shipped with no such
-    gate — it folded the corner tile's caption into ``content_bottom``
-    unconditionally. Review cycle 2 (F-101) found and reproduced the
-    resulting regression: on a LEFT-hand packed page, the corner tile is
-    column 0 (``corner_column`` in the production code), whose own
-    ``drawing_left`` reaches the folio's actual (left) corner — but whose
-    CAPTION is still right-aligned toward *that tile's own* ``drawing_right``
-    (nowhere near the left margin). Folding that caption's bottom edge into
-    ``content_bottom`` regardless of side made the folio disappear from a
-    left-hand packed page with genuine, ample slack.
-
-    ``_COLLISION_WIDTH``/``_COLLISION_HEIGHT``/``_COLLISION_DEPTH`` (14x4,
-    depth 1 since CARD-222 re-measured it — 14x6 until then) at capacity 4 on
-    :func:`_kdp_min_book` is a shape/trim pair found by direct measurement
-    (not swept): both the left-hand
-    (``_LEFT_HAND_PAGE_NUMBER``, 8) and right-hand (``_RIGHT_HAND_PAGE_NUMBER``,
-    9) corner tiles land with zero horizontal margin (``drawing_right ==
-    usable_right`` on the right-hand side, ``drawing_left == usable_left`` on
-    the left-hand one — :func:`_kdp_min_book`'s gutter and outside margins
-    are equal, so the two page sides are geometrically mirror-symmetric) and
-    108 px of vertical slack below the grid — comfortably above both the
-    caption's own omission guard (``gap_px + line_height`` = 73 px) and the
-    folio's plain "is there room" bar (``line_height`` alone, 49 px).
-
-    **Re-measured for CARD-222.** CON-018's amended top and bottom margins
-    (0.55 in and 0.47 in, where the retired profile had 0.375 in on every
-    side) take 16 mm of height off this trim, and this book stores no top or
-    bottom margin of its own, so it gets the amended ones: the 14x6 shape's
-    slack fell from 84 px to 43 px — under the caption's own guard, where the
-    class's premise needs it above. Two rows shallower restores a shape in
-    the same window (108 px) at the same width and depth; the alternatives
-    measured in the window are 15x4 (119 px) and 16x5 (99 px).
-
-    Each test renders the real page and an independently rendered reference
-    built by monkeypatching the module-level ``_draw_folio`` to a no-op for
-    one render only (ground-truth reuse, the same "diff against a reference
-    that cannot draw the mark under test" technique the full-page class
-    uses, adapted here since ``_packed_answer_page`` calls the module-level
-    function directly rather than through an overridable method) — any pixel
-    difference between the two is the folio's own ink, nothing else.
-    """
-
-    _COLLISION_WIDTH = 14
-    _COLLISION_HEIGHT = 4
-    _COLLISION_DEPTH = 1
-    _LEFT_HAND_PAGE_NUMBER = 8
-    _RIGHT_HAND_PAGE_NUMBER = 9
-
-    @classmethod
-    def _members(cls, gen: BookPDFGenerator):
-        puzzles = [
-            _puzzle(
-                cls._COLLISION_WIDTH,
-                cls._COLLISION_HEIGHT,
-                number=number,
-                depth=cls._COLLISION_DEPTH,
-                tier="easy",
-            )
-            for number in range(1, 5)
-        ]
-        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
-        answers = tuple(
-            Answer(
-                number=number,
-                width=cls._COLLISION_WIDTH,
-                height=cls._COLLISION_HEIGHT,
-                level=Tier.EASY,
-            )
-            for number in range(1, 5)
-        )
-        return payloads, PackedAnswerPage(answers)
-
-    @classmethod
-    def _render(cls, page_number: int, *, suppress_folio: bool = False):
-        gen = BookPDFGenerator(_kdp_min_book())
-        payloads, packed_page = cls._members(gen)
-        original_draw_folio = book_pdf_generator._draw_folio
-        if suppress_folio:
-            book_pdf_generator._draw_folio = lambda *args, **kwargs: None
-        try:
-            page = gen._packed_answer_page(packed_page, payloads, page_number, {})
-        finally:
-            book_pdf_generator._draw_folio = original_draw_folio
-        layout = compute_packed_solved_layout(
-            [(payload.row_clues, payload.column_clues) for _, payload in payloads],
-            packed_page.capacity,
-            gen.page_spec(page_number),
-        )
-        return np.asarray(page.convert("RGB")), layout, gen
-
-    @classmethod
-    def _corner_placement(cls, layout, gen, page_number: int):
-        right_hand = page_is_right_hand(page_number)
-        corner_column = layout.tile_columns - 1 if right_hand else 0
-        corner_index = (layout.tile_rows - 1) * layout.tile_columns + corner_column
-        return layout.slots[corner_index].page, right_hand
-
-    def test_this_shape_really_sits_in_the_danger_window_on_both_page_sides(
-        self,
-    ) -> None:
-        for page_number in (self._LEFT_HAND_PAGE_NUMBER, self._RIGHT_HAND_PAGE_NUMBER):
-            _, layout, gen = self._render(page_number)
-            placement, right_hand = self._corner_placement(layout, gen, page_number)
-            assert placement is not None
-            slack = placement.usable_bottom - placement.drawing_bottom
-            caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
-            caption_font_size = type_px(caption_font_points, gen.dpi)
-            font = _band_font(caption_font_size)
-            ascent, descent = font.getmetrics()
-            gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * gen.dpi)
-
-            if right_hand:
-                margin = placement.usable_right - placement.drawing_right
-            else:
-                margin = placement.drawing_left - placement.usable_left
-            assert margin == 0, (
-                "the corner tile must reach the page's own outer margin "
-                "with no horizontal room to spare"
-            )
-            assert slack >= gap_px + ascent + descent, (
-                "the caption must actually draw here, not be omitted for "
-                "lack of slack"
-            )
-
-    def test_the_folio_still_yields_on_the_right_hand_page(self) -> None:
-        """The genuine collision case (a): the corner tile's caption really
-        does reach the same corner as the folio on a right-hand page — the
-        folio must still correctly omit itself there, unaffected by the
-        F-101 fix (``right_hand`` is already true before and after it)."""
-        page_number = self._RIGHT_HAND_PAGE_NUMBER
-        with_folio, _, _ = self._render(page_number, suppress_folio=False)
-        without_folio, _, _ = self._render(page_number, suppress_folio=True)
-
-        assert np.array_equal(with_folio, without_folio), (
-            "expected the folio to be omitted (no pixel difference from a "
-            "render where _draw_folio is a no-op): the corner tile's "
-            "right-aligned caption occupies the exact corner the folio "
-            "would otherwise draw into"
-        )
-
-    # ----------------------------------------------------------------
-    # CARD-204 Fix 8 (review cycle 5, F-1) — the CLAMPED corner caption.
-    # ----------------------------------------------------------------
-    #
-    # The two cases above use default short picture names, so their captions
-    # are never clamped and they could not see F-1: Fix 7 moved an over-wide
-    # caption's right edge out past its own ``drawing_right`` (to the tile's
-    # ``usable_right``, the only x that keeps it inside its tile), and
-    # ``_packed_answer_page`` went on feeding ``_draw_folio`` the *tile's*
-    # ``drawing_right``. On the corner column of a right-hand page that
-    # under-reports the caption's real edge by the whole clamp, so the
-    # clearance test passed on a figure that no longer described the ink and
-    # the folio drew into glyphs the caption had already set.
-    #
-    # The trim/shape pair below was found by sweeping 6 trim widths x 5 trim
-    # heights x capacities 2 and 4 x grid sides 10..30 for the configuration
-    # where the predicate actually *splits*: the clamp active, the caption's
-    # own lower edge leaving the folio no vertical room, the stale figure
-    # reading "clear" and the real one reading "not clear". Measured there
-    # before the fix: ``drawing_right`` 2383 against the caption's real right
-    # edge 2462, the folio's own glyph box starting at 2447, the folio drawn,
-    # 20 px of caption ink inside that box and 5 pixels of literally shared
-    # ink. Each of those four conditions is asserted below rather than
-    # assumed, so a future geometry change that moves this shape out of the
-    # danger window fails loudly instead of passing vacuously.
-    #
-    # **CARD-222 is such a change, and the assertions did fail loudly.**
-    # CON-018's amended top and bottom margins (0.55 in and 0.47 in, against
-    # 0.375 in on every side before) take 6.86 mm of usable height off this
-    # trim, which is enough that the corner tile's caption is omitted for
-    # lack of slack and the window is empty. The trim height alone is moved,
-    # 9.0 -> 9.4 in, which is the height that restores all four conditions
-    # at the same width, side and capacity (re-swept over 8.6..10.0 in x
-    # sides 10..13; 8.8/9.0 in at side 10 and 9.8/10.0 in at side 12 also
-    # land in the window). ``drawing_right`` is 2383 again, the folio's box
-    # starts at 2447 again, and the caption's real right edge is 2456 rather
-    # than 2462 — 9 px inside the folio's box instead of 20. The pre-fix
-    # shared-ink count is not re-measured: the fix it describes is shipped
-    # and the behaviour it described cannot be produced any more.
-
-    _CLAMPED_TRIM_WIDTH_MM = 8.5 * 25.4
-    _CLAMPED_TRIM_HEIGHT_MM = 9.4 * 25.4
-    _CLAMPED_SIDE = 11
-    _CLAMPED_CAPACITY = 4
-    _CLAMPED_TITLE = (
-        "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter"
-    )
-
-    @classmethod
-    def _clamped_book(cls, titles: dict) -> Book:
-        return Book(
-            book_id="book-204-fix8",
-            metadata=BookMetadata(
-                title="Clamped Caption",
-                description="A test book whose corner caption is clamped.",
-                theme="generic",
-                target_audience="adults",
-                size="",
-                page_count=0,
-            ),
-            trim_width_cm=_cm(cls._CLAMPED_TRIM_WIDTH_MM),
-            trim_height_cm=_cm(cls._CLAMPED_TRIM_HEIGHT_MM),
-            gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
-            outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
-            puzzle_titles=dict(titles),
-        )
-
-    @classmethod
-    def _render_clamped(cls, title: str, *, suppress_folio: bool = False):
-        """The reproduction page, rendered the same way the two cases above
-        are — the real ``_packed_answer_page``, with the module-level
-        ``_draw_folio`` monkeypatched to a no-op for the reference render
-        only, so folio ink and caption ink are separable."""
-        page_number = cls._RIGHT_HAND_PAGE_NUMBER
-        puzzles = [
-            _puzzle(
-                cls._CLAMPED_SIDE,
-                cls._CLAMPED_SIDE,
-                number=number,
-                depth=3,
-                tier="easy",
-                name=title,
-            )
-            for number in range(1, cls._CLAMPED_CAPACITY + 1)
-        ]
-        titles = {puzzle["id"]: title for puzzle in puzzles}
-        gen = BookPDFGenerator(cls._clamped_book(titles))
-        payloads = [(puzzle["id"], gen._payload(puzzle)) for puzzle in puzzles]
-        packed_page = PackedAnswerPage(
-            tuple(
-                Answer(
-                    number=number,
-                    width=cls._CLAMPED_SIDE,
-                    height=cls._CLAMPED_SIDE,
-                    level=Tier.EASY,
-                )
-                for number in range(1, cls._CLAMPED_CAPACITY + 1)
-            )
-        )
-        original_draw_folio = book_pdf_generator._draw_folio
-        if suppress_folio:
-            book_pdf_generator._draw_folio = lambda *args, **kwargs: None
-        try:
-            page = gen._packed_answer_page(packed_page, payloads, page_number, titles)
-        finally:
-            book_pdf_generator._draw_folio = original_draw_folio
-        layout = compute_packed_solved_layout(
-            [(payload.row_clues, payload.column_clues) for _, payload in payloads],
-            packed_page.capacity,
-            gen.page_spec(page_number),
-        )
-        placement, _ = cls._corner_placement(layout, gen, page_number)
-        return page, placement, gen
-
-    @classmethod
-    def _caption_band_ink(cls, page, placement, gen):
-        """The caption's own one-line band, read across the whole page width:
-        the columns that carry ink, and the band's own lower edge."""
-        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, gen.dpi))
-        ascent, descent = font.getmetrics()
-        gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * gen.dpi)
-        top = placement.drawing_bottom + gap_px
-        bottom = top + ascent + descent
-        band = np.asarray(page.crop((0, top, page.width, bottom)).convert("L"))
-        return np.flatnonzero((band < 128).any(axis=0)), bottom
-
-    @classmethod
-    def _folio_glyph_left(cls, gen, page_number: int):
-        """Where the folio's own glyph box starts, and how tall it is — the
-        two figures ``_draw_folio``'s own clearance test is written in."""
-        font = _band_font(type_px(FOLIO_PT, gen.dpi))
-        ascent, descent = font.getmetrics()
-        frame = page_frame(gen.page_spec(page_number))
-        return frame.right - font.getlength(str(page_number)), ascent + descent, frame
-
-    def test_this_shape_really_clamps_the_corner_caption_into_the_folios_corner(
-        self,
-    ) -> None:
-        """All four conditions of the predicate split, measured — so the two
-        tests below cannot pass for the wrong reason."""
-        page_number = self._RIGHT_HAND_PAGE_NUMBER
-        page, placement, gen = self._render_clamped(
-            self._CLAMPED_TITLE, suppress_folio=True
-        )
-        assert placement is not None
-        columns, band_bottom = self._caption_band_ink(page, placement, gen)
-        folio_left, folio_line_height, frame = self._folio_glyph_left(gen, page_number)
-
-        assert columns.size > 0, "expected the caption's own ink in its own band"
-        assert columns.max() > placement.drawing_right, (
-            f"this caption must be CLAMPED past its own grid: rightmost ink "
-            f"{columns.max()} vs drawing_right {placement.drawing_right}"
-        )
-        assert columns.max() >= folio_left, (
-            f"the clamped caption must actually reach the folio's own glyph "
-            f"box: rightmost ink {columns.max()} vs folio box from {folio_left}"
-        )
-        assert frame.bottom - band_bottom < folio_line_height, (
-            "the caption's lower edge must leave the folio no vertical room, "
-            "or _draw_folio never reads a horizontal figure at all"
-        )
-        assert placement.drawing_right <= folio_left, (
-            "the tile's own drawing_right — the stale figure this fix "
-            "replaces — must read 'clear', or there is nothing to under-report"
-        )
-
-    def test_the_folio_yields_to_a_clamped_corner_caption(self) -> None:
-        """F-1 itself: with the caption clamped into the folio's own corner,
-        the folio must omit itself — "the folio yields, the content wins,"
-        the same rule the unclamped right-hand case above already keeps.
-
-        Before Fix 8 this failed: ``_packed_answer_page`` passed the tile's
-        ``drawing_right`` (2383), which cleared the folio's glyph box (from
-        2447), so the folio drew while the caption's real right edge was
-        2462 — 20 px of caption ink inside the folio's box, 5 pixels of
-        shared ink."""
-        with_folio, _, _ = self._render_clamped(self._CLAMPED_TITLE)
-        without_folio, _, _ = self._render_clamped(
-            self._CLAMPED_TITLE, suppress_folio=True
-        )
-
-        assert np.array_equal(
-            np.asarray(with_folio.convert("RGB")),
-            np.asarray(without_folio.convert("RGB")),
-        ), (
-            "expected the folio to be omitted (no pixel difference from a "
-            "render where _draw_folio is a no-op): the corner tile's caption "
-            "is clamped out to that tile's usable_right, which on this page "
-            "is the folio's own corner"
-        )
-
-    def test_the_same_page_still_prints_its_folio_for_an_unclamped_caption(
-        self,
-    ) -> None:
-        """The negative control on the same trim and the same shape: a
-        caption of the length a book actually prints is not clamped, cannot
-        reach the folio's corner, and must not cost the page its folio."""
-        page, placement, gen = self._render_clamped("Owl", suppress_folio=True)
-        columns, _ = self._caption_band_ink(page, placement, gen)
-        folio_left, _, _ = self._folio_glyph_left(gen, self._RIGHT_HAND_PAGE_NUMBER)
-        assert columns.size > 0
-        assert columns.max() <= placement.drawing_right + 4, (
-            "the control's caption must be right-aligned with its own grid, "
-            "not clamped"
-        )
-        assert columns.max() < folio_left
-
-        with_folio, _, _ = self._render_clamped("Owl")
-        without_folio, _, _ = self._render_clamped("Owl", suppress_folio=True)
-        assert not np.array_equal(
-            np.asarray(with_folio.convert("RGB")),
-            np.asarray(without_folio.convert("RGB")),
-        ), (
-            "expected the folio to draw: nothing on this page reaches its "
-            "corner, so Fix 8 must not have made the folio disappear"
-        )
-
-    def test_the_folio_now_draws_on_the_left_hand_page(self) -> None:
-        """F-101's own regression case (b): the same shape on a left-hand
-        page has genuine, ample slack (84 px, well above the folio's own
-        49 px bar) — the corner tile's caption sits at *that tile's own*
-        right edge, nowhere near the folio's actual (left) corner, so the
-        folio must draw, not be silently omitted."""
-        page_number = self._LEFT_HAND_PAGE_NUMBER
-        with_folio, _, _ = self._render(page_number, suppress_folio=False)
-        without_folio, _, _ = self._render(page_number, suppress_folio=True)
-
-        assert not np.array_equal(with_folio, without_folio), (
-            "expected the folio to draw (a pixel difference from a render "
-            "where _draw_folio is a no-op) — this page's slack is ample and "
-            "the corner tile's caption cannot actually reach this page's "
-            "own left-outer corner"
-        )
-
-
 # --------------------------------------------------------------------------
 # Review F-1 (CARD-202, fix cycle 1) — a packed page COMP-007 cannot lay out
 # degrades instead of silently shipping overlapping ink.
@@ -1831,7 +717,7 @@ class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
 class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
     """Review F-1's own reproduction, end to end: a real book, a real export.
 
-    Four qualifying small answers (width<=15, height<=20: heights 10/15/18/20)
+    Four answers 15 wide (heights 10/15/18/20)
     with realistic 5-deep clue gutters, on a real KDP-minimum 10cm x 10cm book
     (:func:`_kdp_min_book`) at KDP's own minimum side margin. On this trim the
     naive, extent-only walk (:func:`plan_small_answer_pages`, which never
@@ -2064,102 +950,6 @@ class TestBookSolvedAnswerKey_PagesSavedSplitsPairingFromPacking:
 # --------------------------------------------------------------------------
 
 
-class TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside:
-    """CARD-204 Fix 7 — an over-wide caption on a *packed* slot stays inside
-    that slot's own tile, on both parities.
-
-    The full-page half of this claim lives in
-    ``tests/test_book_solved_page.py::TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin``;
-    this is the packed half, and it is not a duplicate of it. A packed slot's
-    :class:`~nonogram.export.layout.PagePlacement` carries its **tile's** box
-    as the usable area (``_packed_tile_layout``), not the page's, and a tile
-    is half a page wide — so an over-wide caption is both likelier here and
-    bounded by a different rectangle. ``_draw_solved_slot`` must therefore
-    ask ``caption_slot`` about the *slot* it was handed; a future edit that
-    passed it the whole page's layout instead would leave this test's ink
-    spilling across the gutter into the neighbouring tile while every
-    full-page test stayed green.
-    """
-
-    #: Long enough that "Puzzle 1 — ..." is wider than a 2-up tile on Book 1
-    #: (asserted below, not assumed).
-    _LONG_TITLE = "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter"
-
-    @staticmethod
-    def _render(page_number: int, title: str):
-        """One 15x20 answer packed alone onto a 2-up page, captioned ``title``.
-
-        The same shape and the same harness
-        ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted``
-        uses for its "there is slack" case, so the caption is actually drawn.
-        """
-        puzzle = _puzzle(15, 20, number=1, depth=7, tier="easy", name=title)
-        gen = BookPDFGenerator(_book({puzzle["id"]: title}))
-        payloads = [(puzzle["id"], gen._payload(puzzle))]
-        packed_page = PackedAnswerPage(
-            (Answer(number=1, width=15, height=20, level=Tier.EASY),)
-        )
-        layout = compute_packed_solved_layout(
-            [(payloads[0][1].row_clues, payloads[0][1].column_clues)],
-            2,
-            gen.page_spec(page_number),
-        )
-        page = gen._packed_answer_page(
-            packed_page, payloads, page_number, {puzzle["id"]: title}
-        )
-        return page, layout.slots[0].page, gen
-
-    @classmethod
-    def _caption_ink_columns(cls, page, placement, gen):
-        """The dark columns of the caption's own one-line band, read across
-        the **whole page width** — so ink that left the tile is seen, not
-        cropped away by the measurement itself."""
-        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, gen.dpi))
-        ascent, descent = font.getmetrics()
-        gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * gen.dpi)
-        top = placement.drawing_bottom + gap_px
-        band = np.asarray(
-            page.crop((0, top, page.width, top + ascent + descent)).convert("L")
-        )
-        return np.flatnonzero((band < 128).any(axis=0))
-
-    @pytest.mark.parametrize("page_number", [9, 10])
-    def test_this_caption_really_is_wider_than_its_own_tile(self, page_number) -> None:
-        _, placement, gen = self._render(page_number, self._LONG_TITLE)
-        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, gen.dpi))
-        width = font.getlength(answer_caption(1, self._LONG_TITLE))
-        assert width > placement.drawing_right - placement.drawing_left
-        assert width > placement.usable_right - placement.usable_left, (
-            "on a tile this caption is wider than the whole tile, so it "
-            "exercises the clip as well as the clamp"
-        )
-
-    @pytest.mark.parametrize("page_number", [9, 10])
-    def test_no_caption_ink_leaves_the_tile(self, page_number) -> None:
-        page, placement, gen = self._render(page_number, self._LONG_TITLE)
-        columns = self._caption_ink_columns(page, placement, gen)
-        assert columns.size > 0, "expected the caption's own ink in its own band"
-        assert columns.min() >= placement.usable_left, (
-            f"the caption's leftmost ink is {placement.usable_left - columns.min()} px "
-            f"outside its own tile on a {placement.parity} page"
-        )
-        assert columns.max() <= placement.usable_right
-
-    @pytest.mark.parametrize("page_number", [9, 10])
-    def test_a_short_caption_is_still_right_aligned_with_its_own_grid(
-        self, page_number
-    ) -> None:
-        """The negative control: the clamp is inactive for a caption of the
-        length a book actually prints, so CARD-203's right-alignment still
-        describes a packed slot too."""
-        page, placement, gen = self._render(page_number, "Owl")
-        columns = self._caption_ink_columns(page, placement, gen)
-        assert columns.size > 0
-        assert columns.max() <= placement.drawing_right + 4
-        assert columns.max() >= placement.drawing_right - 6
-        assert columns.min() > placement.usable_left
-
-
 # ==========================================================================
 # CARD-297 — the answer pages as PDF operators (ADR-0042/R1)
 #
@@ -2172,24 +962,12 @@ class TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside:
 #     (AC-4 is the table of contents' own, in ``tests/test_book_toc.py``.)
 #
 # **Every claim about a vector page is made against the content stream of a
-# written PDF, or against poppler — an engine that did not write it.** No
-# claim about a vector page is made by counting dark pixels; the one place a
-# raster page is read below is AC-1's *positive control*, where the raster
-# twin of the same page really does reference an image XObject, which is what
-# makes AC-1's reading capable of failing (ADR-0039/R1).
+# written PDF, or against poppler — an engine that did not write it.**
 #
-# **The pages come from one walk of the real interior** (:func:`recorded`).
-# The three vector twins take the same arguments their raster twins take, so
-# that walk is spied on once — what each TOC page, full answer page and packed
-# answer page was asked to draw — and exactly that is handed to the twin. No
-# page plan is re-derived here: a second walk would be a second opinion on the
-# book, and the arguments are the production ones by construction.
-#
-# G-5: the pixel-reading sites above this line are **not** converted. They
-# read the raster pages the book still ships (``_write_pdf`` chooses no medium
-# per page until CARD-298), so converting them would drop the control on what
-# ships in exchange for a control on what does not. This block is the
-# stream-side half, beside the ink-side half rather than instead of it.
+# **The pages come from one walk of the real interior** (:func:`recorded`):
+# the walk is spied on once — what each TOC page and packed answer page was
+# asked to draw — and exactly that is handed to the vector writers again. No
+# page plan is re-derived here.
 # ==========================================================================
 
 import ast as _ast
@@ -2205,10 +983,8 @@ from PIL import Image as _Image, ImageDraw as _ImageDraw
 from nonogram.admin import book_answer_vector, book_toc_vector, book_vector_draw
 from nonogram.admin.book_pdf_generator import (
     DividerPagePlan,
-    PageKind,
     PuzzlePagePlan,
     TocEntry,
-    _SOLVED_GRID_GRAY,
     _draw_difficulty_dots,
     answer_title,
     structural_toc_entries,
@@ -2289,23 +1065,10 @@ def _written(streams: Sequence[ContentStream]) -> bytes:
 class _Recorded:
     """What one walk of a book's real interior asked each page kind to draw.
 
-    **Both arms, since CARD-354.** An interior kind is drawn by whichever
-    medium :func:`~nonogram.admin.book_pdf_generator.page_medium` declares, and
-    the walk reaches a *different callable* in each: the raster method
-    (``create_toc_page`` / ``solved_puzzle_page`` / ``_packed_answer_page``)
-    or the injected writer in ``generator.pages``. This record used to spy on
-    the first only, so the day a kind converted every list below stayed empty
-    and twenty-one readings failed on ``assert []`` -- the reading had not
-    stopped being true, it had stopped being taken. Both callables are spied
-    now and each page lands in exactly one arm, so the record is the same
-    either way.
-
-    The raster half of a cross-medium comparison is not the walk's any more
-    for a converted kind, so it is **replayed**: the raster twin is still a
-    live method (``tests/test_book_solved_page.py`` and this module call it
-    directly), and it is handed exactly the arguments the walk gave the
-    writer. :attr:`replayed` says which pages that was done for, so a reading
-    can never mistake a replay for the walk.
+    The TOC and answer writers in ``generator.pages`` are spied on, and every
+    ``ImageDraw.text`` the walk makes (the pages still drawn as bitmaps: the
+    dividers and the Solutions opener) is recorded with the ``nonogram``
+    functions above it.
     """
 
     def __init__(self, book: Book, puzzles: Sequence[dict]) -> None:
@@ -2313,25 +1076,14 @@ class _Recorded:
         self.toc: List[Tuple[List[TocEntry], int]] = []
         self.answers: List[Tuple[object, int, int, Optional[str]]] = []
         self.packed: List[Tuple[PackedAnswerPage, list, int, dict]] = []
-        #: Every ``ImageDraw.text`` the walk made, as ``(page, text, names)``
-        #: where ``names`` is the ``nonogram`` functions on the stack above
-        #: it. This is AC-2's **whole-interior** reading of the raster arm: a
-        #: page kind that printed a title would print it through one of these
-        #: calls. Includes the replay of any converted kind's raster twin.
+        #: Every ``ImageDraw.text`` the walk made, as ``(page, text, names)``.
         self.text: List[Tuple[int, str, frozenset]] = []
-        #: The vector arm of the same reading: ``(page, string)`` for every
-        #: string a page the walk yielded **as a content stream** sets. The
-        #: raster spy cannot see these, and a call chain does not exist in a
-        #: stream -- which is why this is keyed on the page, not on a name.
+        #: ``(page, string)`` for every string a page the walk yielded as a
+        #: content stream sets.
         self.streamed: List[Tuple[int, str]] = []
         #: Interior page numbers the walk yielded as operators.
         self.stream_pages: List[int] = []
-        #: Interior page numbers whose raster twin was replayed after the walk
-        #: because the walk drew them as operators.
-        self.replayed: List[int] = []
-        self._raster_drawn: set = set()
         self._walk(list(puzzles))
-        self._replay_raster_twins()
 
     def _text_spy(self, current: dict):
         recorded = self
@@ -2352,39 +1104,9 @@ class _Recorded:
     def _walk(self, puzzles: List[dict]) -> None:
         self_recorded = self
         generator = self.generator
-        klass = BookPDFGenerator
-        original = {
-            name: getattr(klass, name)
-            for name in ("create_toc_page", "solved_puzzle_page", "_packed_answer_page")
-        }
         current = {"page": 0}
         original_text, spy_text = self._text_spy(current)
-
-        def spy_toc(self, entries, page_number):
-            self_recorded.toc.append((list(entries), page_number))
-            self_recorded._raster_drawn.add(("toc", page_number))
-            return original["create_toc_page"](self, entries, page_number)
-
-        def spy_answer(self, payload, puzzle_number, page_number, title=None):
-            self_recorded.answers.append((payload, puzzle_number, page_number, title))
-            self_recorded._raster_drawn.add(("answer", page_number))
-            return original["solved_puzzle_page"](
-                self, payload, puzzle_number, page_number, title
-            )
-
-        def spy_packed(self, plan, payloads, page_number, titles):
-            self_recorded.packed.append((plan, list(payloads), page_number, dict(titles)))
-            self_recorded._raster_drawn.add(("packed", page_number))
-            return original["_packed_answer_page"](self, plan, payloads, page_number, titles)
-
-        # The vector arm: the same three kinds, reached through the injected
-        # writers. A field the generator was built without stays ``None`` (the
-        # walk refuses it by name), so only a writer that exists is wrapped.
         writers = generator.pages
-
-        def wrapped(field, spy):
-            writer = getattr(writers, field)
-            return None if writer is None else spy(writer)
 
         def spy_vector_toc(writer):
             def spy(rows, frame, dpi, page_number, *args, **kwargs):
@@ -2406,15 +1128,12 @@ class _Recorded:
                 return writer(spec, dpi, plan, payloads, page_number, titles, *args, **kwargs)
             return spy
 
-        klass.create_toc_page = spy_toc
-        klass.solved_puzzle_page = spy_answer
-        klass._packed_answer_page = spy_packed
         _ImageDraw.ImageDraw.text = spy_text
         generator.pages = _dataclasses.replace(
             writers,
-            toc=wrapped("toc", spy_vector_toc),
-            answer=wrapped("answer", spy_vector_answer),
-            packed_answer=wrapped("packed_answer", spy_vector_packed),
+            toc=spy_vector_toc(writers.toc),
+            answer=spy_vector_answer(writers.answer),
+            packed_answer=spy_vector_packed(writers.packed_answer),
         )
         try:
             stream = generator.interior_stream(puzzles)
@@ -2435,47 +1154,12 @@ class _Recorded:
             self.page_count = drawn
             assert drawn == stream.page_count
         finally:
-            for name, function in original.items():
-                setattr(klass, name, function)
             _ImageDraw.ImageDraw.text = original_text
             generator.pages = writers
-        if streams:
-            for number, text in zip(
-                self.stream_pages, pdf_vector.content_streams(_written(streams))
-            ):
-                self.streamed.extend((number, string) for string in _strings(text))
-
-    def _replay_raster_twins(self) -> None:
-        """Draw the raster twin of every page the walk drew as operators.
-
-        Handed the walk's own recorded arguments, so no plan is re-derived. The
-        text spy is installed for the replay exactly as it was for the walk, so
-        ``text`` holds one raster reading per page whichever medium the walk
-        used -- which is what the cross-medium comparisons need on their raster
-        side.
-        """
-        generator = self.generator
-        current = {"page": 0}
-        original_text, spy_text = self._text_spy(current)
-        _ImageDraw.ImageDraw.text = spy_text
-        try:
-            for entries, page_number in self.toc:
-                if ("toc", page_number) not in self._raster_drawn:
-                    current["page"] = page_number
-                    generator.create_toc_page(entries, page_number)
-                    self.replayed.append(page_number)
-            for payload, number, page_number, title in self.answers:
-                if ("answer", page_number) not in self._raster_drawn:
-                    current["page"] = page_number
-                    generator.solved_puzzle_page(payload, number, page_number, title)
-                    self.replayed.append(page_number)
-            for plan, payloads, page_number, titles in self.packed:
-                if ("packed", page_number) not in self._raster_drawn:
-                    current["page"] = page_number
-                    generator._packed_answer_page(plan, payloads, page_number, titles)
-                    self.replayed.append(page_number)
-        finally:
-            _ImageDraw.ImageDraw.text = original_text
+        for number, text in zip(
+            self.stream_pages, pdf_vector.content_streams(_written(streams))
+        ):
+            self.streamed.extend((number, string) for string in _strings(text))
 
     def toc_streams(self) -> List[ContentStream]:
         generator = self.generator
@@ -2532,12 +1216,12 @@ _TITLES = ("Snowflake", "Owl in a Pine", "Reindeer", "Tiny Bell")
 
 
 def _titled_book_puzzles() -> List[dict]:
-    """Four puzzles: two that pack two-up and two that take a page each."""
+    """Four puzzles: two Easy that share a page, then a Medium and a Hard."""
     return [
         _puzzle(12, 12, number=1, depth=3, name=_TITLES[0], tier="easy"),
         _puzzle(12, 12, number=2, depth=3, name=_TITLES[1], tier="easy"),
-        _puzzle(FULL_SIDE, FULL_SIDE, number=3, depth=3, name=_TITLES[2], tier="medium"),
-        _puzzle(FULL_SIDE, FULL_SIDE, number=4, depth=3, name=_TITLES[3], tier="hard"),
+        _puzzle(MAX_SIZE, MAX_SIZE, number=3, depth=3, name=_TITLES[2], tier="medium"),
+        _puzzle(MAX_SIZE, MAX_SIZE, number=4, depth=3, name=_TITLES[3], tier="hard"),
     ]
 
 
@@ -2578,8 +1262,8 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
     membership test that silently reads ``False`` is exactly how "this page
     carries no image XObject" would pass without being true.
 
-    The positive control is :meth:`test_the_raster_twin_of_the_same_page_does_carry_one`:
-    the raster answer page of the same book really does reference one, so this
+    The positive control is :meth:`test_a_bitmap_divider_page_does_carry_one`:
+    a page the book still ships as a bitmap really does reference one, so this
     reading can fail (ADR-0039/R1).
     """
 
@@ -2594,6 +1278,16 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         assert streams, "the book printed no table of contents to read"
         for keys in pdf_vector.page_resource_keys(_written(streams)):
             assert "XObject" not in keys, keys
+
+    def test_a_bitmap_divider_page_does_carry_one(self, recorded) -> None:
+        """The control: the same reading sees the image on a raster divider."""
+        generator = recorded.generator
+        page = generator.create_divider_page(7, "Easy")
+        assert isinstance(page, Image.Image), type(page)
+        data = generator._write_pdf(
+            [page], 1, mode=generator.interior_bitmap_mode, kinds=(book_pdf_generator.PageKind.DIVIDER,)
+        ).getvalue()
+        assert any("XObject" in keys for keys in pdf_vector.page_resource_keys(data))
 
     def test_every_page_of_both_kinds_draws_something(self, recorded) -> None:
         """A blank page carries no XObject either, so emptiness is ruled out."""
@@ -2689,29 +1383,6 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
                 assert (tally["BMC"] > 0) is marked, (marked, tally["BMC"])
                 assert tally["BMC"] == tally["EMC"], (tally["BMC"], tally["EMC"])
 
-    def test_the_raster_twin_of_the_same_page_does_carry_one(self, recorded) -> None:
-        """The control. The same answer page as a bitmap references an image."""
-        payload, number, page_number, title = recorded.answers[0]
-        page = recorded.generator.solved_puzzle_page(payload, number, page_number, title)
-        # ``_write_pdf`` refuses a bitmap filed under a kind whose declared
-        # medium is vector (G-6), so once ANSWER converts the twin is filed
-        # under DIVIDER, the one interior kind declared raster. What this
-        # control measures -- that the reading sees an XObject on a page that
-        # is an image -- does not depend on which raster kind carries it.
-        kind = (
-            PageKind.ANSWER
-            if book_pdf_generator.page_medium(PageKind.ANSWER)
-            is book_pdf_generator.PageMedium.RASTER
-            else PageKind.DIVIDER
-        )
-        data = recorded.generator._write_pdf(
-            [page],
-            1,
-            mode=recorded.generator.interior_bitmap_mode,
-            kinds=(kind,),
-        ).getvalue()
-        assert any("XObject" in keys for keys in pdf_vector.page_resource_keys(data))
-
 
 # --------------------------------------------------------------------------
 # AC-2 / EC(ADR-0037/R1) — the answer key is the only place the title prints
@@ -2719,26 +1390,14 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
 
 
 class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
-    """AC-2 (FR-033/AC-194, ADR-0037/R1), in both halves and both media.
+    """AC-2 (FR-033/AC-194, ADR-0037/R1): the picture's name prints on its
+    answer page and nowhere else in the interior.
 
-    The half that **can** fail is the second one, and it is asserted over the
-    **whole interior** rather than over the answer section: a claim read only
-    off the answer pages cannot notice a puzzle page that started printing the
-    picture's name. So the second half is taken two ways, and neither is a
-    reading of the answer pages:
-
-    * **over every mark the raster interior makes** — one walk's worth of
-      ``ImageDraw.text`` calls, tagged with the ``nonogram`` functions above
-      them, so a title drawn by *any* page kind is seen. That is every page
-      the book ships today: the title page, both guide pages, the TOC, the
-      puzzle pages, the dividers and the answer pages;
-    * **over the vector streams** of the three page kinds that have a vector
-      writer — this card's two and CARD-295's puzzle page — read as the
-      strings they actually set.
-
-    The corpus arm (:meth:`test_the_title_prints_only_on_answer_pages_across_a_corpus`)
-    is the EC: the same comparison over a seeded corpus of books, with its
-    minimum case count asserted inside it.
+    The second half is asserted over the **whole interior**: every string the
+    walk's content-stream pages set, and every ``ImageDraw.text`` call the
+    walk's bitmap pages (dividers, the Solutions opener) make. The corpus arm
+    (:meth:`test_the_title_prints_only_on_answer_pages_across_a_corpus`) is the
+    EC, with its minimum case count asserted inside it.
     """
 
     @staticmethod
@@ -2755,27 +1414,7 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
     def test_every_answer_page_prints_its_pictures_name(
         self, recorded, profile
     ) -> None:
-        """The first half, and the control that the second half is not vacuous.
-
-        **Asserted against the raster answer key rather than against a
-        literal**, because a caption is *omitted* rather than overlapped where
-        the trim leaves no slack for it (CARD-197's AC-6), and the 10 x 10 cm
-        minimum trim genuinely has pages where it is. So the claim is the
-        cross-medium one — the titles the vector answer pages set are exactly
-        the titles the raster answer captions drew — plus two controls: the
-        set is not empty on either profile, and on Book 1 it is the whole
-        book's four titles, so the comparison is not an agreement between two
-        empty sets.
-
-        **The two media no longer correspond here (the approved solutions
-        mockup).** The vector page names every solution in its *header*,
-        beside the number, where there is always room; the raster twin
-        (``solved_puzzle_page`` / ``_packed_answer_page``, unchanged) still
-        sets the old caption under the drawing and still omits or clips it
-        where the trim leaves no slack. So equality became containment: the
-        vector pages name every title on both profiles, and every title the
-        raster twin drew is among them.
-        """
+        """The first half, on both profiles: the solution headers name all four."""
         printed = [
             " ".join(_strings(text))
             for text in pdf_vector.content_streams(
@@ -2784,43 +1423,18 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         ]
         assert printed
         vector = {title for title in _TITLES for page in printed if title in page}
-        raster = {
-            title
-            for title in _TITLES
-            for _, text, names in recorded.text
-            if "_draw_solved_slot" in names and title in text
-        }
-        assert raster <= vector, (sorted(vector), sorted(raster))
-        assert vector, "no answer page printed a title, so AC-2's sweep is vacuous"
-        assert raster, "the raster twin drew no caption, so the containment is vacuous"
         assert vector == set(_TITLES), sorted(vector)
 
     def test_a_clipped_title_is_counted_as_printed_in_both_media(
         self, recorded
     ) -> None:
-        """F-297-03's half of AC-2: a clip is not an omission.
+        """F-297-03: a clip is not an omission.
 
-        The cell above reads whole titles, which is the right reading for "is
-        the name on the page". It is also blind to a *clipped* name on both
-        sides at once — the 10 x 10 cm trim prints ``'Puzzle 2 — Owl in a …'``
-        today — so this adds the reading that is not: the set of titles each
-        medium printed **something** for, clips included, must agree, and the
-        caption cells' element-for-element comparison then pins the string
-        itself.
-
-        **Read per medium in the form each now sets (the approved solutions
-        mockup).** The vector page sets the picture's *name* alone in the
-        solution header, so its readings are of the titles; the raster twin
-        (unchanged) still sets the whole caption line, so its readings are of
-        the captions and are mapped back to the title behind each. The two no
-        longer agree as sets -- the header always has room, the raster
-        caption is omitted on the minimum trim -- so the claim is that every
-        title the raster twin printed something for, the vector header
-        printed something for too, and that the vector header names all of
-        them.
+        The cell above reads whole titles; this one admits a clipped name
+        (a stem of it plus "…"), and every title must be named, whole or
+        clipped, by some solution header.
         """
         names = set(self._titles_of(recorded))
-        wanted = set(self._captions_for(recorded))
         vector = {
             _caption_behind(reading, names)
             for stream_text in pdf_vector.content_streams(
@@ -2829,14 +1443,6 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
             for _, text in _shows(stream_text)
             if (reading := _caption_reading(text, names)) is not None
         }
-        raster = {
-            _caption_behind(reading, wanted).partition(CAPTION_SEPARATOR)[2]
-            for _, text, names_above in recorded.text
-            if "_draw_solved_slot" in names_above
-            and (reading := _caption_reading(text, wanted)) is not None
-        }
-        assert raster <= vector, (sorted(vector), sorted(raster))
-        assert vector, "no answer page carried a name at all"
         assert vector == names, (sorted(vector), sorted(names))
 
     @staticmethod
@@ -2844,34 +1450,23 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         """The whole caption lines this book's answer key would print."""
         return TestAnswerPages_CaptionHoldsTheFloorInTheStream._captions(recorded)
 
-    def test_the_only_raster_calls_carrying_a_title_are_answer_captions(
-        self, recorded
-    ) -> None:
-        """The second half, over every mark the interior draws -- raster arm.
-
-        Since CARD-354 this arm covers the raster pages the walk drew **plus
-        the raster twins replayed for the kinds it drew as operators**; the
-        pages it drew as operators are read by the next cell instead.
-        """
+    def test_no_bitmap_page_of_the_interior_prints_a_title(self, recorded) -> None:
+        """The second half, over the pages the walk still draws as bitmaps."""
+        assert recorded.text, "the walk drew no bitmap text, so this reading is vacuous"
         offenders = [
             (page, text, sorted(names))
             for page, text, names in recorded.text
             if any(title in text for title in _TITLES)
-            and "_draw_solved_slot" not in names
         ]
         assert offenders == []
 
     def test_no_stream_page_outside_the_answer_section_prints_a_title(
         self, recorded, profile
     ) -> None:
-        """The second half, over every mark the interior draws -- vector arm.
+        """The second half, over every page the walk yielded as operators.
 
-        The converted counterpart of the raster cell above (ADR-0042/R6): the
-        strings every page the walk yielded as operators sets, read off the
-        written file. A stream has no call chain, so the answer section is
-        told by its page numbers, which the walk recorded when it asked the
-        writers for those pages -- the provenance is the walk's, not a name
-        read back off the stream.
+        A stream has no call chain, so the answer section is told by its page
+        numbers, which the walk recorded when it asked the writers for them.
         """
         answer_pages = {n for _, _, n, _ in recorded.answers} | {
             n for _, _, n, _ in recorded.packed
@@ -2882,44 +1477,28 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
             if any(title in text for title in _TITLES) and page not in answer_pages
         ]
         assert offenders == []
-        # Non-vacuous in both directions: operator pages were read, and an
-        # answer page drawn as operators really does print a title on Book 1,
-        # so the filter above is exercised rather than assumed.
-        if recorded.stream_pages:
-            assert recorded.streamed, "operator pages were walked and none set a string"
-            if profile == "book1":
-                titled = {
-                    page
-                    for page, text in recorded.streamed
-                    if any(title in text for title in _TITLES)
-                }
-                assert titled and titled <= answer_pages, (
-                    sorted(titled),
-                    sorted(answer_pages),
-                )
-        else:
-            assert not any(
-                book_pdf_generator.page_medium(kind)
-                is book_pdf_generator.PageMedium.VECTOR
-                for kind in (PageKind.TOC, PageKind.ANSWER)
-            ), "TOC/ANSWER declare vector, yet the walk yielded no content stream"
+        # Non-vacuous: operator pages were read, and on Book 1 the answer
+        # pages really do print the titles the filter above is looking for.
+        assert recorded.streamed, "operator pages were walked and none set a string"
+        if profile == "book1":
+            titled = {
+                page
+                for page, text in recorded.streamed
+                if any(title in text for title in _TITLES)
+            }
+            assert titled and titled <= answer_pages, (
+                sorted(titled),
+                sorted(answer_pages),
+            )
 
     def test_the_interior_really_was_walked_end_to_end(self, recorded) -> None:
-        """Guard the instrument: a walk that drew nothing would pass above.
-
-        Read across **both** arms: a page counts when either the raster spy or
-        a content stream set a string on it, so the figure does not depend on
-        which kinds are converted (it was 4 under the five-kind probe when only
-        the raster arm was read).
-        """
+        """Guard the instrument: a walk that drew nothing would pass above."""
         assert recorded.page_count >= 10
         lettered = {page for page, _, _ in recorded.text} | {
             page for page, _ in recorded.streamed
         }
         assert len(lettered) >= 6, sorted(lettered)
         assert any(
-            any(title in text for title in _TITLES) for _, text, _ in recorded.text
-        ) or any(
             any(title in text for title in _TITLES) for _, text in recorded.streamed
         ), "no page of the interior printed a title at all, so the sweep is vacuous"
 
@@ -2965,11 +1544,8 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         printed = 0
         omitted = 0
         clipped = 0
-        # Four of the trims CON-018 stocks, three of them portrait KDP sizes
-        # and the fourth the 10 x 10 cm square minimum — which is in the
-        # corpus precisely because a square trim leaves a full-page answer no
-        # vertical slack at all (measured: 0 px), so the omission branch is
-        # exercised rather than assumed.
+        # Four of the trims CON-018 stocks: three portrait KDP sizes and the
+        # 10 x 10 cm square minimum.
         for trim in ((10.0, 10.0), (13.97, 21.59), (15.24, 22.86), (21.59, 27.94)):
             for seed in range(3):
                 picked = [names[random.randrange(len(names))] for _ in range(2)]
@@ -2995,28 +1571,27 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                 ]
                 payloads = [generator._payload(row) for row in puzzles]
                 answers = [
-                    book_answer_vector.answer_page(
+                    book_answer_vector.packed_answer_page(
                         generator.page_spec(11 + index),
                         generator.dpi,
-                        payload,
-                        index + 1,
+                        PackedAnswerPage(
+                            (Answer(number=index + 1, width=12, height=12, level=Tier.EASY),)
+                        ),
+                        [(row["id"], row_payload) for row, row_payload in zip(puzzles, payloads)],
                         11 + index,
-                        picked[index],
+                        {},
                     )
-                    for index, payload in enumerate(payloads)
+                    for index in range(len(payloads))
                 ]
                 puzzle_streams = list(generator.vector_puzzle_pages(payloads))
                 for index, text in enumerate(
                     pdf_vector.content_streams(_written(answers))
                 ):
                     shown = " ".join(_strings(text))
-                    # The page either prints its own title or prints no title
-                    # at all -- never a different puzzle's. Under the old
-                    # caption the 10 cm trim omitted it (CARD-197's AC-6: no
-                    # slack under the drawing); since the approved solutions
-                    # mockup the name sits in the solution header, which every
-                    # trim has room for, so the omission arm is dead by design
-                    # and asserted dead below.
+                    # The page prints its own title, whole or clipped, and
+                    # never a different puzzle's. The name sits in the
+                    # solution header, which every trim has room for, so the
+                    # omission arm is asserted dead below.
                     if picked[index] in shown:
                         printed += 1
                     elif any(
@@ -3025,14 +1600,7 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                         and picked[index].startswith(piece.split(" — ")[-1][:-1])
                         for piece in _strings(text)
                     ):
-                        # CLIPPED, which is neither printed nor omitted. Counted
-                        # as its own outcome since review cycle 2 (F-297-03):
-                        # the old reading swept a clipped name into `omitted`
-                        # and then asserted the name was absent, so a clip that
-                        # kept part of the name would have failed here for the
-                        # wrong reason — or, worse, a future clip that dropped
-                        # the whole stem would have silently inflated the
-                        # omission floor.
+                        # CLIPPED: neither printed whole nor omitted (F-297-03).
                         clipped += 1
                     else:
                         omitted += 1
@@ -3045,23 +1613,12 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                         assert name not in shown, (trim, seed, name, shown)
                     cases += 1
         assert cases >= 40, cases
-        # Measured on this corpus before the approved solutions mockup: 18 of
-        # the 24 answer pages had the slack to print a caption under the
-        # drawing, and the 10 cm trim's six had 0 px and omitted it. The name
-        # now sits in the solution header, so every page prints it: the floor
-        # is all 24, which still refuses a sweep gone vacuous by every name
-        # being omitted.
-        assert printed >= 24, printed
-        # And the omission branch is now dead rather than live: a header that
-        # stopped naming a page on the 10 cm trim reds here instead of being
-        # absorbed as the old, licensed omission.
+        # Measured on this corpus, each answer packed onto its own tile: 23 of
+        # the 24 headers name the picture whole and one clips it (a long name
+        # on the 10 cm trim's half-width tile); none omits it.
+        assert printed >= 23, printed
         assert omitted == 0, omitted
-        # And no case in this corpus clips, so the two floors above are an
-        # equality over 24 answer pages rather than three buckets with slack.
-        # Pinned because a clip is what F-297-03 showed the old reading could
-        # not see: if a corpus name starts clipping, that shows up here as a
-        # changed figure instead of as a quietly larger omission count.
-        assert clipped == 0, clipped
+        assert clipped <= 1, clipped
         assert printed + omitted + clipped == 24, (printed, omitted, clipped)
 
 
@@ -4255,65 +2812,12 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
 #: CON-020's floor for reader-facing interior text, in points.
 _FLOOR_PT = 10.0
 
-#: Where the two media's answer captions differ, and **why** — one entry per
-#: divergence, as ``{whole caption: (what the raster page set, what the vector
-#: page sets)}``.
-#:
-#: Review cycle 1's F-297-03: every title and caption reading in this card
-#: filtered by membership in the set of **unclipped** strings, so a clipped
-#: caption landed in the "omitted" bucket on both sides and a one-character
-#: clip difference passed 596 cells. Measured once the readings admit clipped
-#: strings, the two media **already** differ — today, on the 10 x 10 cm minimum
-#: trim, in a shipped book:
-#:
-#: * both clip against the **same** measure, 492 px, which is COMP-007's
-#:   ``caption_slot`` figure and not either renderer's;
-#: * the raster page measures ``'Puzzle 2 — Owl in a P…'`` with
-#:   ``FreeTypeFont.getlength`` at 491.98 px and keeps it;
-#: * the vector page measures the same string as a sum of the embedded face's
-#:   ``/Widths`` at 492.87 px and runs the loop one more step.
-#:
-#: 0.89 px across a 492 px string — the "fraction of a dot's advance" this
-#: card's own TOC header admits the two engines agree to, landing on an integer
-#: boundary. **Neither medium is wrong**: ``/Widths`` is what a PDF viewer sums,
-#: so each page clips by the measure its own reader will use, which is the port
-#: being faithful rather than broken. It is recorded here because it is a
-#: product fact no cell stated, and exact agreement is **not** achievable
-#: without one medium measuring with the other's engine.
-# CARD-322 item 10 (AC-5): resolved by keeping the entry WITH A NEW ARGUMENT.
-# After the flip the vector writer's page is the PRODUCTION page (every answer
-# page of a downloaded interior is operators); the raster writer
-# (`solved_puzzle_page`) is still in `src/` at this commit and is the REFERENCE
-# oracle this comparison clips against, so the comparison still has two live
-# writers and the entry is a statement about two writers, one of which is the
-# printed one. It is not a statement about a page nobody prints. The vector
-# reading "Puzzle 2 — Owl in a …" is what the book prints; the raster reading
-# differs by one character because the two media clip by different measures
-# (Pillow text width vs the embedded face's /Widths), the standing argument of
-# this entry. If item 16 deletes the raster writer, this dict and its three
-# consumers go with it, with the measurement above as the record. NOT
-# re-measured on a second page: the module was green in E1fix and E2 (mine).
-# The approved solutions mockup: the vector answer page no longer sets this
-# caption line at all (the name moved into the solution header), so the
-# vector half below records the two clip FUNCTIONS' disagreement, which
-# `test_the_declared_clip_divergence_is_one_step_of_the_same_loop` still
-# machine-checks, and no longer a string any printed page sets.
-_DECLARED_CLIP_DIVERGENCE = {
-    "Puzzle 2 — Owl in a Pine": (
-        "Puzzle 2 — Owl in a P…",
-        "Puzzle 2 — Owl in a …",
-    ),
-}
-
-
 def _caption_reading(text: str, wanted) -> Optional[str]:
     """``text`` as the caption it is a reading of — whole or clipped — or ``None``.
 
-    The clip loop both media run is ``clipped[:-2] + "…"`` applied until the
-    string fits, so every clipped reading is ``caption[:k] + "…"``. Admitting
-    those is the whole of F-297-03's fix: a reading that is not in the set of
-    unclipped captions is a *clip*, not an omission, and the two are different
-    facts about a printed book.
+    The clip loop is ``clipped[:-2] + "…"`` applied until the string fits, so
+    every clipped reading is ``caption[:k] + "…"``. A reading that is not in
+    the set of unclipped captions is a *clip*, not an omission (F-297-03).
     """
     if text in wanted:
         return text
@@ -4336,53 +2840,12 @@ def _caption_behind(reading: str, wanted) -> str:
     return matches[0]
 
 
-def _unexplained_clip_divergences(vector, raster, wanted) -> List[Tuple[str, ...]]:
-    """Captions whose two media disagree **outside** the declared table.
-
-    Both arguments are the readings each medium actually set, clips included.
-    Grouped by the caption behind each reading, so "both omitted it" and "both
-    printed it clipped to the same string" are both agreement and anything else
-    is reported.
-    """
-    out: List[Tuple[str, ...]] = []
-    for caption in sorted(wanted):
-        mine = sorted(r for r in vector if _caption_behind(r, wanted) == caption)
-        theirs = sorted(r for r in raster if _caption_behind(r, wanted) == caption)
-        if mine == theirs:
-            continue
-        declared = _DECLARED_CLIP_DIVERGENCE.get(caption)
-        if declared is not None and theirs == [declared[0]] and mine == [declared[1]]:
-            continue
-        out.append((caption, tuple(theirs), tuple(mine)))
-    return out
-
-
 class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
-    """AC-6 (CON-020): the answer caption's ``Tf`` size is at or above 10 pt.
+    """AC-6 (CON-020): the solution header's ``Tf`` sizes are at or above 10 pt.
 
     Read off the written stream's own ``Tf`` operand — a *point* size against
-    the page, which is what makes this a device-independent claim in the new
-    medium where the raster page could only be measured in pixels at one DPI.
-
-    **Conditional on the profile, exactly as**
-    ``tests/test_book_interior_type_floor.py:369`` **already is**: the
-    caption is *omitted* rather than overlapped on the 10 x 10 cm minimum
-    trim (CARD-197's AC-6), so requiring one there would fail for the wrong
-    reason. The condition is not a licence either — the omission itself is
-    asserted, and asserted as **agreement with the raster page's own
-    verdict** rather than against a profile name, so a vector writer that
-    omitted a caption Book 1 prints would red.
-
-    **The approved solutions mockup moved the vector page's caption into the
-    solution header**: the number alone at 12 pt, and the picture's name in
-    grey at the 10 pt floor, in the tile's band; nothing is set under the
-    drawing any more (``draw_answer_slot`` returns ``None``). The raster twin
-    (``solved_puzzle_page`` / ``_packed_answer_page``) is unchanged and still
-    sets the old caption line, clipping or omitting it by its own slack. So
-    the cells below that compared the two media's *captions* no longer have a
-    pair to compare: they now read the vector header's name (and number)
-    against the floor and against the title it names, keep the raster half
-    where it still stands on its own, and say per cell what dropped.
+    the page. The header sets the number alone at 12 pt and the picture's name
+    in grey at the 10 pt floor; nothing is set under the drawing.
     """
 
     @staticmethod
@@ -4458,81 +2921,12 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
             "is the writer failing to set them, not CARD-197's omission"
         )
 
-    @staticmethod
-    def _readings(recorded: _Recorded, wanted) -> Tuple[List[str], List[str]]:
-        """What each medium actually set, **clips included** (F-297-03).
-
-        The filter is :func:`_caption_reading`, not membership in ``wanted``:
-        until review cycle 2 every caption reading in this card tested
-        ``text in wanted``, so a clipped caption was absent from both sides'
-        sets and counted as an omission in both media. That is the blindness
-        F-297-03 names — the clip point is the one axis the two media are known
-        to measure differently.
-        """
-        vector = [
-            reading
-            for stream_text in pdf_vector.content_streams(
-                _written(recorded.answer_streams())
-            )
-            for _, text in _shows(stream_text)
-            if (reading := _caption_reading(text, wanted)) is not None
-        ]
-        raster = [
-            reading
-            for _, text, names in recorded.text
-            if "_draw_solved_slot" in names
-            and (reading := _caption_reading(text, wanted)) is not None
-        ]
-        return vector, raster
-
-    def test_the_two_media_omit_the_same_captions(self, recorded) -> None:
-        """The omission is the raster page's own verdict, not a profile name.
-
-        **About omission, and no longer blind to clipping.** The two sides are
-        compared as the set of *captions* each medium printed something for, a
-        clipped reading counting as printed — so a medium that omitted a
-        caption the other clipped now reds here, where before cycle 2 both
-        would have read as omissions and agreed.
-
-        **No longer an equality (the approved solutions mockup).** The vector
-        page names every solution in its header, where there is always room,
-        so it omits nothing; the raster twin still omits a caption it has no
-        slack for. What still corresponds is the direction: every solution the
-        raster twin named, the vector header names too -- and the vector
-        names all of them.
-        """
-        wanted = set(self._captions(recorded))
-        _, raster = self._readings(recorded, wanted)
-        names = set(self._names(recorded))
-        mine = {_caption_behind(reading, names) for _, reading in self._header_readings(recorded)}
-        theirs = {
-            _caption_behind(reading, wanted).partition(CAPTION_SEPARATOR)[2]
-            for reading in raster
-        }
-        assert theirs <= mine, (sorted(mine), sorted(theirs))
-        assert mine == names, (sorted(mine), sorted(names))
-
     def test_the_two_media_clip_the_same_captions_to_the_same_string(
         self, recorded, profile
     ) -> None:
-        """F-297-03: the caption **string**, not its presence in a set.
-
-        Per caption, the readings the two media set are compared element for
-        element, so the three outcomes a slot really has — printed whole,
-        clipped to a particular string, omitted — are distinguishable instead
-        of collapsing into two. Any disagreement outside
-        :data:`_DECLARED_CLIP_DIVERGENCE` fails here, which is what makes a
-        clip that moves by one character red.
-
-        **Re-aimed at the header (the approved solutions mockup).** The vector
-        page clips the *name* against the header's own measure (between the
-        number and the tier's dots), the raster twin clips the whole caption
-        line against the slot under the drawing: two different strings against
-        two different measures, so the element-for-element comparison has no
-        pair left and is dropped. What still holds per medium: each solution's
-        name is set by the vector header exactly once, as the name itself or
-        a clip of it (a stem of the name plus "…"), never another puzzle's.
-        """
+        """F-297-03: each solution's name is set by the header exactly once,
+        as the name itself or a clip of it (a stem plus "…"), never another
+        puzzle's."""
         names = self._names(recorded)
         readings = [reading for _, reading in self._header_readings(recorded)]
         assert readings, "the vector pages set no caption"
@@ -4545,174 +2939,6 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
             assert reading == name or (
                 reading.endswith("…") and name.startswith(reading[:-1])
             ), (name, reading)
-
-    def test_the_min_trim_really_does_clip_one_caption_in_each_medium(self) -> None:
-        """Non-vacuity: the comparison above has a clip to compare.
-
-        Without this the element-for-element cell could pass on two media that
-        never clip anything, which is how F-297-03's reading survived. Measured
-        on the 10 x 10 cm trim, where a packed page prints one caption whole and
-        clips the next.
-
-        **Vector half re-aimed (the approved solutions mockup).** The vector
-        page sets no caption line any more -- the name is in the solution
-        header -- so there is no vector caption to clip, and that is asserted
-        rather than skipped. The raster twin is unchanged and still clips on
-        this trim, so its half and its entry in the declared table stand.
-        """
-        recorded = _recorded("min-trim")
-        wanted = set(self._captions(recorded))
-        vector, raster = self._readings(recorded, wanted)
-        assert vector == [], vector
-        assert [r for r in raster if r.endswith("…")], raster
-        # And the declared table's raster half is the string this profile
-        # really sets, so an entry that stops being true reds here rather
-        # than going stale. Its vector half described the caption the vector
-        # page used to set; that caption is gone, so the half is not read.
-        for caption, (raster_text, _vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
-            assert [
-                r for r in raster if _caption_behind(r, wanted) == caption
-            ] == [raster_text], raster
-
-    def test_the_declared_clip_divergence_is_one_step_of_the_same_loop(self) -> None:
-        """The reason behind the declaration, machine-checked rather than told.
-
-        For each declared pair: both readings are clips of the same caption,
-        the vector's is exactly **one step** of the shared ``[:-2] + "…"`` loop
-        shorter (two source characters off, one ellipsis on), there is an integer measure at which the two shipped clip
-        functions really produce exactly those two strings, and at such a
-        measure the two engines' widths of the raster string **straddle** it by
-        under one pixel. So the divergence is one rounding boundary between two
-        font engines and not a second clip rule.
-        """
-        from nonogram.admin.book_pdf_generator import _clipped_to, _guide_face
-
-        face = interior_face_metrics()
-        size = book_answer_vector.answer_type(300).caption_size_px
-        font = _guide_face(int(size))
-        for caption, (raster_text, vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
-            assert raster_text.endswith("…") and vector_text.endswith("…")
-            assert caption.startswith(raster_text[:-1]), (caption, raster_text)
-            assert caption.startswith(vector_text[:-1]), (caption, vector_text)
-            # One step of ``clipped[:-2] + "…"`` drops two characters and adds
-            # one, so exactly one step is one character of length.
-            assert len(raster_text) - len(vector_text) == 1, (raster_text, vector_text)
-            whole = book_vector_draw.advance_px(caption, size, face)
-            straddle = [
-                measure
-                for measure in range(1, int(whole) + 2)
-                if _clipped_to(caption, font, measure) == raster_text
-                and book_answer_vector._clipped_to_measure(
-                    caption, size, face, measure
-                )
-                == vector_text
-            ]
-            assert straddle, (caption, raster_text, vector_text)
-            measure = straddle[0]
-            raster_width = font.getlength(raster_text)
-            vector_width = book_vector_draw.advance_px(raster_text, size, face)
-            assert raster_width <= measure < vector_width, (
-                measure,
-                raster_width,
-                vector_width,
-            )
-            assert vector_width - raster_width < 1.0, vector_width - raster_width
-
-    def test_the_clip_comparison_can_fail(self) -> None:
-        """The control (ADR-0039/R1): one character, and it reds.
-
-        The same comparison over a vector reading clipped one step further than
-        the page really clips it — which is exactly the
-        ``clipped[:-2] -> clipped[:-3]`` mutant that survived 596 cells in
-        review cycle 1.
-        """
-        wanted = {"Puzzle 2 — Owl in a Pine"}
-        raster = ["Puzzle 2 — Owl in a P…"]
-        assert _unexplained_clip_divergences(
-            ["Puzzle 2 — Owl in a …"], raster, wanted
-        ) == []
-        for moved in ("Puzzle 2 — Owl in …", "Puzzle 2 — Owl in a Pine"):
-            assert _unexplained_clip_divergences([moved], raster, wanted) != [], moved
-        # And a caption one medium omits entirely is not agreement either.
-        assert _unexplained_clip_divergences([], raster, wanted) != []
-
-    def test_the_minimum_trim_omits_its_captions_rather_than_shrinking_them(
-        self,
-    ) -> None:
-        """The condition above, named: on the 10 cm trim there is no caption.
-
-        Asserted on the full answer pages, whose drawing reaches the bottom
-        margin on a square trim (measured: 0 px of slack). A packed page's
-        tiles are shorter than the page and may still have room, which is why
-        this reads the full pages rather than the whole section.
-        """
-        recorded = _recorded("min-trim")
-        wanted = {
-            answer_caption(number, title)
-            for _, number, _, title in recorded.answers
-        }
-        assert wanted
-        streams = [
-            book_answer_vector.answer_page(
-                recorded.generator.page_spec(page_number),
-                recorded.generator.dpi,
-                payload,
-                number,
-                page_number,
-                title,
-            )
-            for payload, number, page_number, title in recorded.answers
-        ]
-        for text in pdf_vector.content_streams(_written(streams)):
-            assert not (set(_strings(text)) & wanted), _strings(text)
-
-    def test_the_two_media_omit_at_the_same_slack_for_every_integer(self) -> None:
-        """The threshold agreement review cycle 1 found claimed but unasserted.
-
-        F-297-08 item 4: the round reported that the vector writer's omission
-        threshold and the raster page's "agree for every integer slack", and
-        no assertion of it was committed anywhere — ``grep`` over the whole
-        diff for ``72.9``, "threshold" and "every integer slack" returned
-        nothing. Here it is, driven rather than reasoned.
-
-        Each threshold is recomputed from its **own** medium's own face
-        measurement — the vector's from the embedded face's ``/Ascent`` and
-        ``/Descent``, the raster's from ``FreeTypeFont.getmetrics`` — and the
-        two verdicts (print or omit) are compared at every integer slack from
-        zero to past both. The agreement is not a coincidence of two numbers:
-        a slack is a difference of two integer page coordinates, so what
-        matters is that **no integer falls between the two thresholds**, and
-        that is asserted as such. A face change that moved them apart across
-        an integer reds here instead of silently changing which pages print a
-        caption.
-        """
-        raster_gap = round(ANSWER_TILE_GAP_MM / 25.4 * 300)
-        caption_pt = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
-        ascent, descent = _band_font(type_px(caption_pt, 300)).getmetrics()
-        raster_threshold = raster_gap + ascent + descent
-
-        spec = book_answer_vector.answer_type(300)
-        face = interior_face_metrics()
-        vector_threshold = spec.gap_px + book_vector_draw.line_height_px(
-            spec.caption_size_px, face
-        )
-
-        # The two really are different numbers, so the agreement below is a
-        # measurement and not an identity.
-        assert vector_threshold != raster_threshold
-        low, high = sorted((float(vector_threshold), float(raster_threshold)))
-        assert high - low < 1.0, (low, high)
-        assert not [n for n in range(0, int(high) + 2) if low <= n < high], (low, high)
-
-        cases = 0
-        for slack in range(0, int(high) * 2 + 2):
-            assert (slack >= vector_threshold) == (slack >= raster_threshold), (
-                slack,
-                vector_threshold,
-                raster_threshold,
-            )
-            cases += 1
-        assert cases >= 140, cases
 
     def test_the_floor_is_the_one_the_constant_states(self) -> None:
         """The figure is re-derived, not quoted: 10 pt is where it comes from."""
@@ -4822,8 +3048,7 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
 
     **No ``hypothesis``** (it is not in the dependency baseline): the corpus is
     built by hand with ``random.Random`` over the book profiles CON-018 stocks
-    crossed with **every tile count per page** FR-042 defines — the full page,
-    and the packed page at each of ``SOLVED_TILE_CAPACITIES`` — with the case
+    crossed with the packed page at two and at four tiles, with the case
     count asserted inside the test.
     """
 
@@ -4840,57 +3065,6 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
             for page_number in (11, 12):
                 extent = 10 + random.randrange(4)
                 yield width, height, page_number, extent
-
-    def test_every_path_coordinate_of_a_full_answer_page_is_stated(self) -> None:
-        cases = 0
-        for width, height, page_number, extent in self._books():
-            generator = BookPDFGenerator(
-                Book(
-                    book_id=f"ec-{width}-{height}",
-                    metadata=BookMetadata(
-                        title="EC",
-                        description="",
-                        theme="generic",
-                        target_audience="adults",
-                        size="",
-                        page_count=0,
-                    ),
-                    trim_width_cm=_cm(width * 10),
-                    trim_height_cm=_cm(height * 10),
-                    gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
-                    outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
-                )
-            )
-            payload = generator._payload(
-                _puzzle(extent, extent, number=1, depth=3, name="Zarquon")
-            )
-            # Laid out on the answer section's spec (the running head's
-            # strip off the top), as the writer lays it out.
-            layout = compute_layout(
-                payload.row_clues,
-                payload.column_clues,
-                answer_section_spec(generator.page_spec(page_number)),
-            )
-            stream = book_answer_vector.answer_page(
-                generator.page_spec(page_number), generator.dpi, payload, 1, page_number, "Zarquon"
-            )
-            (text,) = pdf_vector.content_streams(_written([stream]))
-            xs, ys = _page_coordinates(text)
-            stated_x, stated_y = _stated_coordinates(
-                [layout], layout.height, layout.dpi
-            )
-            furniture_x, furniture_y = _furniture_coordinates(
-                [layout],
-                page_frame(generator.page_spec(page_number)),
-                layout.height,
-                layout.dpi,
-            )
-            stated_x, stated_y = stated_x | furniture_x, stated_y | furniture_y
-            assert xs <= stated_x, sorted(xs - stated_x)
-            assert ys <= stated_y, sorted(ys - stated_y)
-            assert xs and ys
-            cases += 1
-        assert cases >= 6, cases
 
     @pytest.mark.parametrize("capacity", [2, 4])
     def test_every_path_coordinate_of_a_packed_page_is_stated(
@@ -5051,19 +3225,8 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
 # --------------------------------------------------------------------------
 
 
-class TestAnswerPages_TheRestatedConstantsAreTheRasterPagesOwn:
-    """The native-reimplementation convention's own control (CLAUDE.md).
-
-    ``book_pdf_generator`` imports :mod:`nonogram.admin.book_answer_vector`,
-    so the writer may not import *it* back — and the one tone and one ratio it
-    needs from there are therefore restated. "Restated" is only safe while the
-    two are held equal somewhere, and the import is legal here, which is the
-    same arrangement ``solver/propagate.mask_runs`` and
-    ``book_puzzle_vector.BAND_WIDTH_RATIO`` already have.
-    """
-
-    def test_the_join_tone_is_derived_from_the_raster_pages_own(self) -> None:
-        assert book_answer_vector.SOLVED_JOIN_GREY == _SOLVED_GRID_GRAY[0] / 255
+class TestAnswerPages_TheJoinsAreSetInTheirOwnTone:
+    """The grey join between two filled cells reaches the stream in its own tone."""
 
     @staticmethod
     def _layout(generator):
@@ -5139,24 +3302,29 @@ class TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt:
     def test_the_caption_is_right_aligned_on_the_slot_comp_007_reports(
         self, tmp_path
     ) -> None:
-        """Re-aimed at the solution header (the approved solutions mockup).
-
-        The caption under the drawing is gone; the picture's name is set in
-        the header, after the number, in the band COMP-007's ``header_band``
-        reports. So the name's word is read back from poppler and held to the
-        header's own anchors: its left edge one gap after the number's
-        advance from the usable left edge, and its middle inside the band.
-        The name is still the word to read (it appears nowhere else on the
-        page, AC-2). The node id predates the move and is cited, so it keeps
-        its name.
+        """The picture's name is set in the solution header, after the number,
+        in the band COMP-007's ``header_band`` reports for its tile. Its word
+        is read back from poppler and held to the header's anchors: its left
+        edge one gap after the number's advance from the tile's usable left
+        edge, and its middle inside the band. (The node id predates the
+        caption's move into the header and is kept.)
         """
         generator = BookPDFGenerator(_book())
-        payload = generator._payload(_puzzle(12, 12, number=1, name="Snowflake"))
-        layout = compute_layout(
-            payload.row_clues, payload.column_clues, answer_section_spec(generator.page_spec(11))
+        puzzle = _puzzle(12, 12, number=1, name="Snowflake")
+        payload = generator._payload(puzzle)
+        packed = compute_packed_solved_layout(
+            [(payload.row_clues, payload.column_clues)],
+            2,
+            answer_section_spec(generator.page_spec(11)),
         )
-        stream = book_answer_vector.answer_page(
-            generator.page_spec(11), generator.dpi, payload, 1, 11, "Snowflake"
+        layout = packed.slots[0]
+        stream = book_answer_vector.packed_answer_page(
+            generator.page_spec(11),
+            generator.dpi,
+            PackedAnswerPage((Answer(number=1, width=12, height=12, level=Tier.EASY),)),
+            [(puzzle["id"], payload)],
+            11,
+            {},
         )
         data = _written([stream])
         words = pdf_vector.word_boxes(data, out_dir=tmp_path)
@@ -5282,9 +3450,3 @@ class TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries:
         assert expected == set()
         assert drawn == set()
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

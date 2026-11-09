@@ -86,7 +86,7 @@ from PIL import ImageDraw, Image
 
 from nonogram.admin import book_vector_draw
 from nonogram.admin.book_page_spec import GRID_RULES
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _stroke_drawing
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_puzzle_vector import CLUE_SHADE
 from nonogram.admin.book_vector import POINTS_PER_INCH, write_vector_pdf
 from nonogram.export import png
@@ -374,7 +374,9 @@ class TestBookGridRules_HasThreeWeights:
         order is keyed on ``GridLine.major``, which has two values, while
         there are now three weights — so inside the heavy half the border and
         the fifths interleave in COMP-007's own order and the width is re-set
-        on each change (seven ``w`` operators on this 20x20, not three). That
+        on each change (six ``w`` operators on this 20x20, not three; it was
+        seven while a clue frame was stroked after the grid, which the owner
+        took off on 2026-11-09). That
         costs operators and nothing else: both heavy tiers are the same pure
         black, so no crossing looks different whichever of the two is on top.
         Keying the order on the tier would make it three, and that is a change
@@ -391,9 +393,9 @@ class TestBookGridRules_HasThreeWeights:
         assert stated[0] == CELL_PT, stated
         assert CELL_PT not in stated[1:], stated
         # The measured count, asserted rather than left in the prose above —
-        # seven, not three, and the docstring explains why. Pinned so the
+        # six, not three, and the docstring explains why. Pinned so the
         # claim in ``book_vector_draw.draw_grid_lines`` has a control.
-        assert len(stated) == 7, stated
+        assert len(stated) == 6, stated
         # Every axis really does have lines of all three tiers, so none of the
         # three widths above is being set for an empty group.
         for axis, grouped in (("down", tiers), ("across", across)):
@@ -510,8 +512,6 @@ class TestBookGridRules_HasThreeWeights:
             GRID_RULES.fifth.width_pt,
             GRID_RULES.border.width_pt,
         ) == (CELL_PT, FIFTH_PT, BORDER_PT)
-        assert hero.layout.frame is not None
-        assert hero.layout.frame.width_pt == BORDER_PT
 
 
 # --------------------------------------------------------------------------
@@ -917,64 +917,16 @@ class TestBookGridRules_PointsNotPixels:
 class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
     """AC-7: these weights onto a **raster** surface is refused.
 
-    **The card's one genuinely new claim**, and per ADR-0039/R1 it needs a
-    control that CAN fail. The mutant the card names is "let a raster page take
-    the 0.3 pt figure", and the controls below red on exactly that.
-
-    Why the claim is not decoration: through a rasteriser at 300 DPI these
-    figures round to **1 / 3 / 5 px** — a one-pixel grey cell grid, which is
-    what ADR-0037/R2's 2026-10-17 amendment refused on the evidence of 7 of 17
-    reviews of the 450-puzzle book complaining of faint grid lines. Shipping
-    them onto a bitmap would quietly re-open the one complaint ADR-0037 exists
-    to close.
-
-    **What this reaches, declared rather than implied — and the bound review
-    cycle 1 found open is now CLOSED.** Cycle 1's F-001 showed that the
-    sentence this paragraph used to carry was false: ``png._draw_grid`` does
-    receive the declared figures, on **every book single-puzzle page** and on
-    every **packed answer page**, because ``_blank_page`` and
-    ``render_answer_page`` rule their grids through ``png._draw_grid`` and not
-    through ``_stroke_drawing``, which rules only the two-up and solved slots.
-    Measured with a spy on both png functions, and the figure's **domain** is
-    part of it: four ``_blank_page`` calls on four grid shapes (20x20, 30x30
-    at clue depth 10, 15x22, 5x5) hand it **159** strokes and one
-    ``render_answer_page`` over those same four answers hands it **155**, so
-    **314** in all — and every one of the 314 carries a ``width_pt``. So the
-    unguarded stroker was the one that ruled the dominant interior page kind,
-    and the control this class said could not be written is written below.
-
-    **Both raster strokers are now guarded**, at all four call sites —
-    ``_stroke_drawing``'s line loop and frame, and ``png._draw_grid``'s line
-    loop and ``png._draw_frame``. Each is a call to
-    :func:`refuse_rasterised_rule`, which is a guard and not a drawing
-    primitive (G-2), and no page's ink moved, because a refusal check either
-    returns or raises. That was **measured and not assumed** (G-5): sha256
-    digests of the raw pixels of three real ``_blank_page`` rasters — a 20x20,
-    the 30x30-at-clue-depth-10 floor page and a ragged 15x22 — read
-    ``89fc04b019f83fc76f39`` / ``05d6e6844217294e370b`` /
-    ``e4d2ebb989b2b7d55bf3`` both before and after the guard went in. That
-    instrument is a fix-round probe rather than a test in this file; what the
-    suite itself holds is the book baselines in ``tests/fixtures/`` and
-    ``TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden``, none of which
-    moved.
-
-    **What is NOT a door, said plainly (cycle 1's F-002).**
-    :func:`rasterise_rule_px` has **zero call sites in** ``src/`` — the raster
-    renderers never convert a declared width at all, they read COMP-007's
-    proportional device width — so it is not "the one door a raster generator
-    may convert a declared width through". It is the arithmetic plus R2's
-    device floor, named and tested in advance, owed by CARD-298's converter
-    and exercised here. The clause that binds a shipped raster page is held by
-    :func:`refuse_rasterised_rule`, per stroke.
-
-    **And that predicate is a floor plus one excluded count, not a blanket
-    deny.** Two of its three refusals are regions (a non-whole width, on every
-    sheet; a declared sheet's rule below
-    :data:`RASTER_RULE_FLOOR_PX`) and one is a point (the declared figure's own
-    device count). It therefore **admits** every integer at or above the floor
-    that is not that count — a ``ceil`` where ``round`` went down, 2 px for
-    0.3 pt at 300 DPI, is admitted. Each of those three refusals and the
-    ``width_pt is None`` exemption has its own control below.
+    Through a rasteriser at 300 DPI the figures round to **1 / 3 / 5 px** — a
+    one-pixel grey cell grid, the faint-line complaint ADR-0037/R2's
+    2026-10-17 amendment refused. The book interior is operators (ADR-0042),
+    so the declared weights reach no bitmap there; what remains raster is
+    ``png``'s grid stroker, and it refuses them per stroke through
+    :func:`refuse_rasterised_rule`. That predicate is a floor plus one
+    excluded count, not a blanket deny: it refuses a non-whole width, a
+    declared sheet's rule below :data:`RASTER_RULE_FLOOR_PX`, and the declared
+    figure's own device count, and admits everything else. Each refusal and
+    the ``width_pt is None`` exemption has its own control below.
     """
 
     def test_the_raster_door_refuses_the_cell_line_at_300_dpi(self) -> None:
@@ -1057,68 +1009,21 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
         refuse_rasterised_rule(1, None)
         assert DEFAULT_PAGE_SPEC.grid_rules is None
 
-    def test_the_book_raster_stroker_draws_the_book_page_and_refuses_the_mutant(
-        self, hero: Drawn
-    ) -> None:
-        """End to end, through the raster stroker the book really calls.
-
-        The mutant the card names, built: every cell line's device width
-        replaced by the 0.3 pt figure's own device count. ``_stroke_drawing``
-        reds on it. The unmutated page — the same ``Layout``, whose lines carry
-        the declared weights and COMP-007's device widths — draws, which is
-        what keeps every raster page in the book byte-identical while these
-        weights exist (G-5: no baseline moves in this card).
-        """
-        canvas = Image.new("RGB", (hero.layout.width, hero.layout.height), "white")
-        _stroke_drawing(ImageDraw.Draw(canvas), hero.layout)
-
-        mutant = replace(
-            hero.layout,
-            vertical_lines=tuple(
-                replace(line, width=1) if line.tier == "cell" else line
-                for line in hero.layout.vertical_lines
-            ),
-        )
-        with pytest.raises(ValueError, match="at least 2 device pixels"):
-            _stroke_drawing(ImageDraw.Draw(canvas), mutant)
-        # The same mutant one tier up, where the floor cannot be the reason:
-        # a border stroked at the 1.3 pt figure's own 5 px.
-        heavy_mutant = replace(
-            hero.layout,
-            vertical_lines=tuple(
-                replace(line, width=_device_rule_px(BORDER_PT, DPI))
-                if line.tier == "border"
-                else line
-                for line in hero.layout.vertical_lines
-            ),
-        )
-        with pytest.raises(ValueError, match="declared physical"):
-            _stroke_drawing(ImageDraw.Draw(canvas), heavy_mutant)
-
     def test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page(
         self, hero: Drawn
     ) -> None:
-        """``png._draw_grid`` — cycle 1's F-001, closed here.
+        """``png._draw_grid`` refuses a declared weight's device count.
 
-        ``_blank_page`` rules a book single-puzzle page's grid through
-        ``render_pages`` -> ``png._draw_grid``, and ``render_answer_page``
-        rules a packed answer tile through the same function; neither goes
-        through ``_stroke_drawing``. So this is the raster stroker that rules
-        the **dominant interior page kind**, and until this round it was the
-        unguarded one.
+        Two arms, which is what makes this a control rather than a comment:
 
-        Three arms, which is what makes this a control rather than a comment:
-
-        * **the real book page draws** — no false positive. The reason is
+        * **the real book layout draws** — no false positive. The reason is
           arithmetic rather than luck: a book cell line is stroked at
           ``thin``, which the 0.25 mm raster floor holds at 3 px or more
           while the 0.3 pt figure's count is 1, and a fifth line or border is
           stroked at ``thick`` = ``2 * thin``, even and 6 px or more, while
           their counts are the odd 3 and 5;
         * **the mutant AC-7 names reds** — every cell line taking the 0.3 pt
-          figure's own device count;
-        * **the frame door too**, since a frame continues the border and
-          carries the border's declared weight.
+          figure's own device count.
 
         The grid this page really carries is proof the first arm is live: the
         lines reaching the stroker do declare a ``width_pt``, so the guard is
@@ -1143,46 +1048,17 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
         with pytest.raises(ValueError, match="at least 2 device pixels"):
             png._draw_grid(ImageDraw.Draw(canvas), mutant)
 
-        frame = hero.layout.frame
-        assert frame is not None
-        png._draw_frame(ImageDraw.Draw(canvas), frame)
-        with pytest.raises(ValueError, match="declared physical"):
-            png._draw_frame(
-                ImageDraw.Draw(canvas),
-                replace(frame, width=_device_rule_px(BORDER_PT, DPI)),
-            )
-
     def test_an_answer_tile_carries_the_declared_weights_through_the_same_door(
         self,
     ) -> None:
-        """The second page kind ``png._draw_grid`` rules, and G-1's control.
+        """Every tile and slot builder carries the sheet's declared weights.
 
         ``_answer_tile``, ``_packed_tile_layout`` and ``_slot_layout`` each
         pass the sheet's ``grid_rules`` into ``_axis_lines`` separately, so an
         answer tile's, a packed solved slot's and a two-up slot's grid lines
-        all carry the declared weights — and an answer tile is ruled by
-        ``png._draw_grid``, the same function the single-puzzle page goes
-        through. Cycle 1's F-008 recorded that nothing asserted the plumbing;
-        this asserts it, and the refusal arm beside it is what keeps the
-        weights off the tile's bitmap.
-
-        The claim this test exists for is in the class docstring above — that
-        ``render_answer_page`` reaches the stroker as well — so it is held here
-        rather than left as a figure from a fix-round probe.
-
-        **Three arms because they are three pieces of plumbing**, not three
-        spellings of one: an ``AnswerTile`` carries no clue gutter and is
-        stroked by ``png._draw_grid``, while a packed solved slot and a two-up
-        slot are complete placed
-        :class:`~nonogram.export.layout.Layout` objects stroked by
-        ``_stroke_drawing``. **What was measured, and its reach:** in fix
-        round 1 each of the three ``rules=`` arguments was replaced by ``None``
-        one at a time. ``_packed_tile_layout``'s survived
-        ``test_book_grid_rules`` + ``test_book_puzzle_frame`` +
-        ``test_book_page_spec`` (209 passed) and ``_slot_layout``'s survived
-        the six two-up and solved files (215 passed) — those are the files
-        measured, not the whole 64-file radius. Each is now killed by this
-        cell and by no other in this file.
+        all carry them (cycle 1's F-008: nothing asserted the plumbing). The
+        answer tile is also shown refused by ``png._draw_grid`` at a declared
+        figure's device count.
         """
         spec = BookPDFGenerator(corpus_book())._puzzle_page_spec(A_PUZZLE_PAGE, None)
         assert spec.grid_rules == GRID_RULES
@@ -1209,7 +1085,7 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
             png._draw_grid(ImageDraw.Draw(canvas), mutant)
 
         # The packed solved page's own tile builder, which is separate
-        # plumbing and reaches the other raster stroker.
+        # plumbing.
         # A 10x10 slot, so the tile really carries all three tiers: the
         # fifth line at boundary 5 and the border at 0 and 10.
         ten = ((1,),) * 10
@@ -1223,10 +1099,6 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
             FIFTH_PT,
             BORDER_PT,
         }
-        _stroke_drawing(
-            ImageDraw.Draw(Image.new("RGB", (slot.width, slot.height), "white")),
-            slot,
-        )
 
         # And the two-up page's own slot builder, the third piece of plumbing.
         pair = compute_pair_layout((ten, ten), (ten, ten), spec)
@@ -1238,33 +1110,6 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
             FIFTH_PT,
             BORDER_PT,
         }
-
-    def test_the_frame_is_guarded_too_and_not_only_the_grids_lines(
-        self, hero: Drawn
-    ) -> None:
-        """The frame continues the border, so it is a grid rule and is guarded.
-
-        **This arm exists because the guard has two call sites and a mutant
-        that deleted only the second would otherwise survive.** The frame is
-        stroked after the lines, from its own width, so a raster page that
-        took the declared 1.3 pt figure for its frame while keeping the
-        proportional width for its lines would be half the refused
-        configuration and nothing above would see it.
-
-        The mutant: a frame whose device width is the border figure's own
-        device count (5 px for 1.3 pt at 300 DPI). The near-miss beside it:
-        the frame as COMP-007 really builds it, 6 px, which draws.
-        """
-        canvas = Image.new("RGB", (hero.layout.width, hero.layout.height), "white")
-        frame = hero.layout.frame
-        assert frame is not None and frame.width_pt == BORDER_PT
-        assert frame.width != rasterise_rule_px(BORDER_PT, DPI)
-
-        mutant = replace(
-            hero.layout, frame=replace(frame, width=rasterise_rule_px(BORDER_PT, DPI))
-        )
-        with pytest.raises(ValueError, match="declared physical"):
-            _stroke_drawing(ImageDraw.Draw(canvas), mutant)
 
     def test_a_raster_sheet_carries_no_declared_weights_at_all(self) -> None:
         """The default spec — the CLI's and the web UI's — states none.
@@ -1344,9 +1189,3 @@ def _strokes_by_axis(drawn: Drawn) -> tuple[list, list]:
     )
     return verticals, kept
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

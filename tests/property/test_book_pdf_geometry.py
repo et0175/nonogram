@@ -44,13 +44,12 @@ from __future__ import annotations
 import math
 import random
 
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
 from nonogram.admin.book_vector import ContentStream
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
-from tests.helpers.page_ink import drawing_of, frame_centre_of
+from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 
@@ -640,36 +639,21 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         usable_left = sheet.left_margin_mm(page_number) * PX_PER_MM
         usable_right = (sheet.left_margin_mm(page_number) + sheet.usable_width_mm) * PX_PER_MM
         usable_bottom = (sheet.height_mm - BOTTOM_MM) * PX_PER_MM
-        # CARD-336: the drawing's LEFT edge is a boundary, so it is read as
-        # one here too. It is a placed-edge claim whose bound is a literal
-        # pixel rather than this module's own ``HALF_PIXEL_MM``, which is why
-        # neither the card's census nor the derived population below sees it
-        # — and it is the site that reds once the top-edge site further down
-        # is closed, because the loop then reaches a case it never used to:
-        # measured, `drawing.left` 133 against a usable edge of 135.827, the
-        # mitred frame corner putting its ink 2.83 px outside the box the
-        # drawing is placed in. The boundary reading is 135.5, inside.
-        #
-        # ``grid_right``/``grid_bottom`` below stay on the ink deliberately:
-        # those are the GRID's own borders, not the frame's sides, and the
-        # frame-centre oracle reports no grid boundary (it reads the frame,
-        # which is what the two media disagree about by 3 px; CARD-330
-        # measured the grid's edges at 1 px, inside these bounds). What they
-        # claim is also genuinely about ink — that nothing the drawing prints
-        # lands outside the usable area.
-        boundary = frame_centre_of(puzzle_page, drawing)
-        assert boundary.frame_left >= usable_left - 1, (
-            sheet, boundary.frame_left, usable_left
-        )
+        # The drawing's left and top edges are boundaries, and on an unframed
+        # page (``BOOK_PUZZLE_FRAME`` is off since 2026-11-09) they are read
+        # where the grid's rules END: the horizontal rules start at the
+        # row-clue gutter's outer edge and the vertical ones at the
+        # column-clue gutter's, with butt caps, so ``drawing.left``/``.top``
+        # are those edges and not half a rule outside them.
+        # ``grid_right``/``grid_bottom`` stay on the ink deliberately: what
+        # they claim is that nothing the drawing prints lands outside the
+        # usable area.
+        assert drawing.left >= usable_left - 1, (sheet, drawing.left, usable_left)
         assert drawing.grid_right <= usable_right + 1, (sheet, drawing.grid_right)
         assert drawing.grid_bottom <= usable_bottom + 1, (sheet, drawing.grid_bottom)
-        # The top edge is a BOUNDARY (CARD-336), so it is read as one: the
-        # frame rule's centre, off the rule's own measured width, rather than
-        # its leading inked line — which sits half a rule above the boundary
-        # and by a different amount in each medium.
-        assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
+        assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
             3 * HALF_PIXEL_MM + 1e-9
-        ), (sheet, _mm(boundary.frame_top), tops_mm)
+        ), (sheet, _mm(drawing.top), tops_mm)
 
         # The grid is exactly as wide and as tall as its cells say it is.
         assert abs(_mm(drawing.grid_right - drawing.grid_left) - columns * expected_cell) < 0.2
@@ -756,18 +740,15 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
             # every page: the grid's left border starts there whether or not
             # the drawing fits (a trim too small for it anchors at the usable
             # area's left edge and overflows to the right, keeping this edge).
-            # CARD-336: read as the boundary it is — the frame rule's centre,
-            # off the rule's own measured width. Measurable on an overflowing
-            # page too: what runs off the trim is the drawing's far side, and
-            # the frame's left and top sides are on the page either way
-            # (measured on all 15 overflowing pages of this corpus).
+            # Read where the vertical rules start (butt caps on the
+            # column-clue gutter's outer edge), which is on the page even
+            # when the drawing's far side runs off the trim.
             tops_mm = sheet.drawing_top_mm(
                 across, down, book_cells[(columns, rows)]
             )
-            boundary = frame_centre_of(page, drawing)
-            assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
+            assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
-            ), (sheet, columns, rows, _mm(boundary.frame_top), tops_mm)
+            ), (sheet, columns, rows, _mm(drawing.top), tops_mm)
             windowed += len(tops_mm) > 1
             tops.add(drawing.top)
 
@@ -803,74 +784,33 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
 
 
 def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages() -> None:
-    """EC-032 (PDF half): on every page of the book's PDF the gutter margin is on the
-    binding side, the drawing is centred across that page's usable width, the odd
-    page's left edge minus the even page's is gutter - outside, and the top edge is
-    the same on both.
+    """EC-032 (PDF half): on every puzzle page of the book's PDF the gutter
+    margin is on the binding side, the drawing is centred across that page's
+    usable width, the odd page's left edge minus the even page's is
+    gutter - outside, and the top edge is the same on both.
 
-    One book of the same puzzle twice puts it on interior page 2 (left-hand) and
-    page 3 (right-hand), and — the two copies being of two levels, which no
-    answer page may mix (FR-040/INV-010 for the puzzle pages; the answer
-    section follows the same book order, CARD-198) — its two answer pages on
-    opposite parity too, so both parities are measured on both page kinds
-    with the drawing held constant.
-
-    **What is measured on an answer page, since CARD-198.** An answer page is
-    now a full-page drawing of its own puzzle — :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.solved_puzzle_page`
-    calls the very same :func:`~nonogram.export.layout.compute_layout` an
-    unsolved page at that position would — so EC-032's full statement (the
-    absolute left edge ``drawing_left_mm`` predicts, and the centring check)
-    is made on it exactly as on a puzzle page. The one thing still read
-    defensively is :attr:`Drawing.columns`/``.rows``: a revealed answer's
-    filled runs can be mistaken for rules (``tests/helpers/page_ink.py``'s own
-    caveat), so those two fields are asserted only on the blank puzzle pages,
-    never on an answer page — :attr:`Drawing.left`/``.top``/``.grid_bottom``/
-    ``.cell`` are safe on either kind and are what this test actually needs.
+    One book of the same puzzle three times (easy, medium, ungraded) puts its
+    medium and ungraded copies on consecutive interior pages, so both parities
+    are measured with the drawing held constant. The answers pack onto tiles
+    of their own geometry (every answer packs, owner decision 2026-11-09), so
+    this property is the puzzle pages'.
     """
     rng = random.Random(1160032)
     checked = 0
     mirrored = 0
     windowed = 0
-    for case in range(240):
-        # CARD-202 (SCOPE+): more cases than before, to keep at least 100
-        # genuinely checked even after skipping qualifying (packable)
-        # extents below — the corpus must not silently shrink. 240, up from
-        # 160, since the owner raised the packing limit (20 x 25, from
-        # 15 x 20) and about two in five random extents now pack.
+    for case in range(160):
         sheet = BOOK1 if case % 10 == 0 else _random_sheet(rng)
         puzzle = _puzzle(rng)
         columns, rows, across, down = _extent(puzzle)
         if sheet.page_fit_mm(across, down) < MIN_CELL_MM:
             continue
-        if columns <= PACKED_MAX_WIDTH and rows <= PACKED_MAX_HEIGHT:
-            # CARD-202: a puzzle this size qualifies for answer packing, even
-            # alone (one packed slot on its own 2-up page, not a full page),
-            # which measures at a different geometry (centred in its own
-            # tile, not the full usable width) — this property is about the
-            # full-page case, which packed small-answer tiles have their own
-            # dedicated coverage for instead (``tests/test_book_solved_answer_key.py``,
-            # ``tests/property/test_book_answer_tiles.py``).
-            continue
 
-        # The same drawing three times — easy, medium and ungraded — which is
-        # what this property needs now that each named level opens with a
-        # divider page (CARD-128). The interior runs the 2-page guide 1-2
-        # (CARD-201), then CARD-200's TOC (``toc_page_count`` pages, its own
-        # length depending on this book's trim/puzzle count), then the
-        # "Easy" divider, the easy copy, the "Medium" divider, the medium
-        # copy, the ungraded copy (an ungraded run has no name, so it opens
-        # no divider), SOLUTIONS, and one answer page per puzzle (CARD-198):
-        # easy, medium, ungraded in that order. Every one of those positions
-        # after the guide is shifted by ``toc_page_count``, so the "page 6"/
-        # "page 7"/etc. positions the pre-CARD-200 layout used are computed
-        # here instead of hard-coded.
-        #
-        # So the same drawing sits on interior pages ``medium_page`` and
-        # ``ungraded_page`` — **opposite** parity — and its answer on
-        # ``easy_answer_page`` and ``medium_answer_page``, also opposite
-        # parity. No two of the three ever share a page: no two of their
-        # tiers are equal (FR-040, INV-010), and an ungraded row never pairs
-        # at all.
+        # The interior runs the title page, the 2-page guide, the TOC
+        # (``toc_page_count`` pages), the "Easy" divider, the easy copy, the
+        # "Medium" divider, the medium copy, the ungraded copy (an ungraded
+        # run opens no divider), SOLUTIONS, and the three answers, each of a
+        # different level and so on a page of its own.
         book_rows = [
             dict(puzzle, difficulty_tier="easy", id="p-easy"),
             dict(puzzle, difficulty_tier="medium", id="p-medium"),
@@ -880,125 +820,67 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         toc_page_count = generator.section_plan(book_rows).toc_page_count
         pages = _interior(generator, book_rows)
         assert len(pages) == 12 + toc_page_count, (
-            "the blank title page, the 2-page guide, the TOC, two level "
-            "dividers, three puzzles, SOLUTIONS, three answers"
+            "the title page, the 2-page guide, the TOC, two level "
+            "dividers, three puzzles, SOLUTIONS, three answer pages"
         )
 
-        # Pre-CARD-200 positions 6, 7, 9, 10 (medium copy, ungraded copy,
-        # easy answer, medium answer), each shifted by the TOC's own length
-        # and by CARD-206's own blank title page.
         medium_page = 7 + toc_page_count
         ungraded_page = 8 + toc_page_count
-        easy_answer_page = 10 + toc_page_count
-        medium_answer_page = 11 + toc_page_count
-        page_numbers = (medium_page, ungraded_page, easy_answer_page, medium_answer_page)
+        page_numbers = (medium_page, ungraded_page)
 
-        # (interior page number, the page) for every page carrying the drawing,
-        # read twice: as the ink it puts down, and — CARD-336 — as the two
-        # boundaries that ink is centred on, which is what the millimetres
-        # below are a statement about.
+        # The drawing's left and top edges are read where the grid's rules
+        # start (butt caps on the clue gutters' outer edges): on an unframed
+        # page those are the boundaries the millimetres below state.
         by_number = {
             number: drawing_of(pages[number - 1]) for number in page_numbers
         }
-        boundary_by_number = {
-            number: frame_centre_of(pages[number - 1], by_number[number])
-            for number in page_numbers
-        }
-        # The approved solutions mockup: an answer page lays its drawing out
-        # under its running head's strip (:meth:`Sheet.answer_sheet`), so
-        # its predictions come from that sheet and a puzzle page's from the
-        # sheet itself.
-        answer_sheet = sheet.answer_sheet()
         for number in page_numbers:
-            boundary = boundary_by_number[number]
-            on = answer_sheet if number in (easy_answer_page, medium_answer_page) else sheet
-            expected_left = on.drawing_left_mm(number, across, down)
-            assert abs(_mm(boundary.frame_left) - expected_left) <= (
-                2 * HALF_PIXEL_MM + 1e-9
-            ), (sheet, number, _mm(boundary.frame_left), expected_left)
-            # The top edge is the 42% float every puzzle page uses — and,
-            # since CARD-198, every answer page too (the same compute_layout
-            # call, the same band). Parity does not enter it: the same figure
-            # is expected on all four pages, which is AC-276's own claim.
-            tops_mm = on.drawing_top_mm(across, down)
-            assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
-                3 * HALF_PIXEL_MM + 1e-9
-            ), (sheet, number, _mm(boundary.frame_top), tops_mm)
-            windowed += len(tops_mm) > 1
-
-        # ``columns``/``rows`` only on the two blank puzzle pages: an answer
-        # page's revealed cells are long runs of ink themselves, so its rules
-        # cannot be counted that way (``tests/helpers/page_ink.py``'s own
-        # caveat) — ``left``/``top``/``grid_bottom``/``cell``, read above and
-        # below, stay safe on either kind.
-        for number in (medium_page, ungraded_page):
             drawing = by_number[number]
+            expected_left = sheet.drawing_left_mm(number, across, down)
+            assert abs(_mm(drawing.left) - expected_left) <= (
+                2 * HALF_PIXEL_MM + 1e-9
+            ), (sheet, number, _mm(drawing.left), expected_left)
+            # The top edge is the 42% float; parity does not enter it.
+            tops_mm = sheet.drawing_top_mm(across, down)
+            assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
+                3 * HALF_PIXEL_MM + 1e-9
+            ), (sheet, number, _mm(drawing.top), tops_mm)
+            windowed += len(tops_mm) > 1
             assert (drawing.columns, drawing.rows) == (columns, rows)
 
         # Centred (CARD-224): the white the drawing leaves splits evenly
-        # across its two sides, on both parities. (The drawing runs ``across``
-        # cells from its left edge — a cell being the rule-to-rule pitch the
-        # grid itself shows.) ``.cell`` is derived from ``.columns``
-        # (page_ink.py's own caveat: unsafe on a revealed answer page), so
-        # this second, ink-based check stays on the two blank puzzle pages
-        # only — the exact-left check just above already proves the same thing
-        # on the answer pages, since ``sheet.drawing_left_mm`` is itself
-        # derived from this rule.
+        # across its two sides, on both parities.
         if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
             spare = sheet.usable_width_mm - across * sheet.cell_mm(across, down)
-            for number in (medium_page, ungraded_page):
-                # CARD-336: the spare is the white between the margin and the
-                # drawing's own BOUNDARY, so the boundary reading is what the
-                # subtraction wants — half a rule of frame ink falls outside
-                # it by design (``PuzzleFrame``'s own docstring).
-                left_spare = (
-                    _mm(boundary_by_number[number].frame_left)
-                    - sheet.left_margin_mm(number)
-                )
+            for number in page_numbers:
+                left_spare = _mm(by_number[number].left) - sheet.left_margin_mm(number)
                 right_spare = spare - left_spare
                 assert abs(left_spare - right_spare) <= 4 * HALF_PIXEL_MM + 1e-9, (
                     sheet, number, left_spare, right_spare
                 )
 
-        # EC-032's own sentence, restored by CARD-224: the odd page's copy
-        # sits gutter − outside further right than the even page's — the
-        # drawing's left edge shifted by a cell-independent constant, the
-        # spare's two equal halves cancelling out of the subtraction. (Under
-        # CARD-204's flush anchor this was false of the drawing itself and the
-        # check was made on the gutter-side slack instead.) This is the
-        # PDF-rendered-pixels half of the same check
-        # ``test_book_layout.py``'s layout-level property makes; ``mirrored``
-        # below counts the sheets on which the two margins really differ, so
-        # the claim is not proved on an identity (the registry's own note on
-        # EC-032: on Book 1 as amended, gutter == outside).
-        #
-        # Which of each consecutive pair is actually odd/even depends on
-        # ``toc_page_count``'s own parity (CARD-200 flips it when that count
-        # is odd), so the odd one is picked by its real page number rather
-        # than assumed to be the page that would have been odd pre-CARD-200.
-        for page_a, page_b in ((medium_page, ungraded_page), (easy_answer_page, medium_answer_page)):
-            odd_page, even_page = (page_a, page_b) if page_a % 2 else (page_b, page_a)
-            difference = _mm(by_number[odd_page].left) - _mm(by_number[even_page].left)
-            assert abs(difference - (sheet.gutter_mm - sheet.outside_mm)) <= (
-                4 * HALF_PIXEL_MM + 1e-9
-            ), (sheet, difference, sheet.gutter_mm - sheet.outside_mm)
+        # EC-032's own sentence: the odd page's copy sits gutter - outside
+        # further right than the even page's. ``mirrored`` counts the sheets
+        # on which the two margins really differ, so the claim is not proved
+        # on an identity. Which of the pair is odd depends on
+        # ``toc_page_count``'s parity, so it is picked by its real number.
+        odd_page, even_page = (
+            (medium_page, ungraded_page) if medium_page % 2 else (ungraded_page, medium_page)
+        )
+        difference = _mm(by_number[odd_page].left) - _mm(by_number[even_page].left)
+        assert abs(difference - (sheet.gutter_mm - sheet.outside_mm)) <= (
+            4 * HALF_PIXEL_MM + 1e-9
+        ), (sheet, difference, sheet.gutter_mm - sheet.outside_mm)
         if abs(sheet.gutter_mm - sheet.outside_mm) > 1.0:
             mirrored += 1
 
-        # Parity moves the drawing sideways only — on the two puzzle pages,
-        # which are the same page but for their side of the spread, and on
-        # the two answer pages, which are the same puzzle's own full solved
-        # page (CARD-198) drawn twice, so both pairs move alike.
+        # Parity moves the drawing sideways only.
         assert by_number[medium_page].top == by_number[ungraded_page].top, (
             sheet, by_number[medium_page].top
-        )
-        assert by_number[easy_answer_page].top == by_number[medium_answer_page].top, (
-            sheet, by_number[easy_answer_page].top
         )
         assert by_number[medium_page].grid_bottom == by_number[ungraded_page].grid_bottom
         assert abs(by_number[medium_page].cell - by_number[ungraded_page].cell) <= 1
 
-        # Every one of those pages is the same trim.
         # Every one of those pages is the same trim: one emitted page box
         # (the bitmaps' own pixels count as their box), where the RENDERED
         # sizes may differ by poppler's outward pixel (see _RenderedInterior).
@@ -1012,8 +894,9 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
     # The mirroring half of the claim is not an identity on this corpus.
     assert mirrored >= 50, mirrored
     # The clearance window (Sheet.drawing_top_mm) is a declared uncertainty,
-    # not the corpus: it may not cover a tenth of the cases checked.
-    assert windowed * 10 <= checked * 4, (windowed, checked)
+    # not the corpus: it may not cover a tenth of the pages checked (two per
+    # case).
+    assert windowed * 10 <= checked * 2, (windowed, checked)
 
 
 def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages() -> None:
@@ -1116,24 +999,14 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
         if len(drawings) == 2:
             # A two-up page's upper slot starts one rule gap below the band's
             # own foot (the gap derived from the pair's slack, not read back).
-            #
-            # **CARD-322 (owner ruling 2026-11-06, one reading on the one
-            # remaining medium) re-expressed the cell CARD-336 left on the ink
-            # reading.** This site's bound is ONE ``HALF_PIXEL_MM`` -- half a
-            # device pixel -- and is NOT widened (G-3b). The frame rule inks
-            # SIX pixel lines, so the first inked line is half a rule outside
-            # the stroke's path in operators (CARD-336's measured table: ink
-            # 5.46x the bound, boundary 0.46x over this corpus's 7 two-up
-            # pages); the interior has one medium now, and the claim is the
-            # one reading it always had: the frame BOUNDARY (the centre of
-            # the frame's top rule, ``frame_centre_of``) lies within half a
-            # pixel of the band's foot plus the two-up rule gap (a whole
-            # number of pixels, so the half-pixel bound is unchanged). Its
-            # control is below the loop: the same page moved one pixel is
-            # read again and leaves the bound.
+            # The bound is ONE ``HALF_PIXEL_MM`` and is not widened (G-3b).
+            # The top boundary is read where the slot's vertical rules start
+            # (butt caps on the column-clue gutter's outer edge; no clue frame
+            # since 2026-11-09). Its control is below the loop: the same page
+            # moved one pixel is read again and leaves the bound.
             gap_mm = _two_up_rule_gap_mm(sheet, first_extent, _extent(puzzles[index + 1]))
             expected_top_mm = band_foot_mm + gap_mm
-            boundary_top_px = frame_centre_of(page, drawings[0]).frame_top
+            boundary_top_px = drawings[0].top
             boundary_top_mm = _mm(boundary_top_px)
             assert abs(boundary_top_mm - expected_top_mm) <= HALF_PIXEL_MM + 1e-9, (
                 page_number, boundary_top_mm, expected_top_mm
@@ -1148,12 +1021,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
             # A single page's drawing floats at 42% of the puzzle area's spare.
             _, _, across, down = first_extent
             (expected_top_mm,) = sheet.drawing_top_mm(across, down)
-            # CARD-336: the boundary, read off the frame rule's own width.
-            # This site's bound is three half pixels, which admits the half
-            # pixel an even-width rule's centre carries — unlike the two-up
-            # site above, whose bound is one and whose figures are recorded
-            # there.
-            single_top_mm = _mm(frame_centre_of(page, drawings[0]).frame_top)
+            single_top_mm = _mm(drawings[0].top)
             assert abs(single_top_mm - expected_top_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
             ), (page_number, single_top_mm, expected_top_mm)
@@ -1187,17 +1055,11 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
 
     sample_page, sample_foot_px = sample
     moved = ImageChops.offset(sample_page, 0, 1)
-    moved_px = frame_centre_of(moved, drawings_of(moved)[0]).frame_top
+    moved_px = drawings_of(moved)[0].top
     assert abs(moved_px - sample_foot_px) > 0.5, (
-        "a one-pixel shift of the drawn frame is invisible to this cell"
+        "a one-pixel shift of the drawing is invisible to this cell"
     )
     # Both page make-ups are really in the corpus.
     assert two_up >= 5, two_up
     assert single >= 5, single
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()
