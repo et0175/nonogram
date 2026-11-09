@@ -748,6 +748,18 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_the_pure_floor_and_its_steps": (
+        "CARD-406", "AC-1/AC-2: fitZoom and the steps/pinch at a floor below 100",
+    ),
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_fit_shows_the_whole_board_and_says_so[chromium-390-844]": (
+        "CARD-406", "AC-3/AC-4 (owner option A 2026-11-07): Fit on a phone, the readout toggle",
+    ),
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_fit_shows_the_whole_board_and_says_so[chromium-844-390]": (
+        "CARD-406", "AC-3 on a landscape phone; the one control (no overshoot loop reds it)",
+    ),
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_a_board_that_fits_at_100_has_no_fit": (
+        "CARD-406", "AC-4: Fit = 100 means no step below 100",
+    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_ClueStripsStopGrowing::"
     "test_capped_strips_and_exact_alignment": (
         "CARD-404",

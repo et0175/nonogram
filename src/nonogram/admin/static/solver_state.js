@@ -1031,9 +1031,30 @@ export const ZOOM_MIN = 100;
 export const ZOOM_MAX = 300;
 export const ZOOM_STEP = 25;
 
-// `value` folded into [ZOOM_MIN, ZOOM_MAX].
-export function clampZoom(value) {
-  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+// Fit (CARD-406, owner findings 2026-11-07, option A of 2026-11-07): the
+// range's floor is no longer a constant. `floor` is the percent at which the
+// whole board fits its stage (fitZoom below), ZOOM_MIN when it already fits
+// at 100%; every function here takes it as a last argument defaulting to
+// ZOOM_MIN, so the CARD-195 range (100..300) is the floor = 100 case,
+// unchanged to the value.
+
+// `value` folded into [floor, ZOOM_MAX].
+export function clampZoom(value, floor = ZOOM_MIN) {
+  return Math.min(ZOOM_MAX, Math.max(floor, value));
+}
+
+// The Fit floor: the largest whole percent at which a board measuring
+// `boardWidth` x `boardHeight` at 100% (clue strips included) fits a stage of
+// `stageWidth` x `stageHeight`, or ZOOM_MIN when it already fits at 100% —
+// Fit is only ever a step DOWN. Sizes must be positive; anything else is a
+// RangeError (a stage of no size has no fit to offer).
+export function fitZoom(boardWidth, boardHeight, stageWidth, stageHeight) {
+  for (const value of [boardWidth, boardHeight, stageWidth, stageHeight]) {
+    if (!(value > 0)) throw new RangeError(`fitZoom needs positive sizes, not ${value}`);
+  }
+  const scale = Math.min(stageWidth / boardWidth, stageHeight / boardHeight);
+  if (scale >= 1) return ZOOM_MIN;
+  return Math.max(1, Math.floor(scale * ZOOM_MIN));
 }
 
 // The zoom one button press moves to: the next multiple of ZOOM_STEP from
@@ -1044,15 +1065,20 @@ export function clampZoom(value) {
 // below it; a tiny (1e-6) tolerance treats a value already practically on a
 // multiple as exactly there, so floating-point noise never skips a whole
 // step. `direction` other than "in"/"out" is refused with RangeError.
-export function stepZoom(current, direction) {
+// Below ZOOM_MIN there are no 25-point steps (CARD-406): "out" from 100% (or
+// anywhere under it) goes straight to `floor`, and "in" from under 100% goes
+// straight to 100%.
+export function stepZoom(current, direction, floor = ZOOM_MIN) {
   if (direction !== "in" && direction !== "out") {
     throw new RangeError(`"${direction}" is not a zoom direction ("in" or "out")`);
   }
+  if (direction === "in" && current < ZOOM_MIN - 1e-6) return ZOOM_MIN;
   const steps = current / ZOOM_STEP;
   const next = direction === "in"
     ? (Math.floor(steps + 1e-6) + 1) * ZOOM_STEP
     : (Math.ceil(steps - 1e-6) - 1) * ZOOM_STEP;
-  return clampZoom(next);
+  if (direction === "out" && next < ZOOM_MIN) return clampZoom(floor, floor);
+  return clampZoom(next, floor);
 }
 
 // Pinch zoom rule (c): `startZoom` scaled by how much farther apart the
@@ -1060,11 +1086,11 @@ export function stepZoom(current, direction) {
 // `startDistance` that is not a positive number is refused with RangeError
 // (a pinch's two starting points can never coincide in solver.js, but this
 // stays a guarded boundary rather than dividing by zero or a negative).
-export function pinchZoom(startZoom, startDistance, currentDistance) {
+export function pinchZoom(startZoom, startDistance, currentDistance, floor = ZOOM_MIN) {
   if (!(startDistance > 0)) {
     throw new RangeError(`pinchZoom needs a positive starting distance, not ${startDistance}`);
   }
-  return clampZoom(startZoom * (currentDistance / startDistance));
+  return clampZoom(startZoom * (currentDistance / startDistance), floor);
 }
 
 // The "keep the view" formula (target behaviour #5), one axis at a time:
