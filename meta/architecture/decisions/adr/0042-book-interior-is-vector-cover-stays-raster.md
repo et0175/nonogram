@@ -964,11 +964,11 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # 1.3 pt (5.4167 px at 300 DPI): poppler inks that stroke as six lines, so
   # the width read off the page is 6 and the half rule is 2.5 px, not 2.71.
   # Second, `frame_centre_of` is NOT a content-stream reader and does not join
-  # `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`'s derived set:
+  # `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium (retired 2026-11-09 with the raster interior)`'s derived set:
   # that set is derived over `tests/helpers/pdf_vector.py` and
   # `tests/helpers/pdf_pages.py` only, and `page_ink.py` is neither — which is
   # right, because the new reading reaches no engine, and
-  # `TestEdgeOffset_ThePixelOraclesStillReadPixels` is the guard that holds it
+  # `TestEdgeOffset_ThePixelOraclesStillReadPixels` (retired 2026-11-09) was the guard that holds it
   # to that (measured: a plant importing `pdf_vector` into `page_ink.py` reds
   # that class and leaves the placed-edge pin green, so the two guards divide
   # the work rather than overlap). A third fact CARD-336 measured about

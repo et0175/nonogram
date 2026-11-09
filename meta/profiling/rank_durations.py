@@ -95,7 +95,6 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/property/test_book_order.py",
     "tests/property/test_book_pairing.py",
     "tests/property/test_book_pdf_geometry.py",
-    "tests/test_admin_tier_surfaces.py",
     "tests/test_book_answer_key.py",
     # RESTATED 2026-10-19 (CARD-225). tests/test_book_cell_size.py reads the
     # book-wide cell off the RENDERED INK (page_ink / two_up_ink), so it walks
@@ -236,9 +235,7 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # so no share computed from either artefact moves either way.
     "tests/test_book_puzzle_page_vector.py",
     "tests/test_book_qr_slot.py",
-    "tests/test_book_scaffolding.py",
     "tests/test_book_solved_answer_key.py",
-    "tests/test_book_solved_page.py",
     # MEMBERSHIP UNCHANGED, COST NO LONGER WHAT THIS ENTRY IMPLIES (CARD-219,
     # 2026-10-24) -- the same caveat this file already records for CARD-251
     # below, now with a measured figure. CARD-219 converted seven positional

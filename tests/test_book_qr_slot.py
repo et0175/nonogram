@@ -118,6 +118,17 @@ def _spec(
     )
 
 
+#: A gutter and an outside margin that **differ**, so mirroring is visible
+#: (imported by ``tests/test_book_puzzle_frame.py``).
+UNEQUAL_GUTTER_MM = 19.0
+UNEQUAL_OUTSIDE_MM = 7.0
+
+
+def _unequal_spec(parity: PageParity) -> PageSpec:
+    """Book 1's trim with a gutter and an outside margin that **differ**."""
+    return _spec(parity=parity, gutter_mm=UNEQUAL_GUTTER_MM, outside_mm=UNEQUAL_OUTSIDE_MM)
+
+
 def _grid(columns: int, rows: int, row_depth: int, column_depth: int) -> List[List[bool]]:
     """A grid whose row clues are ``row_depth`` deep and columns ``column_depth``."""
     if 2 * row_depth - 1 > columns or 2 * column_depth - 1 > rows:

@@ -3008,18 +3008,10 @@ class TestWritePdf_TheMediumIsChosenInOnePlace:
         a medium. Enumerated by AST rather than asserted in prose, because
         "the writer decides nothing" is exactly the claim a later edit breaks.
 
-        **``produce``'s figure moved from 1 to 5 in CARD-309, and the number
-        is re-derived rather than carried.** The interior's page walk asks the
-        decider once per page *kind* it can draw two ways — TITLE (CARD-298),
-        then GUIDE, TOC, PUZZLE and ANSWER (CARD-309) — so the tally is the
-        count of gated kinds and not a count of pages, and it grows only when
-        a kind acquires a second medium. DIVIDER has no gate: it has no vector
-        writer, so lifting its declaration is refused by ``_write_pdf``'s
-        representation check rather than branched on here. What this assertion
-        still holds is the load-bearing half: ``produce`` *asks* and never
-        decides (a ``PageMedium`` member outside the decider is a finding
-        unless it is a comparison operand — :meth:`findings` above), and
-        ``_write_pdf`` asks exactly once.
+        Since the raster interior writers were deleted (2026-11-09) the page
+        walk draws every kind in its one medium and asks nothing, and the
+        pre-walk title check no longer gates on the answer's medium: the
+        writer is the one asker left.
         """
         source = self.MODULE.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -3034,16 +3026,7 @@ class TestWritePdf_TheMediumIsChosenInOnePlace:
                 enclosing = owner[id(node)]
                 name = "module level" if enclosing is None else enclosing.name
                 callers[name] = callers.get(name, 0) + 1
-        # CARD-383: the pre-walk title check is gated on the ANSWER kind's
-        # medium and asks the decider once, from its own definition. It asks
-        # and never decides (it compares the answer to ``PageMedium.VECTOR``,
-        # a comparison operand :meth:`findings` allows), so the load-bearing
-        # half of this test is unchanged; only the tally of askers grew.
-        assert callers == {
-            "_write_pdf": 1,
-            "produce": 5,
-            "_refuse_unsettable_titles": 1,
-        }, callers
+        assert callers == {"_write_pdf": 1}, callers
 
     #: Four plants, each a shape that decides a medium outside the decider.
     #: **Three of the four are not the shape the obvious guard catches** — a

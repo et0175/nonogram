@@ -2527,24 +2527,13 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
         passing on a failure that happened too early to matter) and that the
         caller got an exception rather than a truncated PDF.
 
-        ``solved_puzzle_page`` (CARD-197) drew every answer page until
-        CARD-202: it still draws a large (unpacked) answer's full page, but
-        the baseline book's first answer page is now a packed one
-        (``_packed_answer_page``, CARD-202), so both are forced to fail here
-        — whichever one the walk reaches first still fails cleanly, and the
-        baseline book's own packing shape (``tests/helpers/book_corpus.py``)
-        still puts that first failure at the same twelfth page either way
-        (CARD-200: up from the tenth — the table of contents' own one page,
-        ahead of the puzzle section, shifts every later page by one;
-        CARD-206: up from the eleventh, the blank title page's own one page,
-        ahead of all of it).
+        Both answer writers (full and packed) are forced to fail, so the
+        first answer page, the twelfth, is where the walk stops.
         """
         written: List[int] = []
         handed: List[Any] = []
         write_page = BookPDFGenerator._write_page
         write_pdf = BookPDFGenerator._write_pdf
-        solved_puzzle_page = BookPDFGenerator.solved_puzzle_page
-        packed_answer_page = BookPDFGenerator._packed_answer_page
 
         def counting(self, *args, **kwargs):
             written.append(1)
@@ -2567,24 +2556,17 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             raise ValueError("this answer will not draw")
 
         generator = BookPDFGenerator(corpus_book())
-        # The answer section is drawn by the raster methods in one medium and
-        # by an injected writer in the other; the failure is forced at BOTH,
-        # so whichever the walk reaches first still fails cleanly.
         generator.pages = replace(
             generator.pages, answer=refuses, packed_answer=refuses
         )
         BookPDFGenerator._write_page = counting
         BookPDFGenerator._write_pdf = handing_over
-        BookPDFGenerator.solved_puzzle_page = refuses
-        BookPDFGenerator._packed_answer_page = refuses
         try:
             with pytest.raises(RuntimeError) as raised:
                 export_of(generator, baseline_puzzles())
         finally:
             BookPDFGenerator._write_page = write_page
             BookPDFGenerator._write_pdf = write_pdf
-            BookPDFGenerator.solved_puzzle_page = solved_puzzle_page
-            BookPDFGenerator._packed_answer_page = packed_answer_page
 
         assert "could not be drawn" in str(raised.value)
         # The blank title page (CARD-206), the 2-page guide (CARD-201), the

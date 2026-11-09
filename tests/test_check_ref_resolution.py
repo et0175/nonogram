@@ -1553,7 +1553,8 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # declared in their place, +4 for the classes AC-414..AC-417 name for the
 # guide's Play online sentence (FR-047): 584 - 3 - 3 + 3 + 4 = 585.
 # Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only.
-CENSUS = (585, "a72e0d9eec99f15e")
+# 2026-11-09: same count; the AC-269 trace ref retargeted (PDF test curation).
+CENSUS = (585, "6c39aa72017826c8")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1600,7 +1601,8 @@ CENSUS = (585, "a72e0d9eec99f15e")
 # FR-047's trace.yml row (the one declaration site for each: the criteria
 # repeat two of them, which this list does not count twice).
 # Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
-TRACE_TESTS = (514, "c520c7164a2932cb")
+# 2026-11-09: same count; AC-269 retargeted to the packed-page custom title test.
+TRACE_TESTS = (514, "11576827c231d1c7")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1709,7 +1711,9 @@ TRACE_TESTS = (514, "c520c7164a2932cb")
 # dpi and leading raster classes); each is a class line under tests/, not a
 # review report or a profiling artefact.
 # Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
-DEFINED = (424, "848cd95cd1d9f292")
+# 2026-11-09: same count; AC-269 and ADR-0036/R3 retargeted from tests the PDF
+# curation deleted to their surviving equivalents.
+DEFINED = (424, "49bf5cef85772c29")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

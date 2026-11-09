@@ -52,7 +52,6 @@ from typing import Dict, List, Tuple
 import pytest
 
 from nonogram.admin import book_guide_vector as guide_vector
-from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_guide_vector import (
     BODY_TEXT,
     CLUE_DIGIT,
@@ -413,8 +412,7 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
     #:
     #: * ``"not ink"`` — a count or the sheet's metadata: it is neither a
     #:   coordinate, a stroke weight, nor a placed number, so no second grid
-    #:   can be drawn out of it. Held by
-    #:   :meth:`test_every_name_the_raster_grid_routines_read_is_guarded`.
+    #:   can be drawn out of it.
     #: * ``"shared name"`` — a name the guard cannot attribute, because objects
     #:   in *this* module carry it too and the walk matches attribute names.
     #:   Guarding ``width`` would report a ``PageFrame``'s width and a
@@ -666,9 +664,8 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
 
         **This assertion is also what pins six of the sixteen guarded names**,
         and that was not understood when it was written. Review cycle 2
-        measured that
-        :meth:`test_every_name_the_raster_grid_routines_read_is_guarded` and
-        :attr:`ROLES` pin the *same ten* names, so ``cell``, ``margin``,
+        measured that the raster routines' own reads (a test retired with
+        them on 2026-11-09) and :attr:`ROLES` pin the *same ten* names, so ``cell``, ``margin``,
         ``grid_left``, ``grid_lines``, ``row_clues`` and ``column_clues`` — all
         four of cycle 1's synonyms among them — were in
         :attr:`GRID_ATTRIBUTES` only because :attr:`ALLOWED`, a hand-written
@@ -735,55 +732,6 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
         ]
 
         assert unguarded == [], unguarded
-
-    def test_every_name_the_raster_grid_routines_read_is_guarded(self):
-        """The derivation claim, as an assertion instead of a sentence.
-
-        The shape of the thing being guarded is what the raster routines this
-        module replaces read off a ``Layout``:
-        ``book_pdf_generator._stroke_drawing``, ``_write_clues`` and
-        ``draw_example_line``. Every one of those names must be in
-        :attr:`GRID_ATTRIBUTES`, so :attr:`ALLOWED` cannot take one of them to
-        stay green — which is exactly what the previous hand-written set did
-        with ``frame``, ``thick_rule`` and ``thin_rule``.
-
-        **It pins ten of the sixteen, not all of them** (review cycle 2): the
-        three raster routines read ten names between them, which is also the
-        ten :attr:`ROLES` covers, so ``cell``, ``margin``, ``grid_left``,
-        ``grid_lines``, ``row_clues`` and ``column_clues`` are not pinned
-        here. What pins those six is
-        :meth:`test_a_layout_is_never_read_for_a_name_the_guard_lets_through`,
-        whose docstring says so and whose two escapes were closed for this
-        reason.
-
-        **One exception, named and reasoned**: ``draw_example_line`` reads
-        ``layout.width`` — the width of the full-page canvas it draws into
-        *before cropping*. This medium has nothing to crop and never needs it
-        (:func:`~nonogram.admin.book_guide_vector.diagram_box` is the crop), and
-        ``width`` is a ``"shared name"`` the walk cannot attribute, so it is
-        allowed here and refused on a ``Layout`` receiver by
-        :meth:`test_a_layout_is_never_read_for_a_name_the_guard_lets_through`.
-        """
-        raster = ast.parse(
-            Path(book_pdf_generator.__file__).read_text(encoding="utf-8")
-        )
-        universe = self.GRID_ATTRIBUTES | frozenset(self.ALLOWED)
-        read: set = set()
-        for node in ast.walk(raster):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if node.name not in ("_stroke_drawing", "_write_clues", "draw_example_line"):
-                continue
-            read |= {
-                child.attr
-                for child in ast.walk(node)
-                if isinstance(child, ast.Attribute) and child.attr in universe
-            }
-
-        assert read, "the raster routines were not found: this derivation is vacuous"
-        assert read - self.GRID_ATTRIBUTES == {"width"}, sorted(
-            read - self.GRID_ATTRIBUTES
-        )
 
     def test_a_rebound_or_getattr_layout_is_held_to_the_same_rule(self):
         """The receiver rule's two closed escapes, each on fabricated source.

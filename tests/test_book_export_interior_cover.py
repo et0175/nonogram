@@ -3727,7 +3727,10 @@ class Generator:
     #: ``page_number`` parameter (default 1) of ``vector_title_contents``,
     #: the title / copyright page that replaces the blank page 1. No row
     #: removed. Read off this test's own failure listing.
-    POSITION_SITE_COUNT = 40
+    #: The raster interior writers' deletion (owner, 2026-11-09): 38 -- **-2**,
+    #: the ``page_number`` defaults of the deleted ``create_guide_page`` and
+    #: ``create_title_page``. Nothing added.
+    POSITION_SITE_COUNT = 38
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -4360,10 +4363,16 @@ class Generator:
         # (raster, PIL ``draw.*`` calls), the guide's join line in
         # ``draw_example_line`` and the dividers' puzzle ranges in the walk.
         # Read off this test's own measurement.
-        ((), 950),
-        (("builtins",), 656),
-        (("builtins", "definitions and imports"), 245),
-        (("builtins", "definitions and imports", "parameters"), 242),
+        #
+        # **The raster interior writers' deletion (owner, 2026-11-09)
+        # re-measured it a thirteenth time: -270 refusals** (950 -> 680,
+        # 656 -> 441, 245 -> 160, 242 -> 159, last two still 0): the 19
+        # deleted writers and the bitmap arms of ``produce`` took their PIL
+        # calls and helpers with them. Read off this test's own measurement.
+        ((), 680),
+        (("builtins",), 441),
+        (("builtins", "definitions and imports"), 160),
+        (("builtins", "definitions and imports", "parameters"), 159),
         (
             (
                 "builtins",
@@ -6332,7 +6341,9 @@ class Generator:
         # ``vector_title_contents`` (the title / copyright page) and in
         # ``create_level_divider`` (the restyled level divider). Same door,
         # definition count still one.
-        assert inside == 28, inside
+        # The raster interior writers' deletion (owner, 2026-11-09): 21, the
+        # seven door calls inside the deleted writers gone with them.
+        assert inside == 21, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "
@@ -6826,9 +6837,11 @@ class TestDoorAxis_TheNextIndirectionIsNotSilentEither:
                     if owner.get(node) is not holder:
                         nested.add(node.name)
 
-        assert len(nested) >= 9, (
-            "the walk finds fewer than the nine nested definitions measured "
-            f"inside this module's classes on 2026-10-25, so this control "
+        # Four since the raster guide writer, which held five of the nine
+        # measured on 2026-10-25, was deleted on 2026-11-09.
+        assert len(nested) >= 4, (
+            "the walk finds fewer than the four nested definitions measured "
+            f"inside this module's classes on 2026-11-09, so this control "
             f"would pass vacuously: {sorted(nested)}"
         )
 

@@ -1127,15 +1127,9 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
           ``TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt::test_the_caption_is_right_aligned_on_the_slot_comp_007_reports``
           and
           ``TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted::test_the_title_prints_only_on_answer_pages_across_a_corpus``
-          both **red** when ``book_answer_vector.draw_answer_caption`` never
-          sets its text. **Raster medium** (the still-live
-          ``BookPDFGenerator._packed_answer_page``, which no conversion
-          retires): ``TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording::test_caption_reads_answer_caption_when_there_is_room``
-          **reds** when ``_draw_solved_slot``'s ``draw.text`` is dropped, and
-          reds under *neither* vector plant. The first draft's other citation,
-          ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted::test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``,
-          is **corroboration only**: its ``(band < 128).any()`` is satisfied
-          by any ink in the slack strip and stays green under both plants.
+          both **red** when the answer writer never sets the caption's text.
+          The raster answer writers and their caption tests were deleted on
+          2026-11-09; the vector stream is the only medium.
 
         Every class name above was resolved with :mod:`ast` against the
         enclosing ``ClassDef``, not read off the file the method sits in:
@@ -2949,7 +2943,9 @@ class TestInteriorType_EveryCitedSurvivorStillExists:
             if definitions_of(cls, method, _TESTS_ROOT)
         }
 
-        assert len(tokens) >= 11, tokens
+        # Ten since the raster answer-caption citation went with its writer
+        # (2026-11-09).
+        assert len(tokens) >= 10, tokens
         assert len(files) >= 4, sorted(files)
 
     def test_the_guard_reds_by_name_on_a_renamed_citation_and_not_on_its_control(self):
