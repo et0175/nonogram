@@ -14,11 +14,6 @@
     AC-276  TestBookPdf_ParityNeverMovesTopEdge
     AC-287  TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1
             (re-measured 2026-10-17 for CARD-206: interior page 6, left-hand)
-    CARD-330's own four classes carry no AC of this card's: TestEdgeOffset_*,
-            which measure where the raster and the vector media put the same
-            grid against a position derived from the page spec, and pin this
-            module's placed-edge expectations to the medium they were measured
-            in. See :data:`EDGE_TOLERANCE_MM`.
 
 Since CARD-128 the interior opens each non-empty level with a divider page,
 since CARD-200 a table-of-contents page (or pages) sits between the guide and
@@ -69,7 +64,6 @@ import copy
 import pathlib
 import random
 import re
-from dataclasses import dataclass
 from importlib import resources
 
 import numpy as np
@@ -98,7 +92,7 @@ from nonogram.export.layout import DEFAULT_PAGE_SPEC
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests import full_suite_lock
 from tests.helpers import pdf_vector
-from tests.helpers.page_ink import drawing_of, frame_centre_of, pdf_page_boxes
+from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import (
     PageMediumRefused,
     _derived_dpi,
@@ -131,19 +125,8 @@ SIX_BY_NINE_MM = (6 * 25.4, 9 * 25.4)
 #: Device pixels per millimetre at the 300 DPI every page is drawn at.
 PX_PER_MM = 300 / 25.4
 
-#: Tolerances the ACs state: the cell to 0.05 mm, a placed edge to 0.1 mm.
-#:
-#: **Every placed-edge expectation in this module is the RASTER interior's,
-#: measured on Pillow's bitmap at 300 DPI through
-#: ``page_ink.drawing_of``** — which reads a rule's first inked pixel line, so
-#: it sits half a rule outside the boundary the page spec states (CARD-330:
-#: 2 px for the 6 px border, 1 px for the 3 px cell line). The expectations are
-#: pinned to that medium rather than re-tuned for both, because the interior is
-#: going vector and **CARD-322's conversion retires them**; the pin is derived
-#: rather than declared, by
-#: :class:`TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`. The bound
-#: itself is NOT widened and the reason is measured — see
-#: :data:`EDGE_TOLERANCE_EXEMPTIONS`, which is empty.
+#: Tolerances the ACs state: the cell to 0.05 mm, a placed edge to 0.1 mm,
+#: read off the poppler raster of each operators page at 300 DPI.
 CELL_TOLERANCE_MM = 0.05
 EDGE_TOLERANCE_MM = 0.1
 
@@ -329,13 +312,11 @@ def _interior(book: Book, puzzles: list[dict]) -> list:
 def _frame_left(page) -> float:
     """The drawing's LEFT BOUNDARY on ``page``, in device pixels.
 
-    The centre of the frame's left rule (``frame_centre_of``), not
-    ``Drawing.left``, which is the leading INK edge: half a rule off the
-    coordinate in one medium and 2.5 px in the other (CARD-336's measured
-    table in ``FrameCentre``). A claim about where the drawing is placed is a
-    claim about the boundary, in the one medium the interior now has.
+    The drawing's first inked column (``Drawing.left``): with no clue frame
+    (owner, 2026-11-09) the drawing opens with the row clues' filled tint,
+    whose edge is the boundary itself, so no rule straddles it.
     """
-    return frame_centre_of(page, drawing_of(page)).frame_left
+    return drawing_of(page).left
 
 
 # --------------------------------------------------------------------------
@@ -978,18 +959,25 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         assert abs(left_mm - left_hand) < EDGE_TOLERANCE_MM
 
     def test_the_divider_did_not_take_the_puzzle_pages_place(self):
-        """Interior page 5 is the level divider, and carries no drawing at all.
+        """Interior page 5 is the level divider, and carries no puzzle drawing.
 
         Without it (and without the blank title page, the guide's own second
         page and the table of
         contents) the first puzzle would be page 2 — the reading this AC
         replaced — so the pages that moved it are checked to be there.
         """
-        pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
+        puzzles = [_puzzle(*_MIRRORED_PUZZLE)]
+        kinds = BookPDFGenerator(_book()).interior_stream(puzzles).page_kinds
+        pages = _interior(_book(), puzzles)
         divider = np.asarray(pages[DIVIDER_PAGE - 1].convert("L")) < 128
+        puzzle_page = np.asarray(pages[FIRST_PUZZLE_PAGE - 1].convert("L")) < 128
 
+        assert kinds[DIVIDER_PAGE - 1] is PageKind.DIVIDER
+        assert kinds[FIRST_PUZZLE_PAGE - 1] is PageKind.PUZZLE
         assert divider.any(), "interior page 5 is blank"
-        assert divider.sum() < pages[DIVIDER_PAGE - 1].width * pages[DIVIDER_PAGE - 1].height / 1000
+        with pytest.raises(ValueError, match="does not carry a ruled grid"):
+            drawing_of(pages[DIVIDER_PAGE - 1])
+        assert divider.sum() < puzzle_page.sum()
 
     def test_the_parities_alternate_from_there(self):
         """Pages 6, 7, 8 are left, right, left — each page's own position.
@@ -1812,166 +1800,28 @@ def test_a_bitmap_under_a_puzzle_page_reds_the_image_xobject_assertion(
 ) -> None:
     """The control for ``test_no_interior_page_carries_an_image_xobject``.
 
-    A PUZZLE page written as a bitmap, by declaring that kind raster for the
-    duration (the writer refuses a bitmap under a vector declaration, G-6, so
-    the declaration is the only way to put one in a file), must produce a
-    finding; the same plan written as operators must not. ``must_red`` is
+    A bitmap filed under a non-divider kind (the cover's, the one kind the
+    writer accepts a bitmap under besides the divider's) must produce a
+    finding; a vector page under the title kind must not. ``must_red`` is
     asserted non-empty before the clean arm is trusted.
     """
-    import nonogram.admin.book_pdf_generator as generator_module
-
     generator = BookPDFGenerator(_book())
-    monkeypatch.setitem(
-        generator_module._RASTER_DECLARATIONS,
-        PageKind.PUZZLE,
-        RasterDeclaration(
-            reason="planted by a control", authority="CARD-322", expires_with=()
-        ),
-    )
     bitmap = Image.new("L", (64, 64), 255)
     planted = generator._write_pdf(
-        iter([bitmap]), 1, mode="L", kinds=(PageKind.PUZZLE,)
+        iter([bitmap]), 1, mode="L", kinds=(PageKind.COVER,)
     ).getvalue()
     must_red = _image_xobject_findings(
-        pdf_vector.page_resource_keys(planted), (PageKind.PUZZLE,)
+        pdf_vector.page_resource_keys(planted), (PageKind.COVER,)
     )
-    assert must_red, "the plant did not put an image XObject under a PUZZLE page"
+    assert must_red, "the plant did not put an image XObject under a cover page"
 
-    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.PUZZLE)
     clean = generator._write_pdf(
-        iter([generator.vector_title_page(1)]), 1, mode="L", kinds=(PageKind.PUZZLE,)
+        iter([generator.vector_title_page(1)]), 1, mode="L", kinds=(PageKind.TITLE,)
     ).getvalue()
     assert (
-        _image_xobject_findings(pdf_vector.page_resource_keys(clean), (PageKind.PUZZLE,))
+        _image_xobject_findings(pdf_vector.page_resource_keys(clean), (PageKind.TITLE,))
         == []
     )
-
-
-def _ensure_declared(monkeypatch, *kinds: PageKind) -> None:
-    """Put each ``kind``'s bitmap declaration back, so a later ``delitem`` has a key.
-
-    CARD-379. A test that LIFTS a declaration (``monkeypatch.delitem``) makes a
-    claim about the act of lifting -- what the file or the guard does the day
-    the entry goes -- and that claim can only be observed from a state in which
-    the entry is PRESENT. Under the five-kind probe, and in the tree after
-    CARD-322, it is already gone, and a bare ``delitem`` there raises
-    ``KeyError`` (13 reds measured, 7 of them in this module). ``raising=False``
-    would make the lift a silent no-op in that tree and every claim built on it
-    vacuous; this puts the precondition back instead, and ASSERTS it: the
-    entry the registry holds (the real object when there is one, so a tree
-    that still declares the kind is untouched), else a stand-in carrying the
-    same three fields, and :func:`page_medium` must then call the kind RASTER.
-
-    Call it BEFORE anything is written, when the claim compares a file written
-    with the declaration against the same plan after the lift. Every site that
-    calls ``delitem`` on a kind it did not itself declare calls this first.
-    """
-    for kind in kinds:
-        monkeypatch.setitem(
-            _RASTER_DECLARATIONS,
-            kind,
-            _RASTER_DECLARATIONS.get(
-                kind,
-                RasterDeclaration(
-                    reason="put back by this test: the tree has lifted it",
-                    authority="CARD-379",
-                    expires_with=("CARD-322",),
-                ),
-            ),
-        )
-        assert page_medium(kind) is PageMedium.RASTER, (
-            f"{kind.value} is not a declared bitmap after _ensure_declared, "
-            "so the lift that follows has nothing to lift"
-        )
-
-
-#: Every interior kind: all of them but the cover, which is raster for good.
-_INTERIOR_KINDS = tuple(kind for kind in PageKind if kind is not PageKind.COVER)
-
-
-def test_no_interior_page_carries_an_image_xobject_in_a_mixed_file(
-    monkeypatch,
-) -> None:
-    """AC-1's vector arm, driven through production's own writer.
-
-    The declaration registry is the **only** lever that decides a medium, so
-    lifting one entry is how a kind goes vector — this is what the day
-    CARD-299 lands looks like for the first kind it unblocks. The blank title
-    page is chosen because its two media draw the same page by construction
-    (white bitmap, empty stream), so nothing a reader sees changes and the
-    only difference is the file.
-
-    Both directions are asserted on the same file: page 1 carries the face and
-    **no** XObject, and every page whose kind is still declared a bitmap still
-    carries one. A mixed file is the point — ADR-0042/R2's "per-page mixing is
-    a sanctioned end state" — so a writer that silently converted the whole
-    file, or none of it, reds here.
-
-    **The second half is derived, not listed** (CARD-309). It used to read
-    ``set(media[1:]) == {_RASTER}``, which was true only while the title page
-    was the one undeclared kind; the puzzle page is undeclared now, so the
-    expectation for every page after page 1 comes from
-    :func:`page_medium` on that page's own kind. Both arms are then asserted
-    to be non-empty, so the file really is mixed and neither arm can go quiet
-    as the registry shrinks.
-    """
-    import nonogram.admin.book_pdf_generator as generator_module
-
-    # CARD-379: the lift is an ACT here (the file below is compared with the
-    # same plan under the declaration, at the end), so the entry is put back
-    # first -- a bare delitem raises where the tree has already lifted it.
-    _ensure_declared(monkeypatch, PageKind.TITLE)
-    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
-    assert page_medium(PageKind.TITLE) is PageMedium.VECTOR
-
-    generator, puzzles = _interior_with_every_page_kind()
-    kinds = generator.interior_stream(puzzles).page_kinds
-    data = generator.export_interior(puzzles).getvalue()
-    keys = pdf_vector.page_resource_keys(data)
-    media = _page_media(data)
-
-    assert kinds[0] is PageKind.TITLE
-    assert "XObject" not in keys[0], keys[0]
-    assert "Font" in keys[0], keys[0]
-    assert media[0] == _VECTOR
-    rest = [
-        (index + 2, kind.value, medium)
-        for index, (kind, medium) in enumerate(
-            zip(kinds[1:], media[1:], strict=True)
-        )
-        if medium
-        != (_RASTER if page_medium(kind) is PageMedium.RASTER else _VECTOR)
-    ]
-    assert rest == [], rest
-    # And the file really is mixed, which is this cell's whole subject: page 1
-    # is vector (asserted above) and something after it is a bitmap. Asserted
-    # as a *membership* rather than as ``set(media[1:]) == {_RASTER}``, which
-    # is what it used to be and which would red the day a second kind
-    # converts — the assertion above already holds every page to its own
-    # kind's declared medium, so this one only has to stop the file from
-    # being all of one thing.
-    assert _RASTER in set(media[1:]), media
-    # The face is embedded once for the file however many pages are vector
-    # (ADR-0042/R5), and a raster-only file embeds none — the two halves of
-    # the same claim, on two files written by the same call.
-    assert len(pdf_vector.embedded_faces(data)) == 1
-    # And the other half of ADR-0042/R5's "once per file": with the
-    # declaration back, the same call writes a file with **no** face in it at
-    # all, so the three font objects are not three unused objects on a
-    # raster-only interior.
-    #
-    # CARD-379: "back" means EVERY interior kind, not the one this test lifted.
-    # The title page was the only converted kind when this was written, so
-    # restoring it made the file raster-only; in a tree where the guide, the
-    # contents, the puzzles and the answers are operators as well, restoring
-    # the title page alone leaves a mixed file and the assertion below reads
-    # the tree and not the claim.
-    _ensure_declared(monkeypatch, *_INTERIOR_KINDS)
-    raster_only = generator.export_interior(
-        [_puzzle(10, 10, 3, name=f"R{index}") for index in range(3)]
-    ).getvalue()
-    assert pdf_vector.embedded_faces(raster_only) == []
-    assert set(_page_media(raster_only)) == {_RASTER}
 
 
 def test_a_vector_page_with_no_operators_is_still_classified_vector(
@@ -1985,10 +1835,6 @@ def test_a_vector_page_with_no_operators_is_still_classified_vector(
     the page is :data:`_VECTOR` by the same key every other vector page is.
     Measured here rather than asserted in :func:`_page_media`'s docstring.
     """
-    import nonogram.admin.book_pdf_generator as generator_module
-
-    _ensure_declared(monkeypatch, PageKind.TITLE)  # CARD-379: lift from present
-    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
     generator = BookPDFGenerator(_book())
     blank = generator.vector_title_page(1)
     assert blank.operators == (), blank.operators
@@ -2006,12 +1852,9 @@ def test_every_raster_page_is_declared_with_its_reason() -> None:
     plan and the media from the files. Three directions red, and each has its
     own control below rather than being argued here:
 
-    * an **undeclared** raster page —
-      :func:`test_an_undeclared_raster_page_is_a_defect` (inside the claimed
-      region: a puzzle page, the dominant kind);
     * a raster page whose declaration is **removed while it is still a
       bitmap** — :func:`test_a_raster_page_whose_declaration_is_removed_is_a_defect`
-      (the claim's **edge**: the divider, exactly the page ADR-0042/R2 names);
+      (the divider, exactly the page ADR-0042/R2 names);
     * a page whose medium **cannot be determined** —
       :func:`test_a_page_whose_medium_cannot_be_determined_is_a_defect`.
 
@@ -2037,29 +1880,6 @@ def test_every_raster_page_is_declared_with_its_reason() -> None:
     assert set(_RASTER_DECLARATIONS) <= set(PageKind), sorted(
         str(key) for key in _RASTER_DECLARATIONS if key not in set(PageKind)
     )
-
-
-def test_an_undeclared_raster_page_is_a_defect(monkeypatch) -> None:
-    """AC-2's first mutant, **inside** the claimed region: the puzzle page.
-
-    The file is written first, with the puzzle page's declaration in place, so
-    what changes is the declaration and not the page — the shape ADR-0042/R1
-    is actually about is a bitmap nobody claimed, not a bitmap nobody wrote.
-    """
-    import nonogram.admin.book_pdf_generator as generator_module
-
-    # CARD-379: "written with the declaration in place" is a precondition the
-    # tree must be put in -- where the puzzle page is already operators, the
-    # file below would otherwise hold a vector puzzle page and the lift would
-    # leave nothing undeclared to find.
-    _ensure_declared(monkeypatch, PageKind.PUZZLE)
-    generator, puzzles = _interior_with_every_page_kind()
-    by_kind, _, _ = _media_by_kind(generator, puzzles)
-    assert _declaration_findings(by_kind) == []
-
-    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.PUZZLE)
-    findings = _declaration_findings(by_kind)
-    assert findings == ["puzzle: a raster page with no declaration"], findings
 
 
 def test_a_raster_page_whose_declaration_is_removed_is_a_defect(
@@ -3526,21 +3346,18 @@ class TestWritePdf_RefusesWhatItCannotWrite:
     def test_a_bitmap_under_a_vector_declaration_is_refused(
         self, monkeypatch
     ) -> None:
-        """The day a declaration is lifted and a page writer is not converted.
+        """A page writer that hands over a bitmap for a vector kind.
 
-        This is the failure mode the medium decision exists to make loud: the
-        registry says the title page is operators now, and the walk still hands
-        over a bitmap. It raises rather than writing a DCTDecode page under a
-        vector declaration.
+        The registry says the title page is operators, and the walk hands over
+        a bitmap. It raises rather than writing a DCTDecode page under a vector
+        declaration.
         """
-        import nonogram.admin.book_pdf_generator as generator_module
-
-        _ensure_declared(monkeypatch, PageKind.TITLE)  # CARD-379: lift from present
-        monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
+        assert page_medium(PageKind.TITLE) is PageMedium.VECTOR
         generator = self._generator()
+        frame = page_frame(generator.page_spec(1))
         with pytest.raises(TypeError) as raised:
             generator._write_pdf(
-                iter([generator.create_title_page(1)]),
+                iter([Image.new("L", (frame.width, frame.height), 255)]),
                 1,
                 mode="L",
                 kinds=(PageKind.TITLE,),
@@ -3676,12 +3493,8 @@ def test_the_page_kinds_are_the_positions_the_plan_itself_states() -> None:
 #   ``src/`` so that a lazy import inside a function body (the same cycle with
 #   its direction hidden) reds here and is not mistaken for a resolution;
 # * a **runtime** one — the walk really draws all four kinds through the
-#   writers the assembly point binds — asserted by lifting every interior
-#   declaration and reading back the interior that comes out. That is the only
-#   way to reach the vector arms while the registry still declares every
-#   interior kind a bitmap, and it is the same lever
-#   ``test_no_interior_page_carries_an_image_xobject_in_a_mixed_file`` pulls
-#   for one kind.
+#   writers the assembly point binds — asserted by reading back the interior
+#   that comes out.
 
 
 #: The assembly point, and the three writers it exists to reach.
@@ -4175,14 +3988,9 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
             key=lambda kind: kind.value,
         )
 
-    #: A book whose answer section holds **both** shapes an answer page comes
-    #: in — one full solved page and one CARD-202 packed page — so both of the
-    #: two answer bindings are used. Measured, not assumed: the 30x30 answer
-    #: will not pack and the 10x10's will, and
-    #: :meth:`test_each_of_the_four_bindings_was_used` is the cell that keeps
-    #: it true. A book of three 10x10s (this class's first draft) packs every
-    #: answer, leaves the lone-answer binding unexercised, and lets a mutant
-    #: that binds the packed writer to the lone slot survive — measured.
+    #: A book of the largest and a small puzzle. Since answers up to 30x30
+    #: pack (owner, 2026-11-09) both answers are packed pages, so no book
+    #: reaches the lone-answer binding.
     BOOK = ((30, 30, 10), (10, 10, 3))
 
     def _puzzles(self):
@@ -4218,17 +4026,17 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         data = generator.export_interior(puzzles).getvalue()
         return generator, kinds, data, lifted
 
-    def test_each_of_the_four_bindings_was_used(self, monkeypatch) -> None:
-        """Every field of the writer set is reached, counted at the binding.
+    def test_each_binding_but_the_lone_answer_one_is_used(self, monkeypatch) -> None:
+        """Every field of the writer set but ``answer`` is reached, counted at the binding.
 
         The cells below read the *file*, which says what was drawn and not
-        **which binding drew it**: a set that bound the packed-answer writer to
-        the lone-answer field would still produce an interior of operators on
-        a book whose answers all pack. So the four bindings are wrapped in
-        counters here — the set is otherwise
+        **which binding drew it**, so the bindings are wrapped in counters
+        here — the set is otherwise
         :data:`~nonogram.admin.book_interior_vector.DOWNSTREAM_WRITERS`
         itself, field for field, derived from its own ``__dataclass_fields__``
-        so a fifth field added later is counted rather than silently skipped.
+        so a field added later is counted rather than silently skipped. The
+        lone-answer field is reached by no book since every answer packs
+        (owner, 2026-11-09).
         """
         import dataclasses
 
@@ -4257,7 +4065,7 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         )
         generator.export_interior(self._puzzles())
 
-        assert sorted(used) == sorted(fields), (sorted(used), fields)
+        assert sorted(used) == sorted(set(fields) - {"answer"}), (sorted(used), fields)
         assert all(count >= 1 for count in used.values()), used
 
     def test_every_interior_page_is_written_as_operators(self, monkeypatch) -> None:
@@ -4346,14 +4154,6 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         """
         import nonogram.admin.book_pdf_generator as generator_module
 
-        _ensure_declared(monkeypatch, PageKind.GUIDE)  # CARD-379: lift from present
-        monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.GUIDE)
-        # CARD-379: the subject is a generator holding NO downstream writer,
-        # so it is built as one. ``BookPDFGenerator(_book())`` is that only in
-        # a tree whose default writer set is empty; under the five-kind probe
-        # (and wherever the default is the assembled set) it would draw the
-        # guide and this cell would pass or fail on the default and not on
-        # the refusal.
         generator = BookPDFGenerator(
             _book(), pages=generator_module.InteriorPageWriters()
         )
@@ -4377,9 +4177,6 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         import nonogram.admin.book_interior_vector as assembly
         import nonogram.admin.book_pdf_generator as generator_module
 
-        _ensure_declared(monkeypatch, PageKind.GUIDE, PageKind.TOC)  # CARD-379
-        monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.GUIDE)
-        monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TOC)
         puzzles = self._puzzles()
 
         guide_only = generator_module.InteriorPageWriters(
@@ -4393,1506 +4190,6 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         assert "guide" not in message, message
 
 
-# --------------------------------------------------------------------------
-# CARD-330 — where the two media put the grid, measured against the spec
-# --------------------------------------------------------------------------
-#
-# CARD-309's round measured that the raster and the vector place "the same
-# grid 2 device pixels apart on all four edges" (ink ``grid_left/right``
-# 963/1849 against stream 965/1851) and routed the 0.169 mm that follows to a
-# convention decision. Re-derived here, over a seeded corpus and against a
-# position worked out from the page spec alone, **that premise is false**, and
-# the three numbers below say why: the specified boundary, the vector's stream
-# coordinate and the raster's own rule *centreline* are one number, and the
-# 2 px is :func:`tests.helpers.page_ink.drawing_of`'s **leading ink edge** of a
-# rule that is centred on that boundary, differenced against a centreline. The
-# two figures CARD-309 subtracted are an ink extent and a path coordinate —
-# two instruments with different domains — so neither medium is off spec and
-# there is nothing to hold a convention about.
-#
-# What a conversion really moves is measured here too, because that is the
-# figure CARD-322 inherits: read ink against ink, by one oracle at one
-# resolution, the grid's four edges differ by **1 device pixel** (0.0847 mm,
-# inside :data:`EDGE_TOLERANCE_MM`) and the drawing's own left/top edges by
-# **3** (0.254 mm, outside it). Both differences are rule-thickness
-# rasterisation, not placement: the raster strokes 6 whole pixels through
-# Pillow while the vector strokes ADR-0037/R2's declared 1.3 pt (5.4167 px)
-# through poppler, and a framed drawing's single stroked ``re`` mitres its
-# outer corner where four butt-capped Pillow lines do not.
-
-#: Poppler, which did not write the file, is the independent half of the
-#: vector reading (``tests/helpers/pdf_vector.py``'s own docstring). A host
-#: without it says so rather than passing quietly.
-_needs_poppler = pytest.mark.skipif(
-    pdf_vector.PDFTOPPM is None,
-    reason="poppler's pdftoppm is not installed, so the vector page cannot be rendered",
-)
-
-#: How much of the puzzle area's spare height goes above the drawing —
-#: FR-032 as amended 2026-10-17. Written out here, as this module writes every
-#: other figure out.
-_SPARE_ABOVE = 0.42
-
-#: Where the band's own rule is struck, as a share of the band measured down
-#: from the top margin: seven eighths of it, so the rule is lifted one eighth
-#: of the band off the band's foot (CARD-222). The puzzle area's top edge.
-_HEADER_RULE_SHARE = 1 - 1 / 8
-
-#: The footer strip the puzzle area stops above, in millimetres: the 10 pt
-#: footer line and the two 9 pt gaps around it (CARD-248; the 20 mm QR row it
-#: carried is gone, CARD-392).
-_FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * 25.4 / 72
-
-#: The raster grid's thin rule, in whole device pixels: the book's 0.25 mm
-#: floor rounded **up** at 300 DPI. The heavy rule is exactly twice it, and
-#: at every cell a book trim can give, that floor is what binds.
-_RASTER_THIN_PX = 3
-_RASTER_HEAVY_PX = 2 * _RASTER_THIN_PX
-
-#: ADR-0037/R2's declared interior weights, in points.
-_DECLARED_BORDER_PT = 1.3
-_DECLARED_CELL_PT = 0.3
-
-#: How far the derived millimetre figure may sit from a renderer's own
-#: boundary. Three whole-pixel roundings separate them and none of them is a
-#: placement: the trim's own extent (a 235 mm trim is 2774 px, i.e. 234.86 mm),
-#: each boundary rounded once from exact fractions, and the committed pitch.
-#: Each contributes at most half a pixel, so 1.5 px is the derived ceiling.
-#: It is a bound on the *derivation*, not on a placed edge, and it is
-#: deliberately not :data:`EDGE_TOLERANCE_MM`.
-#:
-#: **This is the derivation's ceiling and no longer a live bound.** It is
-#: asserted only as the ceiling the two *measured* bounds below must stay
-#: under. Until CARD-330 cycle 1's F-003 it was AC-1's sole control, and
-#: measured it held nothing: tightening it to 1.05 px passed, and loosening it
-#: to 12.0 px passed too. It is also 0.127 mm — *wider* than the
-#: :data:`EDGE_TOLERANCE_MM` this card declined to widen, which is the
-#: asymmetry a reader re-deriving from this test used to inherit.
-_SPEC_ROUNDING_PX = 1.5
-
-#: The live bound on the grid edges' derived-against-stream agreement. The
-#: **measured** worst disagreement over the corpus below is 1.0 px exactly
-#: (``22x28 d1 page 16 on 190x235 mm``, ``grid_bottom`` — FR-032's
-#: footer-bound arm, the one anchored on the rounded trim extent, as the
-#: ceiling above predicts), so this bound is that figure plus 5 %. 1.05 px is
-#: 0.0889 mm, **inside** :data:`EDGE_TOLERANCE_MM`, and the span test asserts
-#: that relation so the derivation's bound can never again sit looser than the
-#: placed-edge bound it is not.
-_SPEC_MEASURED_PX = 1.05
-
-#: The same, for the drawing's own outer edges — where the raster's ink is
-#: *at* the specified margin and the only disagreement is sub-pixel rounding.
-#: Measured worst 0.5437 px (``16x25 d5 page 13 on 190x235 mm``,
-#: ``drawing_left``) until CARD-392, so the bound was 0.6 px = 0.0508 mm. Two
-#: live bounds rather than one is F-003's other half: no single constant
-#: decides AC-1's answer any more.
-#:
-#: **Re-measured for CARD-392: 0.9091 px (``23x26 d4 page 25 on 190x235 mm``,
-#: ``drawing_top``), bound 0.955 px (+5 %) = 0.0809 mm.** The one-line footer
-#: puts a footer-bound drawing's top on the *other* arm of the placement's
-#: ``max`` (``area_bottom + 1 px - drawing_height``, anchored on the rounded
-#: trim extent, whose measured worst is the 1.0 px of
-#: :data:`_SPEC_MEASURED_PX`) in a case the 29.878 mm band never reached,
-#: because the band's foot was always the lower row. That arm's residue is
-#: 0.9091 px here, under the 1.05 px and the 1.5 px above it, and inside
-#: :data:`EDGE_TOLERANCE_MM`; the left edge is still the 0.5437 px.
-_SPEC_DRAWING_MEASURED_PX = 0.955
-
-#: The corpus's **floor**, asserted inside the tests that read it so the
-#: corpus cannot silently shrink — CLAUDE.md's test style in terms:
-#: "asserting a minimum case count inside the test itself so the corpus can't
-#: silently shrink. Prefer an independent second implementation over
-#: re-deriving a value with the same function you're testing." G-5 forbids
-#: lowering it.
-#:
-#: Both are **literals**, asserted equal to the enumerated span AC-1 names
-#: (``len(_EDGE_TRIMS) * len(_EDGE_PARITIES) * len(_EDGE_BOUNDS) *
-#: _EDGE_DRAWS_PER_COMBINATION``, and ``_MIN_EDGE_CASES * len(_GRID_EDGES)``)
-#: rather than computed from it, and deliberately **not** the constant the
-#: fixture counts with (:data:`_EDGE_CASE_COUNT`). Until CARD-330 cycle 1's
-#: F-001 the floor and the generator were one constant, which made both floor
-#: assertions satisfied by construction for any value of it: lowering it from
-#: 24 to 3 left all 24 tests green with 87.5 % of the corpus gone.
-_MIN_EDGE_CASES = 24
-_MIN_EDGE_READINGS = 96
-
-#: The four grid boundaries every reading carries, and the drawing's own two
-#: outer edges — the ones AC-274's 25.45 mm is read from.
-_GRID_EDGES = ("grid_left", "grid_right", "grid_top", "grid_bottom")
-_DRAWING_EDGES = ("drawing_left", "drawing_top")
-
-#: The three trims the corpus sweeps. Book 1's own 8.5 x 11 in first, then
-#: the two smaller trims the panel offers — the cell is fitted to the page,
-#: so a one-trim corpus would hold one cell.
-_EDGE_TRIMS = (
-    (BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM),
-    (7.5 * 25.4, 9.25 * 25.4),
-    (6.0 * 25.4, 9.0 * 25.4),
-)
-
-#: The other two dimensions of that span, enumerated for the same two
-#: reasons: the floor is asserted against them, and each is asserted against
-#: the drawn corpus as a set equality — so dropping a dimension reds the
-#: floor rather than quietly halving the corpus.
-_EDGE_PARITIES = (0, 1)
-_EDGE_BOUNDS = ("ratio", "footer")
-
-#: The quotient that takes the three structural dimensions to the corpus size:
-#: 24 / (3 trims x 2 parities x 2 bounds). **Not** a guarantee of two draws per
-#: combination, and this comment used to say it was (cycle 2's F-202). Trim and
-#: parity are structural, but the vertical bound is **emergent** from the seeded
-#: RNG, so the realized distribution over the 12 combinations is measured at
-#: 1/2/3 -- four combinations each -- rather than 2 apiece. All 12 *are*
-#: realized, which is better than the assertions guarantee; what is not true is
-#: that each is sampled twice. AC-1 claims span, not balance, and the span is
-#: asserted as a set equality per dimension, so F-001's anchor is unaffected:
-#: shrinking any dimension still reds.
-_EDGE_DRAWS_PER_COMBINATION = 2
-
-#: How many cases the fixture actually draws. Deliberately separate from
-#: :data:`_MIN_EDGE_CASES`: lowering this reds the floor instead of travelling
-#: with it, which is the whole point of the two not being one constant.
-_EDGE_CASE_COUNT = 24
-
-
-def _specified_grid_mm(
-    columns: int,
-    rows: int,
-    depth: int,
-    *,
-    width_mm: float,
-    height_mm: float,
-    page: int,
-) -> dict[str, float]:
-    """Where this page's grid boundaries **should** be, in millimetres.
-
-    A second implementation, written here from CON-018's profile, FR-030's
-    page fit and FR-032's centring, exactly as :func:`_expected_left_mm` and
-    :func:`_expected_cell_mm` are — and like them it reads neither renderer,
-    no ``compute_layout`` and no ``book_page_spec``. That is what makes it
-    usable as the *specified* column of the three numbers AC-1 asks for: a
-    position taken from either renderer could not tell which renderer was
-    right.
-
-    Horizontally this is :func:`_expected_left_mm`'s own arithmetic carried on
-    through the row-clue gutter to the grid's two borders. Vertically the
-    drawing floats at :data:`_SPARE_ABOVE` of the **puzzle area**'s spare
-    height — the strip between the band's own rule (:data:`_HEADER_RULE_SHARE`
-    of the band below the top margin) and the footer strip
-    (:data:`_FOOTER_STRIP_MM` up from the bottom margin) — and is held at the
-    band's foot instead on a drawing too deep to clear both rules, which is
-    FR-032's own "footer" bound.
-
-    Args:
-        columns: The grid's columns.
-        rows: The grid's rows.
-        depth: The clue gutter's depth, in cells, on both axes.
-        width_mm: The trim's width.
-        height_mm: The trim's height.
-        page: The interior page number, whose parity mirrors the margins.
-
-    Returns:
-        ``grid_left``/``grid_right``/``grid_top``/``grid_bottom`` and the
-        drawing's own ``drawing_left``/``drawing_top``, in millimetres from
-        the trim's top-left corner, plus the ``cell`` they were derived at and
-        the ``bound`` (``"ratio"`` or ``"footer"``) that placed the top edge.
-    """
-    usable_width = width_mm - GUTTER_MM - OUTSIDE_MM
-    usable_height = height_mm - TOP_MM - BOTTOM_MM - BAND_MM
-    cell = min(
-        STANDARD_CELL_MM,
-        usable_width / (depth + columns),
-        usable_height / (depth + rows),
-    )
-    right_hand = page % 2 == 1
-    left_margin = GUTTER_MM if right_hand else OUTSIDE_MM
-    spare_width = usable_width - (depth + columns) * cell
-    drawing_left = left_margin + max(spare_width, 0.0) / 2
-
-    area_top = TOP_MM + BAND_MM * _HEADER_RULE_SHARE
-    area_bottom = height_mm - BOTTOM_MM - _FOOTER_STRIP_MM
-    band_bottom = TOP_MM + BAND_MM
-    drawing_height = (depth + rows) * cell
-    spare_height = (area_bottom - area_top) - drawing_height
-    # The clearance each gap has to pay: half the drawing's own heavy rule,
-    # half the heavier of the two furniture rules, and the pixel that makes
-    # "clear" strict. The header's 0.6 pt is 3 px at 300 DPI and the footer's
-    # 0.4 pt is 2, so the heavier of the two is 3 — and both halves are
-    # rounded up, as a minimum is.
-    _furniture_px = 3
-    clearance_px = -(-_RASTER_HEAVY_PX // 2) + -(-_furniture_px // 2) + 1
-    clearance_mm = clearance_px / PX_PER_MM
-    gap_above = _SPARE_ABOVE * spare_height
-    if gap_above < clearance_mm or spare_height - gap_above < clearance_mm:
-        # One pixel of drawing past the footer rule, or the band's foot if
-        # that is lower on the page — whichever refuses the footer group.
-        drawing_top = max(band_bottom, area_bottom + 1 / PX_PER_MM - drawing_height)
-        bound = "footer"
-    else:
-        drawing_top = area_top + gap_above
-        bound = "ratio"
-
-    return {
-        "cell": cell,
-        "bound": bound,
-        "drawing_left": drawing_left,
-        "drawing_top": drawing_top,
-        "grid_left": drawing_left + depth * cell,
-        "grid_right": drawing_left + (depth + columns) * cell,
-        "grid_top": drawing_top + depth * cell,
-        "grid_bottom": drawing_top + (depth + rows) * cell,
-    }
-
-
-#: One ``m ... l S`` stroke of a content stream, and the ``w`` that set its
-#: width. Spelled here rather than imported from ``tests/helpers/pdf_vector``
-#: because what is wanted is the grid's two **border** rules and nothing else,
-#: which is a width comparison and not a mark taxonomy.
-_STREAM_NUMBER = r"-?\d+(?:\.\d+)?"
-_STREAM_WIDTH = re.compile(rf"^({_STREAM_NUMBER}) w$")
-_STREAM_STROKE = re.compile(
-    rf"^({_STREAM_NUMBER}) ({_STREAM_NUMBER}) m "
-    rf"({_STREAM_NUMBER}) ({_STREAM_NUMBER}) l S$"
-)
-
-
-def _stream_grid_mm(written: bytes) -> dict[str, float]:
-    """The grid's four boundaries as the **content stream** places them, in mm.
-
-    The stream's own operands, converted out of PDF points and flipped onto
-    the page's top-left origin — so this reads the written file and not the
-    geometry that wrote it. The grid's boundaries are its two
-    :data:`_DECLARED_BORDER_PT` rules on each axis, which are the heaviest
-    strokes a puzzle page sets; the frame's box is a single ``re`` and is not
-    a stroke this reads at all.
-
-    **The flip is against the page's own MediaBox and not against the stored
-    trim**, and that is not a detail: a PDF's y grows upward from the page
-    foot, the page's height is the trim rounded to whole device pixels (a
-    235 mm trim is 2774 px, i.e. 234.86 mm), and flipping 235 mm against a
-    234.86 mm page shifts every horizontal reading by 1.6 px. Measured: it
-    made the vertical edges of one trim in three read 3 px out instead of 2,
-    which is an instrument error that looks exactly like a medium
-    disagreeing.
-    """
-    (_left, _bottom, _right, top), *_rest = pdf_page_boxes(written)
-    height_mm = top * 25.4 / 72
-    (stream_text,) = pdf_vector.content_streams(written)
-    width: float | None = None
-    verticals: list[float] = []
-    horizontals: list[float] = []
-    for line in stream_text.splitlines():
-        line = line.strip()
-        setting = _STREAM_WIDTH.match(line)
-        if setting is not None:
-            width = float(setting.group(1))
-            continue
-        stroke = _STREAM_STROKE.match(line)
-        if stroke is None or width != _DECLARED_BORDER_PT:
-            continue
-        x1, y1, x2, y2 = (float(operand) for operand in stroke.groups())
-        if x1 == x2:
-            verticals.append(x1 * 25.4 / 72)
-        elif y1 == y2:
-            horizontals.append(height_mm - y1 * 25.4 / 72)
-    if len(verticals) < 2 or len(horizontals) < 2:
-        raise ValueError(
-            f"this stream sets no pair of {_DECLARED_BORDER_PT} pt border "
-            f"rules on each axis: {len(verticals)} vertical, "
-            f"{len(horizontals)} horizontal"
-        )
-    return {
-        "grid_left": min(verticals),
-        "grid_right": max(verticals),
-        "grid_top": min(horizontals),
-        "grid_bottom": max(horizontals),
-    }
-
-
-@dataclass(frozen=True)
-class _EdgeReading:
-    """One page's grid edges, read three ways, in millimetres.
-
-    Attributes:
-        label: The case, for a failure message.
-        page: The interior page number this was drawn as — its parity is what
-            mirrors the margins.
-        trim_mm: The trim it was drawn on, ``(width, height)``.
-        framed: Whether the raster page's drawing is closed off by a frame,
-            read off the page.
-        bound: What placed the drawing's top edge — ``"ratio"`` or
-            ``"footer"``, from the derivation and not from the renderer.
-        specified: :func:`_specified_grid_mm`'s answer — the page spec's own
-            arithmetic, which neither renderer was asked.
-        raster_ink: What ``page_ink.drawing_of`` reads off the **raster**
-            page: Pillow's bitmap at 300 DPI, measured as the first inked
-            pixel line of each rule.
-        vector_stream: What the written **content stream** places, from its
-            own operands (:func:`_stream_grid_mm`).
-        vector_ink: What the same ``drawing_of`` reads off a **poppler**
-            render of that stream at the same 300 DPI — the ink half of the
-            vector medium, by an engine that did not write the file.
-    """
-
-    label: str
-    page: int
-    trim_mm: tuple[float, float]
-    framed: bool
-    bound: str
-    specified: dict[str, float]
-    raster_ink: dict[str, float]
-    vector_stream: dict[str, float]
-    vector_ink: dict[str, float]
-
-
-def _edge_case(index: int, out_dir: pathlib.Path) -> _EdgeReading:
-    """Draw one puzzle page **both** ways and read all three numbers off it.
-
-    The same book, the same payload, the same puzzle number, the same interior
-    page and the same committed cell on both sides — the shape
-    ``tests/test_book_puzzle_page_vector.py``'s ``twin`` fixture takes, and for
-    its reason: the only difference between the two readings has to be the
-    medium, or a disagreement between them means nothing. ``cell_sizes`` is
-    the one call both media share, which is the point; no geometry is read
-    from it.
-    """
-    rng = random.Random(330 + index)
-    width_mm, height_mm = _EDGE_TRIMS[index % len(_EDGE_TRIMS)]
-    columns = rng.randrange(MIN_SIZE, MAX_SIZE + 1)
-    rows = rng.randrange(MIN_SIZE, MAX_SIZE + 1)
-    depth = rng.randrange(1, min(6, (min(columns, rows) + 1) // 2) + 1)
-    page = FIRST_PUZZLE_PAGE + index  # both parities, many pages
-    number = index + 1
-
-    generator = BookPDFGenerator(_book(width_mm=width_mm, height_mm=height_mm))
-    row = _puzzle(columns, rows, depth, name=f"Edge {index}")
-    payload = BookPDFGenerator._payload(row)
-    sizes = generator.cell_sizes([payload])
-
-    bitmap = generator._blank_page(payload, number, page, sizes)
-    ink = drawing_of(bitmap)
-
-    stream = generator.vector_puzzle_page(payload, number, page, sizes)
-    written = book_vector.write_vector_pdf([stream], 1).getvalue()
-    # ``out_dir`` because ``rendered_page`` writes the PDF and poppler's PNG
-    # beside each other and defaults to the CURRENT directory — which is the
-    # repo root under pytest, so every other caller in this tree hands it a
-    # tmp path and so does this one.
-    rendered = pdf_vector.rendered_page(written, 300, 1, out_dir=out_dir)
-    vector_ink = drawing_of(
-        rendered if isinstance(rendered, Image.Image) else Image.fromarray(rendered)
-    )
-
-    specified = _specified_grid_mm(
-        columns, rows, depth, width_mm=width_mm, height_mm=height_mm, page=page
-    )
-    return _EdgeReading(
-        label=f"{columns}x{rows} d{depth} page {page} on {width_mm:.0f}x{height_mm:.0f} mm",
-        page=page,
-        trim_mm=(width_mm, height_mm),
-        framed=ink.framed,
-        bound=specified["bound"],
-        specified={key: specified[key] for key in _GRID_EDGES + _DRAWING_EDGES},
-        raster_ink=_ink_edges_mm(ink),
-        vector_stream=_stream_grid_mm(written),
-        vector_ink=_ink_edges_mm(vector_ink),
-    )
-
-
-def _ink_edges_mm(drawing) -> dict[str, float]:
-    """A :class:`~tests.helpers.page_ink.Drawing`'s six edges in millimetres.
-
-    ``grid_*`` is the first inked pixel line of each border rule and ``left``
-    / ``top`` the drawing's own outer edges, so every one of these is an **ink
-    extent** and not a boundary — which is the whole finding of CARD-330, and
-    the reason this helper exists rather than the figures being read inline.
-    """
-    return {
-        "grid_left": _mm(drawing.grid_left),
-        "grid_right": _mm(drawing.grid_right),
-        "grid_top": _mm(drawing.grid_top),
-        "grid_bottom": _mm(drawing.grid_bottom),
-        "drawing_left": _mm(drawing.left),
-        "drawing_top": _mm(drawing.top),
-    }
-
-
-@pytest.fixture(scope="module")
-def edge_corpus(tmp_path_factory) -> list[_EdgeReading]:
-    """The seeded corpus, drawn once for the module.
-
-    Hand-built with :class:`random.Random` — ``hypothesis`` is not in the
-    dependency baseline (ADR-0006/R1) — and module-scoped because each case
-    draws a full bitmap page *and* shells out to poppler for the vector one,
-    which is the same reason ``tests/test_book_pdf_band.py`` gave its own
-    render fixture one.
-    """
-    out_dir = tmp_path_factory.mktemp("card330-edges")
-    return [
-        _edge_case(index, out_dir / str(index)) for index in range(_EDGE_CASE_COUNT)
-    ]
-
-
-@_needs_poppler
-class TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge:
-    """AC-1 — specified, raster and vector, per edge, over a seeded corpus.
-
-    The *specified* column is :func:`_specified_grid_mm`, which reads the
-    trim, the margins, the band, the footer strip and the puzzle's own extents
-    and nothing else. That is what the card's first question needs: a position
-    taken from one of the two renderers could not say which renderer was
-    right, which is how "the two media disagree by 0.169 mm" came to be read
-    as a convention question in the first place.
-    """
-
-    def test_the_corpus_spans_trims_parities_and_both_vertical_bounds(
-        self, edge_corpus
-    ) -> None:
-        """The minimum, asserted here so the corpus cannot silently shrink.
-
-        **The floor is not the number the fixture counts with** (CARD-330
-        cycle 1, F-001: it was, so both floor assertions were satisfied by
-        construction for any value of it, and lowering it from 24 to 3 left
-        all of this card's tests green). It is a literal, checked here against
-        the enumerated span this corpus exists to cover — so lowering the
-        floor, or dropping one of the span's dimensions, reds *here*, while
-        shrinking :data:`_EDGE_CASE_COUNT` reds the floor itself. That is the
-        independent second implementation CLAUDE.md's test style asks for: the
-        span is enumerated, not re-derived from the generator.
-        """
-        span = (
-            len(_EDGE_TRIMS)
-            * len(_EDGE_PARITIES)
-            * len(_EDGE_BOUNDS)
-            * _EDGE_DRAWS_PER_COMBINATION
-        )
-        assert _MIN_EDGE_CASES == span, (_MIN_EDGE_CASES, span)
-        assert _MIN_EDGE_READINGS == _MIN_EDGE_CASES * len(_GRID_EDGES), (
-            _MIN_EDGE_READINGS,
-            _MIN_EDGE_CASES,
-            len(_GRID_EDGES),
-        )
-        assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
-        assert len(edge_corpus) * len(_GRID_EDGES) >= _MIN_EDGE_READINGS
-        parities = {reading.page % 2 for reading in edge_corpus}
-        assert parities == set(_EDGE_PARITIES), parities
-        trims = {reading.trim_mm for reading in edge_corpus}
-        assert trims == set(_EDGE_TRIMS), trims
-        # Both arms of FR-032's vertical placement, so the derivation is
-        # exercised on the 42 % split *and* on the footer bound.
-        assert {reading.bound for reading in edge_corpus} == set(_EDGE_BOUNDS)
-        # F-003's second control: the derivation's live bounds are inside the
-        # derived ceiling AND inside the placed-edge bound this card refused
-        # to widen, so neither can drift back out to 0.127 mm unnoticed.
-        assert _SPEC_DRAWING_MEASURED_PX <= _SPEC_MEASURED_PX <= _SPEC_ROUNDING_PX, (
-            _SPEC_DRAWING_MEASURED_PX,
-            _SPEC_MEASURED_PX,
-            _SPEC_ROUNDING_PX,
-        )
-        # ``_STATED_EDGE_TOLERANCE_MM`` and not ``EDGE_TOLERANCE_MM``: the
-        # criteria's own figure, which AC-4's own site asserts the live
-        # constant equals — and naming the live one here would make this a
-        # placed-edge site for the medium pin below without its reading a
-        # page, which is the one thing that register exists to keep rare.
-        assert _SPEC_MEASURED_PX / PX_PER_MM < _STATED_EDGE_TOLERANCE_MM, (
-            _SPEC_MEASURED_PX / PX_PER_MM,
-            _STATED_EDGE_TOLERANCE_MM,
-        )
-
-    def test_every_edge_of_every_case_carries_all_three_numbers(
-        self, edge_corpus
-    ) -> None:
-        """Three readings per edge, in millimetres, none of them missing."""
-        for reading in edge_corpus:
-            for edge in _GRID_EDGES:
-                three = (
-                    reading.specified[edge],
-                    reading.raster_ink[edge],
-                    reading.vector_stream[edge],
-                )
-                assert all(isinstance(value, float) for value in three), (
-                    reading.label,
-                    edge,
-                    three,
-                )
-                assert all(value > 0 for value in three), (reading.label, edge, three)
-
-    def test_the_specified_position_is_where_the_content_stream_puts_the_grid(
-        self, edge_corpus
-    ) -> None:
-        """**The answer to the card's first question.**
-
-        The derived boundary and the vector's own operand are the same number
-        on every edge of every case, inside :data:`_SPEC_MEASURED_PX` — the
-        **measured** worst disagreement over this corpus plus 5 %, which is
-        0.0889 mm and therefore inside the placed-edge bound this card
-        declined to widen. So the vector writer is **not** placing the grid
-        off spec: CARD-330's G-4 is not triggered and no blocker is raised.
-
-        The bound used to be :data:`_SPEC_ROUNDING_PX`, the *derived* ceiling
-        of three half-pixel roundings; cycle 1's F-003 measured that 1.05 px
-        passed here and that 12.0 px passed too, so the one control AC-1 had
-        was 0.45 px looser than anything the corpus exercises and 0.127 mm
-        wide. The derivation is still written down above; what is asserted is
-        now what was measured.
-        """
-        worst = max(
-            (
-                (
-                    abs(reading.vector_stream[edge] - reading.specified[edge])
-                    * PX_PER_MM,
-                    reading.label,
-                    edge,
-                )
-                for reading in edge_corpus
-                for edge in _GRID_EDGES
-            ),
-        )
-        assert worst[0] < _SPEC_MEASURED_PX, worst
-
-    def test_the_specified_position_is_not_either_mediums_ink_reading(
-        self, edge_corpus
-    ) -> None:
-        """So the derived column cannot have been copied off a page.
-
-        Both media's ink sits a measurable distance outside the specified
-        boundary on **every** edge of every case — the raster's by more than
-        one device pixel and the vector's by more than two — which is what
-        tells a derivation from a reading. An ``_specified_grid_mm`` that had
-        quietly become a renderer's answer would read zero here.
-        """
-        for reading in edge_corpus:
-            for edge in _GRID_EDGES:
-                raster = (reading.specified[edge] - reading.raster_ink[edge]) * PX_PER_MM
-                vector = (reading.specified[edge] - reading.vector_ink[edge]) * PX_PER_MM
-                assert raster > 1, (reading.label, edge, raster)
-                assert vector > 2, (reading.label, edge, vector)
-
-
-@_needs_poppler
-class TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels:
-    """AC-2 — the gap is uniform, and it is not what CARD-309 read it as.
-
-    It **is** uniformly 2 device pixels, on all four edges and across the
-    corpus, between the raster's ink and the stream's coordinate. What it is
-    not is a disagreement about where the grid goes: those two readings have
-    different domains — one is the first inked pixel line of a rule, the other
-    is the rule's path — and the 2 px is half the rule that sits between them.
-    The control below is what separates those two readings of the same figure:
-    a *quantisation* of the grid's position would not change with the rule's
-    weight, and this does, exactly as ``(width - 1) // 2``.
-    """
-
-    def test_the_rasters_ink_is_two_device_pixels_outside_the_stream_on_every_edge(
-        self, edge_corpus
-    ) -> None:
-        offsets = {
-            round((reading.raster_ink[edge] - reading.vector_stream[edge]) * PX_PER_MM)
-            for reading in edge_corpus
-            for edge in _GRID_EDGES
-        }
-        assert offsets == {-2}, offsets
-        assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
-
-    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_that_two_pixels_is_half_a_rule_and_not_a_quantisation_step`.
-    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
-    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_TheReadingIsABoundaryInBothMedia (the boundary reading in the one remaining medium)
-
-
-    def test_the_two_media_ink_differs_by_one_device_pixel_not_two(
-        self, edge_corpus
-    ) -> None:
-        """**The figure a conversion actually moves**, ink against ink.
-
-        One oracle, one resolution, one page: the vector's rendered grid edge
-        sits exactly one device pixel — 0.0847 mm — outside the raster's, on
-        all four edges of every case, because the two media stroke different
-        widths by design (ADR-0037/R2's declared 1.3 pt against COMP-007's
-        proportional 6 px). That is **inside** :data:`EDGE_TOLERANCE_MM`, so
-        the grid's own placed edges do not need the bound moved.
-        """
-        offsets = {
-            round((reading.vector_ink[edge] - reading.raster_ink[edge]) * PX_PER_MM)
-            for reading in edge_corpus
-            for edge in _GRID_EDGES
-        }
-        assert offsets == {-1}, offsets
-        assert 1 / PX_PER_MM < EDGE_TOLERANCE_MM, 1 / PX_PER_MM
-        assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
-
-    def test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance(
-        self, edge_corpus
-    ) -> None:
-        """And this is the figure CARD-322 inherits, which is 3 px and not 2.
-
-        ``Drawing.left`` / ``Drawing.top`` are what every 25.45 mm assertion
-        in this module reads, and there the raster's ink is **at** the
-        specified margin — Pillow strokes a framed drawing as four butt-capped
-        lines, so the frame's top side begins above where its left side does
-        and the reading lands on the path. Poppler strokes the frame as one
-        ``re`` and mitres its outer corner, which puts the same reading three
-        device pixels further out: 0.254 mm, **outside**
-        :data:`EDGE_TOLERANCE_MM`.
-
-        It is still not a placement: both writers put the frame's left side at
-        the same coordinate. It is a corner.
-        """
-        # The raster arm is a max rather than a per-reading assertion, so the
-        # message names the worst case and the bound is the measured figure
-        # (0.5437 px) rather than the derived ceiling — cycle 1's F-003.
-        worst_raster = max(
-            (
-                abs((reading.raster_ink[edge] - reading.specified[edge]) * PX_PER_MM),
-                reading.label,
-                edge,
-            )
-            for reading in edge_corpus
-            for edge in _DRAWING_EDGES
-        )
-        assert worst_raster[0] < _SPEC_DRAWING_MEASURED_PX, worst_raster
-        for reading in edge_corpus:
-            for edge in _DRAWING_EDGES:
-                vector = (reading.vector_ink[edge] - reading.raster_ink[edge]) * PX_PER_MM
-                assert round(vector) == -3, (reading.label, edge, vector)
-        assert 3 / PX_PER_MM > EDGE_TOLERANCE_MM, 3 / PX_PER_MM
-        # Every case is framed, which is what the mitre needs to exist: a
-        # placed book page is framed by default (PageSpec.framed), and an
-        # unframed one would be a different reading.
-        assert all(reading.framed for reading in edge_corpus)
-
-
-def _consecutive(indices: np.ndarray) -> list[list[int]]:
-    """``indices`` split into runs of consecutive values — one run per rule."""
-    groups: list[list[int]] = []
-    for index in indices.tolist():
-        if groups and index == groups[-1][-1] + 1:
-            groups[-1].append(index)
-        else:
-            groups.append([index])
-    return groups
-
-
-#: What :data:`EDGE_TOLERANCE_MM` admits **beyond** the 0.1 mm the ACs state,
-#: each entry naming what it lets through and the card that removes it.
-#:
-#: **Empty, deliberately (CARD-330, AC-4/G-1).** The card was written against
-#: the hazard of widening this bound to admit the vector medium, and the
-#: measurement above is why it is not widened: the figure a conversion moves
-#: on the grid's four edges is 1 device pixel (0.0847 mm), which 0.1 mm
-#: already admits, and the figure it moves on the drawing's own edges —
-#: 3 px, 0.254 mm — is a mitred frame corner read as a placed edge, so
-#: widening to 0.3 mm would be loosening a placed-edge bound to admit an
-#: instrument's artefact. What that reading needs is an oracle that reads the
-#: frame rule's **centre** rather than its first inked line, which keeps it a
-#: pixel oracle (G-2) and is CARD-322's to write with the conversion.
-EDGE_TOLERANCE_EXEMPTIONS: dict[str, str] = {}
-
-#: The placed-edge tolerance the ACs state, written out so a change to
-#: :data:`EDGE_TOLERANCE_MM` has something to be a change *from*.
-_STATED_EDGE_TOLERANCE_MM = 0.1
-
-
-def _tolerance_is_declared(bound_mm: float, exemptions: dict[str, str]) -> bool:
-    """Whether a placed-edge bound is one the board has actually declared.
-
-    The standing rule in one predicate: the bound is either the figure the ACs
-    state, with nothing exempted, or a wider one that ships **with** the
-    exemptions naming what it now admits. A bound moved on its own is neither,
-    and so is an exemption registered against the stated bound — a declaration
-    for a widening that did not happen.
-    """
-    if bound_mm < _STATED_EDGE_TOLERANCE_MM:
-        return False
-    at_the_stated_bound = bound_mm == _STATED_EDGE_TOLERANCE_MM
-    return at_the_stated_bound is not bool(exemptions)
-
-
-class TestEdgeOffset_ATolerenceChangeCarriesItsExemption:
-    """AC-4 — the bound is unchanged, and a change to it could not be silent.
-
-    The name is the AC's own spelling, kept so the criterion and its test can
-    be matched by search.
-    """
-
-    def test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt(
-        self,
-    ) -> None:
-        assert EDGE_TOLERANCE_MM == _STATED_EDGE_TOLERANCE_MM, EDGE_TOLERANCE_MM
-        assert EDGE_TOLERANCE_EXEMPTIONS == {}, EDGE_TOLERANCE_EXEMPTIONS
-        assert _tolerance_is_declared(EDGE_TOLERANCE_MM, EDGE_TOLERANCE_EXEMPTIONS)
-
-    def test_a_widening_without_its_exemption_is_refused(self) -> None:
-        """The control, on the predicate, so it is not dormant.
-
-        Both the figure that would admit the mitred corner and the smallest
-        widening there is are refused while the register is empty — the second
-        is the one that matters, because a bound creeps.
-        """
-        assert not _tolerance_is_declared(0.3, {})
-        assert not _tolerance_is_declared(_STATED_EDGE_TOLERANCE_MM + 1e-9, {})
-
-    def test_an_exemption_without_its_widening_is_refused_too(self) -> None:
-        """And the other direction, so the pair is a biconditional.
-
-        A register that filled up while the bound stayed at 0.1 mm would be a
-        declaration for a widening nobody made — which reads, to the next
-        card, as permission already granted.
-        """
-        assert not _tolerance_is_declared(
-            _STATED_EDGE_TOLERANCE_MM, {"CARD-322": "the mitred frame corner"}
-        )
-
-    def test_a_widening_that_carries_its_exemption_is_admitted(self) -> None:
-        """The arm AC-4 leaves open, asserted so the predicate is not a
-        constant ``False`` for everything but today's pair."""
-        assert _tolerance_is_declared(0.3, {"CARD-322": "the mitred frame corner"})
-
-    def test_a_narrower_bound_is_refused_rather_than_silently_admitted(self) -> None:
-        """Default-DENY on the third shape (ADR-0039/R2): a bound *below* the
-        stated one is not "safe", it is a figure nobody declared, and it would
-        red every placed-edge assertion in this module without saying why."""
-        assert not _tolerance_is_declared(0.05, {})
-        assert not _tolerance_is_declared(0.05, {"CARD-322": "a tighter bound"})
-
-
-class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
-    """The owner's steer, made mechanical: medium-**pinned**, not medium-aware.
-
-    *"Let's aim at switching on vector for the interior (not dividers) — don't
-    spend much time on fixing-updating raster."* So the raster's placed-edge
-    expectations are not re-tuned; they are pinned to the medium they were
-    measured in, and CARD-322's conversion retires them. A pin written in
-    prose would not notice a conversion, so it is derived instead: every
-    assertion in this module that compares against
-    :data:`EDGE_TOLERANCE_MM` must sit in a test that reads its page through
-    ``page_ink.drawing_of`` — the raster ink oracle — and none may read a
-    content stream. When CARD-322 converts a page under one of them, the
-    reading changes medium and this goes red until the site says so.
-
-    Default-DENY per ADR-0039/R2: a site whose medium cannot be determined is
-    a FAILURE, not a pass — and, since CARD-330 cycle 1's F-002, a site that
-    cannot be *told apart* is one too. The map is keyed on the
-    **class-qualified** name because this module holds two different tests
-    under one bare name, which keyed on the bare name silently dropped one of
-    them; the walk returns a list so the key count can be asserted equal to
-    the site count, and a future collision reds instead of shrinking the dict.
-
-    **Two depths, and the difference is the point (CARD-329 cycle 1's
-    F-001).** The requirement that a site read through ``drawing_of`` is
-    stated on the site's **own body**, where the oracle call is written. The
-    prohibition on reading a content stream is stated **twice**: once on the
-    site's own body, and once on everything the site can *reach*, to a fixed
-    point (:meth:`_closed_sites`). The second is not a stronger spelling of
-    the first — it is the one that catches the shape the house style actually
-    produces, a one-line ``interior_images(...)`` seam at the module's
-    page-source helper rather than inside the test. Measured: the same
-    crossing written inside a site is killed by either cell; written at
-    ``_interior``, one frame in, only the closed one sees it.
-
-    The set of readers that count as crossing is **derived** from the two
-    owning helpers' source (:meth:`_stream_readers`), not written out — the
-    hand-written form had an existence control and none for omission, and
-    omission is the permissive direction.
-    """
-
-    #: The reader that makes a site's medium the raster bitmap.
-    _RASTER_READER = "drawing_of"
-
-    #: The two helpers that own every reader a site could reach across the
-    #: medium: CARD-294's content-stream reader and CARD-329's page reader.
-    _READER_OWNERS = (
-        "tests/helpers/pdf_vector.py",
-        "tests/helpers/pdf_pages.py",
-    )
-
-    #: Poppler's two engines. A function that reaches one of them reads the
-    #: page **as drawn**, operators included, whatever medium it was written
-    #: in — which is the whole hazard this class pins.
-    _POPPLER_ENGINES = frozenset({"PDFTOPPM", "PDFTOTEXT"})
-
-    #: The two PDF keys a page's content stream and its medium hang off.
-    #: ``/Contents`` *is* the stream; ``/Resources`` is the dictionary whose
-    #: ``/XObject`` and ``/Font`` keys are the only thing that says which
-    #: medium a page is in (:func:`tests.helpers.pdf_vector.page_media`).
-    _STREAM_KEYS = frozenset({b"Contents", b"Resources"})
-
-    #: A parameter by this name is a decoded content stream handed in as
-    #: text — the signature every operator reader in ``pdf_vector`` takes.
-    _STREAM_PARAM = "stream"
-
-    #: The public module-level readers of the two owners that the derivation
-    #: below classifies as **not** crossing the medium, named here so the
-    #: classification is a partition with nothing unclassified rather than a
-    #: filter whose omissions are invisible.
-    #:
-    #: Each one reads either an already-rasterised array (``ink_mask``,
-    #: ``ink_box``), a bitmap's pixels (``same_page``), the file's object
-    #: table rather than any page's stream (``embedded_faces``,
-    #: ``font_objects``, ``font_file_lengths``, ``base_font_names``), the page
-    #: *tree*'s length (``pdf_page_count``), a page object's Python type
-    #: (``page_medium_of``), or bytes it was handed (``to_buffer``). None of
-    #: their answers moves when a page converts, which is exactly what makes
-    #: a site calling one still medium-pinned.
-    #:
-    #: Held to existing — and to being disjoint from the derived set — by
-    #: :meth:`test_every_public_reader_of_the_two_owners_is_classified`, so
-    #: this cannot rot into a blanket exemption.
-    _MEDIUM_BLIND_READERS = frozenset(
-        {
-            # tests/helpers/pdf_vector.py
-            "base_font_names",
-            "embedded_faces",
-            "font_file_lengths",
-            "font_objects",
-            "ink_box",
-            "ink_mask",
-            "to_buffer",
-            # tests/helpers/pdf_pages.py
-            "page_medium_of",
-            "pdf_page_count",
-            "same_page",
-        }
-    )
-
-    @classmethod
-    def _owner_functions(cls) -> tuple[dict[str, tuple[set[str], set[str], set[bytes]]],
-                                       set[str]]:
-        """Every function of the two owners, and their public module-level names.
-
-        ``{name: (its parameters, the names and attributes its body mentions,
-        the bytes literals it holds)}`` — enough for the derivation below to
-        decide, from the source, whether a reader can cross the medium.
-        """
-        root = pathlib.Path(__file__).resolve().parent.parent
-        table: dict[str, tuple[set[str], set[str], set[bytes]]] = {}
-        public: set[str] = set()
-        for path in cls._READER_OWNERS:
-            tree = ast.parse((root / path).read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                params = {
-                    argument.arg
-                    for argument in (
-                        node.args.posonlyargs
-                        + node.args.args
-                        + node.args.kwonlyargs
-                    )
-                }
-                names = {
-                    inner.id
-                    for inner in ast.walk(node)
-                    if isinstance(inner, ast.Name)
-                } | {
-                    inner.attr
-                    for inner in ast.walk(node)
-                    if isinstance(inner, ast.Attribute)
-                }
-                literals = {
-                    inner.value
-                    for inner in ast.walk(node)
-                    if isinstance(inner, ast.Constant)
-                    and isinstance(inner.value, bytes)
-                }
-                held = table.get(node.name, (set(), set(), set()))
-                table[node.name] = (
-                    held[0] | params,
-                    held[1] | names,
-                    held[2] | literals,
-                )
-            for node in tree.body:
-                if isinstance(
-                    node, (ast.FunctionDef, ast.AsyncFunctionDef)
-                ) and not node.name.startswith("_"):
-                    public.add(node.name)
-        return table, public
-
-    @classmethod
-    def _stream_readers(cls) -> frozenset[str]:
-        """The readers that would make a site's medium the content stream —
-        **derived** from the two owners' source, to a fixed point.
-
-        The set used to be hand-written, and CARD-329 cycle 1's F-002 is what
-        that cost: it had a control that every *listed* name was a real reader
-        and none that a name which *should* be listed was, and omission from
-        this set forbids nothing (ADR-0039/R2 makes that the wrong default).
-        Measured at the time: ``pdf_vector`` defines 20 public functions, the
-        set named 4 of them, and the one it most obviously wanted —
-        ``rendered_page``, the stream reader that returns pixels and the one
-        :func:`~tests.helpers.pdf_pages.page_image` itself delegates to — was
-        absent.
-
-        A function crosses the medium when its body reaches poppler
-        (:data:`_POPPLER_ENGINES`), or holds one of the PDF keys a page's
-        stream and medium hang off (:data:`_STREAM_KEYS`), or takes a decoded
-        stream as a parameter (:data:`_STREAM_PARAM`) — and then, **to a fixed
-        point**, when it calls anything that does. The closure is the same
-        lesson :func:`_page_consuming_functions` learned: ``page_media`` reads
-        no key itself, it asks ``page_resource_keys``, and ``interior_images``
-        rasterises nothing itself, it calls ``page_image``.
-
-        Narrowed to the owners' **public module-level** functions, because
-        those are the names a test site can actually write.
-        """
-        table, public = cls._owner_functions()
-        crossing = {
-            name
-            for name, (params, names, literals) in table.items()
-            if names & cls._POPPLER_ENGINES
-            or literals & cls._STREAM_KEYS
-            or cls._STREAM_PARAM in params
-        }
-        # Bounded by the function count, and it terminates because `crossing`
-        # only grows and stays a subset of the names enumerated above.
-        for _round in range(len(table) + 1):
-            grown = {
-                name
-                for name, (_params, names, _literals) in table.items()
-                if name not in crossing and names & crossing
-            }
-            if not grown:
-                break
-            crossing |= grown
-        return frozenset(crossing & public)
-
-    #: The two placed-edge sites this module holds under **one** bare
-    #: function name, in different classes. Keyed on the bare name, as the
-    #: walk below was until CARD-330 cycle 1's F-002, one of them was
-    #: overwritten and never checked — measured: converting the
-    #: right-hand one to a content-stream reader left all four assertions in
-    #: this class green, while the identical change to the left-hand one red
-    #: two. Both are named here so neither can go back to being invisible.
-    _COLLIDING_SITES = frozenset(
-        {
-            "TestBookPdf_DrawingCentredOnRightHandPage"
-            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
-            "TestBookPdf_DrawingCentredOnLeftHandPage"
-            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
-        }
-    )
-
-    @staticmethod
-    def _walk() -> list[tuple[str, str, set[str]]]:
-        """``(class-qualified name, bare name, the readers it calls)`` for
-        every ``EDGE_TOLERANCE_MM`` comparison in this module, as a **list**.
-
-        A list and not a dict, so :meth:`_sites`' own control can compare the
-        two lengths: two sites that collapsed into one key would otherwise
-        disappear rather than fail, which is exactly what ADR-0039/R2's
-        default-DENY forbids.
-        """
-        tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
-        found: list[tuple[str, str, set[str]]] = []
-
-        def visit(node: ast.AST, prefix: tuple[str, ...]) -> None:
-            for child in ast.iter_child_nodes(node):
-                if isinstance(child, ast.ClassDef):
-                    visit(child, prefix + (child.name,))
-                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    names = {
-                        inner.id
-                        for inner in ast.walk(child)
-                        if isinstance(inner, ast.Name)
-                    }
-                    if "EDGE_TOLERANCE_MM" in names:
-                        attributes = {
-                            inner.attr
-                            for inner in ast.walk(child)
-                            if isinstance(inner, ast.Attribute)
-                        }
-                        found.append(
-                            (
-                                "::".join(prefix + (child.name,)),
-                                child.name,
-                                names | attributes,
-                            )
-                        )
-                    visit(child, prefix + (child.name,))
-                else:
-                    visit(child, prefix)
-
-        visit(tree, ())
-        return found
-
-    @classmethod
-    def _sites(cls) -> dict[str, set[str]]:
-        """``{class-qualified function: the readers it calls}`` for every
-        ``EDGE_TOLERANCE_MM`` comparison in this module.
-
-        **Class-qualified**, because the bare name is not unique in this
-        module (see :data:`_COLLIDING_SITES`).
-        """
-        return {qualified: readers for qualified, _, readers in cls._walk()}
-
-    @classmethod
-    def _bare(cls, qualified: str) -> str:
-        """The function part of a key.
-
-        Used only where the class genuinely does not matter: the walk's own
-        floor control, which asks whether a known test was found at all.
-        It is deliberately **not** used to match the exemption register —
-        that lookup stripped the class until cycle 2's F-008, and a bare
-        name is not unique in this module (:data:`_COLLIDING_SITES`).
-        """
-        return qualified.rsplit("::", 1)[-1]
-
-    @staticmethod
-    def _callable_bodies() -> dict[str, set[str]]:
-        """``{function name: the names and attributes its body mentions}`` for
-        every function a site could call: this module's own and every
-        ``tests/helpers`` module's.
-
-        Keyed on the bare name and **unioned** across files, because a site
-        names a callable and not a file — and a union is the default-DENY
-        direction when two modules define the same name (CARD-329 cycle 1's
-        F-001: a classification that depends on which file a reader came from
-        is one the pin cannot make from a site's source).
-        """
-        root = pathlib.Path(__file__).resolve().parent
-        paths = [root / "test_book_pdf.py"] + sorted(
-            (root / "helpers").glob("*.py")
-        )
-        bodies: dict[str, set[str]] = {}
-        for path in paths:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                mentioned = {
-                    inner.id
-                    for inner in ast.walk(node)
-                    if isinstance(inner, ast.Name)
-                } | {
-                    inner.attr
-                    for inner in ast.walk(node)
-                    if isinstance(inner, ast.Attribute)
-                }
-                bodies.setdefault(node.name, set()).update(mentioned)
-        return bodies
-
-    @classmethod
-    def _closed_sites(cls) -> dict[str, set[str]]:
-        """``_sites()`` with each site's reader set closed over the call graph.
-
-        A site's own body is depth 0; this follows every name it mentions into
-        that callable's body, and on, **to a fixed point** — so a reader
-        reached through this module's ``_interior`` or through a
-        ``tests/helpers`` function is in the set. The fixed point is what
-        makes "however indirectly" a property of the walk rather than a word
-        in a docstring, which is the correction cycle 1's F-001 asked for.
-        """
-        bodies = cls._callable_bodies()
-        closed: dict[str, set[str]] = {}
-        for qualified, direct in cls._sites().items():
-            reachable = set(direct)
-            # Bounded by the callable count; terminates because `reachable`
-            # only grows and stays inside the names enumerated above.
-            for _round in range(len(bodies) + 1):
-                grown: set[str] = set()
-                for name in reachable:
-                    grown |= bodies.get(name, set())
-                if grown <= reachable:
-                    break
-                reachable |= grown
-            closed[qualified] = reachable
-        return closed
-
-    def test_the_walk_finds_the_sites_it_is_supposed_to_guard(self) -> None:
-        """The instrument's own control: a walk that found nothing would pass
-        every assertion below. The count is a floor, not a frozen number, so
-        a new placed-edge test does not red this on arrival."""
-        sites = self._sites()
-        assert len(sites) >= 10, sorted(sites)
-        assert "test_the_drawing_sits_25_45_mm_from_the_left_trim_edge" in {
-            self._bare(name) for name in sites
-        }
-
-    def test_no_two_sites_collapse_into_one_key(self) -> None:
-        """F-002's control: a collision is a FAILURE, not a silent merge.
-
-        The walk returns a list and the map is built from it, so the two
-        lengths differ exactly when two sites share a key. Keyed on the bare
-        function name this module already had one such pair, and the site it
-        dropped could have started reading a content stream with all of this
-        class's assertions still green. Both members of that pair are asserted
-        present by key, so the dict can only shrink by a deliberate rename
-        that G-6 forbids.
-        """
-        walked = self._walk()
-        sites = self._sites()
-        assert len(walked) == len(sites), (
-            len(walked),
-            len(sites),
-            sorted(qualified for qualified, _, _ in walked),
-        )
-        assert self._COLLIDING_SITES <= set(sites), sorted(
-            self._COLLIDING_SITES - set(sites)
-        )
-
-    #: The sites that name the bound without measuring a page with it:
-    #: CARD-330's own, which assert the bound itself or compare one medium's
-    #: figure against another's. Every site NOT listed here must read its
-    #: page through the raster ink oracle, so a new site that measures
-    #: nothing has to be added here deliberately — and every name listed is
-    #: asserted to still exist, so the list cannot rot into a blanket
-    #: exemption.
-    #:
-    #: **Class-qualified, exactly as :meth:`_sites` keys them — cycle 2's
-    #: F-008.** The register used to hold bare function names and the two
-    #: denies below consulted it through :meth:`_bare`, which strips the
-    #: class. The bare name is not unique in this module (see
-    #: :data:`_COLLIDING_SITES`), so a future site in ANY class whose bare
-    #: name happened to equal a registered one was exempted from the closed
-    #: deny AND from the raster-oracle requirement, with nothing added here
-    #: and no cell reporting it — measured: the one-frame-in medium crossing
-    #: written under its own name reds two cells, and the identical crossing
-    #: with only its bare name changed to collide left all five green.
-    #: Omission is the permissive direction (ADR-0039/R2), and this module
-    #: has already lost a site to a bare-name collision once (CARD-330
-    #: cycle 1's F-002), which is why :meth:`_sites` is keyed this way.
-    _BOUND_ONLY_SITES = frozenset(
-        {
-            "TestEdgeOffset_ATolerenceChangeCarriesItsExemption"
-            "::test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt",
-            "TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels"
-            "::test_the_two_media_ink_differs_by_one_device_pixel_not_two",
-            "TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels"
-            "::test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance",
-        }
-    )
-
-    #: The cells that consult :data:`_BOUND_ONLY_SITES`. Named here so the
-    #: lookup control below can resolve them by ``ast`` rather than trust a
-    #: sentence: each one must match the register on the **whole** key.
-    _EXEMPTING_CELLS = (
-        "test_the_exemption_list_names_only_sites_that_exist",
-    )  # CARD-322: the other two consulting cells are retired (see below)
-
-    def test_the_exemption_list_names_only_sites_that_exist(self) -> None:
-        """No dead entry: a renamed test would otherwise leave a name that
-        exempts nothing and hides the next site that takes it.
-
-        Resolved on the **whole** key since cycle 2's F-008, so a register
-        entry whose class moved is as dead as one whose function was renamed.
-        The non-emptiness assertion is the control on this cell itself: a
-        register that collapsed to ``frozenset()`` would satisfy every
-        subset assertion here and silently exempt nothing while reading as
-        a checked list.
-        """
-        sites = set(self._sites())
-        assert self._BOUND_ONLY_SITES, "the exemption register is empty"
-        assert self._BOUND_ONLY_SITES <= sites, sorted(
-            self._BOUND_ONLY_SITES - sites
-        )
-
-    def test_the_exemption_lookup_does_not_strip_the_class(self) -> None:
-        """F-008's control: the register is class-qualified **and consulted
-        that way**, in both directions.
-
-        Measured when the lookup stripped the class: the house one-frame-in
-        seam (``interior_images`` at a module-level page-source helper),
-        planted at a placed-edge site under its own name, reds two of this
-        class's cells; the identical plant with only its bare name changed to
-        collide with a registered entry in a *different* class left all five
-        green and added nothing to the register. So both halves are asserted:
-
-        * every entry is class-qualified and exempts the site it names;
-        * the same bare name under any other class is **not** exempt;
-        * and no consulting cell calls :meth:`_bare`, which is the exact
-          degradation that opened the hole — a sentence in a docstring would
-          not have caught it, so this half is resolved by ``ast``.
-        """
-        assert self._BOUND_ONLY_SITES, "the exemption register is empty"
-        for entry in sorted(self._BOUND_ONLY_SITES):
-            assert "::" in entry, entry
-            # The negative direction: the bare name alone, and the bare name
-            # under a class that is not the entry's, are both outside the
-            # register — so a colliding site elsewhere stays denied.
-            bare = self._bare(entry)
-            assert bare not in self._BOUND_ONLY_SITES, bare
-            assert (
-                f"TestEdgeOffset_ANameThatCollidesInAnotherClass::{bare}"
-                not in self._BOUND_ONLY_SITES
-            ), bare
-
-        tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
-        consulting = {
-            node.name: node
-            for node in ast.walk(tree)
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name in self._EXEMPTING_CELLS
-        }
-        assert set(consulting) == set(self._EXEMPTING_CELLS), sorted(consulting)
-        for name, node in sorted(consulting.items()):
-            mentioned = {
-                inner.attr
-                for inner in ast.walk(node)
-                if isinstance(inner, ast.Attribute)
-            }
-            assert "_BOUND_ONLY_SITES" in mentioned, name
-            assert "_bare" not in mentioned, name
-
-    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_every_site_reads_its_page_through_the_raster_ink_oracle`.
-    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
-    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_EveryPlacedEdgeSiteIsClassified::test_every_placed_edge_site_lands_in_exactly_one_class, with ::test_the_control_a_site_put_back_on_the_ink_is_caught as its plant (scope: the two Touches modules' sites; this module's sites now read the boundary through _frame_left/frame_centre_of)
-
-
-    def test_every_stream_reader_named_here_is_a_real_reader(self) -> None:
-        """No dead member: a name the guard treats as a reader that nothing in
-        the two owners defines would forbid nothing, and the set would rot into
-        a list of words while reading as a guard.
-
-        Each is resolved to a ``def`` in the helper that owns it — not to a
-        mention, which is the distinction CARD-309 had to correct and
-        CARD-329 re-derived (a check ref that resolves to a text hit warns
-        about nothing while verifying nothing). Since cycle 1's F-002 the set
-        is derived from those definitions rather than written out, so this cell
-        is now a control on the **derivation's plumbing**: a walk that started
-        collecting call sites, imports or docstring words instead of
-        definitions would pass nothing here.
-        """
-        root = pathlib.Path(__file__).resolve().parent
-        defined: set[str] = set()
-        for path in self._READER_OWNERS:
-            tree = ast.parse((root.parent / path).read_text(encoding="utf-8"))
-            defined |= {
-                node.name
-                for node in ast.walk(tree)
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            }
-        readers = self._stream_readers()
-        assert readers, "the derivation found no stream reader at all"
-        assert readers <= defined, sorted(readers - defined)
-
-    def test_every_public_reader_of_the_two_owners_is_classified(self) -> None:
-        """F-002's completeness control: a **partition**, not a filter.
-
-        The hand-written set had an existence control and none for omission,
-        and under ADR-0039/R2 omission is the permissive direction — a stream
-        reader missing from it forbade nothing. So every public module-level
-        function of the two owners must land either in the derived set or in
-        :data:`_MEDIUM_BLIND_READERS`, and in exactly one of them. A reader
-        added to ``pdf_vector`` or ``pdf_pages`` that the derivation does not
-        recognise reds here instead of quietly being allowed under the bound.
-        """
-        _table, public = self._owner_functions()
-        readers = self._stream_readers()
-        assert public, "the walk found no public reader in either owner"
-        assert not (readers & self._MEDIUM_BLIND_READERS), sorted(
-            readers & self._MEDIUM_BLIND_READERS
-        )
-        assert readers | self._MEDIUM_BLIND_READERS == public, {
-            "unclassified": sorted(public - readers - self._MEDIUM_BLIND_READERS),
-            "named but not public": sorted(
-                (readers | self._MEDIUM_BLIND_READERS) - public
-            ),
-        }
-
-    def test_the_derivation_decides_both_directions_and_not_just_one(
-        self,
-    ) -> None:
-        """The control on the classifier itself — `cycle 1 F-002`.
-
-        A derivation that returned every public function would satisfy the
-        partition above as surely as the right one, so both directions are
-        named. The crossing direction holds the seven the set carried when it
-        was hand-written **plus** the member it was missing; the blind
-        direction holds the readers whose answer a conversion cannot move.
-        """
-        readers = self._stream_readers()
-        was_declared = {
-            "content_streams",
-            "operator_tokens",
-            "operator_tally",
-            "page_media",
-            "page_image",
-            "interior_images",
-            "pdf_pages",
-        }
-        assert was_declared <= readers, sorted(was_declared - readers)
-        # The member the hand-written set omitted, and the one `page_image`
-        # itself delegates to: the stream reader that returns pixels.
-        assert "rendered_page" in readers, sorted(readers)
-        assert {"extracted_text", "word_boxes"} <= readers, sorted(readers)
-        # And the other direction: these read a page that is already pixels,
-        # or the file's object table, so a conversion moves no answer of
-        # theirs. A derivation that said "crossing" to all of them would be
-        # a constant, not a classifier.
-        assert not (readers & {"ink_mask", "ink_box", "to_buffer", "same_page"}), (
-            sorted(readers & {"ink_mask", "ink_box", "to_buffer", "same_page"})
-        )
-
-    def test_the_pixel_returning_stream_readers_really_cross_the_medium(
-        self,
-    ) -> None:
-        """The reason the three ``pdf_pages`` members are in the set: each one
-        can be handed an operators page and hand back pixels.
-
-        Asserted on the reader, not on the derivation — a name the walk
-        classified as crossing by reading its source would pass the cells
-        above and this one would not.
-        """
-        _generator, bitmap, stream = _one_vector_page()
-        assert page_medium_of(stream) == "vector"
-        crossed = page_image(stream)
-        assert isinstance(crossed, Image.Image), type(crossed)
-        assert crossed.size == bitmap.size
-        # And the raster side does NOT cross: the same call on a bitmap is the
-        # identity, which is what makes the medium the page's and not the
-        # reader's.
-        assert page_image(bitmap) is bitmap
-
-    def test_no_site_reads_a_content_stream(self) -> None:
-        """G-2 and the pin together: these expectations are the raster's, and
-        a site that quietly started reading the stream would be asserting a
-        0.169 mm different number against the same bound.
-
-        Depth 0 — the reader named in the site's **own** body. The frame below
-        is where the house style would actually put it.
-        """
-        readers = self._stream_readers()
-        for name, called in self._sites().items():
-            assert not (called & readers), (name, sorted(called & readers))
-
-    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_no_site_reaches_a_stream_reader_through_a_helper_either`.
-    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
-    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_EveryPlacedEdgeSiteIsClassified::test_every_placed_edge_site_lands_in_exactly_one_class, with ::test_the_control_a_site_put_back_on_the_ink_is_caught as its plant (scope: the two Touches modules' sites; this module's sites now read the boundary through _frame_left/frame_centre_of)
-
-
-    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_the_site_walk_closes_over_the_call_graph_it_claims_to`.
-    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
-    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_EveryPlacedEdgeSiteIsClassified::test_every_placed_edge_site_lands_in_exactly_one_class, with ::test_the_control_a_site_put_back_on_the_ink_is_caught as its plant (scope: the two Touches modules' sites; this module's sites now read the boundary through _frame_left/frame_centre_of)
-
-
-
-class TestEdgeOffset_ThePixelOraclesStillReadPixels:
-    """AC-5 — ``drawing_of`` and ``two_up_ink`` are still oracles.
-
-    R6 exempts them by name as independent second implementations, and an
-    oracle that shared the subject's mechanism would have stopped being one
-    (CLAUDE.md's stated reason for having two). CARD-330 changed their
-    *documentation* and not their reading, and this is what says so.
-    """
-
-    _ORACLES = ("tests/helpers/page_ink.py", "tests/helpers/two_up_ink.py")
-
-    @staticmethod
-    def _module(path: str) -> ast.Module:
-        root = pathlib.Path(__file__).resolve().parent.parent
-        return ast.parse((root / path).read_text(encoding="utf-8"))
-
-    def test_neither_oracle_imports_the_content_stream_reader(self) -> None:
-        for path in self._ORACLES:
-            imported = {
-                name
-                for node in ast.walk(self._module(path))
-                for name in (
-                    [alias.name for alias in node.names]
-                    if isinstance(node, (ast.Import, ast.ImportFrom))
-                    else []
-                )
-            }
-            assert not {"pdf_vector", "tests.helpers.pdf_vector"} & imported, (
-                path,
-                sorted(imported),
-            )
-
-    #: What each oracle's own measuring entry point has to go through: the
-    #: ink mask, which *is* the pixel reading. ``two_up_ink``'s
-    #: :func:`~tests.helpers.two_up_ink.drawings_of` reaches it one step
-    #: further out — it finds the page's split row and hands each half to
-    #: ``page_ink``'s own reader — so the two functions named here are the
-    #: ones that touch a bitmap, and ``drawings_of`` is checked to still
-    #: delegate to the first of them.
-    _MASK_READERS = frozenset({"_dark", "ink_mask"})
-
-    def _calls(self, path: str, function: str) -> set[str]:
-        found = [
-            node
-            for node in ast.walk(self._module(path))
-            if isinstance(node, ast.FunctionDef) and node.name == function
-        ]
-        assert len(found) == 1, (path, function, len(found))
-        return {
-            inner.id for inner in ast.walk(found[0]) if isinstance(inner, ast.Name)
-        }
-
-    def test_the_measuring_functions_still_reduce_a_bitmap_to_a_mask(self) -> None:
-        """The positive half, on each oracle's own pixel-reading entry point."""
-        for path, function in (
-            ("tests/helpers/page_ink.py", "drawing_of"),
-            ("tests/helpers/two_up_ink.py", "split_row"),
-        ):
-            called = self._calls(path, function)
-            assert called & self._MASK_READERS, (path, function, sorted(called))
-
-    def test_the_two_up_reader_still_delegates_to_the_pixel_oracle(self) -> None:
-        """So ``two_up_ink`` cannot have grown a reading of its own that is
-        not ``page_ink``'s — the cross-check lives in having one reader."""
-        assert "drawing_of" in self._calls(
-            "tests/helpers/two_up_ink.py", "drawings_of"
-        )
-
-    def test_drawing_of_still_takes_a_page_and_not_a_file(self) -> None:
-        """Behaviourally, not just structurally: it reads an image, so bytes
-        are not a page it can measure."""
-        page = _interior(_book(), [_puzzle(15, 15, 7)])[FIRST_PUZZLE_PAGE - 1]
-        assert drawing_of(page).columns == 15
-        with pytest.raises((AttributeError, TypeError, ValueError)):
-            drawing_of(b"%PDF-1.4")
-
-
-class TestEdgeOffset_TheAdrRecordsTheCanonicalMedium:
-    """AC-3 — the answer lives in ADR-0042, in one place, for three cards.
-
-    CARD-312, CARD-322 and CARD-329 all read this decision, so it is recorded
-    where a rule is recorded rather than in a card's notes.
-    """
-
-    @staticmethod
-    def _adr() -> str:
-        root = pathlib.Path(__file__).resolve().parent.parent
-        path = (
-            root
-            / "meta/architecture/decisions/adr"
-            / "0042-book-interior-is-vector-cover-stays-raster.md"
-        )
-        assert path.exists(), path
-        return path.read_text(encoding="utf-8")
-
-    def test_it_names_the_canonical_medium_for_a_placed_edge_claim(self) -> None:
-        adr = self._adr().lower()
-        assert "card-330" in adr
-        assert "canonical for a placed-edge claim" in adr
-        # And names which medium it is, beside the question.
-        where = adr.index("canonical for a placed-edge claim")
-        assert "content stream" in adr[where : where + 400], adr[where : where + 400]
-
-    def test_it_records_the_three_numbers_and_what_the_gap_turned_out_to_be(
-        self,
-    ) -> None:
-        """The figures, not just the verdict: a reader who only has the
-        verdict re-measures, and this board has re-measured this one twice."""
-        adr = self._adr()
-        for figure in ("0.0847", "0.254", "1.3 pt"):
-            assert figure in adr, figure
-
-    def test_it_records_that_the_device_floor_is_unresolved_for_the_interior(
-        self,
-    ) -> None:
-        """ADR-0037/R2 holds furniture to a 2-device-pixel floor and
-        ADR-0042/R7 makes the floor inapplicable to the interior. Nothing on
-        the board owns the collision, two cards wait on it, and this ADR must
-        say so rather than let a reader infer a floor neither rule grants."""
-        adr = self._adr()
-        assert "unresolved for interior furniture" in adr
-        assert "ADR-0037/R2" in adr and "R7" in adr
-        assert "CARD-208" in adr and "CARD-226" in adr
-        # The figure that makes the question real, at the resolution it was
-        # measured at — an instrument's domain is part of its figure.
-        assert "150 DPI" in adr and "1200 DPI" in adr
-
-
 # ==========================================================================
 # CARD-329 — the one-image reader learns the content stream
 #
@@ -5903,24 +4200,21 @@ class TestEdgeOffset_TheAdrRecordsTheCanonicalMedium:
 # three sections are AC-1, AC-2 and AC-3 of that card.
 #
 # Why the tests live HERE: this module already owns the book PDF's read-back
-# (see its own header) and already holds the only other call in this tree that
-# writes one `ContentStream` out and measures poppler's raster of it
-# (`_edge_reading`). `tests/helpers/pdf_pages.py` is in CARD-329's `Touches`
-# and so is this file.
+# (see its own header).
 # ==========================================================================
 
 
 def _one_vector_page(page: int = FIRST_PUZZLE_PAGE):
-    """One puzzle page as operators, with the bitmap of the same page beside it.
+    """One puzzle page as operators, with a live bitmap page of the same size.
 
-    Both from the same generator, the same payload and the same cell map, so
-    the only difference between the two is the medium -- the shape
-    `_edge_reading` above takes, and for its reason.
+    The bitmap is the level divider's raster at the same position (a divider
+    is one of the interior's two raster kinds), so the two pages share an
+    extent and a DPI and differ in their medium.
     """
     generator = BookPDFGenerator(_book())
     payload = BookPDFGenerator._payload(_puzzle(10, 10, 2, name="Reader"))
     sizes = generator.cell_sizes([payload])
-    bitmap = generator._blank_page(payload, 1, page, sizes)
+    bitmap = generator.create_divider_page(page, "Easy")
     stream = generator.vector_puzzle_page(payload, 1, page, sizes)
     return generator, bitmap, stream
 
@@ -6002,24 +4296,9 @@ class TestPdfPagesReader_AnOperatorsPageIsNotAKeyError:
         self, tmp_path, monkeypatch
     ) -> None:
         """A file that mixes the media -- ADR-0042/R2's own sanctioned end
-        state, not a migration artefact -- read back in one call.
-
-        **The counterfactual, and why it has to be one.** Every one of the
-        seven page kinds is declared raster on `main`
-        (`_RASTER_DECLARATIONS`), so there is no kind this test could ask the
-        writer for that would come back as operators: a mixed file cannot be
-        built from the rules in force. So the declaration is lifted for the
-        duration of this one test -- `monkeypatch` puts it back -- which is
-        the mechanism CARD-329's own session probe uses for a whole run and
-        the state CARD-322's conversion will make permanent. Nothing on disk
-        changes and no page is converted (G-1): this test stands the
-        counterfactual up, it does not perform it.
-        """
-        monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.PUZZLE, raising=False)
+        state, not a migration artefact -- read back in one call."""
         assert page_medium(PageKind.COVER) is PageMedium.RASTER
-        assert page_medium(PageKind.PUZZLE) is PageMedium.VECTOR, (
-            "the lift did not take, so this test measures a raster file"
-        )
+        assert page_medium(PageKind.PUZZLE) is PageMedium.VECTOR
         generator, bitmap, stream = _one_vector_page()
         written = generator._write_pdf(
             [bitmap, stream],
@@ -6139,7 +4418,6 @@ class TestPdfPagesReader_AnOperatorsPageIsNotAKeyError:
         extent of page 1 changes: 2550 px over 4.25 in (600 DPI) beside
         2550 px over 8.5 in (300 DPI).
         """
-        monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.PUZZLE, raising=False)
         generator, bitmap, stream = _one_vector_page()
         written = generator._write_pdf(
             [bitmap, bitmap, stream],
@@ -6733,10 +5011,3 @@ class TestInterior_PageCountChangeIsAttributedToTheBand:
             assert (was[0], was[1], was[3]) == (now[0], now[1], now[3]), label
             # The whole move is the puzzle section's: 60 pairs of 120 puzzles.
             assert was[4] - now[4] == was[2] - now[2], label
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()
