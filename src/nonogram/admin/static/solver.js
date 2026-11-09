@@ -1775,8 +1775,6 @@ function linedParts(table, axis, index) {
   return [...table.querySelectorAll(cells), ...table.querySelectorAll(clues)];
 }
 
-// The [row, col] of the board cell under the viewport point (x, y), or null.
-// `container` only needs to contain the live table — see wireMarking.
 // BRING INTO VIEW (CARD-408). Scroll `stage` — the stage only, never the
 // page — so that the union of `elements` is visible on `axes` ("x", "y" or
 // both), clear of the sticky clue bands the table is keeping (CARD-271). A
@@ -1806,6 +1804,8 @@ function bringIntoView(stage, elements, axes) {
   }
 }
 
+// The [row, col] of the board cell under the viewport point (x, y), or null.
+// `container` only needs to contain the live table — see wireMarking.
 function cellUnder(container, x, y) {
   const cell = document.elementFromPoint(x, y)?.closest("td.player-cell");
   if (!cell || !container.contains(cell)) return null;
@@ -2275,10 +2275,15 @@ function wireMarking(container, player) {
       // CARD-408: and bring the line into view — its CELLS, on the axis
       // across the line (a row vertically, a column horizontally).
       const table = container.querySelector(".player-board");
+      // The line's cells AND its labelled clue box, on both axes: a whole
+      // zoomed line seldom fits, and revealScroll then puts the line's start
+      // — its clue — just past the band, so the player sees the clue and
+      // the first cells (review cycle 1, F-002: AC-2 names the clue box).
       if (table !== null) {
-        const cells = [...linedParts(table, ladderLine.axis, ladderLine.index)]
-          .filter((part) => part.matches("td.player-cell"));
-        bringIntoView(container, cells, ladderLine.axis === "row" ? "y" : "x");
+        const parts = [...linedParts(table, ladderLine.axis, ladderLine.index)]
+          .filter((part) => part.matches("td.player-cell")
+            || (part.matches("th.player-clue") && part.getAttribute("aria-hidden") !== "true"));
+        bringIntoView(container, parts, "xy");
       }
     }
   }

@@ -1424,7 +1424,11 @@ _IN_VIEW = """(selector) => {
   const inside = (b, axis) => axis === 'y'
     ? b.top >= port.top + colBand - 0.5 && b.bottom <= port.top + stage.clientHeight + 0.5
     : b.left >= port.left + rowBand - 0.5 && b.right <= port.left + stage.clientWidth + 0.5;
-  return { count: cells.length,
+  const clue = document.querySelector('th.player-clue.is-hint-line:not([aria-hidden="true"])');
+  const clueBox = clue ? clue.getBoundingClientRect() : null;
+  return { count: cells.length, axis: clue ? (clue.classList.contains('is-row') ? 'row' : 'col') : null,
+           clueIn: clueBox !== null && clueBox.right > port.left && clueBox.left < port.left + stage.clientWidth
+             && clueBox.bottom > port.top && clueBox.top < port.top + stage.clientHeight,
            y: cells.every((c) => inside(c.getBoundingClientRect(), 'y')),
            x: cells.every((c) => inside(c.getBoundingClientRect(), 'x')),
            scroll: [stage.scrollLeft, stage.scrollTop], pageY: scrollY };
@@ -1448,7 +1452,8 @@ class TestSolverZoom_HintComesIntoView:
         # (scroll, view, band, start, size, max)
         cases = [(0, 300, 50, 100, 20, 900), (500, 300, 50, 520, 20, 900),
                  (500, 300, 50, 900, 20, 900), (500, 300, 50, 560, 20, 900),
-                 (0, 300, 50, 10, 20, 900), (100, 300, 50, 0, 600, 900)]
+                 (0, 300, 50, 10, 20, 900), (100, 300, 50, 0, 600, 900),
+                 (500, 300, 50, 900, 20, 560)]  # the upper clamp
         got = browser_page.evaluate(
             """async (cases) => { const S = await import('/static/solver_state.js');
                return cases.map((c) => S.revealScroll(...c)); }""", cases)
@@ -1459,9 +1464,12 @@ class TestSolverZoom_HintComesIntoView:
             want = start - band if (start < scroll + band or size > view - band) else start + size - view
             return min(max(want, 0), maximum)
 
-        assert got == [independent(*c) for c in cases] == [0, 470, 620, 500, 0, 0], got
+        assert got == [independent(*c) for c in cases] == [0, 470, 620, 500, 0, 0, 560], got
 
-    @pytest.mark.parametrize("width,height", [(390, 844), (844, 390)])
+    # 844 x 390 is the owner's landscape case; 1440 x 900 is where the 30 x 30
+    # at 200% KEEPS both sticky bands, so the band arithmetic is exercised
+    # (review cycle 1, F-001: at 390 x 844 no band is kept, ruling 2026-11-09).
+    @pytest.mark.parametrize("width,height", [(844, 390), (1440, 900)])
     def test_hint_and_check_bring_their_target_into_view(self, browser, live, width, height) -> None:
         context = browser.new_context(viewport={"width": width, "height": height})
         page = context.new_page()
@@ -1491,7 +1499,8 @@ class TestSolverZoom_HintComesIntoView:
             check = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
         finally:
             context.close()
-        assert line["count"] == 30 and (line["y"] or line["x"]), line
+        # Across the line, every cell; and the line's clue box is in the stage.
+        assert line["count"] == 30 and line[{"row": "y", "col": "x"}[line["axis"]]] and line["clueIn"], line
         assert again["scroll"] == line["scroll"], (line, again)
         assert cell["count"] == 1 and cell["x"] and cell["y"], cell
         assert check["count"] == 30 and check["y"], check
