@@ -637,6 +637,9 @@ def book_page_spec(book: object, page_number: int = 1) -> PageSpec:
         min_thin_rule_mm=profile.min_thin_rule_mm,
         grid_rules=profile.grid_rules,
         parity=parity,
+        # Owner decision 2026-11-09: no frame around the clues. The clue
+        # shading marks the clue area; the grid keeps its own heavy border.
+        frame=False,
     )
 
 

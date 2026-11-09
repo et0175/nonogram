@@ -120,6 +120,7 @@ from io import BytesIO
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from nonogram.admin.book_pdf_generator import (
+    _SOLVED_GRID_GRAY,
     FOLIO_PT,
     GUIDE2_INTRO,
     GUIDE2_TITLE,
@@ -181,7 +182,7 @@ from nonogram.admin.book_vector import (
     interior_face_metrics,
     write_vector_pdf,
 )
-from nonogram.admin.book_vector_draw import draw_difficulty_dots, draw_frame, draw_grid_lines
+from nonogram.admin.book_vector_draw import as_grey, draw_difficulty_dots, draw_frame, draw_grid_lines
 from nonogram.difficulty import tier_of_record
 from nonogram.export.layout import (
     MAX_CELL_MM,
@@ -621,6 +622,15 @@ def draw_line_diagram(
             ys[1] + dy,
             paint="fill",
         )
+    # Owner, 2026-11-09: two neighbouring filled squares stay visibly two, as
+    # on the solution pages -- the rule between them in the solved join's grey.
+    joins = [column + 1 for column in sorted(step.filled) if column + 1 in step.filled]
+    if joins:
+        stream.stroke_grey(as_grey(_SOLVED_GRID_GRAY))
+    for boundary in joins:
+        line = layout.vertical_lines[boundary]
+        stream.stroke_width(stream.to_points(line.width) if line.width_pt is None else line.width_pt)
+        stream.line(xs[boundary] + dx, ys[0] + dy, xs[boundary] + dx, ys[1] + dy)
 
     stream.stroke_grey(_BLACK)
     if step.crossed:

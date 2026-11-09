@@ -70,6 +70,7 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_DIFFICULTY_LINE,
     GUIDE_EXAMPLE_HEADING,
     GUIDE_INTRO,
+    GUIDE_PROMISE,
     GUIDE_SWITCHING_HEADING,
     GUIDE_SWITCHING_TEXT,
     GUIDE_TECHNIQUES_1,
@@ -355,6 +356,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     y = top + px(40)
     pen.put(GUIDE_TITLE, pen.left, y, _TITLE_PT, bold=True, kind=TITLE)
     y = pen.para(GUIDE_INTRO, pen.left, y + px(24), pen.right - pen.left, _INTRO_PT, grey=_GREY)
+    y = pen.para(GUIDE_PROMISE, pen.left, y + px(2), pen.right - pen.left, _BODY_PT)
     if play_page:
         y = pen.para(guide_play_sentence(play_page), pen.left, y + px(2), pen.right - pen.left, _BODY_PT)
 

@@ -1091,6 +1091,12 @@ WORKED_EXAMPLE_LENGTH = 6
 #: ``docs/guides/how_to_solve_nonograms_v2.pdf`` page 1 verbatim.
 GUIDE_INTRO = "Read the clues. Fill what must be black. Mark what must be empty."
 
+#: The promise under the intro (owner, 2026-11-09): what every puzzle in the
+#: book is, so a reader knows a stuck grid is not a broken one.
+GUIDE_PROMISE = (
+    "Every puzzle has exactly one solution, checked by computer, and reveals a picture."
+)
+
 #: The line that introduces the worked example on the page's full form,
 #: built from the clue and the row length it names (CARD-169).
 GUIDE_EXAMPLE_HEADING = (
@@ -3269,6 +3275,11 @@ def example_line_layout(spec: PageSpec, clue: Tuple[int, ...], length: int) -> L
     arithmetic, which G-3 forbids).
     """
     columns = ((0,),) * length
+    # The guide's lines keep their clue box even though the book's puzzle
+    # pages dropped the frame (owner, 2026-11-09): a diagram's clue is
+    # closed off from the prose beside it.
+    if spec.parity is not None:
+        spec = replace(spec, frame=True)
     layout = compute_layout((clue,), columns, spec)
     # A single row: the vertical rules and the frame start at the grid's top
     # instead of running up through the column gutter, and no column clue is
@@ -3344,6 +3355,16 @@ def draw_example_line(layout: Layout, step: ExampleStep) -> Image.Image:
         draw.line([(x0, y0), (x1, y1)], fill=INK, width=layout.thin_rule)
         draw.line([(x0, y1), (x1, y0)], fill=INK, width=layout.thin_rule)
     _stroke_drawing(draw, layout)
+    # Owner, 2026-11-09: two neighbouring filled squares stay visibly two, as
+    # on the solution pages -- the rule between them in the solved join's grey.
+    for column in sorted(step.filled):
+        if column + 1 in step.filled:
+            line = layout.vertical_lines[column + 1]
+            draw.line(
+                [(xs[column + 1], ys[0]), (xs[column + 1], ys[1])],
+                fill=_SOLVED_GRID_GRAY,
+                width=line.width,
+            )
     _write_clues(draw, layout)
     return canvas.crop((left, top, layout.grid_right + pad + 1, layout.grid_bottom + pad + 1))
 
@@ -5214,6 +5235,59 @@ class BookPDFGenerator:
         frame = page_frame(self.page_spec(page_number))
         return Image.new("RGB", (frame.width, frame.height), "white")
 
+    def vector_title_contents(self, puzzle_count: int, page_number: int = 1) -> ContentStream:
+        """Interior page 1 with the book's title and copyright (owner, 2026-11-09).
+
+        Replaces the blank reserved page the owner chose on 2026-10-13: a
+        blank first page is what KDP's "Look Inside" would open on. The
+        title, emboldened and centred a third of the way down, the puzzle
+        count under it in grey, and the copyright lines at the foot of the
+        usable area. No folio, as on any title page.
+        """
+        frame = page_frame(self.page_spec(page_number))
+        stream = ContentStream(width_px=frame.width, height_px=frame.height, dpi=self.dpi)
+        face = interior_face_metrics()
+        pt = self.dpi / 72.0
+        left, right = frame.left, frame.right
+        middle = (left + right) / 2
+
+        def centred(value: str, baseline: float, size_pt: float, grey: float, bold: bool = False) -> None:
+            width = face.advance(value) * size_pt * pt
+            stream.text(
+                value, middle - width / 2, baseline, size_pt, grey=grey,
+                embolden_pt=size_pt * 0.04 if bold else 0.0,
+            )
+
+        title_pt = 32.0
+        words = str(self.book.metadata.title or "").split()
+        lines: List[str] = []
+        for word in words:
+            candidate = f"{lines[-1]} {word}" if lines else word
+            if lines and face.advance(candidate) * title_pt * pt <= (right - left) * 0.8:
+                lines[-1] = candidate
+            else:
+                lines.append(word)
+        y = frame.height * 0.34
+        for line in lines:
+            centred(line, y, title_pt, 0.0, bold=True)
+            y += title_pt * 1.2 * pt
+        if puzzle_count:
+            noun = "picture puzzle" if puzzle_count == 1 else "picture puzzles"
+            centred(f"{puzzle_count} {noun}", y + 14 * pt, 14.0, 0.37)
+
+        year = getattr(self.book, "created_at", None)
+        notice = (
+            f"Copyright © {year.year}. All rights reserved." if year is not None
+            else "All rights reserved."
+        )
+        base = frame.bottom - 16 * pt
+        centred(notice, base, 10.0, 0.37)
+        centred(
+            "No part of this book may be reproduced without written permission.",
+            base + 14 * pt, 10.0, 0.37,
+        )
+        return stream
+
     def vector_title_page(self, page_number: int = 1) -> ContentStream:
         """:meth:`create_title_page`'s vector twin: the trim, and no operator.
 
@@ -5245,7 +5319,13 @@ class BookPDFGenerator:
         return stream
 
     def divider_page(
-        self, slot: str, page_number: int, text: str, *, puzzle_count: Optional[int] = None
+        self,
+        slot: str,
+        page_number: int,
+        text: str,
+        *,
+        puzzle_count: Optional[int] = None,
+        puzzle_range: Optional[Tuple[int, int]] = None,
     ) -> Image.Image:
         """The divider page for ``slot``: the owner's picture if one is stored, else the drawn word.
 
@@ -5263,6 +5343,8 @@ class BookPDFGenerator:
         stored = self.divider_images.get(require_slot(slot))
         if stored is None and slot == SOLUTIONS_SLOT and puzzle_count:
             return self.create_solutions_opener(page_number, puzzle_count)
+        if stored is None and slot != SOLUTIONS_SLOT and puzzle_range is not None:
+            return self.create_level_divider(page_number, Tier(slot), puzzle_range)
         if stored is None:
             return self.create_divider_page(page_number, text)
         frame = page_frame(self.page_spec(page_number))
@@ -5316,6 +5398,62 @@ class BookPDFGenerator:
             page_number,
             self.dpi,
             content_bottom=blurb_box[3],
+        )
+        return page
+
+    def create_level_divider(
+        self, page_number: int, level: Tier, puzzle_range: Tuple[int, int]
+    ) -> Image.Image:
+        """A level's divider in the Solutions opener's style (owner, 2026-11-09).
+
+        The same placement as :meth:`create_solutions_opener`: a short rule,
+        the eyebrow "PUZZLES a–b" in grey, the level's name large and heavy,
+        and under it the level's difficulty dots -- filled for its rank among
+        the tiers, open for the rest, as the puzzle headers draw them.
+        """
+        frame = page_frame(self.page_spec(page_number))
+        page = Image.new("RGB", (frame.width, frame.height), "white")
+        draw = ImageDraw.Draw(page)
+        grey = (96, 96, 96)
+        left = frame.left
+        top = round(frame.height * 0.28)
+        draw.rectangle(
+            (left, top, left + type_px(60, self.dpi), top + max(1, type_px(2.4, self.dpi))),
+            fill="black",
+        )
+        first, last = puzzle_range
+        eyebrow = f"PUZZLE {first}" if first == last else f"PUZZLES {first}–{last}"
+        y = top + type_px(14, self.dpi)
+        draw.text((left, y), eyebrow, fill=grey, font=_guide_face(type_px(10, self.dpi)))
+        title_font = _guide_face(type_px(48, self.dpi))
+        y += type_px(18, self.dpi)
+        draw.text(
+            (left, y), level.label, fill="black", font=title_font,
+            stroke_width=max(1, type_px(1.2, self.dpi)), stroke_fill="black",
+        )
+        bbox = draw.textbbox((left, y), level.label, font=title_font)
+        tiers = list(Tier)
+        rank = tiers.index(level) + 1
+        diameter = type_px(12, self.dpi)
+        pitch = diameter + type_px(6, self.dpi)
+        dot_top = bbox[3] + type_px(26, self.dpi)
+        outline = max(1, type_px(1.2, self.dpi))
+        for index in range(len(tiers)):
+            x = left + index * pitch
+            box = (x, dot_top, x + diameter, dot_top + diameter)
+            if index < rank:
+                draw.ellipse(box, fill="black")
+            else:
+                draw.ellipse(box, outline="black", width=outline)
+        _draw_folio(
+            draw,
+            frame.left,
+            frame.top,
+            frame.right,
+            frame.bottom,
+            page_number,
+            self.dpi,
+            content_bottom=dot_top + diameter,
         )
         return page
 
@@ -7735,7 +7873,7 @@ class BookPDFGenerator:
             # sees, only what the file costs.
             for title_page_number in range(1, TITLE_PAGE_COUNT + 1):
                 if page_medium(PageKind.TITLE) is PageMedium.VECTOR:
-                    yield self.vector_title_page(title_page_number)
+                    yield self.vector_title_contents(len(payloads), title_page_number)
                 else:
                     yield self.create_title_page(title_page_number)
 
@@ -7819,15 +7957,29 @@ class BookPDFGenerator:
                 yield page
                 del page
 
+            # Each divider's own puzzle span, for its eyebrow (owner,
+            # 2026-11-09): the numbers on the pages up to the next divider.
+            divider_ranges: Dict[int, Tuple[int, int]] = {}
+            opened: Optional[int] = None
             for page_plan in section:
                 if isinstance(page_plan, DividerPagePlan):
-                    # A level's divider: its name on the book's trim and
-                    # nothing else (AC-254, G-3). Yielded as an expression, so
+                    opened = page_plan.page_number
+                elif opened is not None and page_plan.numbers:
+                    low, high = divider_ranges.get(
+                        opened, (min(page_plan.numbers), max(page_plan.numbers))
+                    )
+                    divider_ranges[opened] = (
+                        min(low, *page_plan.numbers), max(high, *page_plan.numbers)
+                    )
+            for page_plan in section:
+                if isinstance(page_plan, DividerPagePlan):
+                    # A level's divider (AC-254). Yielded as an expression, so
                     # this frame never holds it while the next page is built.
                     yield self.divider_page(
                         slot_for_level(page_plan.level),
                         page_plan.page_number,
                         page_plan.text,
+                        puzzle_range=divider_ranges.get(page_plan.page_number),
                     )
                     continue
                 members = [payloads[number - 1] for number in page_plan.numbers]

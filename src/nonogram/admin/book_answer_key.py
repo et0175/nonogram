@@ -70,6 +70,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
 
 from nonogram.difficulty import Tier
+from nonogram.limits import MAX_SIZE
 
 __all__ = [
     "Answer",
@@ -383,8 +384,11 @@ def pack_answer_pages(answers: Sequence[Answer]) -> List[AnswerPage]:
 #: cells OR taller than 20 keeps CARD-198's one-full-page treatment, even if
 #: the other side is small. Both sides are checked separately — this is not
 #: :data:`SIX_UP_LONGEST_SIDE`'s single longest-side bound.
-PACKED_MAX_WIDTH = 20
-PACKED_MAX_HEIGHT = 25
+#: Owner decision 2026-11-09: up to 30x30 packs four to a page (the
+#: previews of 25x30 and 30x30 tiles read well), so every size the book can
+#: hold now packs; the bound is :data:`nonogram.limits.MAX_SIZE` itself.
+PACKED_MAX_WIDTH = MAX_SIZE
+PACKED_MAX_HEIGHT = MAX_SIZE
 
 #: The only two packed-page capacities this rule uses (owner decision,
 #: resolved 2026-10-08): never :data:`SIX_UP` — a with-clues tile has no

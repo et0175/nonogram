@@ -758,8 +758,9 @@ def draw_running_head(
     """The approved mockup's running head across the top of an answer page.
 
     "SOLUTIONS · <LEVEL>" on the page's outside edge and the span of puzzle
-    numbers on its gutter side, in grey at the 10 pt floor, over a rule the
-    page's header rule's weight. It sits in the strip
+    numbers on its gutter side, in grey at the 10 pt floor. No rule under it
+    (owner, 2026-11-09: it sat too close above each solution's own hairline).
+    It sits in the strip
     :func:`~nonogram.admin.book_pdf_generator.answer_section_spec` keeps free.
     """
     section, span = running_head_text(numbers, tier)
@@ -775,6 +776,3 @@ def draw_running_head(
     stream.text(left_text, frame.left, baseline, size_pt, grey=SOLUTION_NAME_GREY)
     width = advance_px(right_text, size_px, metrics)
     stream.text(right_text, frame.right - width, baseline, size_pt, grey=SOLUTION_NAME_GREY)
-    stream.stroke_grey(grey)
-    stream.stroke_width(stream.to_points(interior_header_rule_px()))
-    stream.line(frame.left, rule_y, frame.right, rule_y)
