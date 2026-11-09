@@ -170,3 +170,6 @@ decision**. CARD-293 §6 classifies this card as *written, tests retargeted*: so
   phase runs first: dispatching this card before it would mean writing
   pixel-measuring tests and then converting them.
 
+## Triage 2026-11-09
+
+Mostly built: every answer up to 30x30 packs four to a page with shaded clues and one shared cell. Left: a leftover page of one or two answers still drops to capacity 2 instead of keeping the 2x2 positions (AC-4), grids are top-aligned rather than centred in their tiles (AC-3), the packing doc and its test (AC-8), the old 6-up wording in requirements.yml and docs (AC-9), and what happens when four tiles cannot reach the minimum cell.

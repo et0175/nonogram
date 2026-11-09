@@ -1,6 +1,6 @@
 # CARD-288: The suite's dearest file draws 3,820 pages to read 1,033 — and materialises the book its own docstring calls the OOM shape
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -18,10 +18,10 @@
 **Depends on:** CARD-322
 <!--RE-POINTED 2026-10-30 from CARD-309, at that card's re-cut. CARD-309 no longer converts the puzzle page -- it was narrowed to the assembly point -- so it does NOT unblock this card. Re-measured by CARD-309's own round: this card's four tests obtain their pages through `BookPDFGenerator.interior_pages()`, which is cause 2 of the conversion breakage, and that mechanism changes when the kind converts. The card that converts the puzzle page is now CARD-322, so the premise moves there intact. -->
 **Touches:** tests/property/test_book_pdf_geometry.py, meta/profiling/card-288-page-census.md
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -357,3 +357,7 @@ was.
   `from tests.helpers.page_ink import drawing_of`, so it holds its **own**
   reference and the module globals must be rebound after collection — patching
   only the helper module silently counts zero.
+
+## RETIRED 2026-11-09 — board triage
+
+Premise gone: CARD-322 made every interior kind but dividers a content stream, and tests/property/test_book_pdf_geometry.py renders a page only when a test reads it (`_RenderedInterior`). Any further move off ink readers belongs to ADR-0042/R6 (CARD-312).

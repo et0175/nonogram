@@ -190,3 +190,7 @@ here, and do not record a convention this card did not derive.
   all seven page kinds are raster.
 - **This card can land before any page converts**, like CARD-299, because it is a
   guard over `tests/**` rather than a reading of a vector page.
+
+## Triage 2026-11-09
+
+Still open, needs a re-cut: the 2026-11-09 curation deleted about 310 raster tests, so the 321-site enumeration is obsolete. Re-derive the pixel-reading sites at HEAD before building the guard.

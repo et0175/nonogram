@@ -1,6 +1,6 @@
 # CARD-364: The interior ink-mode feature loses its last subject when CARD-231 lands — a scheduled expiry with a named trigger
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.5d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_pdf_ink_mode.py, meta/architecture/requirements.yml
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -126,3 +126,7 @@ so and expect a separate card to build it.
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
 - ADR-0042/R6 — a claim with no subject in the converted medium is re-expressed or retired with a
   named survivor (check: review-lens)
+
+## RETIRED 2026-11-09 — board triage
+
+Its trigger is gone: CARD-231 is retired and the divider's raster declaration is permanent (uploaded dividers, CARD-311). Ink mode still has a subject (the raster dividers and the Solutions opener), so nothing expires.

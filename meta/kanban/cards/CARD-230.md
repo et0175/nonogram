@@ -1,6 +1,6 @@
 # CARD-230: The guide's worked example runs as four steps, and the rows/columns tip becomes a callout
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -16,11 +16,11 @@
 **Depends on:** CARD-229 (the spread and its two-column frame), CARD-322
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_guide_preview_layout.py, tests/fixtures/book_baseline_card230.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 board triage; built under other work, no review of its own.
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09
+**Actual:** built elsewhere (see the closing note).
+**Merge commit:** 6fbccad1
 **Blocked by:** —
 
 ## What to implement
@@ -224,3 +224,6 @@ decision**. CARD-293 §6 classifies this card as *written, tests retargeted*: th
   phase runs first: dispatching this card before it would mean writing
   pixel-measuring tests and then converting them.
 
+## Closed 2026-11-09 — board triage
+
+Built inside CARD-229's spread: the four `WORKED_EXAMPLE_STEPS` run as a 2x2 on the spread's second page (`book_guide_spread._page_three`) and the rows/columns tip is a callout at the first page's foot (`GUIDE_SWITCHING_TEXT`).

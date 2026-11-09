@@ -1,6 +1,6 @@
 # CARD-387: Convert or retire the raster interior tests that no queued card owns, and the dot arm (387a; its tail is CARD-416)
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 10c (3d)
@@ -19,11 +19,11 @@
 **Depends on:** CARD-322, CARD-391 (starts after CARD-391 merges: 391 retires the three QR writers and their QR tests, and edits `book_pdf_generator.py`)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_puzzle_solver_clues.py, tests/helpers/book_corpus.py, tests/test_book_export_interior_cover.py, tests/conftest.py, tests/test_check_ref_resolution.py, meta/profiling/rank_durations.py
 <!-- The module list is a derived starting point: the author re-derives the module set with the classifier (`~/Documents/nonogram-reviews/CARD-387-recount/classify_tests_without_interior_bitmap_mode.py`, which EXCLUDES `interior_bitmap_mode`, a KEEP name) as the class-a/c modules minus every module a queued card touches (CARD-392, 207, 229, 230, 232, 233 and CARD-416), and states any difference. Likely members from the recount table: test_book_difficulty_dots, test_puzzle_solver_clues, test_book_export_interior_cover, test_book_pdf_levels, test_book_pdf_memory, test_book_puzzle_page_vector, test_book_detail_page, test_admin_tier_surfaces, test_book_scaffolding, property/test_book_export_interior. -->
-**Review score:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 board triage; built under other work, no review of its own.
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09
+**Actual:** built elsewhere (see the closing note).
+**Merge commit:** 1832b7fb, 6731e0ec, 6369f1ab, eb1dbdec, c886f3e5, ab4cdfbd
 **Blocked by:** —
 
 ## Why this card exists
@@ -94,3 +94,7 @@ Work in MODULE BATCHES, each its own commits, each checked green before the next
 
 
 ## Worktree notes
+
+## Closed 2026-11-09 — board triage
+
+Done by the owner's 2026-11-09 PDF test curation: every raster interior test was converted to the vector page or retired (1832b7fb, 6731e0ec, 6369f1ab, eb1dbdec, c886f3e5), and the raster writers were deleted (ab4cdfbd). The dot arm is superseded: `_draw_difficulty_dots` is live again, called by `create_level_divider`.

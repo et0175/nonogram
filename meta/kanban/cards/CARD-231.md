@@ -1,6 +1,6 @@
 # CARD-231: A section opener names its section in large type, with dots, range and a line of what to expect
 
-**Status:** parked
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -15,10 +15,10 @@
 **Wave:** —
 **Depends on:** CARD-222 (the frame), CARD-228 (the dots)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_divider_page.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card231.json, meta/profiling/rank_durations.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -195,3 +195,7 @@ rather than assuming.
 ## PARKED 2026-11-06 — the owner will upload the dividers instead
 
 The owner said on 2026-11-06: "I thought I'll add them directly (upload) and you just place them in the pdf", then "follow your plan 231 - just set \"postponed\" and agree about dividers". The board's word for this state is `parked` (`postponed` is not in its vocabulary; CARD-300 is parked the same way). The generated section opener this card designs (large type, dots, range, a line of what to expect) is not needed if the dividers are uploaded images: CARD-311 (upload four divider slots) now carries that, with the owner's rulings recorded on it. Nothing was built here. If the owner ever wants generated openers back, resume this card: its design is intact, and its dependency on CARD-222 and CARD-228 (both done) is unchanged. `expires_with=("CARD-231",)` on the DIVIDER raster declaration in `book_pdf_generator.py` and the comments that name this card are CARD-311's to rewrite (the declaration becomes permanent, like the cover's).
+
+## RETIRED 2026-11-09 — board triage
+
+Overtaken: the owner chose uploaded dividers (CARD-311) and on 2026-11-09 restyled the level dividers like the Solutions opener (`create_level_divider`, `LEVEL_DIVIDER_OPENER`: eyebrow, level name, dots, rule). The always-recto rule with inserted blanks contradicts the same day's "no blank pages after dividers"; the "what to expect" line was not asked for again.

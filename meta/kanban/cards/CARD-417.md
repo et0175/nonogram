@@ -85,3 +85,7 @@ Facts carried from the owner's brief, each to be MEASURED or read by the author,
 * The TOC's raster-twin tests are CARD-387/416's; do not fix a raster reader here, and do not add a raster twin of any control you write.
 
 ## Worktree notes
+
+## Triage 2026-11-09
+
+Code built in 4b925232 (`TOC_PLAY_LABEL`, `_play_rows`, every page-count reader passes `play_row`). Left: tests that name the Play row and its page (AC-A, AC-B, AC-D), the 18-case measurement (AC-E), and the FR-043 / docs wording (AC-F).

@@ -1,6 +1,6 @@
 # CARD-352: The placed-edge partition misses three literal-bound sites and falls through to "no extent" where ADR-0039/R2 says it must fail
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-336
 **Touches:** tests/test_book_puzzle_frame.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -135,3 +135,7 @@ This is the same false-green direction as CARD-351's `framed: bool = False` and
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate; where none
   exists it defaults to **deny** (check: `TestFrameCentre_EveryPlacedEdgeSiteIsClassified`)
 - ADR-0039/R3 — a declaration carries a reason and a measured residue (check: review-lens)
+
+## RETIRED 2026-11-09 — board triage
+
+The placed-edge partition it would make total was deleted in the 2026-11-09 curation (6731e0ec), and its subject, the clue frame, no longer ships.

@@ -1,6 +1,6 @@
 # CARD-416: Convert the last raster interior tests, then delete the remaining raster writers and the bitmap arms (387b, the tail of CARD-387)
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 6c (2d)
@@ -19,11 +19,11 @@
 **Depends on:** CARD-387, CARD-392, CARD-207, CARD-229, CARD-230, CARD-232, CARD-233
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/test_book_pdf_band.py, tests/test_book_interior_type_floor.py, tests/test_book_page_frame.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/test_book_proof_pages.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_solved_page.py, tests/test_book_solved_answer_key.py, tests/test_cli.py, docs/guides/how-to-solve-nonograms.md, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 <!-- The guide_page, solved_page and answer_key modules are listed because any ids their cards (CARD-229/230, CARD-232/233) leave behind are mopped up here; the author re-derives the list with the classifier (`~/Documents/nonogram-reviews/CARD-387-recount/classify_tests_without_interior_bitmap_mode.py`). -->
-**Review score:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 board triage; built under other work, no review of its own.
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09
+**Actual:** built elsewhere (see the closing note).
+**Merge commit:** ab4cdfbd, 4cf2cc70, 85627111
 **Blocked by:** —
 
 ## Why this card exists
@@ -73,3 +73,7 @@ Recount facts to carry (re-derive at dispatch): 21 raster writers (~2,092 lines)
 ## Worktree notes
 
 - Cut 2026-11-08 from CARD-387; see that card's Why section for the recount. Number chosen as the next free card number (the highest existing was CARD-415).
+
+## Closed 2026-11-09 — board triage
+
+The raster interior writers and the bitmap arms of `interior_stream`'s `produce` were deleted on 2026-11-09 (ab4cdfbd), with the legacy layout pin (4cf2cc70) and the counts and citations the deletion moved (85627111). Left: a few present-tense mentions of deleted writers in requirements.yml (CON-020 exemption), ADR-0037, book_vector.py, book_vector_draw.py, book_sheet_vector.py and tests/test_book_interior_type_floor.py, for the next docs sweep.
