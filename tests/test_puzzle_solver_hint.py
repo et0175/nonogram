@@ -1607,6 +1607,20 @@ GRID_BIG = _unique_grid(20, 12, seed=2124)
 _DRAWN_BOARDS = "performance.getEntriesByName('nonogram-player-board-draw').length"
 
 
+#: Whether the answer strip lies over a hinted line's cell or the revealed
+#: cell (CARD-409's AC-3; review cycles 1 and 2).
+_STRIP_COVERS = """() => { const s = document.getElementById('puzzle-player-explain').getBoundingClientRect();
+  return [...document.querySelectorAll('td.player-cell.is-hint-line, td.player-cell.is-hinted')].some((c) => {
+    const b = c.getBoundingClientRect();
+    return b.bottom > s.top && b.top < s.bottom && b.right > s.left && b.left < s.right; }); }"""
+
+#: Replace the board with a flat list of cell states (row-major).
+_SET_BOARD = """(cells) => {
+  const { width, height } = window.puzzlePlayer.payload;
+  window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells: Object.freeze(cells) }));
+}"""
+
+
 @pytest.mark.browser
 class TestSolverHint_TheHighlightSurvivesARedraw:
     """CARD-212 made the board redraw on a window resize, not only when the
@@ -2722,15 +2736,30 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                 # The hinted cells are not under the strip (review cycle 1,
                 # F-001: it moves to the stage's top when they would be).
                 page.wait_for_timeout(50)
-                covered = page.evaluate("""() => { const s = document.getElementById('puzzle-player-explain').getBoundingClientRect();
-                  return [...document.querySelectorAll('td.player-cell.is-hint-line')].some((c) => { const b = c.getBoundingClientRect();
-                    return b.bottom > s.top && b.top < s.bottom && b.right > s.left && b.left < s.right; }); }""")
+                covered = page.evaluate(_STRIP_COVERS)
                 if (width, height) == (844, 390):
                     page.keyboard.press("Escape")  # AC-3: Escape dismisses too
                 else:
                     page.locator(".page-head h1").click()  # a pointer-down away from Hint
                 dismissed = _explained(page)
                 after = page.evaluate(_BOXES_AROUND_THE_LINE)
+                # Review cycle 2, F-102/F-101: the hint the strip is most
+                # likely to cover — every row solved but one, so the hint
+                # must land on that row: the last at 390 and 1440 (under the
+                # bottom strip), row 3 at 844 x 390 (where the stage is too
+                # short for either edge to be clear, so the STAGE scrolls — after
+                # the boxes above are measured). Pressed to rung 3, the
+                # revealed cell is not under the strip either.
+                only = 1 if (width, height) == (844, 390) else SIDE - 1
+                if (width, height) in ((390, 844), (844, 390), (1440, 900)):
+                    page.evaluate(_SET_BOARD, [U if r == only else F if GRID[r][c] else E
+                                               for r in range(SIDE) for c in range(SIDE)])
+                    for _ in range(3):
+                        _hint(page).click()
+                        page.wait_for_timeout(50)
+                    hinted_row = page.evaluate("() => [...document.querySelectorAll('td.player-cell.is-hinted')].map((c) => Number(c.dataset.row))")
+                    assert hinted_row == [only], (width, height, hinted_row)
+                    covered = covered or page.evaluate(_STRIP_COVERS)
             finally:
                 context.close()
             checked += 1
@@ -2740,7 +2769,13 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                 small.append((width, height, strip["font"]))
             assert dismissed == "", (width, dismissed)
             assert not covered, (width, height, "the strip covers the hinted line")
-            for name in ("head", "board", "toolbar", "counters", "progress"):
+            # Review cycle 2, F-101: on the landscape phone neither edge of the
+            # short stage is clear, so the STAGE scrolls the hinted row above
+            # the strip — the board moves inside the stage there, by design;
+            # the page and everything around the stage still do not.
+            names = ("head", "toolbar", "counters", "progress") if (width, height) == (844, 390) \
+                else ("head", "board", "toolbar", "counters", "progress")
+            for name in names:
                 if not (empty[name] == full[name] == after[name]):
                     moved.append((width, name, empty[name], full[name], after[name]))
         assert checked == 4

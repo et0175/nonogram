@@ -314,9 +314,10 @@
 </div>
 
 {# CARD-409 (owner finding 2026-11-07: "the hint text right by the board"):
-   the visible answer line is a strip over the stage's BOTTOM edge, not a
-   line in the title row — never over the sticky column clues the hint
-   points at, and it moves nothing (it is absolutely positioned in this
+   the visible answer line is a strip over the stage's bottom edge (or its
+   top, below the sticky column band, when the hint's target would be under
+   it — solver.js placeExplain), not a line in the title row; it moves
+   nothing (it is absolutely positioned in this
    wrapper). It is empty, and so not drawn, until a rung or Check writes it;
    the next pointer-down or Escape clears it. aria-hidden as before: the live
    region #puzzle-player-announce says every sentence once. #}
@@ -330,7 +331,7 @@
 <p class="player-explain" id="puzzle-player-explain" aria-hidden="true" hidden></p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it. Hint answers in three presses: the first highlights the row or column to look at, the second says why it decides a cell, the third reveals it; Check highlights the row of the first wrong mark, and each press writes its answer in a strip over the bottom of the board.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it. Hint answers in three presses: the first highlights the row or column to look at, the second says why it decides a cell, the third reveals it; Check highlights the row of the first wrong mark, and each press writes its answer in a strip over the board.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

@@ -467,10 +467,10 @@ SHARED_UI_BASE = "base.css"
 #: the Check half (owner finding 2026-11-07: the text right by the board).
 SHARED_UI_HINT_CLAUSE = (
     "; Check highlights the row of the first wrong mark, and each press writes"
-    " its answer in a strip over the bottom of the board."
+    " its answer in a strip over the board."
 )
 SHARED_UI_HINT_REPLACEMENT = (
-    ", and each press writes its answer in a strip over the bottom of the board."
+    ", and each press writes its answer in a strip over the board."
 )
 
 #: Other exact edits to the admin markup, each refused unless found once.

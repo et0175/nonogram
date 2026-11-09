@@ -241,11 +241,11 @@ def usage_line_problems(page) -> list[str]:
             problems.append("says at the top of the page, but the line is below the toolbar")
     # CARD-409 (owner finding 2026-11-07): the answer is a strip over the
     # bottom of the board — inside the stage's box, in its lower half.
-    if "a strip over the bottom of the board" in text:
+    if "a strip over the board" in text:
         claimed = True
         stage = box["stage"]
         if not (stage["top"] + (stage["bottom"] - stage["top"]) / 2 <= line["top"] and line["bottom"] <= stage["bottom"] + 1):
-            problems.append("says over the bottom of the board, but the line is not there")
+            problems.append("says the strip is over the board, but the line is not there")
     if not claimed:
         problems.append("the paragraph does not say where the answer line is")
     return problems
@@ -335,7 +335,7 @@ class TestSharedUi_ThePageRuns:
         assert hint.is_visible()
         text = hint.inner_text()
         assert "Check" not in text and "wrong mark" not in text, text
-        assert text.endswith("the third reveals it, and each press writes its answer in a strip over the bottom of the board."), text  # CARD-409
+        assert text.endswith("the third reveals it, and each press writes its answer in a strip over the board."), text  # CARD-409
         assert "beside the puzzle" not in text, text
         assert browser_page.locator('[data-player-action="check"]').count() == 0
         # And the admin-only counters are gone from the toolbar.
@@ -368,7 +368,7 @@ class TestSharedUi_ThePageRuns:
             action(browser_page, "hint").click()
             browser_page.evaluate(
                 "(old) => { const p = document.querySelector('#puzzle-player-hint');"
-                " p.textContent = p.textContent.replace(/its answer in a strip over the bottom of the board\\./, old); }",
+                " p.textContent = p.textContent.replace(/its answer in a strip over the board\\./, old); }",
                 old,
             )
             assert old in browser_page.locator("#puzzle-player-hint").inner_text()

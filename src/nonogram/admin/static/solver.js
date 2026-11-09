@@ -1317,6 +1317,7 @@ function start() {
     marking.refresh();
     [stage.scrollLeft, stage.scrollTop] = scrolled;
     measureFit();
+    replaceExplain();
   }
 
   // Pointer, tool, history and keyboard input is wired once, to `stage`
@@ -1473,6 +1474,7 @@ function start() {
     const above = new ResizeObserver(() => {
       keepCluesInView();
       measureFit();
+      replaceExplain();
     });
     for (const element of [toolbar, document.querySelector(".player-head")]) {
       if (element) above.observe(element);
@@ -1485,6 +1487,7 @@ function start() {
     else {
       keepCluesInView();
       measureFit();
+      replaceExplain();
     }
     drawnAt = key;
   };
@@ -1780,17 +1783,51 @@ function placeExplain(line) {
   const stage = document.getElementById("puzzle-player");
   const table = stage?.querySelector(".player-board");
   if (!stage || !table) return;
-  const targets = [...stage.querySelectorAll("td.player-cell.is-hint-line, td.player-cell.is-hinted")];
+  // A revealed cell is the target when there is one; otherwise the hinted
+  // ROW's cells (a hinted column runs the board's whole height, so some of
+  // it is under any strip — its clue and the cells above stay in view).
+  let targets = [...stage.querySelectorAll("td.player-cell.is-hinted")];
+  if (targets.length === 0) {
+    const lined = [...stage.querySelectorAll("td.player-cell.is-hint-line")];
+    const rows = new Set(lined.map((cell) => cell.dataset.row));
+    if (rows.size === 1) targets = lined;
+  }
+  if (targets.length === 0) return;
+  const span = () => {
+    const boxes = targets.map((cell) => cell.getBoundingClientRect());
+    return { top: Math.min(...boxes.map((b) => b.top)), bottom: Math.max(...boxes.map((b) => b.bottom)) };
+  };
+  const meets = () => {
+    const strip = line.getBoundingClientRect();
+    const t = span();
+    return t.bottom > strip.top && t.top < strip.bottom;
+  };
+  if (!meets()) return;
+  // The top placement starts where the column clues END in view — the
+  // sticky band's height, or, when the band is not kept (a short stage),
+  // wherever the scrolled thead's bottom is — so it never covers a clue.
+  const view = stage.getBoundingClientRect();
   const strip = line.getBoundingClientRect();
-  const covered = targets.some((cell) => {
-    const box = cell.getBoundingClientRect();
-    return box.bottom > strip.top && box.top < strip.bottom && box.right > strip.left && box.left < strip.right;
-  });
-  if (!covered) return;
-  const band = table.classList.contains("is-keeping-cols")
-    ? (table.querySelector("thead")?.getBoundingClientRect().height ?? 0) : 0;
-  line.style.setProperty("--player-explain-top", `${Math.round(band)}px`);
-  line.classList.add("is-top");
+  const head = table.querySelector("thead")?.getBoundingClientRect();
+  const band = Math.max(0, (head?.bottom ?? view.top) - view.top);
+  if (band + strip.height <= stage.clientHeight) {
+    line.style.setProperty("--player-explain-top", `${Math.round(band)}px`);
+    line.classList.add("is-top");
+    if (!meets()) return;
+    line.classList.remove("is-top");
+  }
+  // Neither edge is clear (a short landscape stage, review cycle 2, F-101):
+  // the strip stays at the bottom, and the stage scrolls just enough to
+  // lift the target above it — the stage only, never the page.
+  const lift = span().bottom - line.getBoundingClientRect().top;
+  if (lift > 0) stage.scrollTop += Math.ceil(lift);
+}
+
+// Re-place the strip after anything that moves the board under it (a
+// redraw, a resize, the stage's top moving): review cycle 2, F-103.
+function replaceExplain() {
+  const line = document.getElementById("puzzle-player-explain");
+  if (line !== null && line.textContent !== "") requestAnimationFrame(() => placeExplain(line));
 }
 
 // CARD-409: the strip over the board's bottom edge goes away on the next
