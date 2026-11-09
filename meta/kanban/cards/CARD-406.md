@@ -1,6 +1,6 @@
 # CARD-406: A Fit zoom step below 100% shows the whole board — the zoom model learns a floor that is the board's own fit
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/406-fit-zoom
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-406
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, items 2, 5 and 9: "A 'Fit' zoom step below 100% that shows the whole board." (item 2); "With Fit, the whole 29 rows would fit at roughly 10 px cells." (item 5); the usage line "Zoom: - / + or Fit to see the whole puzzle." (item 9).
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-403, CARD-404
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Depends on CARD-403 (the stage height: Fit is computed against it) and CARD-404 (the clue band at 10 px cells is a capped, constant strip; without it Fit's cell size is dominated by an uncapped numeral floor). -->
-**Review score:** —
+**Review score:** 9.0 (cycle 3)
 **Started:** 2026-11-09T14:39Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T17:45Z
+**Actual:** 3 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** 63703247
 **Blocked by:** —
 
 ## Why this card exists
@@ -93,4 +93,7 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 [Tests] New TestSolverZoom_Fit: the pure floor and steps; Fit at 390 x 844 and 844 x 390 with a Maybe mark, no scroll, +1% scrolls, the readout toggle. The no-Fit case folded into test_zoom_out_at_100_percent_is_a_no_op_and_stays_disabled. Re-pinned: 600 x 844 overflow/port by 5 px (the 44 px Fit control). Net node ids +3. Plant: no overshoot loop -> 844 x 390 red.
 [Review 1/3] Score: 5.0 — F critical "?" floor: fixed; Fit control 44 px: fixed; the shrink loop to 1%: FIT_MIN 10; +1% assertion added; owner questions raised (above); comments/aria-label/pinch-to-Fit fixed; no-Fit test folded. Report meta/review/20261109T150525Z-CARD-406-cycle1.yml.
 [Review 2/3] Score: 7.5 — F-101 critical (the 100% read clamped the stage scroll, the existing ZoomKeepsTheViewCentre cell red): fixed, scroll saved and restored around the read; F-103: zooms above 100% no longer re-measure; F-102: pinch-to-Fit returns to the pinch's starting zoom. Report meta/review/20261109T153402Z-CARD-406-cycle2.yml.
+[Owner answer 2026-11-09T17:29Z] "please continue", after "a reply of 'as recommended' works": taken as the recommendations — Q9 numerals shrink with the board at Fit (an overview; zoom in to play); Fit is offered everywhere the board does not fit at 100%, desktop included (only CARD-407's open-at-Fit is compact-only).
+[Review 3/3] Score: 9.0 — certified. F-201 (no committed test guards the scroll restore around the 100% read; only a resize while zoomed exercises it): accepted on the reviewer's probe evidence (corner scroll (823,700) kept on a 1 px resize; (345,185) without the restore), owner test budget. F-202 (readout loses its button role if a resize makes the board fit while it has focus): accepted, cosmetic. Report meta/review/20261109T155500Z-CARD-406-cycle3.yml.
+[Closing note, merge gate, merged 63703247] Player set (owner ruling 2026-11-09): 1388 passed, 9 skipped (DATABASE_URL unset), 0 failed. Full suite owed at the wave close. Accuracy: 3 cycles / 4c = 0.75. Net node ids +3.
 

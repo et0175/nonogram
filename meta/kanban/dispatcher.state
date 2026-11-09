@@ -487,13 +487,7 @@ active:
     started: 2026-11-09T17:30Z
     estimate: 2c (0.5d)
     cut_from: card/406-fit-zoom
-  # CARD-406 DISPATCHED 2026-11-09T14:39Z (player-phone thread); serial after 405.
-  - card: CARD-406
-    branch: card/406-fit-zoom
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-406
-    started: 2026-11-09T14:39Z
-    estimate: 4c (1.5d)
-    cut_from: acf3cb6b
+# CARD-406 CLEARED 2026-11-09T17:45Z: merged 63703247, done, review 9.0 on cycle 3 (5.0, 7.5), estimate 4c -> 0.75. Player-set gate 1388 passed. Entry dropped.
 # CARD-405 CLEARED 2026-11-09T14:37Z: merged 975409ea, done, review 9.0 on cycle 2 (7.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1385 passed. Entry dropped.
 # CARD-404 CLEARED 2026-11-09T13:25Z: merged e1c2575a, done, review 9.0 on cycle 2 (5.0 on cycle 1), estimate 4c -> 0.5. Player-set gate 1385 passed. Entry dropped.
 # CARD-403 CLEARED 2026-11-09T11:54Z: merged 589c2a4f, done, review 8.5 on cycle 2 (5.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1384 passed. Entry dropped.
