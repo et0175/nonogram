@@ -897,7 +897,10 @@ _BOXES = """() => {
   const errors = q('.player-errors');
   return {
     group: [...q('.player-history').querySelectorAll('button[data-player-action]')].map((b) => b.dataset.playerAction),
-    checkIsLastChild: q('.player-history').lastElementChild === q('[data-player-action="check"]'),
+    // CARD-411: the probe slot (Probe, or Keep and Wrong guess) follows Check
+    // and closes the group; Check is still the last of the History ACTIONS.
+    checkIsLastChild: q('.player-history').lastElementChild === q('.player-probe-slot')
+      && q('[data-player-action="check"]').nextElementSibling === q('.player-probe-slot'),
     checkFollowsHint: q('[data-player-action="hint"]').nextElementSibling === q('[data-player-action="check"]'),
     hintsFollowErrors: errors.nextElementSibling === q('.player-hints'),
     toolbar: box(q('.player-toolbar')),
@@ -934,6 +937,10 @@ class TestSolverHint_PlacesTheButtonAndTheCounter:
         finally:
             context.close()
         assert got["group"] == ["undo", "redo", "reset", "hint", "check"]
+        # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "'✓ Keep' and
+        # '✗ Wrong guess' at full toolbar size"): Check was the group's last
+        # child; the probe slot now follows it (the key is kept, its
+        # meaning re-pointed in _BOXES).
         assert got["checkIsLastChild"]
         assert got["checkFollowsHint"]
         assert got["hintsFollowErrors"]
