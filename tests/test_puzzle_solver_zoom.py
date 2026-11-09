@@ -741,13 +741,13 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         _open(page, live, live.store(_GRID_30x25))
         plain = page.evaluate(_GUTTER_SHAPE)
         assert (plain["rowBoxes"], plain["colBoxes"], plain["duplicates"]) == (25, 30, 0)
-        assert _cell_widths(page)[0] == pytest.approx(19.75, abs=0.05)
+        assert _cell_widths(page)[0] == pytest.approx(20.02, abs=0.05)  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
 
         _zoom_to(page, 150)
         # 150% of the doubled layout's 16 px cells is exactly the 24 px the
         # duplicate is conditional on — the number this test exists to keep
         # out of the decision.
-        assert _cell_widths(page)[0] == pytest.approx(19.75 * 1.5, abs=0.05)
+        assert _cell_widths(page)[0] == pytest.approx(20.02 * 1.5, abs=0.05)
 
         # Force the redraw the breakpoint listener performs (out to phone
         # width and back), where a zoom-blind decision would double.
@@ -985,7 +985,7 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
             # taller instead, re-measured.
             ("plain 30x30 at 900x800", _GRID_30x30, {"width": 900, "height": 800}, 0, 125,
              [212, 237]),
-            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [778, 487]),
+            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [778, 478]),  # 487 until CARD-403
         ],
         ids=lambda value: value if isinstance(value, str) else "",
     )
@@ -1138,7 +1138,7 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
 
 _STAGE_EDGE = """() => { const s = document.querySelector('.player-stage').getBoundingClientRect();
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-  return { bottom: s.bottom, height: s.height, floor: 12 * rem, innerHeight }; }"""
+  return { bottom: s.bottom, height: s.height, floor: 5 * rem, innerHeight }; }"""
 
 
 @pytest.mark.browser
@@ -1155,7 +1155,7 @@ class TestSolverZoom_StageEndsAboveTheFold:
     844 x 390 are AC-4's own. A 390-tall window narrower than 568 px is no
     device (a phone held sideways is wider) and its toolbar alone fills it,
     so it is left out; where the chrome above the stage leaves less than
-    admin.css's 12rem floor (the admin's nav wraps tall on small windows) the
+    admin.css's 5rem floor (the admin's nav wraps tall on small windows) the
     stage must be exactly that floor instead. Plant: restoring the one-row cap
     (max-height: calc(100svh - var(--player-chrome-h))) reds every phone
     viewport of the grid (run, 2026-11-09)."""
@@ -1177,10 +1177,11 @@ class TestSolverZoom_StageEndsAboveTheFold:
                     _zoom_to(page, percent)
                     edge = page.evaluate(_STAGE_EDGE)
                     # Either the bottom is in the window, or what stands
-                    # above the stage leaves less than the 12rem floor and
+                    # above the stage leaves less than the 5rem floor and
                     # the stage is exactly that floor (the admin's top bar
                     # and nav wrap tall on a small window).
-                    floored = abs(edge["height"] - edge["floor"]) <= 1
+                    floored = (abs(edge["height"] - edge["floor"]) <= 1
+                               and (width, height) not in ((390, 844), (844, 390)))  # AC-4's own: no exemption
                     if edge["bottom"] > edge["innerHeight"] + 0.5 and not floored:
                         late.append((width, height, percent, edge))
                 _zoom_to(page, 100)

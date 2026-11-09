@@ -1227,7 +1227,7 @@ class TestSolverClues_TheCircleIsVisible:
         # CARD-193: below 820 px the cell floor is removed, so at 390 the
         # measured value is this grid's 14.4 px numeral-driven column floor
         # (two-digit column numbers), not the old 24 px phone floor.
-        assert cell == pytest.approx({1100: 14.4, 1440: 17.67, 390: 14.39}[viewport["width"]], abs=0.05), cell
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.91, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403: the cell's height term reads the stage's measured top (1440 was 17.67)
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -1720,7 +1720,7 @@ class TestSolverClues_BigBoardRepeatsBothAxes:
         assert _lines(seen, "rows", duplicate=True) == []
         assert _lines(seen, "columns", duplicate=True) == []
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(19.75, abs=0.05), seen["cell"]
+        assert seen["cell"] == pytest.approx(20.02, abs=0.05), seen["cell"]  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
 
 
 @pytest.mark.browser
@@ -2908,7 +2908,7 @@ class TestSolverClues_DoubledGuttersAreNotStuck:
         # Both bands would scroll clean out of view without the fix: the
         # overflow on each axis is past that axis's whole band (567.9 px and
         # 347.4 px here), so this is a case and not a formality.
-        assert seen["overflow"] == [778, 487], seen["overflow"]
+        assert seen["overflow"] == [778, 478], seen["overflow"]  # 487 until CARD-403
         assert seen["bands"] == [pytest.approx(567.9, abs=0.5),
                                  pytest.approx(347.4, abs=0.5)], seen["bands"]
         assert seen["labelledRows"] == ["sticky"], seen

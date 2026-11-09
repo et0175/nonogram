@@ -1352,7 +1352,9 @@ function start() {
   // the toolbar and the header covers every such element (all live in one
   // of the two).
   if (typeof ResizeObserver === "function") {
-    const above = new ResizeObserver(() => measureStageTop());
+    // keepCluesInView measures the top first, then the bands (review cycle
+    // 1: a cap that changed under the bands left their verdict stale).
+    const above = new ResizeObserver(() => keepCluesInView());
     for (const element of [toolbar, document.querySelector(".player-head")]) {
       if (element) above.observe(element);
     }

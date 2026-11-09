@@ -474,25 +474,26 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      (CARD-161), and some air below. */
   --player-chrome-h: calc(var(--topbar-h) + var(--space-6) + var(--space-12)
     + var(--control-h) + var(--space-4) + var(--space-8));
-  /* CARD-403: what really stands above the board — the larger of that
-     one-row estimate and the stage's MEASURED top (--player-stage-top,
-     written by solver.js's measureStageTop) plus --space-4 of air. Where the
-     estimate already covers the real chrome (a desktop toolbar on one row)
-     nothing changes, to the pixel; where the real chrome is taller (a phone's
-     stacked toolbar, the admin nav wrapping) both the cap below and the
-     cell's height term follow it, so the stage ends above the fold and a
-     board that fits at 100% still fits. */
-  --player-above: max(var(--player-chrome-h), calc(var(--player-stage-top, 0px) + var(--space-4)));
+  /* CARD-403: what really stands above the board — the stage's MEASURED
+     top (--player-stage-top, written by solver.js's measureStageTop) plus
+     --space-4 of air; the one-row estimate above is only the value before
+     the first measurement. Both the stage's cap and the cell's height term
+     read it, so the stage ends above the fold and a board that fits at
+     100% still fits, whatever stands above it (a phone's stacked toolbar,
+     the admin nav wrapping, or a public page whose chrome is SHORTER than
+     the estimate and so gets the room back). */
+  --player-above: calc(var(--player-stage-top, calc(var(--player-chrome-h) - var(--space-4))) + var(--space-4));
   container-type: inline-size;
   /* Zoom (CARD-195): the stage scrolls in both directions once a zoomed
      board (or, same as before, a column-floor-bound one at 100%, CARD-196)
      outgrows it — vertically too, which it never did before this card. The
      height cap is the same --player-above the 100% fit sizes against
      (CARD-403; it was --player-chrome-h), so at 100% on a board that fits,
-     nothing changes. The 12rem floor keeps a usable board on a window whose
-     chrome alone nearly fills it (a 390 px-tall window narrower than a
+     nothing changes. The 5rem floor (review cycle 1: 12rem pushed the
+     stage's bottom below the fold at 844 x 390 on the admin page) keeps a
+     sliver of board on a window whose chrome alone nearly fills it (a 390 px-tall window narrower than a
      landscape phone, or the admin's nav wrapping on a small window). */
-  max-height: max(calc(100svh - var(--player-above)), 12rem);
+  max-height: max(calc(100svh - var(--player-above)), 5rem);
   overflow: auto;
 }
 .player-fallback { color: var(--color-text-secondary); font-style: italic; }

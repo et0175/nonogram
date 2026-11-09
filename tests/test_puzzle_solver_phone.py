@@ -83,7 +83,7 @@ BIG_SIDE = 30
 #: AC-4: td.player-cell width at 1440 x 900 for each board, measured on main
 #: (admin.css unchanged, commit 2e40c96) before this card's rule was added,
 #: rounded to 0.001 px (the 30 x 30 measured 16.796875).
-DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 16.797}
+DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 17.016}  # 16.797 until CARD-403: the height term reads the measured stage top, 3.5 px below the one-row estimate at 1440 x 900
 
 
 def _single_digit_col_grid(width, height, seed, run_cap=9):
