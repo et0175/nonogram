@@ -1645,6 +1645,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
 .player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
+/* CARD-410 (owner finding 2026-11-07): a clue the open probe broke is red —
+   the danger tint pushed toward the danger colour, numerals in the danger
+   hover ink — and Contradiction wears a danger ring that pulses twice while
+   one is (reduced motion: the ring, no pulse). Tokens and token-only
+   color-mix() only. */
+.player-stage { --player-broken: color-mix(in srgb, var(--color-danger) 31%, var(--color-danger-tint)); }
+.player-clue.is-broken { background: var(--player-broken); color: var(--color-danger-hover); }
+.player-probe .btn.is-flagged { border-color: var(--color-danger); color: var(--color-danger); box-shadow: 0 0 0 var(--border-width) var(--color-danger); animation: player-flag-in calc(8 * var(--duration-base)) var(--ease); }
+@keyframes player-flag-in {
+  0%, 50%, 100% { box-shadow: 0 0 0 var(--border-width) var(--color-danger); }
+  25%, 75% { box-shadow: 0 0 0 calc(3 * var(--border-width)) var(--color-danger-tint); }
+}
+@media (prefers-reduced-motion: reduce) { .player-probe .btn.is-flagged { animation: none; } }
 
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the

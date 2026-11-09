@@ -39,6 +39,9 @@ from pathlib import Path
 
 import pytest
 
+from nonogram.clues import encode_line
+from tests.helpers.brute_force_oracle import line_candidates
+
 from tests.test_puzzle_solver_marking import (
     GRID,
     SIDE,
@@ -54,6 +57,7 @@ from tests.test_puzzle_solver_marking import (
 )
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _open,
+    _unique_grid,
     browser_page,
     browser_type,
     live,
@@ -548,6 +552,65 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
         assert len([seen for seen in opened if not seen["members"]]) >= 10
         assert len([seen for seen in got if seen["probe"] is None]) >= 60
         assert all(seen["frozen"] for seen in got)
+
+    def test_broken_lines_match_a_brute_force_line_oracle(self, browser_page, live) -> None:
+        """CARD-410 AC-1 (owner finding 2026-11-07: "Flag broken lines during
+        a probe"): ``brokenLines`` returns exactly the rows and columns no
+        placement of the clue fits NOW and one did fit at the probe's
+        checkpoint — checked against :func:`line_candidates`, the
+        brute-force enumerator, over a seeded corpus of small boards. A line
+        broken before the probe is not the probe's and is not returned; the
+        corpus is held to reach that case, or the subtraction is untested."""
+        _open(browser_page, live, live.store(GRID))
+        rng = random.Random(410)
+        states = ("filled", "empty", "unknown", "maybe")
+        cases = []
+        for _ in range(400):
+            width, height = rng.randint(2, 6), rng.randint(2, 6)
+            answer = [[rng.random() < 0.5 for _ in range(width)] for _ in range(height)]
+            rows = [encode_line(row) for row in answer]
+            columns = [encode_line(tuple(answer[r][c] for r in range(height))) for c in range(width)]
+            truth = ["filled" if answer[r][c] else "empty" for r in range(height) for c in range(width)]
+            checkpoint = [truth[i] if rng.random() < 0.3 else rng.choice(states) if rng.random() < 0.15
+                          else "unknown" for i in range(width * height)]
+            probed = [rng.choice(states) if rng.random() < 0.25 else checkpoint[i]
+                      for i in range(width * height)]
+            cases.append({"width": width, "height": height, "rows": [list(c) for c in rows],
+                          "columns": [list(c) for c in columns], "checkpoint": checkpoint, "probed": probed})
+        got = browser_page.evaluate("""async (cases) => {
+          const S = await import('/static/solver_state.js');
+          return cases.map((k) => {
+            const b = (cells) => ({ width: k.width, height: k.height, cells });
+            const out = S.brokenLines(b(k.probed), b(k.checkpoint), k.rows, k.columns);
+            return { rows: [...out.rows], columns: [...out.columns], frozen: Object.isFrozen(out) && Object.isFrozen(out.rows) };
+          });
+        }""", cases)
+
+        def broken(clue, marks):
+            return not any(all(m not in ("filled", "empty") or (m == "filled") == cell
+                               for m, cell in zip(marks, candidate))
+                           for candidate in line_candidates(tuple(clue), len(marks)))
+
+        wrong, flagged, spared = [], 0, 0
+        for case, seen in zip(cases, got):
+            w, h = case["width"], case["height"]
+            want = {"rows": [], "columns": []}
+            for axis, clues, count, at in (("rows", case["rows"], h, lambda board, i, j: board[i * w + j]),
+                                           ("columns", case["columns"], w, lambda board, i, j: board[j * w + i])):
+                length = w if axis == "rows" else h
+                for i in range(count):
+                    now = broken(clues[i], [at(case["probed"], i, j) for j in range(length)])
+                    then = broken(clues[i], [at(case["checkpoint"], i, j) for j in range(length)])
+                    if now and not then:
+                        want[axis].append(i)
+                    spared += now and then
+            flagged += bool(want["rows"] or want["columns"])
+            if {"rows": seen["rows"], "columns": seen["columns"]} != want or not seen["frozen"]:
+                wrong.append((case, want, seen))
+        assert len(got) == len(cases) >= 400
+        assert wrong == [], wrong[:2]
+        assert flagged >= 100, flagged  # the probe broke something
+        assert spared >= 50, spared     # a line broken BEFORE the probe, left unflagged
 
     def test_the_checkpoint_prefix_is_a_savable_history(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -1850,3 +1913,89 @@ class TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell:
             f"first constraint is stated in, so a keyboard drag can land a row "
             f"off while a probe is open"
         )
+
+
+#: A board wide enough for the row clues to be doubled (CARD-212) at 1280 x
+#: 720, so AC-2's "both twins together" is measured on two boxes per row.
+_GRID_DOUBLED = _unique_grid(20, 12, seed=2124)
+
+_BROKEN = """() => {
+  const lines = (axis) => [...document.querySelectorAll(`th.player-clue.is-${axis}.is-broken`)]
+    .map((th) => Number(th.dataset.line));
+  return { rows: lines('row'), cols: lines('col'),
+           flagged: document.querySelector('[data-player-probe-action="abandon"]').classList.contains('is-flagged') };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverProbe_BrokenLinesAreFlagged:
+    """CARD-410 (owner finding 2026-11-07, item 8: "Flag broken lines during a
+    probe. When a row or column can no longer match its clue, tint that clue
+    red and gently highlight the Contradiction button.").
+
+    One cell, the arms in the order a player meets them: a line broken
+    BEFORE the probe is never red (no probe, no flag — AC-5 — and still not
+    red inside one, because the probe did not break it); a wrong mark inside
+    the probe turns its row's clue red on BOTH twins of the doubled row axis
+    and flags Contradiction (AC-2, AC-4); the red is measurably apart from the
+    plain, crossed and hint-line grounds and from the probe's ring, and the
+    numerals on it pass 4.5:1 (AC-3); Contradiction clears every flag, and so
+    does Keep (AC-2). The pure rule is held by
+    test_broken_lines_match_a_brute_force_line_oracle; public mode runs the
+    same bytes (TestSharedUi_ByteIdentity) and the rule reads no solution,
+    so AC-6 adds no cell (owner test budget, 2026-11-07).
+    """
+
+    def test_a_line_the_probe_breaks_turns_its_clue_red(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size({"width": 1280, "height": 720})
+        _open(page, live, live.store(_GRID_DOUBLED))
+        before, broke = [r for r, row in enumerate(_GRID_DOUBLED) if not all(row)][:2]
+        assert page.locator(f'th.player-clue.is-row[data-line="{broke}"]').count() == 2  # the premise: doubled
+        wrong0 = _GRID_DOUBLED[before].index(False)
+        wrong2 = _GRID_DOUBLED[broke].index(False)
+
+        _cell(page, before, wrong0).click()  # a row broken before any probe
+        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}  # AC-5
+
+        _probe(page)
+        _cell(page, broke, wrong2).click()  # the probe breaks another row
+        seen = page.evaluate(_BROKEN)
+        assert seen["rows"] == [broke, broke] and seen["flagged"], seen  # both twins; `before` is not the probe's
+
+        # AC-3: the red against the grounds a clue box can have, and the ring.
+        page.mouse.move(2, 2)
+        _settle(page)
+        colours = page.evaluate("""() => {
+          const red = document.querySelector('th.player-clue.is-row.is-broken');
+          const plain = document.querySelector('th.player-clue.is-row:not(.is-broken)');
+          const css = getComputedStyle(document.querySelector('.player-stage'));
+          const resolve = (name) => { const e = document.createElement('i'); e.style.color = css.getPropertyValue(name);
+            document.querySelector('.player-stage').append(e); const c = getComputedStyle(e).color; e.remove(); return c; };
+          return { red: getComputedStyle(red).backgroundColor, ink: getComputedStyle(red.querySelector('.player-clue-num') ?? red).color,
+                   plain: getComputedStyle(plain).backgroundColor, cross: resolve('--player-cross'),
+                   line: resolve('--player-hint-line'), ring: resolve('--player-probe') };
+        }""")
+        apart = {name: round(_de76(colours["red"], colours[name]), 1) for name in ("plain", "cross", "line", "ring")}
+        assert min(apart.values()) >= _RING_FLOOR, (apart, colours)
+        assert _contrast(colours["ink"], colours["red"]) >= 4.5, colours
+
+        _contradiction(page)
+        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
+        _probe(page)
+        _cell(page, broke, wrong2).click()
+        assert page.evaluate(_BROKEN)["flagged"]
+        _keep(page)
+        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
+
+
+def _contrast(first: str, second: str) -> float:
+    """WCAG contrast ratio of two computed colours."""
+    def luminance(value):
+        def linear(channel):
+            channel /= 255
+            return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+        red, green, blue = (linear(c) for c in _rgb255(value))
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    high, low = sorted((luminance(first), luminance(second)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
