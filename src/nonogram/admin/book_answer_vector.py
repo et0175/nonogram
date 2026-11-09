@@ -87,9 +87,7 @@ from nonogram.admin.book_vector_draw import (
     draw_folio,
     draw_frame,
     draw_grid_lines,
-    line_height_px,
     page_stream,
-    set_right_middle,
 )
 from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
@@ -100,7 +98,6 @@ from nonogram.export.layout import (
     HeaderBand,
     Layout,
     PageSpec,
-    caption_slot,
     compute_layout,
     compute_packed_solved_layout,
     header_band,
@@ -113,7 +110,6 @@ __all__ = [
     "answer_page",
     "answer_page_stream",
     "answer_type",
-    "draw_answer_caption",
     "draw_answer_cells",
     "draw_answer_slot",
     "draw_solved_grid",
@@ -294,72 +290,6 @@ def draw_solved_grid(
     draw_solved_joins(stream, tile, grid, grey=join_grey)
 
 
-def draw_answer_caption(
-    stream: ContentStream,
-    slot: Layout,
-    caption: str,
-    type_spec: AnswerTypeSpec,
-    metrics: FontMetrics,
-    *,
-    grey: float = INK_GREY,
-) -> Tuple[float, float] | None:
-    """Set ``caption`` under ``slot``'s drawing, or nothing, and report its box.
-
-    **Omitted rather than overlapped** when the slot's own slack below its
-    drawing is less than one gap plus one line — CARD-197's AC-6, which is why
-    the 10 x 10 cm minimum trim prints no caption at all. The returned value is
-    ``(the caption's lower edge, its right edge)`` when one was drawn and
-    ``None`` when it was not, which is what a caller folds into the folio's own
-    collision check.
-
-    Where the right edge goes is COMP-007's
-    (:func:`~nonogram.export.layout.caption_slot`), not this renderer's: a
-    caption wider than its own grid is held off the usable area's edge instead
-    of printing into the trim margin. What is measured *here* is the text's own
-    width, because only this side knows the face. A caption too wide for the
-    usable area at any x is clipped to the measure COMP-007 reports — it cannot
-    be shrunk instead, since its size already is CON-020's floor.
-
-    Raises:
-        ValueError: ``slot`` is not a placed page, so it has no margins to
-            keep a caption inside of — the same total-function guard
-            :func:`~nonogram.admin.book_puzzle_vector.slot_room` keeps.
-    """
-    placement = slot.page
-    if placement is None:
-        raise ValueError(
-            "an answer slot's caption is placed against its page's usable "
-            "area, and this layout has no PagePlacement"
-        )
-    size_px = type_spec.caption_size_px
-    height = line_height_px(size_px, metrics)
-    if placement.usable_bottom - placement.drawing_bottom < type_spec.gap_px + height:
-        return None
-    text = caption
-    box = caption_slot(slot, _ceil(advance_px(text, size_px, metrics)))
-    if box is None:  # pragma: no cover - `placement` above is not None
-        raise ValueError("an answer slot's caption needs a placed book page")
-    if advance_px(text, size_px, metrics) > box.measure:
-        text = _clipped_to_measure(text, size_px, metrics, box.measure)
-        box = caption_slot(slot, _ceil(advance_px(text, size_px, metrics)))
-        if box is None:  # pragma: no cover - as above
-            raise ValueError("an answer slot's caption needs a placed book page")
-    center_y = placement.drawing_bottom + type_spec.gap_px + height / 2
-    set_right_middle(stream, text, box.right, center_y, size_px, metrics, grey=grey)
-    return (placement.drawing_bottom + type_spec.gap_px + height, box.right)
-
-
-def _ceil(value: float) -> int:
-    """``value`` rounded up to a whole device pixel.
-
-    The raster path rounds a caption's measured width up with ``math.ceil``
-    before handing it to :func:`~nonogram.export.layout.caption_slot`, which
-    takes whole pixels.
-    """
-    whole = int(value)
-    return whole if whole == value else whole + 1
-
-
 def _clipped_to_measure(
     text: str, size_px: float, metrics: FontMetrics, measure: float
 ) -> str:
@@ -405,7 +335,7 @@ def draw_answer_slot(
     ``room`` defaults to :func:`~nonogram.admin.book_puzzle_vector.slot_room`'s
     answer for ``slot``, which is what every answer page's caller wants.
 
-    Returns the caption's own box, as :func:`draw_answer_caption` reports it.
+    Returns ``None``: the picture's name sits in the header, so no caption box is set under the drawing.
     """
     face = interior_face_metrics() if metrics is None else metrics
     shade_clue_cells(stream, slot)
