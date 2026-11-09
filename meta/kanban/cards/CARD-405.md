@@ -1,6 +1,6 @@
 # CARD-405: On phones the row clues stay on the left and the column clues on top — the right-hand mirror is retired, because the clues are pinned
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/405-phone-clues-left-top
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-405
 **Source:** owner player findings 2026-11-07, item 4: "Mobile mode - clues - to put them to the right and bottom was the idea that it's not convenient to go without them on screen if the puzzle needs scrolling ... For now I think that sticky clues and crosshair solve that problem ... so we can have clues always at left and top (mobile mode) and check that clues are sticky."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-404
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_fifth_rule.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T13:25Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -82,4 +82,12 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] 797eb1e6. isMirrored() is false at every width; mirrorQuery and the 820 px redraw crossing stay (the phone cell floor still follows that breakpoint), and the mirrored branches in the ladder / drawBoard / the .is-mirrored hooks are left INERT rather than deleted (item 1, the author's call: deleting them is a refactor of CARD-193/212 code the owner did not ask for, and they cost nothing while isMirrored is constant).
+[AC-3 / item 2 measure] Shared-UI preview, main before (8092, built with CARD-403) vs this branch, public page. Cell px at 390 x 844 — 15x15 20.06 -> 20.06, 20x13 14.92 -> 14.92, 25x27 10.63 -> 10.63, 30x25 14.40 -> 14.40: NONE moved (the row band changes side, not width). Mirrored before: the 20, 25 and 30 wide at 390; none after. Duplicate gutters (CARD-212), for the owner's Q8: at 390 x 844 none of the four boards draws one; at 1280 x 720 only the 20 x 13 does (13 duplicate row boxes, cell 28 px); the 25 x 27 and 30 x 25 cannot afford them. Stickiness at 390: rows and columns kept on the 15/20/25-wide boards; the 30 x 25 keeps its columns only (its row band is too big at the cap — the owner's ruling of 2026-11-09 on CARD-404). (The desktop cell differences between the two builds, 27.65 -> 27.73 and 17.28 -> 16.78, are CARD-404's, merged after the "before" build.)
+[Tests] No deletion and no rename (a rename moves a CARD-217-recorded node id); every mirror claim retired in place with the finding's date, the same cell now asserting the left/top layout. Net node ids 0. Player set 1047 passed on the branch before review.
+[AC-2 at 390, for the record] The card's premise "without the mirror and with capped numerals the left band is narrow enough to stick" holds for the 15-, 20- and 25-wide boards measured above (rows and columns kept at 390 x 844) and NOT for a 30-wide board whose rows carry eight numbers (272-317 px band on a 358 px stage): that case is settled by the owner's ruling of 2026-11-09 on CARD-404 (STICK_MAX_SHARE stays; a band too big at the cap scrolls), and the one 390 cell (TestSolverPhone_MirroredGutterSticks::test_a_390px_phone_keeps_its_cells_rather_than_its_row_clues) asserts exactly that. Stickiness with the left band is asserted at 600 x 844, 100%, every corner (same class); 200% on a phone rests on the preview measurement above (rows+cols kept on the 15/20/25-wide boards) plus CARD-404's ClueStripsStopGrowing, not on a new cell (owner test budget).
+[Dead code, item 1 / review F-004] Left inert and reported: the `layout.mirrored` branches in drawBoard, the .is-mirrored / .is-right row-gutter rules (still used by CARD-212's right-hand DUPLICATE gutter), mirrorQuery. Their removal belongs with the duplicate-gutter question (owner Q8) as one card, if the owner retires the duplicates.
+[AC-1 20 x 20 at 390] Covered by the public-preview measurement above (20 x 13: not mirrored, left gutter) and by the fifth-rule sweep's 20 x 20 at 390, which now reads all four outer edges of the un-mirrored layout; no separate cell (owner test budget).
+[Review 1/3] Score: 7.0 — F-001 recorded above; F-002 the notes (written while the review ran); F-003 comments/docstrings fixed; F-004 above; F-005 the clip lift now asserts the cell geometry is unchanged; F-006 sleep dropped; F-007 above. Report meta/review/20261109T143000Z-CARD-405-cycle1.yml.
+
