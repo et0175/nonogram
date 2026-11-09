@@ -508,6 +508,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      and the height. Both width terms are needed, since the band is the larger
      of the two. */
   --player-numeral-min: 12px;
+  /* CARD-404 (owner finding 2026-11-07: "Clue strips stop growing with the
+     zoom — the numbers cap at a readable size"): the numerals stop at
+     --player-numeral-max, which they reach at a cell of max / 0.6 (23.33 px).
+     --player-clue-cell is the cell the CLUES are drawn at: the real cell up
+     to that size, that size beyond it. Every clue measure that used to grow
+     with --player-cell (the numeral, a column number's height, the column
+     band's top padding, the ring) grows with --player-clue-cell instead, so
+     both strips stop thickening while the cells keep growing; ALONG a line
+     nothing changes — a row's clue box is still exactly one cell tall and a
+     column's exactly one cell wide, so every clue still sits beside its own
+     line. Below 23.33 px the two cells are the same and nothing moves. */
+  --player-numeral-max: 14px;
+  --player-clue-cap: calc(var(--player-numeral-max) / 0.6);
+  --player-clue-cell: min(var(--player-cell), var(--player-clue-cap));
   --player-col-floor: calc(var(--player-col-digits, 1) * 0.6 * var(--player-numeral-min));
   /* Zoom (CARD-195): --player-zoom (set on the table by solver.js, a
      multiplier — 1 at 100%, default when the script has not run yet)
@@ -526,16 +540,31 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      arithmetically what CARD-196 left. */
   --player-row-gutters: 1;
   --player-col-gutters: 1;
+  /* CARD-404 re-derived the fit for the capped clues (not patched): the row
+     band is --player-row-ch at 0.6 x the numeral, and the numeral is
+     clamp(12 px, 0.6 cell, 14 px), so the width solves in three regimes —
+     floor (first term), growing (second) and capped (third, the band at
+     14 px) — and the answer is max(min(floor, growing), capped): where the
+     cap does not bind the third term is the smallest and the old min()
+     answers, to the pixel. The height likewise: the column band is
+     --player-col-depth clue cells, which stop at --player-clue-cap, so the
+     answer is max(the old uniform term, the term with the band at its cap).
+     The height also leaves out the board's own --space-4 margin-bottom,
+     which sits INSIDE the stage: the one-row estimate this term read before
+     CARD-403 carried --space-8 of air and hid it; against the measured top
+     (--space-4 of air) a height-bound board overflowed its stage by 2-5 px. */
   --player-cell: calc(clamp(max(var(--player-cell-min), var(--player-col-floor)),
-    min(calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major) + var(--player-row-ch) * 0.6 * var(--player-numeral-min))) / var(--player-cols)),
-        calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major))) / (var(--player-cols) + var(--player-row-gutters) * var(--player-row-ch) * 0.36)),
-        (100svh - var(--player-above)) / (var(--player-rows) + var(--player-col-gutters) * var(--player-col-depth) + 1)),
+    min(max(min(calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major) + var(--player-row-ch) * 0.6 * var(--player-numeral-min))) / var(--player-cols)),
+                calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major))) / (var(--player-cols) + var(--player-row-gutters) * var(--player-row-ch) * 0.36))),
+            calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major) + var(--player-row-ch) * 0.6 * var(--player-numeral-max))) / var(--player-cols))),
+        max((100svh - var(--player-above) - var(--space-4)) / (var(--player-rows) + var(--player-col-gutters) * var(--player-col-depth) + 1),
+            (100svh - var(--player-above) - var(--space-4) - var(--player-col-gutters) * var(--player-col-depth) * var(--player-clue-cap)) / (var(--player-rows) + 1))),
     var(--player-cell-max)) * var(--player-zoom));
   border-collapse: separate;
   border-spacing: 0;
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6));
+  font-size: max(var(--player-numeral-min), calc(var(--player-clue-cell) * 0.6));
   line-height: 1;
   color: var(--grid-ink);
   margin-bottom: var(--space-4);
@@ -543,8 +572,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-board th, .player-board td { padding: 0; box-sizing: border-box; font-weight: 400; }
 .player-corner { border-right: var(--player-rule-major) solid var(--grid-ink); border-bottom: var(--player-rule-major) solid var(--grid-ink); }
 .player-clue { background: var(--color-surface); }
-.player-clue.is-col { vertical-align: bottom; text-align: center; border-top: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule-major) solid var(--grid-ink); padding-top: calc(var(--player-cell) * 0.2); }
-.player-clue.is-col .player-clue-num { display: flex; justify-content: center; align-items: center; width: 0; margin: 0 auto; height: var(--player-cell); line-height: normal; }
+.player-clue.is-col { vertical-align: bottom; text-align: center; border-top: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule-major) solid var(--grid-ink); padding-top: calc(var(--player-clue-cell) * 0.2); }
+.player-clue.is-col .player-clue-num { display: flex; justify-content: center; align-items: center; width: 0; margin: 0 auto; height: var(--player-clue-cell); line-height: normal; }
 .player-clue.is-row { text-align: right; white-space: nowrap; border-left: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule-major) solid var(--grid-ink); padding-left: 0.5ch; }
 .player-clue.is-row .player-clue-num { display: inline-flex; align-items: center; }
 .player-cell { width: var(--player-cell); min-width: var(--player-cell); height: var(--player-cell); background: var(--grid-paper); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); vertical-align: middle; }
@@ -590,7 +619,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   border-top: none;
   border-bottom: var(--player-rule) solid var(--player-thin);
   padding-top: 0;
-  padding-bottom: calc(var(--player-cell) * 0.2);
+  padding-bottom: calc(var(--player-clue-cell) * 0.2);
 }
 .player-board tfoot .player-corner { border-bottom: none; }
 /* ----- Clue gutters that stay in view (CARD-271) -----
@@ -1113,9 +1142,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    option b): see the comment below the row rule for that one exception.
    No transition. */
 .player-board {
-  --player-circle: calc(var(--player-cell) * 0.88);
-  --player-circle-w: max(var(--border-width), calc(var(--player-cell) * 0.06));
-  --player-circle-clear: calc(var(--player-cell) * 0.05);
+  /* CARD-404: the ring follows the capped numerals (the clue cell), not the
+     growing cell. */
+  --player-circle: calc(var(--player-clue-cell) * 0.88);
+  --player-circle-w: max(var(--border-width), calc(var(--player-clue-cell) * 0.06));
+  --player-circle-clear: calc(var(--player-clue-cell) * 0.05);
   --player-ring-gap: 0.25px;
 }
 .player-board .player-clue-num { position: relative; }

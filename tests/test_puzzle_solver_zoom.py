@@ -411,6 +411,8 @@ class TestSolverZoom_OneFingerDragIsUnchangedByZoom:
             _open(page, live, live.store(GRID))
             _region(page)  # CARD-211: Region is its own toggle now
             _zoom_to(page, 200)
+            page.evaluate("() => document.querySelector('td.player-cell[data-row=\"1\"][data-col=\"4\"]').scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'})")  # CARD-404: the capped bands now stick at every zoom, so a cell is brought to the stage's middle, clear of them, before it is touched
+            page.wait_for_timeout(150)  # the scroll event is async: let it land before the pointer does
 
             _touch_drag_row_1_cols_2_to_6(context, page)
 
@@ -421,6 +423,8 @@ class TestSolverZoom_OneFingerDragIsUnchangedByZoom:
     def test_a_mouse_drag_at_200_percent_still_marks_along_the_dragged_line(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         _zoom_to(browser_page, 200)
+        browser_page.evaluate("() => document.querySelector('td.player-cell[data-row=\"1\"][data-col=\"4\"]').scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'})")  # CARD-404: the capped bands now stick at every zoom, so a cell is brought to the stage's middle, clear of them, before it is touched
+        browser_page.wait_for_timeout(150)  # the scroll event is async: let it land before the pointer does
 
         _drag(browser_page, [(0, 0), (0, 4)])
 
@@ -741,13 +745,13 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         _open(page, live, live.store(_GRID_30x25))
         plain = page.evaluate(_GUTTER_SHAPE)
         assert (plain["rowBoxes"], plain["colBoxes"], plain["duplicates"]) == (25, 30, 0)
-        assert _cell_widths(page)[0] == pytest.approx(20.02, abs=0.05)  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
+        assert _cell_widths(page)[0] == pytest.approx(19.55, abs=0.05)  # CARD-403/404: measured top, then the board margin (was 19.75, then 20.02)
 
         _zoom_to(page, 150)
         # 150% of the doubled layout's 16 px cells is exactly the 24 px the
         # duplicate is conditional on — the number this test exists to keep
         # out of the decision.
-        assert _cell_widths(page)[0] == pytest.approx(20.02 * 1.5, abs=0.05)
+        assert _cell_widths(page)[0] == pytest.approx(19.55 * 1.5, abs=0.05)
 
         # Force the redraw the breakpoint listener performs (out to phone
         # width and back), where a zoom-blind decision would double.
@@ -985,7 +989,7 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
             # taller instead, re-measured.
             ("plain 30x30 at 900x800", _GRID_30x30, {"width": 900, "height": 800}, 0, 125,
              [212, 237]),
-            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [778, 478]),  # 487 until CARD-403
+            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [275, 172]),  # [778, 487] until CARD-403/404: the capped bands are 317 x 194, not 568 x 347
         ],
         ids=lambda value: value if isinstance(value, str) else "",
     )
@@ -1032,7 +1036,16 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
     #: true: for the plain 30 x 30 at 1280 x 720, the zoom at which each axis
     #: stops keeping its clues. ``None`` would mean "keeps all the way to
     #: 300 %", which neither axis does on this board.
-    GIVES_UP_AT = {"rows": 225, "cols": 150}
+    #:
+    #: CARD-404 (owner finding 2026-11-07, the clue numbers cap) moved the
+    #: rows from 225 to 325 — past the last step, i.e. kept all the way to
+    #: 300 % — because the row band stops widening once its numerals reach
+    #: 14 px. The columns still give up at 150 % HERE: this 30 x 30's column
+    #: clues stack eight deep, and eight capped clue cells (23.33 px each)
+    #: are more than STICK_MAX_SHARE of a 720 px window's port. Owner ruling
+    #: 2026-11-09 ("all as recommended"): STICK_MAX_SHARE stays; a band too
+    #: big AT the cap scrolls with the board rather than covering it.
+    GIVES_UP_AT = {"rows": 325, "cols": 150}
 
     def test_each_axis_keeps_its_clues_up_to_the_zoom_its_band_outgrows(
         self, browser_page, live
@@ -1217,3 +1230,57 @@ class TestSolverZoom_StageEndsAboveTheFold:
         assert same, "a resize that changed nothing rebuilt the table"
         assert scrolled[2] is False, "the width change should redraw (the control of this test)"
         assert scrolled[0] > 0 and scrolled[1] > 0, scrolled
+
+
+# ==========================================================================
+# CARD-404 — the clue strips stop growing with the zoom; alignment stays
+# ==========================================================================
+
+_STRIPS = """() => {
+  const table = document.querySelector('.player-board');
+  const rowBox = table.querySelector('th.player-clue.is-row').getBoundingClientRect();
+  const colBox = table.querySelector('thead th.player-clue.is-col').getBoundingClientRect();
+  const fonts = [...table.querySelectorAll('.player-clue-num')].map((n) => parseFloat(getComputedStyle(n).fontSize));
+  const misaligned = [];
+  for (const th of table.querySelectorAll('th.player-clue.is-row')) {
+    const cell = table.querySelector(`td.player-cell[data-row="${th.dataset.line}"]`).getBoundingClientRect();
+    const box = th.getBoundingClientRect();
+    if (Math.abs(box.top - cell.top) > 0.5 || Math.abs(box.height - cell.height) > 0.5) misaligned.push(['row', th.dataset.line]);
+  }
+  for (const th of table.querySelectorAll('thead th.player-clue.is-col')) {
+    const cell = table.querySelector(`td.player-cell[data-col="${th.dataset.line}"]`).getBoundingClientRect();
+    const box = th.getBoundingClientRect();
+    if (Math.abs(box.left - cell.left) > 0.5 || Math.abs(box.width - cell.width) > 0.5) misaligned.push(['col', th.dataset.line]);
+  }
+  return { rowStrip: rowBox.width, colStrip: colBox.height, maxFont: Math.max(...fonts), misaligned };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverZoom_ClueStripsStopGrowing:
+    """CARD-404 AC-1/AC-2/AC-4 (owner finding 2026-11-07: "Clue strips stop
+    growing with the zoom — the numbers cap at a readable size"). On a
+    30 x 30 at 1280 x 720 the numerals never exceed 14 px, the row strip's
+    width and the column strip's height are the same at 200% and 300% as
+    where the cap first binds, and at 100/200/300% every clue box spans
+    exactly its own row or column. AC-4: the 12 px phone floor is
+    TestPlayerNumerals_* unchanged; its desktop pin was re-pinned 16.8 -> 14
+    by the owner's ruling of 2026-11-09 (the cap applies at 100% too). Plant: removing the cap
+    (--player-clue-cell back to --player-cell) reds it at 200% (17.28 px
+    numerals, run 2026-11-09)."""
+
+    def test_capped_strips_and_exact_alignment(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size({"width": 1280, "height": 720})
+        _open(page, live, live.store(_GRID_30x30))
+        seen = {}
+        for percent in (100, 200, 300):
+            _zoom_to(page, percent)
+            seen[percent] = page.evaluate(_STRIPS)
+        for percent, strips in seen.items():
+            assert strips["maxFont"] <= 14.01, (percent, strips["maxFont"])
+            assert strips["misaligned"] == [], (percent, strips["misaligned"])
+        # The cap binds at a 23.33 px cell; this board is 14.4 px at 100%, so
+        # 200% (28.8 px) and 300% (43.2 px) are both past it: equal strips.
+        assert abs(seen[300]["rowStrip"] - seen[200]["rowStrip"]) <= 1, seen
+        assert abs(seen[300]["colStrip"] - seen[200]["colStrip"]) <= 1, seen

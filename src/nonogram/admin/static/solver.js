@@ -410,11 +410,17 @@
 //   .is-keeping-cols on the table per axis (STICK_MAX_SHARE); it runs after
 //   every draw and after every zoom, because the band's depth follows the
 //   cell. Where there is no room the board keeps today's rendering and the
-//   clues still scroll away — which is the bug, unfixed, in the two places
-//   it cannot be fixed this way: a mirrored phone (the band is 76% of the
-//   stage) and 300% zoom (the band is magnified with the cells, to 9 cells
-//   deep in an 11-cell stage). Both are owner decisions about the BAND, not
-//   about stickiness, and both are recorded on CARD-271.
+//   clues still scroll away. CARD-271 recorded two such places as owner
+//   decisions about the BAND: a mirrored phone and 300% zoom, where the
+//   band was magnified with the cells. CARD-404 changed the band (owner
+//   finding 2026-11-07): the clue numerals cap at 14 px, so past a 23.33 px
+//   cell the band stops growing and a zoomed board keeps its clues where it
+//   did not (a 30 x 30's row band at 1280 x 720 now keeps to 300%). What is
+//   left is a band that is too big at the CAP itself — long clue lines on a
+//   narrow stage (a 30 x 30 whose rows carry eight numbers is 317 px wide on
+//   a 358 px phone stage) or eight-deep columns in a short window — and the
+//   share rule (STICK_MAX_SHARE, unchanged) still lets those scroll rather
+//   than cover the board.
 //
 // ZOOM (CARD-195, FR-044). A view setting that multiplies the fitted cell
 // side (admin.css --player-zoom on table.player-board); it changes no board

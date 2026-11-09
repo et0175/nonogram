@@ -1067,7 +1067,11 @@ class TestSolverClues_EveryNumberKeepsAOneCellSlot:
             ch = 0.6 * r["font"]
             assert abs(r["width"] - len(r["text"]) * ch) < 0.1, r  # glyph advances round to 1/64 px
             assert abs(r["gap"] - 1.45 * ch) < 0.1, r
-        assert [c for c in seen["columns"] if abs(c["height"] - height) > 0.001] == [], seen["columns"]
+        # A column number's box is one CLUE cell tall: the cell up to 23.33 px,
+        # 23.33 px beyond it (CARD-404, the capped clues; it was the cell).
+        slot = min(height, 14 / 0.6)
+        # 0.01, not 0.001: 14 / 0.6 is not a 1/64 px multiple, and the box lands on one
+        assert [c for c in seen["columns"] if abs(c["height"] - slot) > 0.01] == [], seen["columns"]
         assert all(r["width"] < width for r in seen["rows"] if len(r["text"]) == 1), seen["rows"]
 
 
@@ -1227,7 +1231,7 @@ class TestSolverClues_TheCircleIsVisible:
         # CARD-193: below 820 px the cell floor is removed, so at 390 the
         # measured value is this grid's 14.4 px numeral-driven column floor
         # (two-digit column numbers), not the old 24 px phone floor.
-        assert cell == pytest.approx({1100: 14.4, 1440: 17.91, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403: the cell's height term reads the stage's measured top (1440 was 17.67)
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.5, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403/404: measured top, board margin (1440 was 17.67)
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -1449,7 +1453,13 @@ class TestPlayerNumerals_TwelvePixelFloor:
         browser_page.set_viewport_size({"width": 1440, "height": 900})
         _open_player(browser_page, live)
         fonts = browser_page.evaluate(_NUMERALS)
-        assert fonts and all(abs(f - 16.8) < 0.01 for f in fonts), sorted(set(fonts))
+        # 16.8 (0.6 x 28) until CARD-404 (owner finding 2026-11-07: the clue
+        # numbers cap at a readable size; owner ruling 2026-11-09: the cap
+        # applies at every zoom, 100% included): the cap, 14 px, binds from a
+        # 23.33 px cell up, so a 28 px desktop cell draws 14 px numerals. The
+        # test's name keeps "0_6_of_the_28_px_cell" only because a rename to
+        # fit is refused by the card's guardrail.
+        assert fonts and all(abs(f - 14) < 0.01 for f in fonts), sorted(set(fonts))
 
     def test_15x15_phone_numerals_sit_at_the_12px_floor(self, browser_page, live) -> None:
         """CARD-193 (renamed from ..._are_0_6_of_the_24_px_cell, which this
@@ -1720,7 +1730,7 @@ class TestSolverClues_BigBoardRepeatsBothAxes:
         assert _lines(seen, "rows", duplicate=True) == []
         assert _lines(seen, "columns", duplicate=True) == []
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(20.02, abs=0.05), seen["cell"]  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
+        assert seen["cell"] == pytest.approx(19.55, abs=0.05), seen["cell"]  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
 
 
 @pytest.mark.browser
@@ -2193,7 +2203,7 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
         assert _lines(seen, "rows", duplicate=True) == rows
         assert _lines(seen, "columns", duplicate=True) == []  # 12 rows: not eligible
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(26.88, abs=0.05), seen["cell"]
+        assert seen["cell"] == pytest.approx(27.34, abs=0.05), seen["cell"]  # 26.88 until CARD-404 (capped clues, narrower band)
         # The heavy fifth-line rules read the same in both gutters (the
         # duplicate carries .major-below exactly as its twin does).
         heavy = page.evaluate(
@@ -2243,7 +2253,7 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
 
         assert _lines(seen, "rows", duplicate=True) == []
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(25.25, abs=0.05), seen["cell"]  # 24.59 at 1280 x 720 until CARD-403
+        assert seen["cell"] == pytest.approx(24.81, abs=0.05), seen["cell"]  # 24.59 at 1280 x 720 until CARD-403; 25.25 at 760 until CARD-404 (the height term leaves out the board margin)
 
 
 # ==========================================================================
@@ -2603,7 +2613,10 @@ class TestSolverClues_SmallBoardsUnaffectedByStickiness:
     #: chosen because the decision differs between them, which is what makes
     #: the test able to see a missing re-measurement at all.
     SHRINK_FROM = ROOMY
-    SHRINK_TO = {"width": 1024, "height": 768}
+    #: 1024 x 768 until CARD-404: with the clue numerals capped the 15 x 15's
+    #: bands at 200% are 172.5 x 124.3 px and fit a 1024 x 768 port, so the
+    #: decision no longer differs there. A small window where it still does.
+    SHRINK_TO = {"width": 440, "height": 480}
     #: And the reverse: from a viewport that refuses both axes to one with the
     #: room for both.
     GROW_TO = {"width": 1600, "height": 1200}
@@ -2908,9 +2921,10 @@ class TestSolverClues_DoubledGuttersAreNotStuck:
         # Both bands would scroll clean out of view without the fix: the
         # overflow on each axis is past that axis's whole band (567.9 px and
         # 347.4 px here), so this is a case and not a formality.
-        assert seen["overflow"] == [778, 478], seen["overflow"]  # 487 until CARD-403
-        assert seen["bands"] == [pytest.approx(567.9, abs=0.5),
-                                 pytest.approx(347.4, abs=0.5)], seen["bands"]
+        assert seen["overflow"] == [275, 172], seen["overflow"]  # [778, 487] until CARD-403/404: the capped bands are 317 x 194
+        # 567.9 x 347.4 until CARD-404 capped the clue numerals at 14 px.
+        assert seen["bands"] == [pytest.approx(317.05, abs=0.5),
+                                 pytest.approx(194.28, abs=0.5)], seen["bands"]
         assert seen["labelledRows"] == ["sticky"], seen
         assert seen["duplicateRows"] == ["static"], seen
         assert seen["headColumns"] == ["sticky"], seen
