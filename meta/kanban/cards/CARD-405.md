@@ -1,6 +1,6 @@
 # CARD-405: On phones the row clues stay on the left and the column clues on top — the right-hand mirror is retired, because the clues are pinned
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -82,4 +82,7 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] 797eb1e6. isMirrored() is false at every width; mirrorQuery and the 820 px redraw crossing stay (the phone cell floor still follows that breakpoint), and the mirrored branches in the ladder / drawBoard / the .is-mirrored hooks are left INERT rather than deleted (item 1, the author's call: deleting them is a refactor of CARD-193/212 code the owner did not ask for, and they cost nothing while isMirrored is constant).
+[AC-3 / item 2 measure] Shared-UI preview, main before (8092, built with CARD-403) vs this branch, public page. Cell px at 390 x 844 — 15x15 20.06 -> 20.06, 20x13 14.92 -> 14.92, 25x27 10.63 -> 10.63, 30x25 14.40 -> 14.40: NONE moved (the row band changes side, not width). Mirrored before: the 20, 25 and 30 wide at 390; none after. Duplicate gutters (CARD-212), for the owner's Q8: at 390 x 844 none of the four boards draws one; at 1280 x 720 only the 20 x 13 does (13 duplicate row boxes, cell 28 px); the 25 x 27 and 30 x 25 cannot afford them. Stickiness at 390: rows and columns kept on the 15/20/25-wide boards; the 30 x 25 keeps its columns only (its row band is too big at the cap — the owner's ruling of 2026-11-09 on CARD-404). (The desktop cell differences between the two builds, 27.65 -> 27.73 and 17.28 -> 16.78, are CARD-404's, merged after the "before" build.)
+[Tests] No deletion and no rename (a rename moves a CARD-217-recorded node id); every mirror claim retired in place with the finding's date, the same cell now asserting the left/top layout. Net node ids 0. Player set 1047 passed on the branch before review.
