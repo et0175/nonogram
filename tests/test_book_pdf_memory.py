@@ -270,13 +270,6 @@ PEAK_CAP_IN_PAGES = 2
 #: :class:`PIL.Image.Image` a caller could hold.
 PAGE_FACTORIES = (
     "create_cover_page",
-    # CARD-206 adds the blank title / copyright page: a page factory
-    # `interior_stream`'s own producer calls before the guide, so it is
-    # wrapped by the instrument like every other one. It draws nothing, but
-    # it still allocates a full-size bitmap, which is exactly the quantity
-    # this module bounds.
-    "create_title_page",
-    "create_guide_page",
     "create_divider_page",
     # CARD-311: the divider the interior walk actually asks for -- the owner's
     # uploaded picture fitted to the page, or the drawn page above. A page
@@ -291,22 +284,8 @@ PAGE_FACTORIES = (
     # (rule, "PUZZLES a-b", the level's name, its dots), drawn by
     # ``divider_page`` for a level slot with no picture. Its own bitmap.
     "create_level_divider",
-    # CARD-200 adds the table of contents page beside the guide and the
-    # divider — the same "draw something generic on page_frame" shape, and
-    # a page factory `interior_stream`'s own producer calls just like them.
-    "create_toc_page",
-    "_blank_page",
-    "_two_up_page",
-    # CARD-198 deleted "_answer_page" (the packed key's own page factory,
-    # FR-042) along with the packed key itself — nothing in BookPDFGenerator
-    # answers to that name any longer. "solved_puzzle_page" (CARD-197) is
-    # its replacement in this list: since CARD-198 it draws a large,
-    # unpacked answer's full page; CARD-202 adds "_packed_answer_page"
-    # beside it for a page of 2 or 4 small answers — both are page factories
-    # interior_stream's own answer-section loop now calls, depending on
-    # which kind of page the packing walk planned.
-    "solved_puzzle_page",
-    "_packed_answer_page",
+    # The puzzle, answer, guide, contents and title pages are operators
+    # (ADR-0042); their raster writers were deleted on 2026-11-09.
 )
 
 #: The corpus book's interior, in pages, as this module counts it.
