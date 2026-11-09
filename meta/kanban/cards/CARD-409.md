@@ -1,6 +1,6 @@
 # CARD-409: A hint is seen — a stronger highlight with a short pulse, the hint text right by the board, and 'the highlighted row (13)' wording
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -88,4 +88,8 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] See the commit. Q13 taken as the card's recommendation (a strip over the stage's BOTTOM edge; it never covers the sticky column clues). Rung 3's sentence unchanged (no ruling asked). The pulse lives in the existing player-hint-line-in keyframes, so each line part still runs ONE animation (the reduced-motion and one-animation cells hold unchanged).
+[AC-1] The tint is stronger (accent 30% into the accent tint); the existing distinguishability cells (crosshair, probe ring, Maybe ground) pass unchanged — their floors are kept; no new raised-floor cell was added (owner test budget): the tint change is reviewed by eye and by the existing cells.
+[Measure] The strip at rung 2 sits inside the stage box at 390 x 844, 844 x 390, 1280 x 900 and 1440 x 900, >= 12 px, unclipped, and nothing (head, board, toolbar, counters) moves between empty, full and dismissed — the re-pointed TestSolverHintLadder_EveryPressChangesSomethingSeen::test_the_line_moves_neither_the_toolbar_nor_the_board. The page head lost the line's row on phones: stage +38 px at 390 x 844 (port 398 -> 436), +38 at 600 x 844.
+[Tests] Net node ids 0: every change re-points an existing cell, each naming the 2026-11-07 finding. Player set 1054 passed before review.
