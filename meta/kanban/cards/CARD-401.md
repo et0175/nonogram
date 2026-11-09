@@ -1,6 +1,6 @@
 # CARD-401: Icon-only toolbar on phones and short screens — Region shows two cells, the title and tier badge share a line
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/401-icon-only-toolbar
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-401
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, items 1 and 5 ("Mobile - have only icons on buttons, no text. And reduce region icon to 2 cells."; "Smaller title, or the title on the same line as the difficulty badge"; "Icon-only should switch on for short screens as well as narrow ones"). All findings apply to the admin solver and the public player alike (one source).
 **Idea:** —
 **Wave:** 79
@@ -21,9 +21,9 @@
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-400 (none: disjoint production files), CARD-402/403/404 (all edit admin.css and puzzle_solve.html: serialize). -->
 **Review score:** 9.5 (cycle 1)
 **Started:** 2026-11-09T09:05Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T10:08Z
+**Actual:** 1 review cycle (wall clock excluded, owner ruling)
+**Merge commit:** 071e4698
 **Blocked by:** —
 
 ## Why this card exists
@@ -102,3 +102,5 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 [Solved banner] On compact screens the banner shows the tick and the NAME; "Solved:" is visually hidden (.player-solved-label). The name wraps to at most two lines at --text-xs inside the 101 px slot (~25 characters) and is clamped with an ellipsis beyond that; accepted as the trade for the board not moving on solve (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth unchanged, including its 120-character names at 390). The public site drops titles from the served schema, so there the banner shows what solver.js writes for an untitled puzzle.
 [Tests] Changed (claims retired with the 2026-11-07 finding named in each docstring): test_puzzle_solver_brush_menu.py slot-geometry test (390 now asserted at 101/44/52 instead of skipped; 1280/1440 re-measured) and the two Region cell-count tests (3 -> 2; names kept per G-T); test_puzzle_solver_hint.py Hint/Check on Reset's row at 390. New: TestSolverPhone_CompactToolbar (2 viewport cells + the visible solved name). Net collected node ids +3 (review F5 dropped the redundant 1280 cell, d3f030bd). Plant: dropping the (max-height: 500px) arm reds the 844x390 cell alone (run by the author and by the reviewer); hiding the name visually reds the AC-6 cell (reviewer).
 [Review 1/3] 9.5 — no critical/important. F1 (worktree evidence) and F3 (title line) answered by the [Measure] note; F2 (Q4) by [Impl]; F4 (clamp) accepted in [Solved banner]; F5 fixed d3f030bd; F6 recorded in [Impl]. Report: meta/review/20261109T092612Z-CARD-401-cycle1.yml.
+[Closing note, merge gate, merged 071e4698] Full suite from the worktree, unarmed (no local Postgres; the 29 DATABASE_URL skips + 1 setrlimit skip, 30 in all, as the unarmed baseline expects). Gate 1 red on 4: the frozen browser-family registry (3 new ids, recorded in ADDED_SINCE_BEFORE), tests/test_player_base_css.py's FROZEN table x2 (re-recorded against the real Bootstrap file, sha256 unchanged, same Chromium; the project stylesheet still equals it), and tests/test_book_pdf_memory.py::TestMemoryGuard_StillFailsWhenTheExportItselfRegresses::test_an_export_that_retains_a_fraction_of_the_book_fails, which reds on main 9406a630 alone (host bound at 15.3 retained pages) and is not this card's. The three fixed files re-run green (88a09351); no second full run. Accuracy: 1 review cycle against an estimate of 3c = 0.33. Net node ids +3.
+

@@ -480,13 +480,6 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
-  # CARD-401 DISPATCHED 2026-11-09T09:05Z on the owner's 2026-11-09 "go ahead and fix your findings" (thread: player phone check). Serial run of 401-413 by that thread; 207/229 untouched (no live process in either worktree at dispatch, checked by cwd).
-  - card: CARD-401
-    branch: card/401-icon-only-toolbar
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-401
-    started: 2026-11-09T09:05Z
-    estimate: 3c (1d)
-    cut_from: 9406a630
   # CARD-403 DISPATCHED 2026-11-09T09:30Z, cut from card/401-icon-only-toolbar (both edit admin.css and puzzle_solve.html: serialized behind 401, which is at its merge gate).
   - card: CARD-403
     branch: card/403-stage-above-fold
@@ -494,6 +487,7 @@ active:
     started: 2026-11-09T09:30Z
     estimate: 3c (1d)
     cut_from: card/401-icon-only-toolbar
+# CARD-401 CLEARED 2026-11-09T10:08Z at its merge gate: merged 071e4698, done, review 9.5 on cycle 1, estimate 3c -> ratio 0.33. Entry dropped.
 # CARD-399 CLEARED 2026-11-08T22:19:38Z at its merge gate: merged 635981c9, done, certified 8.4 on cycle 1, estimate 5c -> 1 cycle = ratio 0.2. Full armed suite 10908 passed, 1 skipped, 1 xfailed (collected 10923, net -704 ids; run 1 31m46s against 44m36s before) + 10 lifted wave_close_only passed. CARD-384 closed moot alongside. Entry dropped.
 # CARD-414 CLEARED 2026-11-08T20:09:24Z at its merge gate: merged 1d1e1c58, done, certified 8.6 on cycle 2 (6.5 on cycle 1, not certified), estimate 1c -> 2 cycles = ratio 2.0. Gate 1 red on 6 playwright goto timeouts, not reproduced; gate 2 full suite 11612 passed, 1 skipped, 1 xfailed + 7 lifted wave_close_only passed. Entry dropped.
 # CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
