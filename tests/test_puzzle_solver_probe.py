@@ -1980,6 +1980,14 @@ class TestSolverProbe_BrokenLinesAreFlagged:
         assert min(apart.values()) >= _RING_FLOOR, (apart, colours)
         assert _contrast(colours["ink"], colours["red"]) >= 4.5, colours
 
+        # AC-4 "exactly while": an Undo inside the still-open probe takes the
+        # flag off, a Redo puts it back (review cycle 1, F-002).
+        _button(page, "Undo").click()
+        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
+        assert _probe_pressed(page) == "true"
+        _button(page, "Redo").click()
+        assert page.evaluate(_BROKEN)["rows"] == [broke, broke]
+
         _contradiction(page)
         assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
         _probe(page)
