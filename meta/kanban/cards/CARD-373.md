@@ -1,6 +1,6 @@
 # CARD-373: AC-4's six-pair contrast table is durable only inside a failure message, which a green run never prints
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-348
 **Touches:** tests/test_public_player_agreement.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -55,3 +55,7 @@ suite and without reading a diff. This one is not.
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Its target, the old public-player test modules, was deleted when CARD-399 retired play.js (87766ed4).

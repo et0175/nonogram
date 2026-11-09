@@ -1,6 +1,6 @@
 # CARD-312: ADR-0042/R6's guard, built from a corrected enumeration — the 321 pixel-reading sites disposed of, and the flip R6 has been owed since October
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-299
 **Touches:** tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md, meta/profiling/adr-0042-migration-census.md
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -194,3 +194,7 @@ here, and do not record a convention this card did not derive.
 ## Triage 2026-11-09
 
 Still open, needs a re-cut: the 2026-11-09 curation deleted about 310 raster tests, so the 321-site enumeration is obsolete. Re-derive the pixel-reading sites at HEAD before building the guard.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

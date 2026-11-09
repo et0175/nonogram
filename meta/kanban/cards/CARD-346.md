@@ -1,6 +1,6 @@
 # CARD-346: `SIBLING_FINDINGS` pins that a fact diverges, not what it is — the same lesson `DECLARED_DIVERGENCES` already learned
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-339
 **Touches:** tests/test_public_player_agreement.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -162,3 +162,7 @@ trusting it.
   (check: `test_every_census_fact_is_compared_routed_or_agreeing`)
 - ADR-0039/R4 — a figure recomputed and refuted is retracted everywhere it was written
   (check: review-lens)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Its target, the old public-player test modules, was deleted when CARD-399 retired play.js (87766ed4).

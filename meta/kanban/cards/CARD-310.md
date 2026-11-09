@@ -1,6 +1,6 @@
 # CARD-310: A test's verdict stops depending on a sibling working tree — the board-time assertions move to the board's own gate, and the pattern is decided once
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-298
 **Touches:** tests/test_book_pdf.py, meta/kanban/config.yml, meta/kanban/README.md, tests/test_suite_profile.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -247,3 +247,7 @@ redo them. What remains is item 1's decision and the re-homing.
 - CARD-308 is the sibling in spirit: that card is about an instrument that reads
   **prose** and calls it a definition; this one is about an instrument that reads a
   **neighbouring working tree** and calls it the board.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+The board-reading cell can no longer change its verdict: the remaining raster declarations (cover, divider) name no card.

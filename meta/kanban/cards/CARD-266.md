@@ -1,6 +1,6 @@
 # CARD-266: The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** CARD-264 (it fixes the three sites this check would catch; building the check first would red on them)
 **Touches:** tests/test_guard_integrity.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -214,3 +214,7 @@ rule over that tree is the thing that makes the question decidable instead of a 
 same mechanism answers whether a line-number citation into a churning source is allowed **at all** on these
 pages, which is the real question underneath the minor. If the answer is "no line numbers in docs
 citations", that is a rule with a control, and this page's `:20` is its first test case.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

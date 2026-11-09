@@ -1,6 +1,6 @@
 # CARD-265: The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence `tests/README.md` is missing
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d  <!-- was 0.25d; raised by the CARD-264 fold, and the claim-card floor is 0.75d -->
@@ -16,7 +16,7 @@
 **Depends on:** CARD-261 (it edits the controls that card shipped)
 **Inherits:** CARD-264's `_ADAPTER_COUNT` work, folded here by owner decision 2026-10-22 — see "Folded in" below
 **Touches:** tests/test_cli.py, tests/README.md
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -276,3 +276,7 @@ created the first *reachable* pointer from the every-session file into `_ADAPTER
 it, finds a set of three under prose saying two, and concludes `admin` is the erosion will **remove a
 correct entry** — strictly worse than the stale count it replaced. CARD-264 closed the `CLAUDE.md` end of
 that route; this card owns the other end, and until it lands the route is half-closed.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.
