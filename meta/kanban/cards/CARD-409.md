@@ -1,6 +1,6 @@
 # CARD-409: A hint is seen — a stronger highlight with a short pulse, the hint text right by the board, and 'the highlighted row (13)' wording
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/409-hint-is-seen
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-409
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 7, bullets 2-4: "Make the highlight stronger. Use a clearly visible tint on the line and its clue, and maybe a short pulse when it appears."; "Show the hint text right by the board: just above it, or as a small strip over its top edge that disappears on the next tap."; "Word it as 'the highlighted row (13)' so the highlight does the pointing and the number is a backup."
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-408
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, player/assemble.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_page.py, tests/test_player_shared_ui_site.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. It edits `player/assemble.py` and `tests/test_player_shared_ui_site.py` only for the usage-sentence hook (`SHARED_UI_HINT_CLAUSE` / `SHARED_UI_HINT_REPLACEMENT`, the CARD-386 F-2 ruling 'in the line at the top of the page'), which becomes false when the line moves; CARD-394 edits the same two files (serialize with it in whichever order it merges; neither depends on the other). -->
-**Review score:** —
+**Review score:** 9.0 (cycle 3)
 **Started:** 2026-11-09T19:52Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T22:31Z
+**Actual:** 3 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** e8d2540c
 **Blocked by:** —
 
 ## Why this card exists
