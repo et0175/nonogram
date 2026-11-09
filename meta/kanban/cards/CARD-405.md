@@ -1,6 +1,6 @@
 # CARD-405: On phones the row clues stay on the left and the column clues on top — the right-hand mirror is retired, because the clues are pinned
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/405-phone-clues-left-top
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-405
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 4: "Mobile mode - clues - to put them to the right and bottom was the idea that it's not convenient to go without them on screen if the puzzle needs scrolling ... For now I think that sticky clues and crosshair solve that problem ... so we can have clues always at left and top (mobile mode) and check that clues are sticky."
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-404
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_fifth_rule.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. -->
-**Review score:** —
+**Review score:** 9.0 (cycle 2)
 **Started:** 2026-11-09T13:25Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T14:37Z
+**Actual:** 2 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** 975409ea
 **Blocked by:** —
 
 ## Why this card exists
@@ -90,4 +90,7 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 [Dead code, item 1 / review F-004] Left inert and reported: the `layout.mirrored` branches in drawBoard, the .is-mirrored / .is-right row-gutter rules (still used by CARD-212's right-hand DUPLICATE gutter), mirrorQuery. Their removal belongs with the duplicate-gutter question (owner Q8) as one card, if the owner retires the duplicates.
 [AC-1 20 x 20 at 390] Covered by the public-preview measurement above (20 x 13: not mirrored, left gutter) and by the fifth-rule sweep's 20 x 20 at 390, which now reads all four outer edges of the un-mirrored layout; no separate cell (owner test budget).
 [Review 1/3] Score: 7.0 — F-001 recorded above; F-002 the notes (written while the review ran); F-003 comments/docstrings fixed; F-004 above; F-005 the clip lift now asserts the cell geometry is unchanged; F-006 sleep dropped; F-007 above. Report meta/review/20261109T143000Z-CARD-405-cycle1.yml.
+[Viewports, review F-102] 844 x 390 is above the 820 px breakpoint and 1440 x 900 is desktop: neither was ever mirrored, and the player-set gate's existing cells at those sizes pass unchanged.
+[Review 2/3] Score: 9.0 — certified; the reviewer's isMirrored-restored mutant reds 9 cells. Minors F-101 (stale prose) and F-103 (clip-lift checks the last cell too) fixed; F-102 above. Report meta/review/20261109T141929Z-CARD-405-cycle2.yml.
+[Closing note, merge gate, merged 975409ea] Player set (owner ruling 2026-11-09): 1385 passed, 9 skipped (DATABASE_URL unset), 0 failed. Full suite owed at the wave close. Accuracy: 2 cycles / 3c = 0.67. Net node ids 0.
 

@@ -480,13 +480,7 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
-  # CARD-405 DISPATCHED 2026-11-09T13:25Z (player-phone thread); serial after 404.
-  - card: CARD-405
-    branch: card/405-phone-clues-left-top
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-405
-    started: 2026-11-09T13:25Z
-    estimate: 3c (1d)
-    cut_from: 32cb7673
+# CARD-405 CLEARED 2026-11-09T14:37Z: merged 975409ea, done, review 9.0 on cycle 2 (7.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1385 passed. Entry dropped.
 # CARD-404 CLEARED 2026-11-09T13:25Z: merged e1c2575a, done, review 9.0 on cycle 2 (5.0 on cycle 1), estimate 4c -> 0.5. Player-set gate 1385 passed. Entry dropped.
 # CARD-403 CLEARED 2026-11-09T11:54Z: merged 589c2a4f, done, review 8.5 on cycle 2 (5.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1384 passed. Entry dropped.
 # CARD-401 CLEARED 2026-11-09T10:08Z at its merge gate: merged 071e4698, done, review 9.5 on cycle 1, estimate 3c -> ratio 0.33. Entry dropped.
