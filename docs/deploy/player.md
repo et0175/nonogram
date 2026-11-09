@@ -280,6 +280,21 @@ Not observed: a real phone, how the hint reads at 300% zoom on one (the lit line
 
 Not observed: a real phone, how probe reads there, Auto-Deploy's dashboard state, and any counting.
 
+**The curated-bundle publish, 2026-11-09. A BUNDLE-ONLY publish, and the first one whose code is deliberately older than `main`.** The owner curated the book in the panel against the production database and exported a new bundle; the request was to publish it. `main` could not be the source: CARD-399 has deleted `player/play.js` and the shared-UI player is on `main`, and the owner's ruling of 2026-11-08 holds that player off production until CARD-394, CARD-400..413 and CARD-414 have merged — CARD-400 to CARD-413 were all still `ready` on the day. So the site was assembled from the tree production already served, with only the bundle new.
+
+| Step | What was observed |
+| --- | --- |
+| What changed in the bundle | The same 160 puzzle keys, in a book whose **order moved**: one key (`2758040fc4`) fell from position 54 to 57, and the title changed `c1` to `Christmas Nonograms`. R7 hashes the ordered keys and not the title, so the reorder alone moved the book's address: **`/b/6578fe3f67` to `/b/bc271a1524`**. No `/play/<key>` moved, because no grid changed. The previous bundle was copied to `build/player-bundle.pre-20261109` before the export overwrote it. |
+| Which code was published | The tree at `8643b9b3` (CARD-385's public mode, 2026-11-06), identified by hashing rather than by reading this page: at that commit `play.js` `31e430147309`, `player.css` `6aa20c7eddc1`, `pages.js` `f62fd1a57607`, `solver_state.js` `e3ff8f5760f5` and `tokens.css` `979ab7a50e43` are each byte-identical to what `https://nonogram.adverax.io` was serving. `main`'s files differ on four of the five (`play.js` does not exist there at all), which is the shared-UI work under the 2026-11-08 hold. |
+| Assemble | `git archive 8643b9b3 player src/nonogram/admin/static src/nonogram/limits.py` into a scratch directory, then that commit's own `player/assemble.py --bundle build/player-bundle --out ./site`, no `--analytics`. 160 puzzles, one book landing, `dropped (not in the served schema): title`. The five files hashed identically to production's, every `puzzle/<key>.json` carried exactly `clues`, `height`, `key`, `tier`, `width`, no served JSON contained the string `solution`, no goatcounter reference, `.player-site` present and no `.vercel/` in the tree. `build/site` and the earlier deploy directories were not touched. |
+| Preview | `vercel deploy --yes` with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported: `nonogram-studio-33jnkofek`, Ready in seconds. `/library`, `/play/<key>`, `/b/bc271a1524` and the puzzle file 200; an unknown path 404; the five hashes matched. `/b/6578fe3f67` answers 200 — it is a rewrite to one document — but `book/6578fe3f67.json` is **404**, so the old address now gets the unknown-book soft landing. |
+| Production | `vercel promote <the preview URL> --scope <team> --yes` created production deployment `nonogram-studio-qhh7e0idm`, Ready in about 2 s. On `https://nonogram.adverax.io`: the three doors and both JSON files 200, `/nope` and `book/6578fe3f67.json` 404, the five hashes unchanged, the served puzzle file carrying the same five fields, and `book/bc271a1524.json` carrying `Christmas Nonograms` with 160 puzzles. |
+| Rollback target | `nonogram-studio-qu83cb3hw`, the probe build this replaced, still Ready. A rollback was not tried. |
+
+Not observed: a real phone, any behavioural run on this publish (the code is byte-identical to the build already play-tested on 2026-11-07, so the browser run was not repeated), Auto-Deploy's dashboard state, and any counting.
+
+**What this publish leaves owed.** A printed QR code pointing at `/b/6578fe3f67` would now land on the soft "unknown book" page. Nothing is known to be printed — CARD-210 (real scannable codes) is still `ready` — but a book's address moves with its print order, which is R7 working as designed and drift step 3's whole point: curate before printing, not after.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
