@@ -2416,7 +2416,8 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         # A floor rather than an equality: thirteen such parameters exist
         # today, and a card that adds a fourteenth is doing nothing wrong. The
         # floor is here only so the rule cannot pass by finding nothing.
-        assert len(annotated) >= 13, annotated
+        # Seven since the raster interior writers were deleted (2026-11-09).
+        assert len(annotated) >= 7, annotated
 
     def test_a_second_receiver_spelling_is_caught(self) -> None:
         """Control, caught **with** the receiver rule and missed **without** it.
@@ -2536,13 +2537,10 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         has to say so by earning an exemption, which is the declaration the
         lenient reading would have let it skip.
         """
+        # Since the raster guide's pipeline diagram was deleted (2026-11-09)
+        # the package draws no polygon at all, so today this holds trivially;
+        # test_a_many_sided_polygon_is_caught keeps the check itself honest.
         calls = _draw_calls(_package_sources(), VERTEX_BOUNDED_METHODS)
-        assert calls, (
-            "no draw-object call to "
-            f"{sorted(VERTEX_BOUNDED_METHODS)} remains in the package — this guard "
-            "has gone vacuous; keep it honest by pointing it at a fabricated "
-            "source, as test_a_many_sided_polygon_is_caught does"
-        )
         complaints = _uncountable_vertices(calls)
         assert complaints == [], complaints
 
