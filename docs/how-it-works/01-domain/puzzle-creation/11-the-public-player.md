@@ -1,5 +1,23 @@
 # 11 — The public player (CAP-007 / FR-045)
 
+> **STALE AS OF 2026-11-08, AND IT WAS STALE WHEN IT WAS COMMITTED.** Everything
+> below describes `player/play.js`, the public player's own implementation.
+> **CARD-399 deleted that file on 2026-11-08** and `/play/<key>` is now the admin
+> player's `solver.js` rendered at build time in public mode (CARD-385's
+> `mode: "public"`), with `admin.css` and CARD-394's `base.css`; `player.css` and
+> `pages.js` now style and drive only `/library` and `/b/<slug>`. That player went
+> to production on 2026-11-09 — see `docs/deploy/player.md`'s "shared-UI publish".
+>
+> This page was written from a working-tree read of 2026-11-06 and committed on
+> 2026-11-09 without re-checking that its subject still existed, which is the
+> failure its own scope note warns about one paragraph down. What is still true of
+> the shipped page: the two hash URLs, the no-answer rule and how it is kept, the
+> byte-identical copy rule (now four files, not two), the localStorage save, the
+> three doors, and the rebuild-not-filter argument. What is now wrong: every
+> sentence about `play.js`, its brush buttons, its own hint and crosshair code, and
+> `body[data-solved]`. The six control sections describe behaviour the shared UI
+> mostly keeps, but not the code that implements it. A rewrite is owed.
+
 > Scope: the top-level `player/` tree — `play.js`, `pages.js`, `player.css`, three
 > hand-written documents (`play.html`, `library.html`, `book.html`), `vercel.json`,
 > and `assemble.py`, which writes the deployable site — plus the exporter that

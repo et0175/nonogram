@@ -1,5 +1,30 @@
 # Public player — manual test cases (COMP-011 / FR-045)
 
+> **Production changed under these cases on 2026-11-09.** They were written against
+> `player/play.js`, which CARD-399 deleted on 2026-11-08; `/play/<key>` is now the
+> admin player in public mode, and that went live on 2026-11-09. The *expectations*
+> mostly survive — it is the same shared state module and the same rules — but the
+> hooks and some of the controls do not. Measured on the live page that day:
+>
+> - the four brushes are a **menu** behind `#puzzle-player-tool-trigger`, not four
+>   always-visible buttons (so PP-10's "read the toolbar left to right" needs the
+>   menu opened first);
+> - the solved banner is `#puzzle-player-solved` and the lock is `.is-solved` on the
+>   table and the toolbar; there is no `body[data-solved]` (PP-52, PP-53);
+> - the hint's sentence is `#puzzle-player-announce` and the explain region, not
+>   `.player-hint-say` (PP-44 to PP-48);
+> - **PP-40 is wrong as written**: a row's numbers do not circle when its runs are
+>   merely filled. Marking the row's gaps white circled 3 numbers where filling
+>   alone circled 0 — the module's rule, and the admin's behaviour too;
+> - the error count, the progress percent and Check are **absent from the DOM**
+>   (element count 0), which is a stronger result than PP-56 asks for;
+> - probe mode is **live** (PP-60 to PP-70 are no longer `n/a`), and the probe
+>   marker is `data-probe` on the cell.
+>
+> CARD-400 to CARD-413 will change this UI again — they are the fourteen findings
+> cards, none merged, all now live as gaps. Rewriting these cases is best done
+> after them.
+
 **What this is.** A human-runnable catalogue for the public player: the static
 site at `/play/<key>`, `/b/<slug>` and `/library`. Written 2026-11-06, against
 `main` at that date and against production as it then served.
