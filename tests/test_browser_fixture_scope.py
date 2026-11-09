@@ -748,6 +748,23 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_phone.py::TestSolverPhone_CompactToolbar::"
+    "test_icons_only_when_compact[390-844-True]": (
+        "CARD-401",
+        "owner 2026-11-07: icons only on a narrow phone; the word stays in the "
+        "accessibility tree",
+    ),
+    "tests/test_puzzle_solver_phone.py::TestSolverPhone_CompactToolbar::"
+    "test_icons_only_when_compact[844-390-True]": (
+        "CARD-401",
+        "owner 2026-11-07: and on a SHORT screen (landscape phone): the card's "
+        "one control (dropping the max-height arm reds this cell alone)",
+    ),
+    "tests/test_puzzle_solver_phone.py::TestSolverPhone_CompactToolbar::"
+    "test_the_solved_banner_keeps_the_name_visible_on_a_phone[chromium]": (
+        "CARD-401",
+        "AC-6: on a phone the word 'Solved:' goes, never the picture's name",
+    ),
     "tests/test_puzzle_solver_clues.py::"
     "TestSolverClues_UniqueLengthCirclesAnywhere::"
     "test_the_unique_length_is_circled_where_its_run_is_closed": (
