@@ -1,6 +1,6 @@
 # CARD-408: Hint and Check bring what they point at into view — the hinted row or column, or the filled cell — at any zoom and in both orientations
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/408-hint-into-view
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-408
 **Source:** owner player findings 2026-11-07, item 7, first bullet (marked essential): "Scroll the board so the hinted row or column, or the filled cell, is in view, at any zoom and in both orientations. This is the essential one."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-403, CARD-404
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Real dependencies: CARD-403 (it fixes which element scrolls; a scroll-into-view written against today's nested scroller would move the page as well) and CARD-404 (the sticky bands are what the target must not hide under; their depth changes with it). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T18:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

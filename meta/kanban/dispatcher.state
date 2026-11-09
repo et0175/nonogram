@@ -480,6 +480,13 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
+  # CARD-408 DISPATCHED 2026-11-09T18:41Z (player-phone thread); serial after 407.
+  - card: CARD-408
+    branch: card/408-hint-into-view
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-408
+    started: 2026-11-09T18:41Z
+    estimate: 3c (1d)
+    cut_from: 938f858f
 # CARD-407 CLEARED 2026-11-09T18:40Z: merged 6f4bab4f, done, review 8.5 on cycle 1, estimate 2c -> 0.5. Player-set gate 1389 passed. Entry dropped.
 # CARD-406 CLEARED 2026-11-09T17:45Z: merged 63703247, done, review 9.0 on cycle 3 (5.0, 7.5), estimate 4c -> 0.75. Player-set gate 1388 passed. Entry dropped.
 # CARD-405 CLEARED 2026-11-09T14:37Z: merged 975409ea, done, review 9.0 on cycle 2 (7.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1385 passed. Entry dropped.
@@ -788,7 +795,6 @@ queued:
 - id: CARD-416   # P2 6c  (387b) TAIL OF CARD-387, runs LAST: convert the ~62 'convert after' ids (pdf, pdf_band, type_floor, page_frame, page_numbers, toc), delete the 21 remaining raster writers + bitmap arms, restate docs/ADRs/censuses. Depends on CARD-387, 392, 207, 229, 230, 232, 233. Unstamped.
 - id: CARD-417   # P2 2c  TOC LISTS THE PLAY ONLINE PAGE: one row after the last level, before Solutions, against SectionPlan.play_page; three-place count agreement (section_plan, interior_page_count default, unpaired_interior_page_count) + KDP band measured on 18 cases. Owner ruling 2026-11-08: the TOC stays after How to Solve (guide facing spread on 2-3). Depends 390, 205, 322; queued after 207 and 416. Unstamped.
 - id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
-- id: CARD-408   # P1 3c HINT/Check scroll the target into view. Depends 403, 404. Owner findings 2026-11-07. Unstamped.
 - id: CARD-409   # P2 3c HINT stronger tint/pulse, text overlay strip, wording. Depends 408. Owner findings 2026-11-07. Unstamped.
 - id: CARD-410   # P2 3c PROBE flags broken lines. Depends 404. Owner findings 2026-11-07. Unstamped.
 - id: CARD-411   # P2 2c PROBE buttons Keep / Wrong guess at full size. Depends 404. Owner findings 2026-11-07. Unstamped.
