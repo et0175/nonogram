@@ -1406,3 +1406,93 @@ class TestSolverZoom_Fit:
                 context.close()
         assert seen == {"phone big": ("Fit", True), "desktop big": ("100%", False),
                         "phone small": ("100%", True)}, seen
+
+
+# ==========================================================================
+# CARD-408 — Hint and Check bring what they point at into view
+# ==========================================================================
+
+_IN_VIEW = """(selector) => {
+  const stage = document.querySelector('.player-stage');
+  const table = document.querySelector('.player-board');
+  const port = stage.getBoundingClientRect();
+  const rowBand = table.classList.contains('is-keeping-rows')
+    ? document.querySelector('th.player-clue.is-row').getBoundingClientRect().width : 0;
+  const colBand = table.classList.contains('is-keeping-cols')
+    ? document.querySelector('thead').getBoundingClientRect().height : 0;
+  const cells = [...document.querySelectorAll(selector)];
+  const inside = (b, axis) => axis === 'y'
+    ? b.top >= port.top + colBand - 0.5 && b.bottom <= port.top + stage.clientHeight + 0.5
+    : b.left >= port.left + rowBand - 0.5 && b.right <= port.left + stage.clientWidth + 0.5;
+  return { count: cells.length,
+           y: cells.every((c) => inside(c.getBoundingClientRect(), 'y')),
+           x: cells.every((c) => inside(c.getBoundingClientRect(), 'x')),
+           scroll: [stage.scrollLeft, stage.scrollTop], pageY: scrollY };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverZoom_HintComesIntoView:
+    """CARD-408 (owner findings 2026-11-07: the hinted row or the revealed
+    cell was off-screen in landscape and when zoomed). The pure helper
+    against an independent computation; then, on a 30 x 30 at 200%, scrolled
+    to the far corner: the hinted line's cells come into view across the
+    line and clear of the sticky band, the revealed cell on both axes, a
+    second press on the same line moves nothing, Check brings its row in,
+    and the page never scrolls. Plants (run 2026-11-09): revealScroll
+    ignoring `band` reds the pure cell (the 470 case); removing the
+    setLadderLine call to bringIntoView reds the browser cells."""
+
+    def test_reveal_scroll_against_an_independent_rule(self, browser_page, live) -> None:
+        _open(browser_page, live, live.store(_unique_grid(15, 15, seed=40801)))
+        # (scroll, view, band, start, size, max)
+        cases = [(0, 300, 50, 100, 20, 900), (500, 300, 50, 520, 20, 900),
+                 (500, 300, 50, 900, 20, 900), (500, 300, 50, 560, 20, 900),
+                 (0, 300, 50, 10, 20, 900), (100, 300, 50, 0, 600, 900)]
+        got = browser_page.evaluate(
+            """async (cases) => { const S = await import('/static/solver_state.js');
+               return cases.map((c) => S.revealScroll(...c)); }""", cases)
+
+        def independent(scroll, view, band, start, size, maximum):
+            if scroll + band <= start and start + size <= scroll + view:
+                return scroll
+            want = start - band if (start < scroll + band or size > view - band) else start + size - view
+            return min(max(want, 0), maximum)
+
+        assert got == [independent(*c) for c in cases] == [0, 470, 620, 500, 0, 0], got
+
+    @pytest.mark.parametrize("width,height", [(390, 844), (844, 390)])
+    def test_hint_and_check_bring_their_target_into_view(self, browser, live, width, height) -> None:
+        context = browser.new_context(viewport={"width": width, "height": height})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(_GRID_30x30))
+            _zoom_to(page, 200)
+            far = """() => { const s = document.querySelector('.player-stage');
+                       s.scrollLeft = s.scrollWidth; s.scrollTop = s.scrollHeight; }"""
+            page.evaluate(far)
+            page_y = page.evaluate("scrollY")
+            hint = page.locator('[data-player-action="hint"]')
+            hint.click()
+            line = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
+            hint.click()  # rung 2: the same line, already in view
+            again = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
+            page.evaluate(far)
+            hint.click()  # rung 3: the cell is revealed
+            cell = page.evaluate(_IN_VIEW, "td.player-cell.is-hinted")
+            # Check (admin only): one wrong black far away, then Check.
+            page.evaluate("""() => { const p = window.puzzlePlayer; const sol = p.payload.solution;
+              let at = null; for (let r = 29; r >= 0 && at === null; r--) for (let c = 29; c >= 0; c--)
+                if (!sol[r][c]) { at = [r, c]; break; }
+              const cells = [...p.getBoard().cells]; cells[at[0] * 30 + at[1]] = 'filled';
+              p.setBoard(Object.freeze({ ...p.getBoard(), cells: Object.freeze(cells) })); }""")
+            page.evaluate("() => { const s = document.querySelector('.player-stage'); s.scrollLeft = 0; s.scrollTop = 0; }")
+            page.locator('[data-player-action="check"]').click()
+            check = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
+        finally:
+            context.close()
+        assert line["count"] == 30 and (line["y"] or line["x"]), line
+        assert again["scroll"] == line["scroll"], (line, again)
+        assert cell["count"] == 1 and cell["x"] and cell["y"], cell
+        assert check["count"] == 30 and check["y"], check
+        assert {line["pageY"], again["pageY"], cell["pageY"], check["pageY"]} == {page_y}
