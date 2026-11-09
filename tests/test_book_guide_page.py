@@ -28,7 +28,7 @@ from typing import Dict, List, Tuple
 import pytest
 from PIL import Image
 
-from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import (
     GUIDE_TECHNIQUES_2,
     BookPDFGenerator,
@@ -359,3 +359,10 @@ class TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample:
         crossed_at_3 = WORKED_EXAMPLE_FILLS[2][1]
         remaining = [line for line in solutions if not any(line[i] for i in crossed_at_3)]
         assert remaining == [finished]
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

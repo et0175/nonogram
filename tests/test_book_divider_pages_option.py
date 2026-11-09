@@ -58,7 +58,7 @@ from dataclasses import replace
 import pytest
 from PIL import ImageChops
 
-from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_page_spec import (
     DEFAULT_DIVIDER_PAGES,
@@ -943,3 +943,10 @@ class TestDividerPages_PrintSetupStoresTheChoice:
         )
         assert tag
         assert "checked" not in tag.group(0)
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

@@ -849,6 +849,15 @@ DIVIDER_PT = 14.4
 #: capitalisation is its own design, not a wording instruction.
 GUIDE_TITLE = "How to Solve Nonograms"
 
+#: Whether a level's divider with no uploaded picture is drawn in the
+#: Solutions opener's style -- rule, "PUZZLES a–b", the level's name large,
+#: its dots (:meth:`BookPDFGenerator.create_level_divider`, owner decision
+#: 2026-11-09) -- rather than as the one centred word
+#: (:meth:`BookPDFGenerator.create_divider_page`, AC-254). The test tree's
+#: page readers that recognise a divider by its one word switch it off
+#: (``tests/helpers/legacy_book_layout.py``).
+LEVEL_DIVIDER_OPENER = True
+
 #: How many interior pages the book's title / copyright page occupies
 #: (FR-043, INV-013 as amended 2026-10-17, AC-283, CARD-206): one, and it is
 #: interior page 1 — a right-hand page carrying **no folio and no ink at
@@ -5344,7 +5353,12 @@ class BookPDFGenerator:
         stored = self.divider_images.get(require_slot(slot))
         if stored is None and slot == SOLUTIONS_SLOT and puzzle_count:
             return self.create_solutions_opener(page_number, puzzle_count)
-        if stored is None and slot != SOLUTIONS_SLOT and puzzle_range is not None:
+        if (
+            stored is None
+            and slot != SOLUTIONS_SLOT
+            and puzzle_range is not None
+            and LEVEL_DIVIDER_OPENER
+        ):
             return self.create_level_divider(page_number, Tier(slot), puzzle_range)
         if stored is None:
             return self.create_divider_page(page_number, text)
@@ -5433,19 +5447,14 @@ class BookPDFGenerator:
             stroke_width=max(1, type_px(1.2, self.dpi)), stroke_fill="black",
         )
         bbox = draw.textbbox((left, y), level.label, font=title_font)
-        tiers = list(Tier)
-        rank = tiers.index(level) + 1
-        diameter = type_px(12, self.dpi)
-        pitch = diameter + type_px(6, self.dpi)
+        # The level's dots through the one round-mark site (CARD-228), in a
+        # box the size of three of the guide's own.
+        height = type_px(12, self.dpi)
         dot_top = bbox[3] + type_px(26, self.dpi)
-        outline = max(1, type_px(1.2, self.dpi))
-        for index in range(len(tiers)):
-            x = left + index * pitch
-            box = (x, dot_top, x + diameter, dot_top + diameter)
-            if index < rank:
-                draw.ellipse(box, fill="black")
-            else:
-                draw.ellipse(box, outline="black", width=outline)
+        drawn = _draw_difficulty_dots(
+            draw, level, left, dot_top, left + 4 * height, dot_top + height
+        )
+        dots_bottom = dot_top + height if drawn is not None else bbox[3]
         _draw_folio(
             draw,
             frame.left,
@@ -5454,7 +5463,7 @@ class BookPDFGenerator:
             frame.bottom,
             page_number,
             self.dpi,
-            content_bottom=dot_top + diameter,
+            content_bottom=dots_bottom,
         )
         return page
 

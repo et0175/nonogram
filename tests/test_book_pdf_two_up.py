@@ -1805,3 +1805,10 @@ def test_the_measured_extents_are_inside_con_011() -> None:
                   dict(columns=20, rows=20)):
         assert MIN_SIZE <= shape["columns"] <= MAX_SIZE
         assert MIN_SIZE <= shape["rows"] <= MAX_SIZE
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

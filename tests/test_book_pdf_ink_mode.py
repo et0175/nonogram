@@ -1920,3 +1920,10 @@ def _plan_of(records) -> DistributionPlan:
         if not candidate.disagrees_with_split:
             return candidate
     raise AssertionError("no split agrees with this selection")
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

@@ -81,14 +81,13 @@ from nonogram.admin.book_pdf_generator import (
 )
 from nonogram.admin.book_answer_key import (
     CAPTION_SEPARATOR,
-    PACKED_MAX_HEIGHT,
-    PACKED_MAX_WIDTH,
     Answer,
     PackedAnswerPage,
     answer_caption,
     plan_small_answer_pages,
     qualifies_for_packing,
 )
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import (
     ANSWER_TEXT_FONT_MM,
     BACKGROUND,
@@ -3238,7 +3237,8 @@ _GUARDED = (book_answer_vector, book_toc_vector)
 #: so this is a declared, checked exemption and not a licence.
 _FURNITURE_RULES = {
     "draw_solution_header": "the grey hairline under one solution's header line",
-    "draw_running_head": "the rule under the answer page's running head",
+    # "draw_running_head" ruled the line under the answer page's running
+    # head until the owner took that line off (2026-11-09): it strokes nothing.
 }
 
 #: The contents page's one piece of ruled furniture, held to the same shape.
@@ -5278,3 +5278,10 @@ class TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries:
         drawn, expected = self._drawn_and_expected(grid)
         assert expected == set()
         assert drawn == set()
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

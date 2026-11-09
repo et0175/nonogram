@@ -58,7 +58,7 @@ from nonogram.admin.book_pdf_generator import (
     structural_toc_entry_count,
 )
 from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
-from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import BookManager, BookStatus
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_plan import BUCKETS, TIERS, DistributionPlan, Split, bucket_of
@@ -2318,3 +2318,10 @@ class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
             f"shrinking the book's own trim from {book1_height} cm to 12 cm "
             "must never lower the shown approximate page count"
         )
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

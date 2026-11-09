@@ -613,3 +613,10 @@ class TestFooterPointer_YieldsRatherThanCollideWithTheFolio:
                 texts = [w.text for w in export.footer_words(by_numbers[numbers].page_number)]
                 assert ("Play" in texts) is prints, (trim, numbers, texts)
                 assert str(by_numbers[numbers].page_number) in texts
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

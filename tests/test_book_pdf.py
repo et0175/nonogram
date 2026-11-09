@@ -6733,3 +6733,10 @@ class TestInterior_PageCountChangeIsAttributedToTheBand:
             assert (was[0], was[1], was[3]) == (now[0], now[1], now[3]), label
             # The whole move is the puzzle section's: 60 pairs of 120 puzzles.
             assert was[4] - now[4] == was[2] - now[2], label
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

@@ -63,7 +63,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram import clues, errors
 from nonogram.admin import book_interior_vector
-from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
@@ -3681,3 +3681,10 @@ class TestBookPdf_TheSharedSnowflakeInteriorIsNotMutated:
             "collected every consumer of the module fixture: the book was "
             "drawn more than once, so the fixture is no longer module-scoped"
         )
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

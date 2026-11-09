@@ -532,9 +532,15 @@ class TestPuzzleFrame_BookPageCarriesTheFrame:
         *placed* page, so the panel that builds the spec goes on deciding no
         geometry and still gets the frame.
         """
+        # Owner decision 2026-11-09: no frame around the clues. The panel's
+        # spec now states the frame (``BOOK_PUZZLE_FRAME``), off by default;
+        # this module turns it back on (tests/helpers/legacy_book_layout.py),
+        # and what it measures is the frame COMP-007 draws when it is on.
+        from nonogram.admin import book_page_spec as module
+
         for page_number in (1, 2, 7, 8):
             spec = book_page_spec(None, page_number)
-            assert spec.frame is None, "the panel states nothing about the frame"
+            assert spec.frame is module.BOOK_PUZZLE_FRAME, "the panel states the book's frame"
             assert spec.framed, f"interior page {page_number} is a framed page"
             assert compute_layout(*_clue_sets(15, 15, 3, 3), spec).frame is not None
 
@@ -2020,8 +2026,15 @@ def test_the_book_spec_is_the_sheet_these_tests_state_by_hand() -> None:
 
     assert mine.cell_cap == panels.cell_cap
     assert mine.cell_cap is not CellCapPolicy.COMFORT_CURVE
+    from nonogram.admin import book_page_spec as panel
+
     for field in dataclasses.fields(PageSpec):
         ours, theirs = getattr(mine, field.name), getattr(panels, field.name)
+        if field.name == "frame":
+            # The one field the panel now states (owner, 2026-11-09): the
+            # book's frame switch, which this module turns back on.
+            assert theirs is panel.BOOK_PUZZLE_FRAME, field.name
+            continue
         if isinstance(ours, float) and isinstance(theirs, float):
             assert ours == pytest.approx(theirs), field.name
         else:
@@ -4286,3 +4299,10 @@ class TestPuzzleFrame_TheSharedInteriorIsNotMutated:
             "of the module fixture: the book was drawn more than once, so the "
             "fixture is no longer module-scoped"
         )
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

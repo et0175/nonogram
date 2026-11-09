@@ -3146,3 +3146,10 @@ class TestInteriorType_EveryCitedSurvivorStillExists:
         # sibling's own method under its own class.
         assert definitions_of("TestX_Y", "test_x_v2", tmp_path) == ["test_a.py"]
         assert definitions_of("TestOther", "test_x", tmp_path) == ["test_a.py"]
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

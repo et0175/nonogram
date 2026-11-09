@@ -1072,7 +1072,7 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
         this corpus is sized one over that limit, read off the constants, to
         keep the book the estimate is meant to be exact for.
         """
-        from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
+        from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
         from nonogram.admin.book_kdp import kdp_page_band
 
         easy, medium, hard = AC3_SPLIT
@@ -3494,3 +3494,10 @@ class TestBookToc_TheReadingsReachBothMedia:
             _same_written_page(bitmap, self._stream("8"))
         with pytest.raises(AssertionError, match="build the expected page in the medium"):
             _same_written_page(self._stream("8"), bitmap)
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

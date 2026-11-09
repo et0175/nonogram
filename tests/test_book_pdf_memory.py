@@ -179,13 +179,12 @@ from PIL import Image, ImageDraw
 
 from nonogram.admin.book_answer_key import (
     PACKED_FOUR_UP,
-    PACKED_MAX_HEIGHT,
-    PACKED_MAX_WIDTH,
     Answer,
     PackedAnswerPage,
     answer_title,
     plan_small_answer_pages,
 )
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import (
     TITLE_PAGE_COUNT,
     FOLIO_PT,
@@ -312,6 +311,10 @@ PAGE_FACTORIES = (
     # "PUZZLES 1-N", "Solutions" and a blurb). It allocates a full-size
     # bitmap of its own, so it is wrapped like the drawn divider beside it.
     "create_solutions_opener",
+    # The owner's 2026-11-09 polish: a level's divider in the opener's style
+    # (rule, "PUZZLES a-b", the level's name, its dots), drawn by
+    # ``divider_page`` for a level slot with no picture. Its own bitmap.
+    "create_level_divider",
     # CARD-200 adds the table of contents page beside the guide and the
     # divider — the same "draw something generic on page_frame" shape, and
     # a page factory `interior_stream`'s own producer calls just like them.
@@ -4638,3 +4641,10 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             BookPDFGenerator.puzzle_pages = walk
 
         assert "the page plan prints" in str(raised.value)
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

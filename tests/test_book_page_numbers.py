@@ -56,10 +56,10 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_answer_key import (
-    PACKED_MAX_WIDTH,
     Answer,
     PackedAnswerPage,
 )
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     _RASTER_DECLARATIONS,
@@ -1414,3 +1414,10 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
         # The same digit on the folio line, outside both: a folio.
         control = _operators_calls(self._page(("8", centred, frame.baseline)), 7, generator)
         assert _folios(control) == {7: "8"}
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()

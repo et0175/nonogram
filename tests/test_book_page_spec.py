@@ -103,6 +103,8 @@ CON018_ODD = PageSpec(
     min_thin_rule_mm=0.25,
     grid_rules=CON018_GRID_RULES,
     parity=PageParity.ODD,
+    # Owner decision 2026-11-09: the book prints no frame around the clues.
+    frame=False,
 )
 
 #: Half a device pixel, in mm: the most a placed edge can move when rounded.

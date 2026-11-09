@@ -297,14 +297,13 @@ def test_PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea_mixed
 
 from nonogram.admin.book_answer_key import (
     PACKED_FOUR_UP,
-    PACKED_MAX_HEIGHT,
-    PACKED_MAX_WIDTH,
     PACKED_TWO_UP,
     Answer,
     PackedAnswerPage,
     plan_small_answer_pages,
     qualifies_for_packing,
 )
+from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.difficulty import Tier
 
 _TIERS = (Tier.EASY, Tier.MEDIUM, Tier.HARD, None)
@@ -444,3 +443,10 @@ def test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenM
             assert sizes == _expected_group_sizes(run_length), (run_length, sizes)
             checked += 1
     assert checked == 300
+
+
+# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
+# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
+from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
+
+_legacy_book_layout = _legacy_module_fixture()
