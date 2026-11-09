@@ -56,6 +56,9 @@ FLOOR, CAP, DESKTOP_FLOOR = 24, 28, 14
 #: admin.css's own constants (CARD-193/CARD-196), reimplemented independently
 #: below rather than read from the DOM — see _predict_cell.
 RULE, RULE_MAJOR, NUMERAL_MIN, CHROME_H = 1, 2, 12, 228
+#: CARD-404: the clue numerals' cap and the cell at which it binds.
+NUMERAL_MAX = 14
+CLUE_CAP = NUMERAL_MAX / 0.6
 
 
 def _deep_row_clues(width, height, seed):
@@ -83,7 +86,7 @@ BIG_SIDE = 30
 #: AC-4: td.player-cell width at 1440 x 900 for each board, measured on main
 #: (admin.css unchanged, commit 2e40c96) before this card's rule was added,
 #: rounded to 0.001 px (the 30 x 30 measured 16.796875).
-DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 17.016}  # 16.797 until CARD-403: the height term reads the measured stage top, 3.5 px below the one-row estimate at 1440 x 900
+DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 16.625}  # 16.797 until CARD-403 (17.016 between it and CARD-404, whose height term also leaves out the board margin)
 
 
 def _single_digit_col_grid(width, height, seed, run_cap=9):
@@ -204,7 +207,7 @@ for _name, _grid in {**GRIDS_SINGLE_DIGIT_COLS, "25x15": GRID_25X15_SINGLE_DIGIT
 del _name, _grid, _rows_clues, _cols_clues
 
 
-def _predict_cell(grid, stage_width, viewport_height, cell_min):
+def _predict_cell(grid, stage_width, viewport_height, cell_min, stage_top=None):
     """An independent re-derivation of admin.css's ``--player-cell`` clamp
     (CARD-193/CARD-196), from the grid's own clues (re-encoded here, not
     read from solver.js's custom properties) and the *measured* stage width
@@ -224,8 +227,16 @@ def _predict_cell(grid, stage_width, viewport_height, cell_min):
     lower = max(cell_min, col_floor)
     term1 = (stage_width - RULE - RULE_MAJOR - row_ch * 0.6 * NUMERAL_MIN) / width
     term2 = (stage_width - RULE - RULE_MAJOR) / (width + row_ch * 0.36)
-    term3 = (viewport_height - CHROME_H) / (height + col_depth + 1)
-    fit = min(term1, term2, term3)
+    # CARD-403/404: the height reads the stage's MEASURED top (+ 16 px of air
+    # below the stage and the board's own 16 px margin inside it), and the
+    # clue numerals cap at NUMERAL_MAX, so the row band stops widening and the
+    # column band stops deepening past a CLUE_CAP cell: each axis takes the
+    # larger of its uncapped and its capped solution (see admin.css).
+    above = (stage_top + 32) if stage_top is not None else CHROME_H
+    term5 = (stage_width - RULE - RULE_MAJOR - row_ch * 0.6 * NUMERAL_MAX) / width
+    term3 = (viewport_height - above) / (height + col_depth + 1)
+    term4 = (viewport_height - above - col_depth * CLUE_CAP) / (height + 1)
+    fit = min(max(min(term1, term2), term5), max(term3, term4))
     cell = max(lower, min(fit, CAP))
     return cell, col_floor > fit
 
@@ -238,7 +249,8 @@ _CELLS = """() => [...document.querySelectorAll('td.player-cell')].map((td) => {
 _FIT = """() => {
   const stage = document.querySelector('.player-stage');
   return { pageWidth: document.scrollingElement.scrollWidth, viewport: innerWidth,
-           stageScrollWidth: stage.scrollWidth, stageClientWidth: stage.clientWidth };
+           stageScrollWidth: stage.scrollWidth, stageClientWidth: stage.clientWidth,
+           stageTop: stage.getBoundingClientRect().top + scrollY };
 }"""
 
 
@@ -363,7 +375,7 @@ class TestSolverPhone_BoardFitsThePhoneWidth:
         assert side <= CAP, side
         assert side < FLOOR, side  # the old 24 px floor no longer binds
 
-        predicted, _floor_dominates = _predict_cell(GRIDS[name], fit["stageClientWidth"], 844, cell_min=0)
+        predicted, _floor_dominates = _predict_cell(GRIDS[name], fit["stageClientWidth"], 844, cell_min=0, stage_top=fit["stageTop"])
         assert side == pytest.approx(predicted, abs=0.01), (side, predicted)
         assert fit["pageWidth"] <= fit["viewport"], fit  # the page never scrolls sideways
 
@@ -373,7 +385,7 @@ class TestSolverPhone_BoardFitsThePhoneWidth:
         _open(browser_page, live, live.store(GRIDS[name]))
 
         fit = browser_page.evaluate(_FIT)
-        _predicted, floor_dominates = _predict_cell(GRIDS[name], fit["stageClientWidth"], 844, cell_min=0)
+        _predicted, floor_dominates = _predict_cell(GRIDS[name], fit["stageClientWidth"], 844, cell_min=0, stage_top=fit["stageTop"])
 
         stage_scrolls = fit["stageScrollWidth"] > fit["stageClientWidth"]
         assert stage_scrolls == floor_dominates, (name, fit, floor_dominates)
@@ -419,7 +431,7 @@ class TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit:
         side = sides.pop()
         assert side <= CAP, side
 
-        predicted, floor_dominates = _predict_cell(grid, fit["stageClientWidth"], 844, cell_min=0)
+        predicted, floor_dominates = _predict_cell(grid, fit["stageClientWidth"], 844, cell_min=0, stage_top=fit["stageTop"])
         assert not floor_dominates, (name, predicted)  # the fit term binds here, not the numeral floor
         # abs=0.02, not the existing floor-bound tests' 0.01: Chromium's
         # LayoutUnit is fixed-point at 1/64 px (0.015625 px), and the
@@ -475,7 +487,7 @@ class TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity:
         assert len(widths) == 1, widths
         measured_width = widths.pop()
 
-        predicted, floor_dominates = _predict_cell(grid, fit["stageClientWidth"], 844, cell_min=0)
+        predicted, floor_dominates = _predict_cell(grid, fit["stageClientWidth"], 844, cell_min=0, stage_top=fit["stageTop"])
         assert not floor_dominates, predicted  # the fit term binds, not CARD-196's numeral floor
         assert measured_width == pytest.approx(predicted, abs=0.02), (measured_width, predicted)
 

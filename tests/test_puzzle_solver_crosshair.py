@@ -568,6 +568,15 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             fingers("touchEnd")
             page.wait_for_timeout(100)
             is_not_crossed("the lifted pinch left a crosshair")
+            # CARD-404: the pinch zoomed the board, and since the clue numerals
+            # are capped the bands STICK at that zoom, so cells the zoom moved
+            # under them are no longer under a finger at their own centre.
+            # This test is about the crosshair's pointer count, not the zoom:
+            # back to 100% and the stage's home, where no cell is under a band.
+            while page.locator('[data-player-zoom-action="out"]').get_attribute("aria-disabled") != "true":
+                page.locator('[data-player-zoom-action="out"]').click(force=True)
+            page.evaluate("() => document.querySelector('.player-stage').scrollTo({left: 0, top: 0, behavior: 'instant'})")
+            page.wait_for_timeout(300)  # the zoom's own scroll and the scroll event are async: let them land
 
             # Resumes with the next single pointer (the pinch zoomed: re-read the geometry).
             fingers("touchStart", _centre(page, 9, 4))
@@ -616,6 +625,10 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             is_crossed_at(6, 3, "a mouse hover was refused after the lost pen release")
 
             # A mouse is never one of a pinch's pointers: with a finger down, a hover crosses.
+            # CARD-404: the pen's drag off the stage above can pan it, and the sticky
+            # bands then cover row 1 / column 1; the stage goes home first.
+            page.evaluate("() => document.querySelector('.player-stage').scrollTo({left: 0, top: 0, behavior: 'instant'})")
+            page.wait_for_timeout(300)
             fingers("touchStart", _centre(page, 1, 1))
             is_crossed_at(1, 1, "the finger alone is crossed")
             page.mouse.move(*_centre(page, 4, 4))

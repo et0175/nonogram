@@ -416,7 +416,8 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
     mirror now shares) and the bottom column gutter (the tfoot rules). Every
     length and colour they declare is a var(--token) or a calc() over one —
     the only bare numbers allowed are the multipliers the left/top rules
-    already use for the same quantities (a 0.5ch text pad, 0.2 of the cell).
+    already use for the same quantities (a 0.5ch text pad, 0.2 of the clue
+    cell — of the cell until CARD-404 capped the clues).
 
     The file-wide sweep above catches a hex colour anywhere in admin.css;
     this pins these rules, so a later edit cannot keep the file hex-free by
@@ -461,7 +462,8 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
                     rules_only)
     assert gap, "admin.css no longer sets the row numbers' own gap"
     allowed = {"none", "left", "top", "auto", "0", "0.5ch",
-               "calc(var(--player-cell) * 0.2)", gap.group(1)}
+               # CARD-404: the column band's pad follows the capped clue cell
+               "calc(var(--player-clue-cell) * 0.2)", gap.group(1)}
     for selector, body in blocks:
         values = [part.split(":", 1)[1].strip() for part in body.split(";") if ":" in part]
         assert values, selector

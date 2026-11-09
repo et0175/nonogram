@@ -4011,7 +4011,8 @@ class TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule:
     #: axis may. Every assertion re-derives that from the page's own numbers.
     SMALL = _unique_grid(15, 15, seed=27115)
     ZOOMED_WIDE = {"width": 1920, "height": 1500}
-    ZOOMED_NARROW = {"width": 1024, "height": 768}
+    #: 1024 x 768 until CARD-404 (capped clue numerals: the bands fit there now).
+    ZOOMED_NARROW = {"width": 440, "height": 480}
     ZOOM = 200
 
     def test_the_editors_gutters_obey_the_room_condition(

@@ -748,6 +748,12 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_ClueStripsStopGrowing::"
+    "test_capped_strips_and_exact_alignment": (
+        "CARD-404",
+        "AC-1/AC-2 (owner 2026-11-07): numerals cap at 14 px, the strips stop "
+        "growing past 200%, every clue box spans exactly its own line",
+    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_StageEndsAboveTheFold::"
     "test_sweep[chromium]": (
         "CARD-403",
