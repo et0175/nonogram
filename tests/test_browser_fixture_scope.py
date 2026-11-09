@@ -748,6 +748,9 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only[chromium]": (
+        "CARD-407", "AC-1 (owner ruling 2026-11-07): big boards open at Fit on compact screens only",
+    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_the_pure_floor_and_its_steps": (
         "CARD-406", "AC-1/AC-2: fitZoom and the steps/pinch at a floor below 100",
     ),

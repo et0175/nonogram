@@ -758,9 +758,29 @@ def live(tmp_path, monkeypatch):
         thread.join()
 
 
-def _open(page, live, puzzle_id):
+def _open(page, live, puzzle_id, keep_opening_zoom=False):
+    """Open the solve page. Since CARD-407 (owner ruling 2026-11-07) a puzzle
+    whose board does not fit at 100% OPENS at Fit on a compact screen; the
+    suite's layout cells measure the 100% board, so this helper zooms back to
+    100% unless the caller asks for the opening zoom itself
+    (``keep_opening_zoom=True``,
+    TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only)."""
     page.goto(f"{live.url}/puzzle/{puzzle_id}/solve")
     page.wait_for_function("window.puzzlePlayer !== undefined")
+    if not keep_opening_zoom:
+        _to_hundred(page)
+
+
+def _to_hundred(page):
+    """Back from the CARD-407 opening Fit to 100% and the stage's home (the
+    zoom-in anchors the view on the stage's centre; a fresh page at 100%
+    opens at its home)."""
+    readout = page.locator("[data-player-zoom-readout]")
+    if readout.count() and readout.text_content() == "Fit":
+        page.locator('[data-player-zoom-action="in"]').click(force=True)
+        page.wait_for_function(
+            "document.querySelector('[data-player-zoom-readout]').textContent === '100%'")
+        page.evaluate("() => document.querySelector('.player-stage').scrollTo({left: 0, top: 0, behavior: 'instant'})")
 
 
 _DRAWN = """() => {

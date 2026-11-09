@@ -425,7 +425,8 @@
 // ZOOM (CARD-195, FR-044). A view setting that multiplies the fitted cell
 // side (admin.css --player-zoom on table.player-board); it changes no board
 // state, is never recorded, never in serializeState/the save, and starts at
-// ZOOM_MIN (100%) on every load — wireMarking's local `zoom` variable is
+// ZOOM_MIN (100%) on every load — or at Fit for a board that does not fit,
+// on a compact screen (CARD-407, see openAt) — wireMarking's local `zoom` variable is
 // never read by anything outside this file. 100% to 300%, in ZOOM_STEP
 // (25-point) steps on the zoom buttons ([data-player-zoom-action="in"/"out"]
 // in .player-zoom) and continuously on a two-finger pinch — and, since
@@ -1181,6 +1182,10 @@ function start() {
   // (review cycle 1: a cell that refused to shrink drove the loop to 1%).
   const FIT_MIN = 10;
   let measuringFit = false;
+  let openingDecided = false;
+  // The same condition as admin.css's "Compact toolbar" block (CARD-401);
+  // change the two together.
+  const compactQuery = window.matchMedia("(max-width: 600px), (max-height: 500px)");
   function measureFit() {
     if (measuringFit) return;
     measuringFit = true;
@@ -1221,6 +1226,16 @@ function start() {
     if (!(stage.clientWidth > 0) || !(height - margin > 0)) return;
     let floor = Math.max(FIT_MIN, fitZoom(boardWidth, boardHeight, stage.clientWidth, height - margin));
     marking.setFloor(floor);
+    // CARD-407 (owner ruling 2026-11-07): a puzzle whose whole board does
+    // not fit at 100% OPENS at Fit, on compact screens only (the CARD-401
+    // condition, narrow or short); desktop keeps opening at 100%. Once, at
+    // the first measurement: after that the zoom is the player's. Nothing
+    // is saved, so every load applies the rule again. The board is not
+    // redrawn for it — a zoom is a CSS multiplier on the table drawn once.
+    if (!openingDecided) {
+      openingDecided = true;
+      if (floor < ZOOM_MIN && compactQuery.matches) marking.openAt(floor);
+    }
     // At Fit and still scrolling: shrink by the measured overshoot (the
     // fixed-size rules are a larger share of a smaller board), then by one
     // percent, until nothing scrolls; a handful of re-layouts at most.
@@ -2050,6 +2065,14 @@ function wireMarking(container, player) {
     else syncZoom();
   }
 
+  // The opening zoom (CARD-407): Fit for a big puzzle on a compact screen.
+  // The toggle's way back is 100%, the zoom the player would otherwise have
+  // opened at.
+  function openAt(floor) {
+    beforeFit = ZOOM_MIN;
+    applyZoom(floor, 0, 0);
+  }
+
   function toggleFit() {
     if (zoomFloor >= ZOOM_MIN) return;
     const centre = [container.clientWidth / 2, container.clientHeight / 2];
@@ -2690,7 +2713,7 @@ function wireMarking(container, player) {
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
   // Check and the explain line.
   if (probeBar !== null) probeBar.hidden = false;
-  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor };
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt };
 }
 
 start();
