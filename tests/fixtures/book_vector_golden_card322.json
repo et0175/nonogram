@@ -1,7 +1,7 @@
 {
   "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
   "digests": {
-    "answer_full": "37d420f3c483ceb70521f3a2d5238f18aa41443cedcaba84b45389c267bea896",
+    "answer_full": "8ba946c603d22287280fe844fceb8e64a99c5e2231807604c0ba350193a73817",
     "answer_packed_one": "00342e65c7cda3a74e46006aa2486dbcaf88c00263bb359646b6f94b6949bd7b",
     "answer_packed_two": "0b54ab8a16da534f5d7ae503fd67e0acbc1441920be419298c3944234cecc879",
     "guide_1": "52f1f7342c6c5c3f5ea550e2a1bec97e5935dee79ea20b398017291a9f276238",

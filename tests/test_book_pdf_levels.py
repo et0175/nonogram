@@ -898,11 +898,10 @@ class TestBookPdf_EmptyLevelHasNoDivider:
         # title page carries no ink, which `is_divider` cannot tell from a
         # divider's own sparseness (its own docstring says so). Asserted here
         # so the exclusion is a measurement and not a slice.
-        assert not _ink(pages[0]).any(), "interior page 1 is the blank title page"
-        assert all(_ink(page).any() for page in pages[1:]), (
-            "no page but the title page is blank, so the filter above drops "
-            "exactly that one"
-        )
+        # Since 2026-11-09 page 1 is the title / copyright page rather than a
+        # blank one (owner): it has ink, and the walk above still starts past it.
+        assert _ink(pages[0]).any(), "interior page 1 is the title page"
+        assert all(_ink(page).any() for page in pages), "no interior page is blank"
 
     def test_the_interior_is_one_page_shorter_than_three_levels_would_make_it(
         self,

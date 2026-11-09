@@ -1433,6 +1433,12 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         """Black, paper (outlined legend dots) and every tone the layouts declare."""
         capped = guide_vector.example_cell_spec(spec, dpi)
         tones = {_BLACK_TONE, _PAPER_TONE}
+        # The join between two filled cells of a line diagram (owner,
+        # 2026-11-09): the solved grid's own grey, as the answers draw it.
+        from nonogram.admin.book_pdf_generator import _SOLVED_GRID_GRAY
+        from nonogram.admin.book_vector_draw import as_grey
+
+        tones.add(as_grey(_SOLVED_GRID_GRAY))
         for clue, length in cls.line_pairs():
             layout = compute_layout((clue,), ((0,),) * length, capped)
             tones.update(

@@ -112,14 +112,30 @@ PLAY_DOMAIN = "https://nonogram.adverax.io"
 def _play_export() -> bytes:
     book = copy.copy(corpus_book())
     book.player_domain = PLAY_DOMAIN
-    return interior_generator(book).export_interior(baseline_puzzles()).getvalue()
+    with _full_answer_kept():
+        return interior_generator(book).export_interior(baseline_puzzles()).getvalue()
+
+
+def _full_answer_kept():
+    """The baseline's 30 x 30 answer on a page of its own, as when this file was written.
+
+    Since the owner's 2026-11-09 polish every answer up to 30 x 30 packs, so
+    the baseline would print no full-page answer and the ``answer`` writer
+    would go ungoldened. The old 20 x 25 threshold is put back for the export
+    this file pins (packing only: the frame and the dividers are the shipped
+    ones), so both answer writers keep a golden.
+    """
+    from tests.helpers.legacy_book_layout import legacy_book_layout
+
+    return legacy_book_layout(frame=False, dividers=False, packing=True)
 
 
 def _export() -> tuple[list[str], bytes]:
-    generator = interior_generator(corpus_book())
-    puzzles = baseline_puzzles()
-    kinds = [kind.value for kind in generator.interior_stream(puzzles).page_kinds]
-    return kinds, generator.export_interior(puzzles).getvalue()
+    with _full_answer_kept():
+        generator = interior_generator(corpus_book())
+        puzzles = baseline_puzzles()
+        kinds = [kind.value for kind in generator.interior_stream(puzzles).page_kinds]
+        return kinds, generator.export_interior(puzzles).getvalue()
 
 
 def digests_of(data: bytes) -> dict[str, str]:
@@ -290,7 +306,9 @@ class TestVectorGoldens_AnOperatorChangeInAWriterRedsItsPageType:
         else:  # pragma: no cover
             raise AssertionError(which)
         generator = interior_generator(corpus_book(), pages=InteriorPageWriters(**fields))
-        return digests_of(generator.export_interior(baseline_puzzles()).getvalue())
+        with _full_answer_kept():
+            data = generator.export_interior(baseline_puzzles()).getvalue()
+        return digests_of(data)
 
     @pytest.mark.parametrize(
         ("which", "reds"),

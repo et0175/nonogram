@@ -994,8 +994,10 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             # was written in: no ink on a bitmap, no painting operator at all
             # on a content stream. This is the survivor the writer-side test's
             # own page-1 branch names when page 1 is not a bitmap.
+            # Since 2026-11-09 page 1 is the title / copyright page (the owner
+            # replaced the blank one): it carries type, so it has marks too.
             if number == 1:
-                assert blank, "interior page 1 is the blank title page (CARD-206)"
+                assert not blank, "interior page 1 is the title page and carries its type"
             else:
                 assert not blank, f"interior page {number} carries no marks"
 
@@ -1774,9 +1776,11 @@ class TestBookInk_InkPositionsDoNotDependOnTheMode:
                 # page — no marks on either mode's copy of it, which is itself
                 # the thing to assert here; every other page must carry marks,
                 # or the equality above would be comparing two empty pages.
+                # Since 2026-11-09 page 1 is the title / copyright page, so
+                # it carries marks like every other page.
                 if number == 1:
-                    assert blank, (
-                        f"{label} page 1 is the blank title page (CARD-206)"
+                    assert not blank, (
+                        f"{label} page 1 is the title page and carries its type"
                     )
                 else:
                     assert not blank, f"{label} page {number} has no marks"

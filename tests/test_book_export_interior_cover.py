@@ -3788,7 +3788,11 @@ class Generator:
     #: ``play_page`` parameter (``None`` default) that
     #: ``structural_toc_entries`` gained so the row can carry the page's
     #: number. No row removed.
-    POSITION_SITE_COUNT = 39
+    #: The layout polish (owner, 2026-11-09): 40, not 39 -- **+1**, the
+    #: ``page_number`` parameter (default 1) of ``vector_title_contents``,
+    #: the title / copyright page that replaces the blank page 1. No row
+    #: removed. Read off this test's own failure listing.
+    POSITION_SITE_COUNT = 40
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -4413,10 +4417,18 @@ class Generator:
         # ``TocEntry`` it builds); **parameters 0**; **an attribute of a
         # receiver this module does not define +1**. Read off this test's own
         # measurement.
-        ((), 864),
-        (("builtins",), 590),
-        (("builtins", "definitions and imports"), 220),
-        (("builtins", "definitions and imports", "parameters"), 217),
+        #
+        # **The layout polish (owner, 2026-11-09) re-measured it a twelfth
+        # time: +86 refusals** (864 -> 950, 590 -> 656, 220 -> 245,
+        # 217 -> 242, last two still 0): the title / copyright page's
+        # ``vector_title_contents``, the level divider ``create_level_divider``
+        # (raster, PIL ``draw.*`` calls), the guide's join line in
+        # ``draw_example_line`` and the dividers' puzzle ranges in the walk.
+        # Read off this test's own measurement.
+        ((), 950),
+        (("builtins",), 656),
+        (("builtins", "definitions and imports"), 245),
+        (("builtins", "definitions and imports", "parameters"), 242),
         (
             (
                 "builtins",
@@ -6380,7 +6392,12 @@ class Generator:
         # frame from its own position exactly as ``create_divider_page`` does.
         # Same door, definition count still one, so 25 + 1 = 26 (26
         # ``self.page_spec(`` occurrences by a plain text search).
-        assert inside == 26, inside
+        # The layout polish (owner, 2026-11-09): 28, and the two added calls
+        # are named -- ``page_frame(self.page_spec(page_number))`` in
+        # ``vector_title_contents`` (the title / copyright page) and in
+        # ``create_level_divider`` (the restyled level divider). Same door,
+        # definition count still one.
+        assert inside == 28, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

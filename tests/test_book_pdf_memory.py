@@ -2434,9 +2434,10 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert len(exported) == BASELINE_PAGE_COUNT
         generator = BookPDFGenerator(corpus_book())
 
-        assert np.asarray(exported[0].convert("L")).min() == 255, (
-            "interior page 1 is the blank title page (CARD-206) — no ink at all"
+        assert np.asarray(exported[0].convert("L")).min() < 255, (
+            "interior page 1 is the title / copyright page (owner, 2026-11-09)"
         )
+        assert same_page(exported[0], page_image(generator.vector_title_contents(4, 1)))
         assert same_page(exported[1], reference_guide_page(generator, 2))
         assert same_page(exported[2], reference_guide_page(generator, 3))
         # The SOLUTIONS divider is the approved mockup's Solutions opener
@@ -3831,6 +3832,22 @@ def _footer_band_height(dpi: int) -> int:
     return ascent + descent
 
 
+def _below_running_head(image: Image.Image) -> Image.Image:
+    """``image`` with its answer page's running-head strip blanked out.
+
+    The strip is ``RUNNING_HEAD_MM`` deep from the first inked row (the head's
+    own type); everything under it is the solutions themselves.
+    """
+    from nonogram.admin.book_pdf_generator import RUNNING_HEAD_MM
+
+    mask = np.asarray(image.convert("L")) < INK_LEVEL
+    top = int(np.flatnonzero(mask.any(axis=1))[0])
+    strip = int(round(RUNNING_HEAD_MM * image.info.get("dpi", (300, 300))[0] / 25.4))
+    out = image.copy()
+    ImageDraw.Draw(out).rectangle((0, 0, out.width, top + strip), fill="white")
+    return out
+
+
 def _above_footer(image: Image.Image, cutoff: int) -> Image.Image:
     """``image``, with every row at or below ``cutoff`` dropped (CARD-200).
 
@@ -4140,9 +4157,12 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             new_number = first_answer_page + index
             old_number = new_number - TITLE_PAGE_COUNT
             reference = reference_answer_page(generator, entry, payloads, old_number, titles)
+            # Since the running head lost its rule (owner, 2026-11-09) its two
+            # labels swap sides with parity and no longer span the frame, so
+            # the head strip is furniture like the folio: compare below it.
             assert _matches_shifted_content(
-                _ink_bbox_crop(_above_footer(exported[new_number - 1], cutoff)),
-                _ink_bbox_crop(_above_footer(reference, cutoff)),
+                _ink_bbox_crop(_below_running_head(_above_footer(exported[new_number - 1], cutoff))),
+                _ink_bbox_crop(_below_running_head(_above_footer(reference, cutoff))),
             ), f"answer page {new_number}'s content above the footer band does not match"
             checked += 1
         assert checked == len(answer_plan) == 3, checked

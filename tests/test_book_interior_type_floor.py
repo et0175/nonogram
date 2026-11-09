@@ -1717,7 +1717,12 @@ class TestInteriorType_TheStreamArmIsReached:
         # And the lifted page is genuinely blank, which is AC-283 and why it
         # adds no face (CARD-379: page 1's, not the interior's -- other kinds
         # may be operators too).
-        assert [face for face in faces if face.page == 1] == []
+        # Since 2026-11-09 page 1 is the title / copyright page (owner), so
+        # its faces are the title page's own type, all at or above the floor.
+        assert [face for face in faces if face.page == 1]
+        assert all(
+            face.points >= 10.0 for face in faces if face.page == 1
+        ), [face for face in faces if face.page == 1]
         assert pdf_vector.page_media(data)[0] == pdf_vector.VECTOR
         assert asked[0] == pdf_vector.content_streams(data)[0]
 
