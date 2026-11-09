@@ -421,7 +421,10 @@ def _note_font(face_px: int) -> ImageFont.FreeTypeFont:
     parameter is named for the face so the two cannot be confused, here or by
     the package-wide scalar-extent guard.
     """
-    return ImageFont.truetype(io.BytesIO(_note_font_bytes()), size=face_px)
+    # BASIC, not Pillow's default RAQM when libraqm is installed: RAQM measures
+    # differently (a soft hyphen as zero, kerned pairs), so the same book
+    # would print different pixels on different machines.
+    return ImageFont.truetype(io.BytesIO(_note_font_bytes()), size=face_px, layout_engine=ImageFont.Layout.BASIC)
 
 
 def _fitted_note_font(
@@ -501,8 +504,7 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
       visible change to the owner's own sheet and this card moves no note.
       The strip is correspondingly half as wide as it was, so the corner
       fallback wins on more trims than before; which spot each trim takes is
-      pinned by this module's own tests and re-recorded in
-      ``tests/fixtures/proof_baseline_card224.json``. From the drawing's top,
+      pinned by this module's own tests. From the drawing's top,
       which is below the band, down to the bottom margin.
     * **Blank clue corner**: the empty box at the drawing's top-left where the
       row and column clue gutters meet, bounded by the frame's left and top
@@ -664,9 +666,7 @@ def _annotate(page: Image.Image, layout: Layout, frame: PageFrame) -> Image.Imag
     page 1's. It is fitted to the strip the drawing leaves between its own
     bottom edge and the bottom margin, less :data:`_NOTE_GAP_MM` of air, at
     :data:`_NOTE_MM` shrinking to :data:`_NOTE_FLOOR_MM`. The portrait KDP
-    trims of the test corpus all take this path, and their pages are
-    unchanged by CARD-172 (pinned by
-    ``TestBookProof_PortraitProofsAreByteIdentical``). So does the 15 x 15 on
+    trims of the test corpus all take this path. So does the 15 x 15 on
     the 8.25 x 8.25, 8.5 x 8.5 and 11 x 8.5 in trims, which leave room at
     its foot.
 

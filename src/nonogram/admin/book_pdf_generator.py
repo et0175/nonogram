@@ -1631,7 +1631,10 @@ def _guide_face(size: int) -> ImageFont.FreeTypeFont:
     cost is; every call returns a fresh :class:`ImageFont.FreeTypeFont`, as
     the Arial-by-path call it replaces also did.
     """
-    return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size)
+    # BASIC, not Pillow's default RAQM when libraqm is installed: RAQM measures
+    # differently (a soft hyphen as zero, kerned pairs), so the same book
+    # would print different pixels on different machines.
+    return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size, layout_engine=ImageFont.Layout.BASIC)
 
 
 def band_identity(puzzle_number: int, stored_tier: object) -> str:
@@ -1937,7 +1940,10 @@ def _band_font(size: int) -> ImageFont.FreeTypeFont:
     or two sizes across every page it prints — plus the generated title
     cover's own :data:`COVER_TITLE_PX`, which letters through here too since
     CARD-234 (:func:`_cover_title_face`)."""
-    return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size)
+    # BASIC, not Pillow's default RAQM when libraqm is installed: RAQM measures
+    # differently (a soft hyphen as zero, kerned pairs), so the same book
+    # would print different pixels on different machines.
+    return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size, layout_engine=ImageFont.Layout.BASIC)
 
 
 def _draw_difficulty_dots(

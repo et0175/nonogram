@@ -65,16 +65,12 @@ Thai, Devanagari — still renders as tofu, by exactly the same mechanism one
 layer down. This shrinks the failing set; it does not empty it.
 
 Coverage is not the only boundary, either. Complex-script shaping and bidi
-need Pillow to be built against Raqm; a Pillow built without it — which is the
-common case, and the case this project's own environment reports — does
-neither. DejaVu *does* cover Arabic and Hebrew, so a name in either is not
-tofu, but without Raqm it sets as isolated, unjoined letterforms in
+need Pillow's Raqm layout, and the header face is loaded with the BASIC one
+on purpose, so the same name prints the same pixels whether or not the
+machine has libraqm. DejaVu *does* cover Arabic and Hebrew, so a name in
+either is not tofu, but it sets as isolated, unjoined letterforms in
 left-to-right order: wrong in a different way, and not fixed by this card.
-Whether the running Pillow has Raqm is a property of the install, not of this
-package, which is why this paragraph states the conditional rather than a
-verdict about one machine — ``test_the_shaping_caveat_matches_the_running_pillow``
-pins the two together so the text cannot drift from the environment it
-describes.
+``test_the_header_font_never_shapes`` pins the BASIC layout.
 
 Only the header moved. A page's clue digits still come out of
 ``png._clue_font``'s Pillow default face (:func:`_header_font` is not
@@ -220,7 +216,10 @@ def _header_font(size: int) -> ImageFont.FreeTypeFont:
     name does not fit, and every page of every export asks for the same handful
     of sizes.
     """
-    return ImageFont.truetype(io.BytesIO(_font_bytes()), size=size)
+    # BASIC, not Pillow's default RAQM when libraqm is installed: RAQM measures
+    # differently (a soft hyphen as zero, kerned pairs), so the same book
+    # would print different pixels on different machines.
+    return ImageFont.truetype(io.BytesIO(_font_bytes()), size=size, layout_engine=ImageFont.Layout.BASIC)
 
 
 def header_parts(payload: ExportPayload) -> tuple[str, ...]:

@@ -1065,7 +1065,12 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         def widest(digits: int) -> float:
             return max(advance_px(str(d) * digits, size_px, face) for d in range(10))
 
-        assert math.ceil(widest(FOLIO_RESERVE_DIGITS)) == reserve_px, reserve_px
+        # The reserve is measured with Pillow's hinted advances, which round
+        # each digit to a whole pixel, so it may sit a pixel above the vector
+        # face's own figure; it never falls short of four digits or covers five.
+        assert widest(FOLIO_RESERVE_DIGITS) <= reserve_px <= math.ceil(
+            widest(FOLIO_RESERVE_DIGITS)
+        ) + 1, reserve_px
         assert widest(FOLIO_RESERVE_DIGITS + 1) > reserve_px
 
         # No vertical room at all: the content stands on the folio's own row,

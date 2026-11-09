@@ -401,14 +401,26 @@ class Expected:
         ]
 
     def shading(self) -> list[Mark]:
-        """The clue gutters' tint: one filled box per gutter, under everything."""
+        """The clue gutters' tint: one filled box per gutter, under everything.
+
+        On a placed page it reaches the drawing's own edge (the outermost clue
+        box), not ``gutter x cell``, which falls short where the pitch is
+        fractional and ``cell`` is it floored.
+        """
         layout = self.layout
+        page = layout.page
         marks: list[Mark] = []
         if layout.row_gutter_cells:
-            left = layout.grid_left - layout.row_gutter_cells * layout.cell
+            left = (
+                layout.grid_left - layout.row_gutter_cells * layout.cell
+                if page is None else page.drawing_left
+            )
             marks.append((left, layout.grid_top, layout.grid_left, layout.grid_bottom))
         if layout.column_gutter_cells:
-            top = layout.grid_top - layout.column_gutter_cells * layout.cell
+            top = (
+                layout.grid_top - layout.column_gutter_cells * layout.cell
+                if page is None else page.drawing_top
+            )
             marks.append((layout.grid_left, top, layout.grid_right, layout.grid_top))
         return [
             Stroke(

@@ -3017,14 +3017,12 @@ def _furniture_coordinates(slots, frame, height: float, dpi: int) -> Tuple[set, 
     xs.update((_pt(frame.left, dpi), _pt(frame.right, dpi)))
     ys.add(_flip(frame.top + RUNNING_HEAD_MM * dpi / 25.4 * 0.55, height, dpi))
     # The clue-gutter shading (CLUE_SHADE, the puzzle pages' own
-    # ``shade_clue_cells``): its outer edge is ``grid_left - gutter * cell``,
-    # COMP-007's cell and gutter count, which is a pixel or two inside the
-    # frame's own edge where the layout's cells are not all one width.
+    # ``shade_clue_cells``): its outer edge is the drawing's own edge,
+    # COMP-007's ``drawing_left``/``drawing_top``.
     for slot in slots:
-        if slot.row_gutter_cells:
-            xs.add(_pt(slot.grid_left - slot.row_gutter_cells * slot.cell, dpi))
-        if slot.column_gutter_cells:
-            ys.add(_flip(slot.grid_top - slot.column_gutter_cells * slot.cell, height, dpi))
+        if slot.page is not None:
+            xs.add(_pt(slot.page.drawing_left, dpi))
+            ys.add(_flip(slot.page.drawing_top, height, dpi))
     return xs, ys
 
 
