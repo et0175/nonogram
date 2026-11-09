@@ -1,6 +1,6 @@
 # CARD-333: An acceptance criterion has no lifecycle the validator reads — so a retired criterion can only announce itself as a defect
 
-**Status:** blocked
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** — (not estimable from this repository; the change is in `forge_1`)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validators/ — **outside this repository**
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -137,3 +137,7 @@ by CARD-317's fix round and independently by the orchestrator, 88 → 89 warning
   seven plus FR-001's four from CARD-317.
 - **Not a re-litigation of the warning count.** Both shapes cost one warning each; this
   card is about what a reader and a tool can *learn*, not about the total.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Validator tooling whose code lives in forge_1, outside this repo, and it changes nothing in the book or the player.

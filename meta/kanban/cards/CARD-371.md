@@ -1,6 +1,6 @@
 # CARD-371: The new WCAG contrast helper has no reference anchor — a formula error would move all six figures together and pass
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-348
 **Touches:** tests/test_public_player_agreement.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_probe.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -61,3 +61,7 @@ the thing it measures.
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Its target, the old public-player test modules, was deleted when CARD-399 retired play.js (87766ed4).

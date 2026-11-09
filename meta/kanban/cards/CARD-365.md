@@ -1,6 +1,6 @@
 # CARD-365: Three refusal arms in the ink-mode stream reader are asserted and never demonstrated — the one AC clause with no control
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.25d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-337
 **Touches:** tests/test_book_pdf_ink_mode.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -113,3 +113,7 @@ arm it fires.
 ## Triage 2026-11-09
 
 Still open: the stream reader is live for the raster dividers and the Solutions opener, and its three refusal arms are still undemonstrated.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+The three paths belong to a test-file helper, not product code, and its raster branch is dead now the interior is vector-only.

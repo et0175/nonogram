@@ -1,6 +1,6 @@
 # CARD-302: The memo's USE is unguarded — the cheapening can silently return
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-292 (merged)
 **Touches:** tests/test_book_export_interior_cover.py, meta/profiling/card-292-per-test-ceiling.md
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -118,3 +118,7 @@ must discriminate are named. **Only the owner was missing. That is this card.**
 - **Read CARD-292's document before starting**, especially §5 (the decline), §8.1
   (the matrix) and §8.2 (the pre-gate rows). The two cold sites, the memo's
   export and M10's exact cells are all recorded there.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

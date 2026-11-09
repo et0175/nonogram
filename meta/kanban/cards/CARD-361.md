@@ -1,6 +1,6 @@
 # CARD-361: 22 refs with no definition anywhere produce no finding at all, because `trace.py` only asks the resolver about `status: covered` entries
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/trace.yml, meta/architecture/requirements.yml, tests/test_check_ref_resolution.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -155,3 +155,7 @@ rather than discovering it halfway.**
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate; where none
   exists it defaults to **deny** (check: review-lens)
 - ADR-0038/R8 — findings are reported loudly, never silently absent (check: review-lens)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

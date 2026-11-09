@@ -1,6 +1,6 @@
 # CARD-281: The figures a guard module states about itself are copies, and copies are what drifted five times on one card
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d
@@ -15,6 +15,7 @@
 **Wave:** —
 **Depends on:** CARD-264 (it merges the module this card operates on; every line number below will move)
 **Touches:** tests/test_guard_integrity.py, tests/test_web_server.py
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 
 ## Why — the same defect, five times, in the one module whose subject is false claims
 
@@ -120,3 +121,7 @@ before touching anything here.
   wrong. The answer is the table at the top — this exact class of copy drifted **four times in one day**
   on one card, three of those times inside the round that was fixing the previous one. A mechanism that
   can be wrong and is tested beats prose that cannot be tested at all.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

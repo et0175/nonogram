@@ -1,6 +1,6 @@
 # CARD-345: The blind set splits by module co-location, so a new non-branch deadline check *inside* the search module still escapes
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.25d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-278
 **Touches:** tests/test_timeout.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -122,3 +122,7 @@ CARD-278's review measured that it holds today — every caller of `propagate` /
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate, not
   hand-written; where none exists it defaults to deny (check: review-lens)
 - ADR-0038/R8 — tests fail or skip loudly, never silently; no new skip (check: review-lens)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

@@ -1,6 +1,6 @@
 # CARD-272: The import guard gains the composite-capability rank (ADR-0040)
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d  <!-- guard/claim card: the 0.75d claim-card floor applies, and every figure here needs a control -->
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-265
 **Touches:** tests/test_cli.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -154,3 +154,7 @@ Concretely:
   single directed exemption — one pinned pair, the reversed direction
   committed as forbidden. The deny pin should read the same way, so the next
   reader finds one idiom, not two.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

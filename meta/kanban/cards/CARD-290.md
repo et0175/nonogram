@@ -1,6 +1,6 @@
 # CARD-290: The shared control home's guard derives 13 of the 15 names it declares — and the two it misses are the ones that re-open a closed finding
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-219
 **Touches:** tests/helpers/shared_fixture_controls.py, tests/test_shared_fixture_controls.py, tests/helpers/book_corpus.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -190,3 +190,7 @@ been checked.
 - **Estimate 0.75d, not trivial**, per the owner's wave-50 rule: the diff is
   small and the subject is a claim about a guard's reach, which is the card class
   that has consistently spent its whole cycle budget on this board.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

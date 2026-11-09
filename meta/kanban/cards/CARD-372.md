@@ -1,6 +1,6 @@
 # CARD-372: A plant anchor over-fires: calc(var(--player-cell) * 0.6) occurs twice in admin.css under a bare css.replace()
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-348
 **Touches:** tests/test_public_player_maybe.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -56,3 +56,7 @@ through `_exactly_once`, so the fix is to make this one match them.
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Its target, the old public-player test modules, was deleted when CARD-399 retired play.js (87766ed4).

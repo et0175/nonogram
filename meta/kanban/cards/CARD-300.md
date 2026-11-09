@@ -1,6 +1,6 @@
 # CARD-300: The door axis's seventh appearance, priced before it is attempted — R9's closure, the surface rule's two unequal halves, and whether this guard should survive the vector interior at all
 
-**Status:** parked
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,7 +17,7 @@
 **Deferred waves:** 5 <!-- corrected 2026-10-28: created at wave 58 and passed over for 59, 60, 61, 62 and 63 while this counter still read 0. A deferral counter that never increments is the silent-drift shape this board tracks, and it made the card look freshly queued rather than five times skipped. -->
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -280,3 +280,7 @@ measure", and what is unverified is **a correction of CARD-262's N8 from 2 FAIL 
 **Revisit trigger for the mechanism half:** after **CARD-298** merges, and only if
 the nine nested names have actually moved. Declining with a recorded reason is an
 outcome this card explicitly licenses.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Already parked, and its case rested on the raster pixel sites and interior rewrite that the vector-only interior removed.

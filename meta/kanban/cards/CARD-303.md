@@ -1,6 +1,6 @@
 # CARD-303: The door walk is super-linear — 19.4 million inner calls for a module with 832
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-287 (in review)
 **Touches:** tests/test_book_export_interior_cover.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -153,3 +153,7 @@ many times the walk visits a node**. This card is the first that has to.
 - **Read CARD-287's `## [IMPLEMENTATION — 2026-10-28]` section before starting.**
   It names the two call sites, the capture, the mutant census, and the three
   bounds it declared rather than closed. This card exists because of its §7.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

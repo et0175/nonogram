@@ -1,6 +1,6 @@
 # CARD-347: Retire the carried figures in the player family's records — the line-count column is one of five, and four are not in the README
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -19,7 +19,7 @@
 **Touches:** docs/how-it-works/01-domain/puzzle-creation/README.md, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md, tests/test_public_player_maybe.py, tests/test_public_player_agreement.py, player/player.css, meta/kanban/cards/CARD-323.md, meta/kanban/cards/CARD-339.md
 <!--WIDENED 2026-11-04 by CARD-339's review cycle 2, whose pattern finding is that this card's scope was drawn too narrowly: it took the README COLUMN, but the figures that actually rotted sit in a card body, a module docstring, a stylesheet comment and a docs paragraph. The docs file joins Touches for MIN-2's five false play.js refs. -->
 <!--WIDENED AGAIN 2026-11-04 by CARD-339's MERGE GATE, as its finding 3, and this one was the orchestrator's error: the note above names four locations and the Touches list reached only two of them. player/player.css, tests/test_public_player_agreement.py and meta/kanban/cards/CARD-339.md are now listed, so the card can actually reach the stylesheet comment, the module docstring and the card body it was widened to cover. A scope note that names more files than Touches grants is a card that cannot do what it says. -->
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -176,3 +176,7 @@ validator never reads it, but it sends a reader into a `-k` that selects nothing
 - ADR-0039/R4 — a figure recomputed and refuted is retracted everywhere it was written
   (check: review-lens)
 - ADR-0038/R8 — tests fail or skip loudly, never silently (check: review-lens)
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Its targets, the old player test modules, were deleted by CARD-399. The one useful leftover (the player docs still describing play.js) is a separate small docs task.

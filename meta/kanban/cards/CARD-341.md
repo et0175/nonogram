@@ -1,6 +1,6 @@
 # CARD-341: A comment inside a card's parsed field is read as part of the value, and nothing says so
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/kanban/cards/
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -144,3 +144,7 @@ saw it: a prose section is what a **reader** scans, so a contradiction there get
 field is what a **program** reads — so a stale or malformed value there can do damage while
 looking like bookkeeping, and it is invisible to exactly the review technique that catches
 everything else.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+A guard over the test tooling, not the book or the player; under the owner's rule (keep a test only if its claim is a live product decision) it is not worth building.

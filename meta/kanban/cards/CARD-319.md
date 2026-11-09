@@ -1,6 +1,6 @@
 # CARD-319: The dead-ref detector asks "is this name mentioned?" where it means "is this defined?" — and never asks it of ADR rules at all
 
-**Status:** blocked
+**Status:** skipped
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** — (not estimable from this repository; see "Why this is blocked")
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/ — **outside this repository**
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 tech-debt triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -228,3 +228,7 @@ check now executes (CARD-304). This card should decide one of two things and say
 
 **Do not simply overwrite 580 with 586.** The next card moves it again, and a figure re-stamped
 without a rule about who re-stamps it is the same defect one wave later.
+
+## RETIRED 2026-11-09 — tech-debt triage
+
+Validator tooling whose code lives in forge_1, outside this repo, and it changes nothing in the book or the player.
