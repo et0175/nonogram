@@ -1,6 +1,6 @@
 # CARD-401: Icon-only toolbar on phones and short screens — Region shows two cells, the title and tier badge share a line
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/401-icon-only-toolbar
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-401
 **Source:** owner player findings 2026-11-07, items 1 and 5 ("Mobile - have only icons on buttons, no text. And reduce region icon to 2 cells."; "Smaller title, or the title on the same line as the difficulty badge"; "Icon-only should switch on for short screens as well as narrow ones"). All findings apply to the admin solver and the public player alike (one source).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/templates/_icons.html, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-400 (none: disjoint production files), CARD-402/403/404 (all edit admin.css and puzzle_solve.html: serialize). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T09:05Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
