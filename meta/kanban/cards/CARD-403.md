@@ -1,6 +1,6 @@
 # CARD-403: The board's scroll box ends above the fold at any toolbar height — no scroll inside a scroll — and the jump while scrolling is reproduced and fixed
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** bug
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/403-stage-above-fold
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-403
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 6: "Scrolling inside a scroll. Once zoomed, the board becomes its own scroll box, 616 px tall, starting 317 px down a 844 px screen. Its bottom edge and sideways scrollbar sit off-screen, so you scroll the page and the board separately." and "Scrolling makes the whole puzzle to jump."
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. The claim 'the stage's cap follows the real toolbar' already exists for play.js (`tests/test_public_player_zoom.py::TestPublicZoom_TheStageEndsAboveTheFold`, retiring with CARD-399); this card makes it true for the admin file and so gives CARD-399's audit a named survivor. No dependency on CARD-401: this is independent of how many rows the toolbar has, which is the point. -->
-**Review score:** —
+**Review score:** 8.5 (cycle 2)
 **Started:** 2026-11-09T09:30Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09T11:54Z
+**Actual:** 2 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** 589c2a4f
 **Blocked by:** —
 
 ## Why this card exists
@@ -99,3 +99,7 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
   Every bottom is at or above innerHeight - 16 on the public page. On the ADMIN page the real chrome is taller than the estimate (+27 px at 1280 x 720, more at 390), which is where the bug showed and where the re-pinned ports/overflows come from.
 [Tests] New: TestSolverZoom_StageEndsAboveTheFold (an 18-viewport sweep — the card's 1140-viewport sweep cut per the owner's test budget — with the 5rem-floor rule that never exempts AC-4's 390x844 / 844x390; and the AC-5 guard). Net +2 node ids (one parameter re-labelled 900x700 -> 900x800, recorded in the browser-family registry). Re-measured, each dated in place: clues ROOMS ports/overflows, StayInView and stage-scroller overflows, phone mirrored-gutter overflow/scroll, desktop admin cells (1440 30x30 17.016, rings 17.91, laptop doubled 20.02), doubled 30x25 overflow 478. AC-3's draw-twice and page-scroll claims rest on review evidence (the measurement depends only on what is above the stage) plus the unchanged burst-resize cell. Plant: restoring the one-row cap reds every phone viewport of the sweep (run 2026-11-09).
 [Review 1/3] Score: 5.0 — F-001 critical (12rem floor below the fold at 844x390, the sweep's exemption hid it): fixed, floor 5rem, no exemption at AC-4's viewports. F-002 (AC-6 verdict moved, not asserted): recorded above for owner sign-off. F-003 (notes): this note. F-004 (max() wasted public room): fixed, measured top everywhere. F-005 (observer did not re-run the bands): fixed. Report meta/review/20261109T120000Z-CARD-403-cycle1.yml.
+[Owner sign-off 2026-11-09T11:43Z] On the AC-6 verdict change (900 x 700 column band no longer kept at 125% on the admin page) and the 22 x 14 move to 1280 x 760: the owner answered "ok agree". F-102 (cycle 2): at 600 x 390 the 5rem floor puts the admin stage's bottom 43 px below the fold — the only floored viewport of the sweep; covered by the same sign-off message's subject (the honest-fold trade), recorded here.
+[Review 2/3] Score: 8.5 — certified. F-101 (air not asserted) fixed fc104d5d; F-102 recorded with the owner sign-off; F-103 comment fixed fc104d5d. Report meta/review/20261109T112902Z-CARD-403-cycle2.yml.
+[Closing note, merge gate, merged 589c2a4f] Gate = the PLAYER SET (owner ruling 2026-11-09: no generator/book tests for player cards): tests/test_puzzle_solver_*.py, test_player_*.py, test_public_player*.py, test_puzzle_editor_ui.py, test_browser_fixture_scope.py, test_admin_design_tokens.py + check_ref_resolution, collected_names, kanban_review_record, guard_integrity, admin_binding: 1384 passed, 9 skipped (DATABASE_URL unset), 0 failed. Full suite owed at the wave close. Accuracy: 2 cycles / 3c = 0.67. Net node ids +2.
+
