@@ -4469,7 +4469,7 @@ functional:
         when: the book PDF is generated
         then: answer 7's caption reads "Puzzle 7 — Winter Star"
         kind: boundary
-        test: test_a_custom_book_title_wins_over_the_pictures_own_name, test_the_answer_caption_reads_the_custom_title_and_not_the_name
+        test: test_a_custom_book_title_reaches_a_packed_page, test_the_answer_caption_reads_the_custom_title_and_not_the_name
       # REWORDED 2026-09-22 (d): "30 pages" -> "30 answer pages (the
       # SOLUTIONS divider not counted)". A one-tier book, so the level
       # restart cannot bite; the three-level default plan is AC-293.

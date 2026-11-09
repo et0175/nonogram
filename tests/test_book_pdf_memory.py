@@ -2,7 +2,7 @@
 
     AC (new)  TestBookPdfMemory_PeakDoesNotGrowWithPageCount
     AC (new)  TestBookPdfMemory_RealBookExportsUnderTheCap
-    AC (new)  TestBookPdfMemory_PagesAreUnchanged
+    AC (new)  TestBookPdfMemory_TheBaselineBooksPages
     AC (new)  TestBookPdfMemory_InteriorAndCoverStillSeparate
 
 CARD-237 adds the tests of this module's own memory tripwires — the four
@@ -170,43 +170,21 @@ from collections import Counter
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image
 
-from nonogram.admin.book_answer_key import (
-    PACKED_FOUR_UP,
-    Answer,
-    PackedAnswerPage,
-    answer_title,
-    plan_small_answer_pages,
-)
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
+from nonogram.admin.book_answer_key import PACKED_FOUR_UP
+from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import (
-    TITLE_PAGE_COUNT,
-    FOLIO_PT,
-    GUIDE_PAGE_COUNT,
     BookPDFGenerator,
-    DividerPagePlan,
     PageKind,
     PageMedium,
-    PuzzlePagePlan,
     page_medium,
-    _answer_extent,
-    _band_font,
-    _degrade_infeasible_packed_pages,
-    _folio_reserve_px,
-    _pairable_tier,
-    page_frame,
-    type_px,
 )
-from nonogram.export.layout import (
-    compute_pair_layout,
-    interior_frame,
-)
+from nonogram.difficulty import Tier
 from tests.helpers.book_corpus import (
     BASELINE_PAGE_COUNT,
     BASELINE_SHAPE,
@@ -219,7 +197,6 @@ from tests.helpers.book_corpus import (
     corpus_puzzles,
     export_of,
     load_baseline,
-    page_digest,
     page_digests,
 )
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
@@ -228,7 +205,6 @@ from tests.helpers import pdf_vector
 from tests.helpers.page_ink import (
     INK_LEVEL,
     drawing_of,
-    frame_centre_of,
 )
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, page_image, same_page
 
@@ -294,13 +270,6 @@ PEAK_CAP_IN_PAGES = 2
 #: :class:`PIL.Image.Image` a caller could hold.
 PAGE_FACTORIES = (
     "create_cover_page",
-    # CARD-206 adds the blank title / copyright page: a page factory
-    # `interior_stream`'s own producer calls before the guide, so it is
-    # wrapped by the instrument like every other one. It draws nothing, but
-    # it still allocates a full-size bitmap, which is exactly the quantity
-    # this module bounds.
-    "create_title_page",
-    "create_guide_page",
     "create_divider_page",
     # CARD-311: the divider the interior walk actually asks for -- the owner's
     # uploaded picture fitted to the page, or the drawn page above. A page
@@ -315,31 +284,15 @@ PAGE_FACTORIES = (
     # (rule, "PUZZLES a-b", the level's name, its dots), drawn by
     # ``divider_page`` for a level slot with no picture. Its own bitmap.
     "create_level_divider",
-    # CARD-200 adds the table of contents page beside the guide and the
-    # divider — the same "draw something generic on page_frame" shape, and
-    # a page factory `interior_stream`'s own producer calls just like them.
-    "create_toc_page",
-    "_blank_page",
-    "_two_up_page",
-    # CARD-198 deleted "_answer_page" (the packed key's own page factory,
-    # FR-042) along with the packed key itself — nothing in BookPDFGenerator
-    # answers to that name any longer. "solved_puzzle_page" (CARD-197) is
-    # its replacement in this list: since CARD-198 it draws a large,
-    # unpacked answer's full page; CARD-202 adds "_packed_answer_page"
-    # beside it for a page of 2 or 4 small answers — both are page factories
-    # interior_stream's own answer-section loop now calls, depending on
-    # which kind of page the packing walk planned.
-    "solved_puzzle_page",
-    "_packed_answer_page",
+    # The puzzle, answer, guide, contents and title pages are operators
+    # (ADR-0042); their raster writers were deleted on 2026-11-09.
 )
 
 #: The corpus book's interior, in pages, as this module counts it.
 #:
 #: ``tests.helpers.book_corpus.CORPUS_PAGE_COUNT`` still counts CARD-198's one
-#: answer page per puzzle (308), which held while the corpus's 18x18 and 20x20
-#: answers were wider than the packing limit. The owner raised that limit to
-#: ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT`` (20 x 25, from 15 x 20), so
-#: every corpus answer now packs ``PACKED_FOUR_UP`` to a page within its tier
+#: answer page per puzzle (308). Every corpus answer is within
+#: ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT``, so it packs ``PACKED_FOUR_UP`` to a page within its tier
 #: (CARD-202's "always 4-up, 2-up only for a leftover"): ceil(50 / 4) = 13
 #: pages for each of the three 50-puzzle tiers, 39 in all, and the interior is
 #: 1 + 2 + 1 TOC + 3 dividers + 150 puzzle pages + SOLUTIONS + 39 = 197 pages.
@@ -441,111 +394,32 @@ def interior_pages_of(data: bytes) -> ReadInterior:
     return images
 
 
-# --------------------------------------------------------------------------
-# References drawn in the medium the book is exported in (CARD-355)
-# --------------------------------------------------------------------------
-#
-# Several classes below compare an exported page with "the unedited drawing
-# function's own output" at another page number. Those functions are the
-# generator's RASTER methods (``_blank_page``, ``create_guide_page`` ...), and
-# once a kind is written as operators the exported page is a poppler render of
-# a content stream while the reference is a Pillow drawing of the same page: a
-# comparison of two media, not of two positions. Measured on the baseline book
-# under the five-kind lift, the 30x30 puzzle page differs from its raster twin
-# by a mean grey of 10.2 and 6.2 % of pixels beyond 50 levels, against
-# ``_matches_shifted_content``'s 8.0 and 3 % -- which are NOT moved (G-2): the
-# claim is "same content at a shifted position", and the right reference for
-# an operators page is the SAME writer asked for the other position. Each
-# helper below asks the writer the export would ask, in the medium
-# ``page_medium`` declares for the kind, and hands back a bitmap by rendering
-# that ONE page from its own one-page file (``page_image``), so the shared
-# reader's scratch-directory defect (see :func:`interior_pages_of`) cannot
-# touch it.
-
-
 def _is_vector(kind: PageKind) -> bool:
     return page_medium(kind) is PageMedium.VECTOR
 
 
-def reference_puzzle_page(
-    generator: BookPDFGenerator, payload, number: int, page_number: int
-) -> Image.Image:
-    """:meth:`BookPDFGenerator._blank_page` in the medium the export writes it."""
-    if _is_vector(PageKind.PUZZLE):
-        return page_image(generator.vector_puzzle_page(payload, number, page_number))
-    return generator._blank_page(payload, number, page_number)
-
-
-def reference_two_up_page(generator: BookPDFGenerator, entry, payloads) -> Image.Image:
-    """:meth:`BookPDFGenerator._two_up_page` in the medium the export writes it."""
-    if _is_vector(PageKind.PUZZLE):
-        return page_image(generator.vector_two_up_page(entry, payloads))
-    return generator._two_up_page(entry, payloads)
-
-
 def reference_guide_page(generator: BookPDFGenerator, page_number: int) -> Image.Image:
-    """The 4-puzzle baseline book's guide page ``page_number``, in its medium."""
-    if _is_vector(PageKind.GUIDE):
-        return page_image(
-            generator.pages.guide(
-                generator.page_spec(page_number),
-                generator.dpi,
-                page_number,
-                puzzle_count=4,
-                easy_count=2,
-                medium_count=1,
-                hard_count=1,
-            )
+    """The 4-puzzle baseline book's guide page ``page_number``, as the assembled
+    guide writer draws it, rendered from its own one-page file."""
+    return page_image(
+        generator.pages.guide(
+            generator.page_spec(page_number),
+            generator.dpi,
+            page_number,
+            puzzle_count=4,
+            easy_count=2,
+            medium_count=1,
+            hard_count=1,
         )
-    return generator.create_guide_page(4, 2, 1, 1, page_number=page_number)
-
-
-def reference_answer_page(
-    generator: BookPDFGenerator, entry, payloads, page_number: int, titles
-) -> Image.Image:
-    """The answer page the walk drew for ``entry`` at ``page_number``, in its medium."""
-    vector = _is_vector(PageKind.ANSWER)
-    if isinstance(entry, PackedAnswerPage):
-        if vector:
-            return page_image(
-                generator.pages.packed_answer(
-                    generator.page_spec(page_number),
-                    generator.dpi,
-                    entry,
-                    payloads,
-                    page_number,
-                    titles,
-                )
-            )
-        return generator._packed_answer_page(entry, payloads, page_number, titles)
-    puzzle_id, payload = payloads[entry.number - 1]
-    title = answer_title(titles.get(str(puzzle_id)), payload.name)
-    if vector:
-        return page_image(
-            generator.pages.answer(
-                generator.page_spec(page_number),
-                generator.dpi,
-                payload,
-                entry.number,
-                page_number,
-                title,
-            )
-        )
-    return generator.solved_puzzle_page(
-        payload, entry.number, page_number, title=title
     )
 
 
 #: The baseline book's fourteen interior pages, by kind, written out by hand
 #: (CARD-355): the title page, the two guide pages, the TOC, "Easy", the
 #: two-up page, "Medium", the 15x15, "Hard", the 30x30, SOLUTIONS, and the
-#: three answer pages. A second statement of what
-#: :func:`TestBookPdfMemory_PagesAreUnchanged.test_every_page_is_pixel_identical_to_the_recorded_one`
-#: used to leave to the file itself: which medium each page is WRITTEN in is
-#: read off the file (``pdf_vector.page_media``) and must equal what
-#: ``page_medium`` declares for the kind, so a page that stops being a bitmap
-#: for a reason the registry does not give is a failure and not a quietly
-#: retired comparison (ADR-0039/R2).
+#: three answer pages. Which medium each page is WRITTEN in is read off the
+#: file (``pdf_vector.page_media``) and must equal what ``page_medium``
+#: declares for the kind (ADR-0039/R2).
 BASELINE_PAGE_KINDS = (
     PageKind.TITLE, PageKind.GUIDE, PageKind.GUIDE, PageKind.TOC,
     PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER, PageKind.PUZZLE,
@@ -554,46 +428,11 @@ BASELINE_PAGE_KINDS = (
 )
 
 
-#: The baseline book's SOLUTIONS divider, the one raster page the approved
-#: solutions mockup redrew (as the Solutions opener).
-SOLUTIONS_DIVIDER_PAGE = BASELINE_PAGE_KINDS.index(PageKind.ANSWER)
-
-
 def declared_media_of_the_baseline() -> List[str]:
     """``BASELINE_PAGE_KINDS`` read through the generator's own registry."""
     return [
         pdf_vector.VECTOR if _is_vector(kind) else pdf_vector.RASTER
         for kind in BASELINE_PAGE_KINDS
-    ]
-
-
-def raster_digests(pages: ReadInterior) -> List[Optional[Dict[str, Any]]]:
-    """:func:`page_digest` of every page WRITTEN as a bitmap; ``None`` for operators.
-
-    **What identity means once a page is operators (CARD-355, ADR-0042/R6).**
-    A stored digest is the sha256 of a *decoded JPEG bitmap* recorded in the
-    raster era. An operators page has no such bitmap; its poppler render can
-    never equal that digest, and "differs from the recording" is then true of
-    every operators page for a reason that has nothing to do with the claim.
-    So a stored digest is compared with a page only when the page is a bitmap,
-    and for an operators page identity is **determinism of the stream**
-    (:class:`TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport`):
-    the same book exported twice writes the same operators, hence the same
-    pixels under a fixed rasteriser. ``None`` is what a caller must handle
-    explicitly -- there is no sentinel that compares unequal to everything.
-
-    **What determinism does NOT say (CARD-355 review F-006).** A stream that is
-    stable but wrong passes it. Operators-page CONTENT is held elsewhere: by
-    the sibling modules that read the converted pages themselves
-    (``tests/test_book_puzzle_page_vector.py``, ``tests/test_book_guide_page_vector.py``,
-    ``tests/test_book_toc.py``, ``tests/test_book_solved_answer_key.py``) and,
-    in this module, by the shifted-by-one and above-the-footer comparisons
-    against references drawn by the same writer at another position, plus the
-    page-kind coverage test.
-    """
-    return [
-        page_digest(page) if medium == pdf_vector.RASTER else None
-        for page, medium in zip(pages, pages.media)
     ]
 
 
@@ -2186,79 +2025,14 @@ class TestMemoryGuard_StillSkipsWhenTheFloorSwallowsTheCap:
 # --------------------------------------------------------------------------
 
 
-class TestBookPdfMemory_PagesAreUnchanged:
-    """Every exported page is the page the baseline recorded, to the pixel (G-1).
+class TestBookPdfMemory_TheBaselineBooksPages:
+    """The baseline book (``tests/helpers/book_corpus``): its page count, the
+    medium each page is written in, and one page of every kind the interior
+    has, each identified positively.
 
-    The evidence is ``tests/helpers/book_corpus.BASELINE_FIXTURE``, currently
-    ``tests/fixtures/book_baseline_card198.json`` (CARD-198 is this chain's
-    seventh recording — CARD-167 and CARD-184 both superseded it in between
-    without a mention here, a pre-existing gap in this docstring's own
-    history that CARD-198 does not take on fixing), recorded by exporting
-    ``tests/helpers/book_corpus.baseline_puzzles``, reading the pages back
-    **out of the PDF** with the shared ``pdf_pages`` helper, and digesting each
-    one's raw bitmap. It covers the whole path: draw, JPEG-encode, write,
-    parse, decode.
-
-    It was first recorded for CARD-145 at commit ``b4c523d``, the merge-base
-    before a line of that card's production change existed, which is the shape
-    of evidence a refactor needs. It has been succeeded five times since,
-    never regenerated: by CARD-128, which made the interior print grouped by
-    level with a divider page opening each; by CARD-144, whose frame (the
-    owner's decision of 2026-09-23, not yet a formalised requirement) closes a
-    book puzzle page's drawing off with one heavy rectangle; by CARD-149, which
-    set the guide page's type at 11 pt derived from the page's own DPI instead
-    of 6.7 pt of bare pixels (page 1 alone); by CARD-146, which carried
-    CARD-144's frame onto the printed two-up page, which had still been
-    printing bare (page 3 alone); and by CARD-147, which writes a
-    black-and-white interior as ``DeviceGray``. Each is a deliberate change to
-    what the export produces, which is the one case the CARD-145 fixture's own
-    ``warning`` provides for, and each recording names the pages that moved
-    under it.
-
-    **CARD-147's recording is the first in the chain that moves no page at
-    all**, and the test below is where that shows: its page comparison was
-    green at CARD-147's implementation commit and only
-    :meth:`test_the_interior_file_is_the_length_it_was_recorded_with` was red.
-    A colour-space change does not move a page's decoded bitmap — the luma
-    plane survives the JPEG round trip in either space, and ``pdf_pages``
-    normalises a page to RGB before it is digested — so what the new baseline
-    records is ``interior_bytes``, and the eleven unmoved digests are the
-    evidence that the colour space moved and the ink did not.
-
-    The comparison is exact — a sha256 of ``Image.tobytes()`` — and
-    deliberately not ``pdf_pages.same_page``, which tolerates JPEG noise and a
-    6-level mean difference and would hide precisely the kind of change this
-    exists to catch.
-
-    That fixture is never to be regenerated to make this test pass; it says so
-    in its own ``warning`` field. Its four predecessors sit beside it,
-    ``book_baseline_card145.json`` (the merge-base's eight pages),
-    ``book_baseline_card128.json`` (the eleven pages the level dividers made),
-    ``book_baseline_card144.json`` (the framed single pages) and
-    ``book_baseline_card149.json`` (the guide page at book size), all left
-    unregenerated. Each was superseded for the one reason that
-    warning admits — a deliberate change to what a page prints — and every
-    file in the chain says so.
-
-    **The machine's own face costs nothing any more (CARD-221).** It used to
-    cost seven of the thirteen pages: the guide pages, the TOC and the four
-    dividers were lettered in ``ImageFont.truetype("…/Arial.ttf")`` with a
-    ``load_default`` fallback, so a machine whose ``font_fingerprint``
-    differed from the fixture's skipped those seven and compared the six that
-    were drawn in the bundled band face and Pillow's built-in clue face —
-    which on the project's own Linux deployment image, where Arial is not at
-    that path, was the difference between six pages of G-1 evidence and none.
-    Since CARD-221 every interior face is the packaged one, the fixture's
-    ``font_dependent_pages`` is empty, and all thirteen pages are compared
-    with no gate at all — on any **host font configuration**, which is the
-    axis that gate was about. Not "on any machine": the figures are still a
-    function of the installed Pillow/FreeType, which ``pyproject.toml``
-    leaves unbounded at ``>=10.0``, and catching a move in *that* is this
-    comparison's own job rather than something it is immune to (F-005). The ``same_face`` fixture, the skip,
-    the warning and the import of ``font_fingerprint`` are gone with it; the
-    measurement that justifies removing them is
-    ``tests/test_book_interior_face.py``'s own export-twice comparison and
-    the page-by-page record in ``book_baseline_card221.json``.
+    The pixel record this class used to compare every raster page against
+    (``book_baseline_card206.json``'s digests) was retired on 2026-11-09: the
+    owner's new level dividers moved every raster page it recorded.
     """
 
     @pytest.fixture(scope="class")
@@ -2283,136 +2057,20 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert len(exported) == baseline["page_count"]
 
     def test_every_page_is_in_the_medium_its_kind_is_declared_in(self, exported):
-        """The gate that makes the retirement below an accounting, not a hole.
-
-        Read off the file, against ``BASELINE_PAGE_KINDS`` read through the
-        registry. A page written as operators that its kind does not declare
-        (or the reverse) would otherwise be skipped by
-        :func:`raster_digests` and never compared.
-        """
+        """Read off the file, against ``BASELINE_PAGE_KINDS`` read through the
+        registry."""
         assert len(exported) == len(BASELINE_PAGE_KINDS) == BASELINE_PAGE_COUNT
         assert exported.media == declared_media_of_the_baseline()
 
-    def test_every_page_is_pixel_identical_to_the_recorded_one(self, baseline, exported):
-        now = raster_digests(exported)
-        recorded = baseline["pages"]
-
-        assert len(now) >= BASELINE_PAGE_COUNT, "the corpus cannot silently shrink"
-        # CARD-221: the fixture names NO machine-lettered page, because there
-        # is none left to name — every interior face is the packaged one. The
-        # list is asserted empty rather than ignored, so a future card that
-        # reintroduces a host lookup has to come back here and say so (and
-        # bring back a gate of its own with the pages it covers).
-        assert set(baseline["font_dependent_pages"]) == set(), (
-            "the baseline names machine-lettered interior pages "
-            f"{sorted(baseline['font_dependent_pages'])}, and this card's own "
-            "claim is that the interior has none: if a host lookup is back, "
-            "the gate this test used to carry has to come back with it"
-        )
-
-        compared = 0
-        operators = 0
-        for number, (drawn, was) in enumerate(zip(now, recorded, strict=True), start=1):
-            if drawn is None:
-                # CARD-355: an operators page has no decoded bitmap to digest
-                # and the recording is of the raster era. Its identity is the
-                # determinism test's (see ``raster_digests``).
-                operators += 1
-                continue
-            if number == SOLUTIONS_DIVIDER_PAGE:
-                # The approved solutions mockup deliberately redrew this page
-                # (the Solutions opener, not the one word), so its recording is
-                # superseded: it must differ from it and be the opener.
-                assert drawn != was, (
-                    f"interior page {number} is still the one-word SOLUTIONS "
-                    "divider the baseline recorded"
-                )
-                assert same_page(
-                    exported[number - 1],
-                    BookPDFGenerator(corpus_book()).create_solutions_opener(
-                        number, len(baseline_puzzles())
-                    ),
-                ), f"interior page {number} is not the Solutions opener"
-                compared += 1
-                continue
-            assert drawn == was, f"interior page {number} is not the page it was"
-            compared += 1
-
-        # Exact, not a floor: every page of the book is accounted for on every
-        # machine, as a pixel comparison or as an operators page, so a
-        # comparison that quietly stopped covering one would show up here
-        # instead of passing.
-        assert compared + operators == BASELINE_PAGE_COUNT, (
-            f"compared {compared} and retired {operators} of "
-            f"{BASELINE_PAGE_COUNT} pages"
-        )
-        assert operators == exported.media.count(pdf_vector.VECTOR)
-        assert compared == exported.media.count(pdf_vector.RASTER) >= 1, (
-            "no page of the book is a bitmap any more: the recorded evidence "
-            "has nothing left to compare, which is a retirement to name, not "
-            "a pass"
-        )
-
-    def test_the_interior_file_is_the_length_it_was_recorded_with(
-        self, baseline, exported_bytes
-    ):
-        """F-7's other half: the same bytes, not only the same pixels.
-
-        The new writer mirrors ``PdfImagePlugin._save``'s RGB path object for
-        object, and the only thing that differs between the merge-base's file
-        and this one is the two ``Info`` timestamps — four bytes of digits
-        that do not change the file's length. A writer that re-encoded, chose
-        another filter or emitted one object more would move this number long
-        before it moved a pixel.
-
-        Gated on the host's face until CARD-221, because the seven
-        machine-lettered pages were inside this file and a different Arial
-        gave their JPEG streams a different length. Ungated now: every page
-        in the file is lettered from packaged data, so the length does not
-        depend on what fonts the host has installed.
-
-        **Not "the same number on every machine"** (AC/EC/G gate, F-G2 —
-        and this docstring is the one place that overstatement mattered
-        most, since this card names this test as what would catch a
-        rasteriser change). The bytes are a JPEG encode of pages whose type
-        is rasterised by the installed FreeType, and ``pyproject.toml``
-        floors Pillow at ``>=10.0`` with no ceiling. A different build can
-        move a glyph and with it this number — which is exactly what this
-        assertion is for: it reds on the machine that moved, instead of the
-        move reaching a printed book.
-        """
-        media = pdf_vector.page_media(exported_bytes)
-        if pdf_vector.VECTOR in media:
-            # CARD-355: the recorded length is a sum of JPEG streams. With
-            # any page written as operators the file is a different artefact
-            # and the number is not comparable -- but its LENGTH is still a
-            # function of the book alone, which is what survives: the same
-            # book exported again is the same length
-            # (:class:`TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport`).
-            assert media == declared_media_of_the_baseline()
-            return
-        assert len(exported_bytes) == baseline["interior_bytes"]
-
     def test_the_corpus_covers_every_page_kind_the_interior_has(self, exported):
-        """The evidence's own premise: fourteen pages, one of every kind.
+        """Fourteen pages, one of every kind, each identified positively and
+        all distinct. The book prints grouped easy, medium, hard (INV-009):
 
-        A baseline of fourteen identical blank pages would pass the
-        comparison above and prove nothing — but so would fourteen *distinct*
-        pages of the wrong kinds. Dropping a divider for a fifth answer page
-        keeps them all distinct while the baseline silently stops covering
-        the divider. So each kind is identified positively, and distinctness
-        is kept beside it. The book prints grouped easy, medium, hard
-        (INV-009, CARD-128), so the kinds run:
-
-        * page 1 is the blank title / copyright page (CARD-206), identified
-          by the one thing on it — nothing: it is the only page of the book
-          with no ink at all, which the distinctness sweep at the end of this
-          test could never say on its own;
-        * pages 2 and 3 are the guide's own two pages (CARD-201), page 4 is
-          the table of contents (CARD-200: this 4-puzzle book's TOC always
-          fits one page), page 11 the SOLUTIONS divider, and pages 5, 7 and
-          9 the "Easy", "Medium" and "Hard" level dividers — each compared
-          against the page the generator draws for it;
+        * page 1 is the title / copyright page, pages 2 and 3 the guide's two
+          pages, page 4 the table of contents, page 11 the Solutions opener,
+          and pages 5, 7 and 9 the Easy (puzzles 1-2), Medium (3) and Hard (4)
+          level dividers — each compared against the page the generator
+          draws for it;
         * page 6 is the two-up page (FR-040), the book's two easy 10x10s:
           each half of it carries its own complete 10x10 grid, which no
           single-puzzle page can do;
@@ -2420,16 +2078,9 @@ class TestBookPdfMemory_PagesAreUnchanged:
           30x30 hard the baseline book declares are **read back off their
           ink** (``drawing_of``), not asked of the layout — in that order,
           because the levels print in that order;
-        * pages 12-14 are answer pages (CARD-206's title page shifts the
-          section by one more, on top of CARD-200's TOC and CARD-201's guide
-          growth; CARD-202: Duck and
-          Owl, both small enough to pack, share packed page 12; Tree, the
-          only qualifying answer in its level, packs alone onto page 13;
-          Snowflake, too large to qualify, still gets CARD-198's own full
-          page 14) — each carries solid blocks of ink a filled cell wide,
-          which no blank puzzle page or divider has anywhere on it (the
-          guide pages have, since CARD-167/CARD-201: the worked example and
-          the other line diagrams).
+        * pages 12-14 are the packed answer pages, one per level (Duck and
+          Owl; Tree; Snowflake) — each carries solid blocks of ink a filled
+          cell wide, which no blank puzzle page has.
         """
         assert len(exported) == BASELINE_PAGE_COUNT
         generator = BookPDFGenerator(corpus_book())
@@ -2445,10 +2096,15 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert same_page(
             exported[10], generator.create_solutions_opener(11, len(baseline_puzzles()))
         )
-        for number, level in ((5, "Easy"), (7, "Medium"), (9, "Hard")):
+        for number, level, puzzles in (
+            (5, Tier.EASY, (1, 2)),
+            (7, Tier.MEDIUM, (3, 3)),
+            (9, Tier.HARD, (4, 4)),
+        ):
             assert same_page(
-                exported[number - 1], generator.create_divider_page(number, level)
-            ), f"interior page {number} should be the {level!r} level divider"
+                exported[number - 1],
+                generator.create_level_divider(number, level, puzzles),
+            ), f"interior page {number} should be the {level.label!r} level divider"
 
         for number, side in ((8, 15), (10, 30)):
             drawing = drawing_of(exported[number - 1])
@@ -2471,23 +2127,11 @@ class TestBookPdfMemory_PagesAreUnchanged:
                 f"interior page {number} should be an answer page, whose "
                 "filled cells are solid blocks of ink"
             )
-        # Not pages 2-3: since CARD-167/CARD-201 the guide's own worked
-        # example and line diagrams draw filled squares too. They are
-        # identified positively above, as the pages the generator draws for
-        # the guide, so they cannot pass for an answer page here. Not page
-        # 4 either (CARD-200's TOC): a listing of plain text rows, no filled
-        # cell on it at all. Not page 1 either (CARD-206's title page): it
-        # carries no ink of any kind, asserted directly above.
-        # (Until CARD-391 pages 6, 8 and 10 also carried a placeholder QR
-        # icon whose checkerboard modules were each a solid block at least
-        # FILLED_CELL_PROBE wide, and this loop masked it out first. The icon
-        # is gone, so the pages are probed as drawn.)
-        # Not page 11 either, since the approved solutions mockup: its
-        # Solutions opener sets "Solutions" at 48 pt, emboldened, under a
-        # heavy rule, and those strokes are solid blocks a filled cell wide.
-        # It is identified positively above, as the opener the generator
-        # draws for that page, so it cannot pass for an answer page here.
-        for number in (4, 5, 6, 7, 8, 9, 10):
+        # Pages 1-3, 5, 7, 9 and 11 are identified positively above (title,
+        # guide, level dividers, Solutions opener); the guide diagrams and the
+        # openers' bold type and dots are solid ink, so they are not probed.
+        # Page 4 (TOC) and the puzzle pages carry no filled cell.
+        for number in (4, 6, 8, 10):
             assert not solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} carries filled cells — it is an "
                 "answer page, and the baseline no longer covers its kind"
@@ -2499,15 +2143,6 @@ class TestBookPdfMemory_PagesAreUnchanged:
                     f"interior pages {first + 1} and {second + 1} are the same "
                     "page — the baseline no longer covers every page kind"
                 )
-
-    def test_the_digest_would_have_caught_a_changed_page(self):
-        """The comparison has teeth: one flipped pixel changes the digest."""
-        page = Image.new("RGB", (40, 40), "white")
-        before = page_digests([page])
-        page.putpixel((7, 9), (0, 0, 0))
-
-        assert page_digests([page]) != before
-
 
 class TestBookPdfMemory_TheSharedReaderReadsEachPageForItself:
     """CARD-355 SCOPE+ regression: ``rendered_page`` returns the page it was asked for.
@@ -2598,12 +2233,6 @@ class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
     (:func:`pdf_vector.content_streams`), and therefore the same pixels under a
     fixed rasteriser.
 
-    That is the survivor named by :func:`raster_digests` and by
-    ``test_the_interior_file_is_the_length_it_was_recorded_with`` for every
-    stored digest or length it no longer compares on an operators page. It is
-    held on every page of the book in either medium, so on a tree with no
-    operators page it still compares every bitmap.
-
     The control is in the same class: :func:`_streams_agree` is handed one
     page's stream with a single character changed and must say no.
     """
@@ -2652,1547 +2281,6 @@ class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
             )
         assert not self._streams_agree(streams, streams[:-1])
         assert self._streams_agree(streams, list(streams)), "and an equal pair agrees"
-
-    def test_an_operators_page_has_no_digest_to_match_a_recording(self):
-        """Control for :func:`raster_digests`: a stored digest is only ever
-        compared with a bitmap page. ``None`` -- not a sentinel that happens to
-        differ from everything -- is what an operators page yields."""
-        bitmap = Image.new("RGB", (40, 40), "white")
-        pages = ReadInterior([bitmap, bitmap])
-        pages.media = [pdf_vector.RASTER, pdf_vector.VECTOR]
-
-        digests = raster_digests(pages)
-        assert digests[0] == page_digest(bitmap)
-        assert digests[1] is None
-
-
-# --------------------------------------------------------------------------
-# CARD-204 AC-7 — every page that carries no drawing is byte-identical
-# --------------------------------------------------------------------------
-
-
-# CARD-221 removed CARD-204's AC-7b instrument from this file:
-# ``_GUIDE_SCATTER_SHARE_CEILING`` (1% of a page), ``_GUIDE_SCATTER_GREY_TOLERANCE``
-# (64 grey levels) and ``_one_pixel_displacement_outliers`` (a 3x3
-# neighbourhood search), together with the test that used them,
-# ``test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement``.
-#
-# What they measured was that CARD-204's *incidental, sub-pixel* scatter on
-# the two guide pages stayed inside a bound: under 1% of the page differing
-# (measured then: 0.183% and 0.192%), and every differing pixel explained by
-# ink that had moved at most one pixel (0 outliers on either page). That claim
-# cannot be restated after CARD-221, which deliberately re-letters both pages
-# in the packaged face: re-measured at HEAD with the deleted instrument's
-# own rule, page 1 differs from the CARD-200 recording in 7.596% of its
-# pixels and page 2 in 10.531%, with 254,766 and 478,630 differing pixels
-# that no 1 px displacement at its own 64-grey tolerance explains.
-#
-# It is not re-anchored at CARD-221's own pages either, and that was tried
-# first: the deleted test's own ``moved > 0`` assertion exists precisely to
-# stop the bound being measured against nothing, so a reference taken from
-# the same render it is compared with would have made it vacuous (0 pixels
-# differing) by that test's own definition. What replaces it is stronger and
-# unconditional on any host font configuration: both guide pages are pixel for
-# pixel against ``book_baseline_card221.json`` by
-# ``TestBookPdfMemory_PagesAreUnchanged``, and
-# ``test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one``
-# below keeps the "still the guide pages, still the same size, still not the
-# CARD-200 pixels" claims and the stored images' own integrity check.
-
-
-class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
-    """AC-7 — the TOC and every divider are untouched by CARD-204; the guide
-    pages carry one discovered, narrow exception.
-
-    This card's right-alignment and QR-slot changes are meant to touch only
-    pages whose drawing is placed by ``compute_layout``'s page-wide
-    centring clause, and whose own puzzle has some horizontal spare to
-    actually move by: on the baseline book that is just the two
-    single-puzzle pages (7, 9) and the two-up page (5) — see
-    ``STRICTLY_UNCHANGED_PAGES``'s own comment for why none of the three
-    answer pages (11-13) is moved by this card either, each for its own,
-    investigated reason. All four dividers (4, 6, 8, 10) confirm the
-    untouched claim too: 0 pixels differ from ``book_baseline_card200.json``
-    on any of them.
-
-    **A third baseline, for the same reason the second one exists
-    (CARD-205).** The TOC (3) used to sit in that "0 pixels differ from
-    CARD-200" group, and legitimately did — until CARD-205, the card
-    immediately after this one, replaced its per-puzzle listing with a
-    structural one. That is a *later* card's deliberate ink change landing
-    on a page this class had claimed as CARD-204's evidence — the same
-    situation CARD-203's caption move created for pages 11-13 — and it gets
-    the same treatment rather than an exemption: page 3 moves to
-    ``CARD205_TOC_PAGE``, is compared just as strictly against
-    ``book_baseline_card205.json``, and the attribution is itself measured
-    (:meth:`test_the_toc_page_moved_under_card205_not_card204` asserts that
-    CARD-200's and CARD-205's recordings of that page differ while
-    CARD-204's still agrees with CARD-200's, which is what makes "CARD-205
-    moved it, CARD-204 did not" a fact about three fixtures). Dropping it
-    was rejected for the reason stated below: a page nobody compares is a
-    page with no evidence.
-
-    **Two pre-card baselines, not one (CARD-204 Fix 7, merge gate).** Until
-    the merge gate this class compared all eight of those pages against
-    CARD-200's recording and said, of each, that it "carries no drawing, so
-    CARD-204 must leave it byte-identical to the CARD-200 baseline". For the
-    three answer pages that sentence is now false *and* mis-attributed:
-    CARD-203 — merged to main after this branch was cut — right-aligns their
-    caption and lifts it to a fixed gap above the drawing, so they differ
-    from CARD-200 for a reason that has nothing to do with this card. Of the
-    two honest repairs (compare them against a baseline that includes
-    CARD-203, or assert the CARD-203-attributed difference explicitly) this
-    class does **both**, because each alone leaves a hole: the strict digest
-    comparison moves to ``book_baseline_card203.json``, which is the last
-    recording taken before this branch's own changes and the first that
-    includes the caption move
-    (:meth:`test_the_three_answer_pages_still_match_the_card203_baseline`),
-    and the attribution is itself measured — those pages differ from
-    CARD-200, and already differed in CARD-203's own recording
-    (:meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`),
-    which is what makes "CARD-203 moved them" a fact about the fixtures
-    rather than a sentence in a docstring. Dropping them from the comparison
-    was rejected: a page nobody compares is a page with no evidence, and
-    this class exists to produce evidence per page.
-
-    **The two guide pages (1, 2) do not quite hold the same promise, and
-    this is investigated, not assumed.** ``create_guide_page``'s worked
-    examples and cell-state icons are drawn through
-    ``example_line_layout``/``guide_icon_layout``, which call
-    ``compute_layout`` on the book's own placed ``PageSpec`` — not to place
-    themselves on the page (``draw_example_line`` crops tight to its own ink
-    and the guide page pastes the crop at ``frame.left``, a fixed margin
-    unrelated to this card), but to borrow the book's own cell pitch and
-    rule widths for internal consistency (ADR-0036/R2, G-3: "no new
-    placement arithmetic, only a narrower slice of what compute_layout
-    already returns"). ``compute_layout``'s placed-page branch rounds each
-    grid boundary independently (``_boundaries``'s own docstring: "within
-    half a pixel"), and that per-boundary rounding depends on the *absolute*
-    anchor's own fractional part — which this card's formula change moves,
-    even though the crop that actually reaches the page is relative. Measured
-    directly (git-stash diff against the pre-card renderer): pages 1 and 2
-    move by a scatter of 1px rule-edge shifts inside the worked-example
-    diagrams (roughly 15000 pixels of a 2550x3300 page, i.e. well under 1%,
-    all accounted for by rules/fills shifting at most one device pixel);
-    pages 3, 4, 6, 8 and 10 move by zero pixels. This is the same shape of
-    "page 1 moved for a reason unrelated to its own content" the baseline
-    chain has already absorbed twice (CARD-149's type-size fix, CARD-167's
-    retitling) — flagged here and in this card's own Worktree notes for the
-    architect/owner, not silently treated as in-scope for this card to
-    eliminate (doing so would mean giving ``example_line_layout`` its own
-    placement arithmetic, which G-3 forbids these helpers from having).
-
-    **That exception is bounded, not merely described** (AC-7b, the
-    owner's 2026-10-13 decision to “bound it with a test, then merge”):
-    :meth:`test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement`
-    asserts both halves of the measurement above — under 1% of the page
-    differing at all, and every differing pixel explained by ink that
-    moved at most one pixel — against the pre-card pixels themselves, so
-    a later card that displaces these diagrams further fails here
-    instead of inheriting the prose.
-    """
-
-    #: The baseline book's own page-kind split (CARD-200's recording;
-    #: ``tests/helpers/book_corpus.py``'s own docstring, and
-    #: ``TestBookPdfMemory_PagesAreUnchanged``'s positively-identified kinds
-    #: above): the pages right-alignment never touches, and the ones
-    #: CARD-204 deliberately repositions (and, on 5/7/9, adds a placeholder
-    #: QR icon to). Two exceptions below, both measured (git-stash diff
-    #: against the pre-card renderer), neither assumed:
-    #:
-    #: * **Pages 11 and 12** are CARD-202's own *packed* answer pages
-    #:   (Duck+Owl share 11, Tree packs alone onto 12) —
-    #:   ``_packed_tile_layout`` centres each tile across its **own** tile
-    #:   width, a local formula FR-032's page-wide centring/right-alignment
-    #:   clause was never about (this card's own investigation named
-    #:   exactly two call sites for that clause, ``compute_layout`` and
-    #:   ``_slot_layout`` — neither is this one): 0 pixels moved.
-    #: * **Page 13** (Snowflake's own full, unpacked answer page) *does*
-    #:   reuse ``compute_layout``. CARD-204 left it unmoved by a coincidence
-    #:   of this puzzle's own geometry — its extent is exactly page-fit-bound
-    #:   on both axes (AC-175's own case: the cell is fitted, not capped), so
-    #:   its horizontal ``spare`` is exactly 0 and centring's
-    #:   ``usable_left + spare / 2`` and right-alignment's flush formula
-    #:   collapsed to the same pixel — and that card's own note said a
-    #:   Snowflake-sized puzzle with any spare at all would move like pages
-    #:   5/7/9 do.
-    #:
-    #:   **CARD-224 moves it, through the other axis.** That card floats
-    #:   every placed drawing at 42% of its puzzle area's spare *height*,
-    #:   and this page's vertical spare is not zero (the page-fit bound is
-    #:   the width's; the puzzle area is one footer strip shallower than the
-    #:   height the cell was fitted against), so the drawing — and with it
-    #:   the caption CARD-203 hangs a fixed gap below it — sits lower on the
-    #:   page. It is therefore no longer in the group below: see
-    #:   :attr:`CARD224_FLOATED_PAGE`.
-    #:
-    #: **CARD-204 Fix 7 (merge gate): pages 11-13 are still unmoved BY THIS
-    #: CARD, and are no longer compared against CARD-200.** Both statements
-    #: above remain true and measured — but CARD-203 merged to main between
-    #: this branch being cut and the merge gate running, and it moves all
-    #: three answer pages (it right-aligns their caption and lifts it to a
-    #: fixed gap above the drawing). "Byte-identical to CARD-200" is
-    #: therefore false of them now, and was never CARD-204's to promise:
-    #: they are compared against ``book_baseline_card203.json`` instead —
-    #: see :attr:`CARD203_CAPTION_PAGES`.
-    #: **CARD-205 removed interior page 3 (the TOC) from this group.** The
-    #: group's claim is "byte-identical to CARD-200's recording", and it was
-    #: true of the TOC right up to this card, which deliberately rewrites
-    #: what that page says: the per-puzzle listing becomes a structural one
-    #: (the guide, each level's heading and ``Puzzles N–M`` range, the
-    #: solutions), with leader dots. That is not an exception to be excused
-    #: here — it is another card's own change, exactly as CARD-203's caption
-    #: move was for pages 11-13 — so page 3 moves to :attr:`CARD205_TOC_PAGE`
-    #: and is compared, just as strictly, against CARD-205's own recording.
-    #: The four level dividers stay: nothing in that card touches them, and
-    #: ``test_every_divider_still_matches_the_card200_baseline`` is what says
-    #: so. The *reason* that matters is that a divider and the TOC are the
-    #: only two "front matter" page kinds, so dropping both would leave the
-    #: group with nothing to prove.
-    #: **CARD-206 (SCOPE+): every page number in this class is a number in
-    #: the STORED recordings, not an index into this book's own export.**
-    #: That card reserves the blank title / copyright page as interior page 1,
-    #: so the page CARD-222 recorded as *n* is exported as *n +
-    #: TITLE_PAGE_COUNT* now — and because the marks that share a page's
-    #: footer band sit against its **outer** and **inner** edges, the shift
-    #: mirrors them as well as changing the folio's digits. (Measured on the
-    #: render, review cycle 1 F-103/F-104: on a page that carries the frame
-    #: the folio itself is **centred** and does not move — it is the QR group
-    #: and the grid-size label that change sides. On the guide, TOC, divider
-    #: and answer pages, which carry no frame, the folio is the outer-corner
-    #: mark and does mirror.) Every one
-    #: of this class's live pages therefore differs from CARD-222's recording,
-    #: and the forward reference each group owes its byte-identity to is
-    #: CARD-206's own (:meth:`card206_baseline`), read at the live index. The
-    #: attributions between the *stored* fixtures are statements about files
-    #: and are untouched. The claim that nothing but the pagination moved is
-    #: not this class's to make — it belongs to
-    #: :class:`TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`, which
-    #: compares each page against the same unedited drawing function called at
-    #: its pre-CARD-206 position with the footer band cropped away.
-    #:
-    #: The one page with no stored counterpart is the title page itself:
-    #: it has no historical number, so it sits in no group below and its
-    #: evidence is
-    #: :meth:`TestBookPdfMemory_PagesAreUnchanged.test_the_corpus_covers_every_page_kind_the_interior_has`'s
-    #: own "no ink of any kind" assertion plus the whole-book digest
-    #: comparison beside it.
-    LIVE_OFFSET = TITLE_PAGE_COUNT
-
-    STRICTLY_UNCHANGED_PAGES = (4, 6, 8)
-
-    #: Stored page 10 (live 11), the SOLUTIONS divider, left the group above
-    #: with the approved solutions mockup: with no stored picture its slot now
-    #: draws the Solutions opener (a rule, "PUZZLES 1-N", "Solutions" at
-    #: 48 pt, a grey blurb) instead of the one word, a deliberate change to
-    #: what the page prints. Its live page is asserted to differ from
-    #: CARD-206's recording and to be the generator's own opener instead.
-    SOLUTIONS_OPENER_PAGE = (10,)
-
-    #: Interior page 3, the table of contents. CARD-205 rewrites its rows,
-    #: so it is byte-identical to **CARD-205's** recording and deliberately
-    #: not to CARD-200's — both halves asserted below, the second one so the
-    #: attribution stays a measurement rather than a sentence.
-    CARD205_TOC_PAGE = (3,)
-
-    #: The three answer pages (CARD-202's two packed ones and Snowflake's
-    #: full one). CARD-204 leaves them byte-identical — the reasons are the
-    #: two bullets above, unchanged — but CARD-203 does not, so the baseline
-    #: they owe that identity to is CARD-203's own recording, the last one
-    #: taken before this branch's changes and the first one that includes
-    #: the caption move. Compared exactly as strictly as the group above,
-    #: against a different (later) fixture, rather than dropped from the
-    #: comparison: a page nobody compares is a page with no evidence, and
-    #: ``test_the_three_answer_pages_moved_under_card203_not_this_card``
-    #: below keeps the attribution honest by asserting they *do* differ from
-    #: CARD-200.
-    CARD203_CAPTION_PAGES = (11, 12)
-
-    #: Interior page 13, Snowflake's own full answer page. CARD-204 left it
-    #: byte-identical by the zero-spare coincidence recorded above; CARD-224's
-    #: 42% float moves it, because its *vertical* spare is not zero. It is
-    #: kept in this class's own accounting — with its own fixture comparison
-    #: and its own attribution test — rather than dropped from the page kinds
-    #: this class produces evidence for, for the reason the paragraphs above
-    #: give: a page nobody compares is a page with no evidence.
-    CARD224_FLOATED_PAGE = (13,)
-    GUIDE_PAGES = (1, 2)
-    NON_DRAWING_PAGES = (
-        STRICTLY_UNCHANGED_PAGES
-        + SOLUTIONS_OPENER_PAGE
-        + CARD205_TOC_PAGE
-        + CARD203_CAPTION_PAGES
-        + CARD224_FLOATED_PAGE
-        + GUIDE_PAGES
-    )
-    DRAWING_PAGES = (5, 7, 9)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def baseline(cls) -> Dict[str, Any]:
-        """The **pre-CARD-204** recording, loaded directly rather than
-        through ``load_baseline()`` — that helper now points at
-        ``book_baseline_card204.json``, this card's own forward baseline,
-        against which every page would trivially match itself. What this
-        class needs is the *previous* card's evidence, to prove this
-        card's own change reached only the pages it meant to.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card200.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card203_baseline(cls) -> Dict[str, Any]:
-        """CARD-203's own recording — the pre-CARD-204 evidence for the three
-        pages CARD-203 itself moved (CARD-204 Fix 7).
-
-        Loaded directly for the same reason :meth:`baseline` is, and kept
-        beside it rather than replacing it: the TOC and the four dividers
-        have owed their byte-identity to CARD-200 since this card was cut and
-        still do, and re-pointing them at a later fixture would quietly widen
-        what "untouched" is measured against.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card203.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card204_baseline(cls) -> Dict[str, Any]:
-        """CARD-204's own recording — the *other* half of the TOC's
-        attribution (review cycle 1, F-002).
-
-        ``test_the_toc_page_moved_under_card205_not_card204`` promised a fact
-        about three fixtures and loaded two, which left "CARD-204 did not move
-        it" narrated rather than measured — in the one class whose whole
-        purpose is turning such claims into comparisons. Loaded directly by
-        name for the same reason the other two are.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card204.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card205_baseline(cls) -> Dict[str, Any]:
-        """CARD-205's own recording — the evidence for the one page CARD-205
-        itself moved, the table of contents.
-
-        Loaded directly by name rather than through ``load_baseline()``,
-        exactly as :meth:`baseline` and :meth:`card203_baseline` are, so
-        that this class keeps naming the fixture each claim rests on. It
-        happens to be what ``BASELINE_FIXTURE`` points at today; naming it
-        here means the next card to record a forward baseline does not
-        silently widen what "the TOC is unchanged" is measured against.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card205.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card221_baseline(cls) -> Dict[str, Any]:
-        """CARD-221's own recording — the evidence for the seven pages that
-        card moved, which is every page the interior used to letter in the
-        **host's** Arial (the two guide pages, the TOC and the four
-        dividers).
-
-        Loaded directly by name, like every other fixture this class names,
-        so that each claim below still says which recording it rests on. It
-        is what ``BASELINE_FIXTURE`` points at today; naming it here means
-        the next card to record a forward baseline does not silently widen
-        what "unchanged since CARD-221" is measured against.
-
-        **The ``same_face`` fixture this replaces is gone.** It compared
-        ``font_fingerprint()`` against the baseline's, and every comparison
-        below skipped the machine-lettered pages where they differed; its
-        condition — interior pixels that depend on the host's fonts — is
-        what CARD-221 removed, and the comparisons below are unconditional
-        on any host font configuration now. (Not on any Pillow/FreeType
-        build — that lever is unbounded and these comparisons are what
-        would catch it moving; F-005.)
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card221.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card222_baseline(cls) -> Dict[str, Any]:
-        """CARD-222's own recording — the forward baseline every live
-        comparison in this class now rests on.
-
-        That card lands CON-018's amendment of 2026-10-17: three of the four
-        margins move, so **every** page of the interior moves with them (its
-        own ``changed_pages`` is all thirteen, the only recording in this
-        chain for which that is true). The per-page attributions below are
-        unchanged in kind — each still names the card that last moved its page
-        and asserts the move against that card's stored fixture — but the
-        card they name for the live page is this one, and the fixture that
-        used to hold the live page is now asserted to *differ* from it. It is
-        loaded by name, like every other fixture here, so each claim still
-        says which recording it rests on.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card222.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card206_baseline(cls) -> Dict[str, Any]:
-        """CARD-206's own recording — the forward baseline every live
-        comparison in this class now rests on.
-
-        That card reserves the blank title / copyright page as interior page
-        1, so **every** page of the interior moves one place later and flips
-        parity with it (its own ``changed_pages`` is all fourteen, and its own
-        note records that it therefore has no control page). The per-page
-        attributions below are unchanged in kind — each still names the card
-        that last moved its page and asserts the move against that card's
-        stored fixture — but the card they name for the live page is this one,
-        and CARD-222's fixture, which used to hold the live page, is now
-        asserted to *differ* from it. Loaded by name, like every other fixture
-        here, so each claim still says which recording it rests on.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card206.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def card248_baseline(cls) -> Dict[str, Any]:
-        """CARD-248's own recording — the last one taken before CARD-224, and
-        the evidence for the one page **this** card moves inside this class's
-        own accounting (interior 13, Snowflake's full answer page).
-
-        Loaded directly by name, like every other fixture here, so that the
-        claim "nothing between CARD-222 and CARD-248 moved page 13, and
-        CARD-224 did" is a fact about three files rather than a sentence.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        with (fixtures_dir / "book_baseline_card248.json").open(encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def exported(cls) -> List[Image.Image]:
-        return interior_pages_of(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
-
-    def test_every_divider_still_matches_the_card206_baseline(
-        self, baseline, card221_baseline, card222_baseline, card206_baseline, exported
-    ) -> None:
-        """A divider carries one word and nothing else, so only a card that
-        changes that word or the face it is set in may move it.
-
-        **CARD-221 was such a card, and CARD-222 is another** — the first
-        lettered the divider in the packaged face instead of the host's Arial,
-        the second moved three of CON-018's four margins (2026-10-17), which
-        moves the one word this page carries along with the text block it is
-        centred in. So the live comparison is against CARD-222's recording and
-        the attribution is asserted beside it rather than written down: each
-        divider differs from the CARD-200 recording (the face moved it), then
-        from CARD-221's (the margins moved it), and is identical to CARD-222's
-        (nothing has moved it since). Before CARD-221 these pages owed their
-        byte-identity to CARD-200 and the comparison skipped them wherever the
-        host's face differed from the fixture's; it is unconditional now.
-        """
-        # The groups are numbered in the STORED recordings (see LIVE_OFFSET),
-        # so they cover every page CARD-222's thirteen-page book had — one
-        # fewer than this book's own fourteen, the missing one being
-        # CARD-206's title page, which no earlier recording has a page for.
-        stored_page_count = BASELINE_PAGE_COUNT - self.LIVE_OFFSET
-        assert set(self.NON_DRAWING_PAGES) | set(self.DRAWING_PAGES) == set(
-            range(1, stored_page_count + 1)
-        ), "the split above must cover every stored baseline page exactly once"
-        assert (
-            len(self.NON_DRAWING_PAGES) + len(self.DRAWING_PAGES) == stored_page_count
-        ), "...and exactly once: no page may sit in two groups at the same time"
-
-        now = raster_digests(exported)
-        compared = 0
-        for number in self.STRICTLY_UNCHANGED_PAGES:
-            assert now[number - 1 + self.LIVE_OFFSET] is not None, (
-                f"interior page {number} is a divider and a divider is a "
-                "bitmap (its declaration names CARD-231, not CARD-322): "
-                "written as operators it would be skipped here, not compared"
-            )
-            assert number in card221_baseline["changed_pages"], (
-                f"interior page {number} is a divider lettered through "
-                "_guide_face, so CARD-221's own recording must name it among "
-                "the pages that card moved"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] != baseline["pages"][number - 1], (
-                f"interior page {number} still matches the CARD-200 "
-                "recording, so the packaged face never reached this divider "
-                "— CARD-221's own change did not happen here"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] != card221_baseline["pages"][number - 1], (
-                f"interior page {number} still matches the CARD-221 "
-                "recording, so CON-018's amended margins never reached this "
-                "divider — CARD-222's own change did not happen here"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] != (
-                card222_baseline["pages"][number - 1]
-            ), (
-                f"stored page {number} is a level or SOLUTIONS divider, and "
-                "CARD-206 moved it: its folio reads one number higher and "
-                "sits in the opposite bottom corner. If it still matches "
-                "CARD-222's recording, the title page never reached this "
-                "divider"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] == (
-                card206_baseline["pages"][number - 1 + self.LIVE_OFFSET]
-            ), (
-                f"stored page {number} is a level or SOLUTIONS divider — it "
-                "carries one word and nothing else, so nothing after CARD-206 "
-                "may move it off that card's baseline"
-            )
-            compared += 1
-        assert compared == len(self.STRICTLY_UNCHANGED_PAGES), compared
-
-        generator = BookPDFGenerator(corpus_book())
-        for number in self.SOLUTIONS_OPENER_PAGE:
-            live = number + self.LIVE_OFFSET
-            assert now[live - 1] is not None, (
-                f"interior page {live} is the SOLUTIONS divider and a divider "
-                "is a bitmap: written as operators it would be skipped here"
-            )
-            assert now[live - 1] != card206_baseline["pages"][live - 1], (
-                f"interior page {live} still matches CARD-206's one-word "
-                "SOLUTIONS divider, so the Solutions opener never reached it"
-            )
-            assert same_page(
-                exported[live - 1],
-                generator.create_solutions_opener(live, len(baseline_puzzles())),
-            ), f"interior page {live} is not the Solutions opener"
-
-    def test_the_toc_page_matches_the_card206_baseline(
-        self, card205_baseline, card221_baseline, card222_baseline, card206_baseline,
-        exported
-    ) -> None:
-        """The TOC's rows are CARD-205's wording, CARD-221's face and CARD-222's
-        text block.
-
-        Compared exactly as strictly as the dividers above, against the
-        recording that holds both, rather than dropped from the comparison:
-        a page nobody compares is a page with no evidence, and this class
-        exists to produce evidence per page. The reference moved forward
-        from CARD-205's recording to CARD-221's because that card re-set
-        every row in the packaged face (the rows are 49 px tall on it
-        against Arial's 48), and forward again to CARD-222's because
-        CON-018's amended margins move the frame every row is set inside. The
-        three-fixture attribution below says so rather than leaving either
-        move unexplained. Face-gated until CARD-221; unconditional now.
-        """
-        now = raster_digests(exported)
-        retired = 0
-        for number in self.CARD205_TOC_PAGE:
-            if now[number - 1 + self.LIVE_OFFSET] is None:
-                # CARD-355: the TOC is operators; a recording of its raster
-                # twin cannot be matched OR differed from. Its identity is
-                # the stream's determinism, and its content is
-                # ``tests/test_book_toc.py``'s.
-                retired += 1
-                continue
-            assert now[number - 1 + self.LIVE_OFFSET] != card205_baseline["pages"][number - 1], (
-                f"interior page {number} still matches the CARD-205 "
-                "recording — the packaged face never reached the table of "
-                "contents, and CARD-221's own change did not happen here"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] != card221_baseline["pages"][number - 1], (
-                f"interior page {number} still matches the CARD-221 "
-                "recording — CON-018's amended margins never reached the "
-                "table of contents, and CARD-222's own change did not happen "
-                "here"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] != (
-                card222_baseline["pages"][number - 1]
-            ), (
-                f"stored page {number} is the table of contents, and CARD-206 "
-                "moved it with every other page: its folio reads one number "
-                "higher and sits in the opposite bottom corner"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] == (
-                card206_baseline["pages"][number - 1 + self.LIVE_OFFSET]
-            ), (
-                f"stored page {number} is the table of contents: CARD-205 "
-                "rewrote its rows, CARD-221 re-set them in the packaged face, "
-                "CARD-222 moved the frame they sit in, CARD-206 moved its "
-                "page number and its folio's corner and nothing since has, "
-                "so it must be byte-identical to the CARD-206 baseline"
-            )
-        assert retired == sum(
-            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
-            for number in self.CARD205_TOC_PAGE
-        ), "a TOC page is either compared or retired, and the count says which"
-
-    def test_the_toc_page_moved_under_card205_not_card204(
-        self, baseline, card204_baseline, card205_baseline, card221_baseline,
-        card222_baseline, exported
-    ) -> None:
-        """The attribution, measured rather than written down — the same
-        shape :meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`
-        uses for CARD-203's pages.
-
-        Page 3 differs from CARD-200's recording, and that difference is
-        already in CARD-205's own fixture, while CARD-204's recording still
-        agrees with CARD-200 on it. So "CARD-205 moved it, CARD-204 did not"
-        is a fact about the three fixtures, not a claim in a docstring.
-
-        **All three fixtures are read** (review cycle 1, F-002): the
-        CARD-204 half used to be asserted nowhere, which made the "not
-        CARD-204" clause of this test's own name a sentence rather than a
-        measurement. It is now the first assertion below, and it is the one
-        that fails if a later card re-records CARD-204's fixture off a
-        rewritten TOC.
-
-        **The face gate that used to sit in the middle of this test is gone**
-        (CARD-221). It was placed there rather than at the top because the
-        attribution is a statement about *stored* recordings and holds on any
-        machine, while the two comparisons that read this machine's own
-        export were machine-lettered — the project's own "only the pinned
-        figure is skipped, never the guardrail" rule, applied to the one test
-        added to close F-002. Since the interior letters from packaged data
-        those two comparisons hold on any host font configuration too — the
-        clause above says "any machine" of a comparison between two *stored*
-        fixtures, which really is machine-independent; this one reads this
-        machine's own export and is only as portable as its Pillow/FreeType
-        (F-005). The live page is
-        compared against CARD-221's recording (which re-set every row in that
-        face) with the move attributed to it, rather than against CARD-205's.
-        """
-        for number in self.CARD205_TOC_PAGE:
-            card200_page = baseline["pages"][number - 1]
-            card204_page = card204_baseline["pages"][number - 1]
-            card205_page = card205_baseline["pages"][number - 1]
-            assert card204_page == card200_page, (
-                f"interior page {number} differs between the CARD-200 and "
-                "CARD-204 recordings — CARD-204 then moved the table of "
-                "contents too, and this card's own attribution of it is wrong"
-            )
-            assert card205_page != card200_page, (
-                f"interior page {number} is identical in the CARD-200 and "
-                "CARD-205 recordings — CARD-205 is then not what moved it, "
-                "and this class's own split is mis-attributed"
-            )
-
-        now = raster_digests(exported)
-        for number in self.CARD205_TOC_PAGE:
-            card200_page = baseline["pages"][number - 1]
-            card205_page = card205_baseline["pages"][number - 1]
-            card221_page = card221_baseline["pages"][number - 1]
-            assert card221_page != card205_page, (
-                f"interior page {number} is identical in the CARD-205 and "
-                "CARD-221 recordings — CARD-221's packaged face is then not "
-                "what re-set the table of contents, and the live comparison "
-                "below is measured against the wrong fixture"
-            )
-            card222_page = card222_baseline["pages"][number - 1]
-            assert card222_page != card221_page, (
-                f"interior page {number} is identical in the CARD-221 and "
-                "CARD-222 recordings — CON-018's amended margins are then not "
-                "what moved the table of contents, and the live comparison "
-                "below is measured against the wrong fixture"
-            )
-            if now[number - 1 + self.LIVE_OFFSET] is None:
-                continue  # CARD-355: operators -- see ``raster_digests``
-            assert now[number - 1 + self.LIVE_OFFSET] != card222_page
-            assert now[number - 1 + self.LIVE_OFFSET] != card221_page
-            assert now[number - 1 + self.LIVE_OFFSET] != card205_page
-            assert now[number - 1 + self.LIVE_OFFSET] != card200_page
-
-    def test_the_three_answer_pages_still_match_the_card206_baseline(
-        self, card203_baseline, card222_baseline, card206_baseline, exported
-    ) -> None:
-        """CARD-204 Fix 7 — the same strict claim as the test above, against
-        the fixture that legitimately holds the last move.
-
-        **CARD-222 is that fixture now.** CARD-203 moved these three pages'
-        captions and nothing between it and CARD-222 moved them again; then
-        CON-018's amended margins (2026-10-17) moved the text block every
-        answer tile is laid out in, so all three moved with it. Both halves
-        are asserted: each page differs from CARD-203's recording and is
-        identical to CARD-222's.
-
-        None of these three is machine-lettered (the fixture's own
-        ``font_dependent_pages`` is 1, 2, 3, 4, 6, 8, 10 — a packed slot's
-        band and caption, and the folio, are all set in the packaged
-        DejaVu Sans), so this comparison needs no face gate and runs
-        everywhere.
-        """
-        now = raster_digests(exported)
-        recorded = card203_baseline["pages"]
-        assert set(card203_baseline["font_dependent_pages"]).isdisjoint(
-            self.CARD203_CAPTION_PAGES
-        ), "an answer page became machine-lettered; this comparison now needs a face gate"
-        retired = 0
-        for number in self.CARD203_CAPTION_PAGES:
-            if now[number - 1 + self.LIVE_OFFSET] is None:
-                # CARD-355: an operators answer page; see ``raster_digests``.
-                # Its content is pinned by ``tests/test_book_solved_answer_key.py``.
-                retired += 1
-                continue
-            assert now[number - 1 + self.LIVE_OFFSET] != recorded[number - 1], (
-                f"interior page {number} still matches the CARD-203 "
-                "recording, so CON-018's amended margins never reached this "
-                "answer page — CARD-222's own change did not happen here"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] != (
-                card222_baseline["pages"][number - 1]
-            ), (
-                f"stored page {number} is an answer page, and CARD-206 moved "
-                "it with every other page: its folio reads one number higher "
-                "and sits in the opposite bottom corner"
-            )
-            assert now[number - 1 + self.LIVE_OFFSET] == (
-                card206_baseline["pages"][number - 1 + self.LIVE_OFFSET]
-            ), (
-                f"stored page {number} is an answer page: CARD-203 moved its "
-                "caption, CARD-222 moved the text block it sits in, CARD-206 "
-                "moved its page number and its folio's corner and nothing "
-                "since has, so it must be byte-identical to the CARD-206 "
-                "baseline"
-            )
-        assert retired == sum(
-            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
-            for number in self.CARD203_CAPTION_PAGES
-        )
-
-    def test_the_three_answer_pages_moved_under_card203_not_this_card(
-        self, baseline, card203_baseline, exported
-    ) -> None:
-        """The attribution itself, asserted rather than written down (CARD-204
-        Fix 7): these three pages *do* differ from the CARD-200 baseline, and
-        the difference is already present in CARD-203's own recording — which
-        is what makes "CARD-203 moved them" a measurement and not a claim. If
-        a later card moves them again, the test above fails; if CARD-203's
-        caption move were somehow reverted, this one does.
-        """
-        now = raster_digests(exported)
-        for number in self.CARD203_CAPTION_PAGES:
-            card200_page = baseline["pages"][number - 1]
-            card203_page = card203_baseline["pages"][number - 1]
-            assert card203_page != card200_page, (
-                f"interior page {number} is identical in the CARD-200 and "
-                "CARD-203 recordings — CARD-203 is then not what moved it, and "
-                "this class's own split is mis-attributed"
-            )
-            if now[number - 1 + self.LIVE_OFFSET] is not None:  # CARD-355
-                assert now[number - 1 + self.LIVE_OFFSET] != card200_page
-
-    def test_the_floated_answer_page_moved_under_this_card_and_nothing_before_it(
-        self, card222_baseline, card248_baseline, exported
-    ) -> None:
-        """CARD-224's own attribution for interior 13, measured over three
-        fixtures (the discipline this class applies to every other page it
-        names).
-
-        Snowflake's full answer page is drawn through ``compute_layout`` on
-        the book's own sheet, so the 42% float reaches it: its drawing — and
-        the caption CARD-203 hangs a fixed gap below that drawing — sit lower
-        on the page than they did. Three claims, in the order that makes the
-        attribution a measurement:
-
-        1. CARD-222's and CARD-248's recordings of this page **agree** —
-           nothing between those two cards moved it, so the move is not
-           something this card inherited;
-        2. the page as exported **differs** from CARD-248's recording — the
-           move really happened here;
-        3. the other two answer pages (11, 12) are *not* in this group and
-           are still asserted byte-identical above, which is what makes the
-           difference a property of the full-page drawing rather than of
-           answer pages in general.
-        """
-        now = raster_digests(exported)
-        retired = 0
-        for number in self.CARD224_FLOATED_PAGE:
-            assert card222_baseline["pages"][number - 1] == (
-                card248_baseline["pages"][number - 1]
-            ), (
-                f"interior page {number} already differed between CARD-222 "
-                "and CARD-248, so CARD-224 is not what moved it and this "
-                "class's own split is mis-attributed"
-            )
-            if now[number - 1 + self.LIVE_OFFSET] is None:
-                retired += 1
-                continue  # CARD-355: operators -- see ``raster_digests``
-            assert now[number - 1 + self.LIVE_OFFSET] != card248_baseline["pages"][number - 1], (
-                f"interior page {number} is still CARD-248's own page: the "
-                "42% float never reached the full answer page, and this "
-                "card's own accounting of which pages move is wrong"
-            )
-
-        assert retired == sum(
-            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
-            for number in self.CARD224_FLOATED_PAGE
-        ), "every page is compared against a recording or retired as operators"
-
-    def test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one(
-        self, baseline, exported
-    ) -> None:
-        """The guide pages are not byte-identical to the CARD-200 baseline
-        (see this class's own docstring) — expected and documented. What is
-        pinned here is that they are still the *guide* pages: same size,
-        same page count, and still carrying the guide's own identifiable
-        marks (the title, the worked examples) rather than having silently
-        become blank or some other page's content. A real regression that
-        actually broke the guide page's drawing would fail one of these,
-        not hide behind the documented pixel-level exception above.
-
-        **CARD-221 widened the exception and removed its bound.** Until that
-        card the two pages differed from the CARD-200 recording only by a
-        sub-pixel rounding scatter, and
-        ``test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement``
-        measured exactly that: under 1% of the page, every differing pixel
-        explained by ink that moved at most 1 px. Re-lettering both pages in
-        the packaged face is not a scatter — measured on this branch, page 1
-        differs in 7.596% of its pixels and page 2 in 10.531%, with 254,766
-        and 478,630 pixels that are not ink-moved-by-one — so that test is
-        gone and this one keeps the claims that survive. What replaces it is
-        stronger than a bound and unconditional on any host font
-        configuration: both pages are compared pixel for pixel against
-        CARD-221's own recording by
-        ``TestBookPdfMemory_PagesAreUnchanged``.
-
-        The two stored pre-card page images stay where they are (G-5 of that
-        card: no earlier fixture is deleted), and the integrity check the
-        deleted test opened with is kept below — they are only trustworthy as
-        the exact pixels behind ``book_baseline_card200.json``'s own digests,
-        and nothing else reads them now.
-        """
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        now = raster_digests(exported)
-        recorded = baseline["pages"]
-        retired = 0
-        for number in self.GUIDE_PAGES:
-            with Image.open(
-                fixtures_dir / f"book_baseline_card200_guide_page{number}.jpg"
-            ) as raw:
-                pre = raw.convert("RGB")
-            assert page_digest(pre) == recorded[number - 1], (
-                f"the stored pre-card guide page {number} is not the page "
-                "book_baseline_card200.json recorded — this fixture is only "
-                "trustworthy as the pixels behind that digest"
-            )
-            # The size is a property of the page in either medium (a poppler
-            # render is drawn at the file's own DPI), so it is read off the
-            # bitmap, not off a digest that an operators page does not have.
-            assert list(exported[number - 1 + self.LIVE_OFFSET].size) == (
-                recorded[number - 1]["size"]
-            ), f"interior page {number} changed size, not just its face"
-            if now[number - 1 + self.LIVE_OFFSET] is None:
-                retired += 1
-                continue  # CARD-355: operators -- see ``raster_digests``
-            assert now[number - 1 + self.LIVE_OFFSET] != recorded[number - 1], (
-                f"interior page {number} is expected to differ from the "
-                "CARD-200 baseline (see this class's docstring) — if it "
-                "now matches exactly, this exception is stale and the "
-                "class docstring/comment should be revisited"
-            )
-
-        assert retired == sum(
-            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
-            for number in self.GUIDE_PAGES
-        ), "every page is compared against a recording or retired as operators"
-
-    def test_every_drawing_page_actually_moved(self, baseline, exported) -> None:
-        """The negative control: AC-7 claims an exception for these pages,
-        not a blanket "nothing changed" that this test file would hide."""
-        now = raster_digests(exported)
-        recorded = baseline["pages"]
-        retired = 0
-        for number in self.DRAWING_PAGES:
-            if now[number - 1 + self.LIVE_OFFSET] is None:
-                retired += 1
-                continue  # CARD-355: operators -- see ``raster_digests``
-            assert now[number - 1 + self.LIVE_OFFSET] != recorded[number - 1], (
-                f"interior page {number} carries a drawing and should have "
-                "moved under CARD-204 (right-alignment, and on 5/7/9 a new "
-                "QR placeholder icon) — it is still the CARD-200 baseline's "
-                "own page, so this card's own change did not reach it"
-            )
-
-        assert retired == sum(
-            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
-            for number in self.DRAWING_PAGES
-        ), "every page is compared against a recording or retired as operators"
-
-
-# --------------------------------------------------------------------------
-# CARD-201 AC-6 — every page after the guide, shifted by one, unchanged
-# --------------------------------------------------------------------------
-
-
-def _ink_bbox_crop(image: Image.Image) -> Image.Image:
-    """``image`` cropped tight to its own ink's bounding box.
-
-    Used to compare two pages of the same content at two different interior
-    positions: a book page's margins are mirrored by parity (ADR-0036), so
-    the same content drawn one page later (the opposite parity) sits at a
-    different *absolute* pixel offset — cropping to each page's own ink
-    bounding box first cancels that known, legitimate shift out, leaving
-    only whether the content itself agrees.
-    """
-    mask = np.asarray(image.convert("L")) < INK_LEVEL
-    rows = np.flatnonzero(mask.any(axis=1))
-    cols = np.flatnonzero(mask.any(axis=0))
-    return image.crop((int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1))
-
-
-#: How many pixels an ink bounding box's own measured edge may differ by
-#: between two parities before :func:`_matches_shifted_content` treats it as
-#: a real size disagreement rather than the bbox measurement's own rounding.
-_BBOX_SLACK_PX = 2
-
-
-def _matches_shifted_content(a: Image.Image, b: Image.Image) -> bool:
-    """Whether two ink-bbox-cropped pages carry the same content.
-
-    **Not** ``tests.helpers.pdf_pages.same_page``: that helper's ink-overlap
-    check downsamples by 6 before comparing (fast, and tuned for telling a
-    mostly-white page from another one, or a colour encode from a grayscale
-    one of the *same* drawing at the *same* position). A blank puzzle page's
-    own ink is almost entirely thin rules — one or two pixels wide — so a
-    1 px rounding difference between two parities (measured while building
-    this card: ``_two_up_page``'s and ``solved_puzzle_page``'s rules sit at
-    most 1 px off between a page and the same content redrawn at the
-    opposite parity) falls on a *different* side of a downsampling block
-    often enough to read as a large chunk of disagreement at 6x reduction,
-    even though the full-resolution pixel agreement is in fact above 99%.
-
-    So this compares at full resolution instead: the mean absolute grey
-    difference (same statistic ``same_page`` itself uses, just not
-    downsampled) and the share of pixels whose difference exceeds half the
-    ink threshold — both measured, on this card's own genuinely-matching
-    pages, at a small fraction of the thresholds below; a changed clue, a
-    missing fill or a relabelled band moves either figure by an order of
-    magnitude, which is what :meth:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne.test_the_comparison_has_teeth`
-    pins.
-
-    The two crops' sizes can themselves differ by a pixel: the ink bounding
-    box's own edge is one more rounded measurement, taken independently on
-    each page, so the box a page's content fills can come out a pixel wider
-    or taller at the opposite parity even though nothing inside it moved by
-    more than that. Within :data:`_BBOX_SLACK_PX` this compares the
-    top-left-aligned overlap of the two (the only region both can hold an
-    opinion about); past it, the crops disagree about something bigger than
-    rounding and the sizes are left to differ in the failure message.
-    """
-    if abs(a.width - b.width) > _BBOX_SLACK_PX or abs(a.height - b.height) > _BBOX_SLACK_PX:
-        return False
-    width, height = min(a.width, b.width), min(a.height, b.height)
-    grey_a = np.asarray(a.crop((0, 0, width, height)).convert("L"), dtype=np.int16)
-    grey_b = np.asarray(b.crop((0, 0, width, height)).convert("L"), dtype=np.int16)
-    diff = np.abs(grey_a - grey_b)
-    return float(diff.mean()) < 8.0 and float((diff > 50).mean()) < 0.03
-
-
-class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
-    """AC-6 (G-2) — every page from the first puzzle/divider page onward
-    keeps the same content it had before CARD-201; only its page number
-    shifts by one.
-
-    **Why this is not a byte-for-byte digest comparison against a pre-card
-    fixture, unlike :class:`TestBookPdfMemory_PagesAreUnchanged` above.**
-    Inserting the guide's second page flips the parity (recto/verso) of
-    every page after it — an unavoidable fact of pagination, not a
-    regression — and COMP-007 mirrors a book page's margins by parity
-    (ADR-0036/the "Mirrored margins" clarification): the gutter and outside
-    margins swap sides, so the same content's absolute ink position shifts
-    sideways by (gutter - outside) and a handful of ruled lines round to a
-    different pixel at the new, opposite parity. A sha256 of the raw bitmap
-    would differ for that reason alone on *every* page, which is not what
-    G-2 claims ("the same content... only its page number shifts") and
-    would fail this test on the one thing it is not about — verified
-    empirically while building this card: ``_blank_page`` at interior page 2
-    and at interior page 3 for the same payload differ by thousands of
-    pixels (the margin shift alone), even though neither function was
-    touched (G-2).
-
-    So instead: for each page from the first puzzle/divider page onward,
-    this builds a "reference" page by calling the SAME, unedited drawing
-    function (``_blank_page`` / ``_two_up_page`` / ``create_divider_page`` /
-    ``solved_puzzle_page`` — G-2 forbids editing any of them) at the page
-    number this content held *before* CARD-201 (one less than its real,
-    exported position), and compares it against the real exported page —
-    each cropped to its own ink's bounding box (:func:`_ink_bbox_crop`, which
-    cancels the legitimate parity-mirrored margin shift out) and compared
-    with :func:`_matches_shifted_content` (a full-resolution mean-difference
-    comparison, not ``same_page``'s downsampled ink-overlap one — see that
-    function's own docstring for why a blank puzzle page's thin rules need
-    the distinction) rather than an exact digest. A changed clue, a wrong
-    fill, a missing frame or a relabelled band would all still fail this
-    comparison; only the documented margin shift and its sub-pixel rounding
-    are tolerated.
-
-    **What this class deliberately does NOT pin: either slot's absolute
-    position** (cycle-4 review F-11, the one surviving mutant M4 — dropping
-    CARD-204 Fix 4's three ``folio_reserve_px=_folio_reserve_px(...)``
-    arguments from the reference geometry leaves this class green). That is
-    not a tolerance that could be tightened: :func:`_ink_bbox_crop` crops
-    each side to its own ink, per slot, so it cancels **any pure translation
-    of a slot by construction** — which is exactly what this class needs,
-    since the flush edge mirrors with parity (above). A 108 px sideways shift
-    of the lower slot's whole drawing is therefore invisible here, by design;
-    passing the production reserve into the reference is correctness hygiene
-    for the helper, not coverage. The absolute lower-slot position IS pinned,
-    by three other modules: ``tests/property/test_book_two_up.py``
-    (``test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve``),
-    ``tests/property/test_book_export_interior.py``
-    (``_expected_drawing_left_mm``) and ``tests/test_book_puzzle_frame.py``
-    (``_expected_pair_boxes``). Read this class as "the same content", never
-    as "in the same place".
-    """
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def generator(cls) -> BookPDFGenerator:
-        return BookPDFGenerator(corpus_book())
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def plan(cls, generator):
-        return generator.section_plan(baseline_puzzles())
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def exported(cls, generator, plan):
-        return interior_pages_of(export_of(generator, baseline_puzzles()))
-
-    def _reference(self, generator, plan, entry):
-        """The unedited drawing function's own output at the page number this
-        content held under **CARD-201's own layout** — ``entry.page_number``
-        less CARD-200's table of contents and CARD-206's title page.
-
-        CARD-200 (SCOPE+): ``entry.page_number`` carries CARD-200's own
-        table-of-contents offset (``plan.toc_page_count`` pages, inserted
-        between the guide and this section) on top of CARD-201's own "+1"
-        this class's own name is about.
-
-        **CARD-206 (SCOPE+) moves which historical position this is, and
-        says why.** This class compares a **whole page**, footer included, so
-        it only works between two positions of the *same parity*: a page's
-        grid-size label sits against its inner margin and its QR group in the
-        footer's outer corner (CARD-223), so an odd shift puts both of them on
-        the other side of the page — a difference this comparison is not about
-        and should not be asked to absorb. (A pixel figure for two crops "of
-        different widths" stood here and is gone: review cycle 1's F-101 class
-        sweep re-derived it and it reproduced in no domain. The measurement is
-        in CARD-206's fix-round-1 notes, where a figure no assertion reads
-        belongs.) Before this card the shift was ``1 + toc_page_count``
-        = 2, even by luck. Subtracting CARD-206's own ``TITLE_PAGE_COUNT``
-        as well as CARD-201's "-1" would make it 3 — odd — so what is
-        subtracted here is ``toc_page_count + TITLE_PAGE_COUNT`` = 2 instead:
-        the two one-page front-matter insertions, which lands on **CARD-201's
-        own shipped layout** (a real position, not a constructed one) and
-        keeps the parity. CARD-201's own "+1" is no longer subtracted, so
-        this class's reference is one page later than its name says; the
-        pre-CARD-206 position, at the odd shift, is what
-        :class:`TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`
-        compares against, with the footer band cropped out so the mirrored
-        marks cannot enter.
-        """
-        old_number = entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT
-        if isinstance(entry, DividerPagePlan):
-            return generator.create_divider_page(old_number, entry.text)
-        payloads = [plan.payloads[number - 1] for number in entry.numbers]
-        if entry.pair is None:
-            (payload,) = payloads
-            return reference_puzzle_page(generator, payload, entry.numbers[0], old_number)
-        old_pair = compute_pair_layout(
-            (payloads[0].row_clues, payloads[0].column_clues),
-            (payloads[1].row_clues, payloads[1].column_clues),
-            generator.page_spec(old_number),
-            # CARD-204 Fix 4: production's own `puzzle_pages` always passes
-            # the fixed folio reserve, so this reference must too — a
-            # reference built without it would sit `_folio_reserve_px`
-            # pixels off production's own lower slot, and the comparison
-            # below would be tolerating a real displacement instead of
-            # checking the content.
-            folio_reserve_px=_folio_reserve_px(generator.dpi),
-            # CARD-248: and the footer strip, for the same reason — without
-            # it the reference pair is fitted into 29.878 mm more height than
-            # production gives it, so every mark on it sits at a different y
-            # and at a different cell.
-            footer_reserve_px=interior_frame(
-                generator.page_spec(old_number)
-            ).footer_depth,
-        )
-        old_entry = replace(entry, page_number=old_number, pair=old_pair)
-        return reference_two_up_page(generator, old_entry, payloads)
-
-    def test_every_puzzle_or_divider_page_matches_its_pre_card_content(
-        self, generator, plan, exported
-    ):
-        checked = 0
-        for entry in plan.pages:
-            new_page = exported[entry.page_number - 1]
-            reference = self._reference(generator, plan, entry)
-            # The number interpolated is the one `_reference` actually built
-            # at, and the layout it names is the one that position belongs to
-            # (review cycle 1, F-105): this message said "pre-CARD-201" and
-            # `page_number - 1` while the reference has been two pages back,
-            # on CARD-201's own shipped layout, since this card re-pointed it.
-            old_number = entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT
-            assert _matches_shifted_content(_ink_bbox_crop(new_page), _ink_bbox_crop(reference)), (
-                f"interior page {entry.page_number} does not match the content "
-                f"its position under CARD-201's shipped layout ({old_number}) "
-                "held"
-            )
-            checked += 1
-        assert checked == len(plan.pages) >= 5, checked
-
-    def test_the_solutions_divider_matches_its_pre_card_content(self, generator, plan, exported):
-        # first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT +
-        # toc_page_count + len(section) + 1 (book_pdf_generator.interior_stream,
-        # which since review cycle 1's F-102 computes it exactly once); this
-        # divider is one page before it. CARD-200 (SCOPE+): `toc_page_count`
-        # is that card's own new term, and CARD-206's TITLE_PAGE_COUNT is
-        # this one's; both are subtracted again below to land the reference
-        # on CARD-201's own shipped layout, the same even shift this class's
-        # `_reference` uses and for the same parity reason.
-        new_number = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
-        # The approved solutions mockup: with no stored picture the SOLUTIONS
-        # slot draws the Solutions opener (a rule, "PUZZLES 1-N", "Solutions"
-        # and a blurb), not the one-word divider, so that is the reference.
-        reference = generator.create_solutions_opener(
-            new_number - plan.toc_page_count - TITLE_PAGE_COUNT, len(plan.payloads)
-        )
-        assert _matches_shifted_content(
-            _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
-        )
-
-    def test_every_answer_page_matches_its_pre_card_content(self, generator, plan, exported):
-        """CARD-202 note: an answer page is packed-or-full, not always full.
-
-        Before CARD-202, every answer printed on a full page of its own, so
-        the pre-CARD-201 reference for each one was a direct
-        ``solved_puzzle_page`` call. CARD-202 packs small, same-tier answers
-        2-or-4 to a page instead, so the reference must be built through
-        whichever drawing function the real export actually used for that
-        page — this reruns the same production walk ``interior_stream``
-        itself runs (``plan_small_answer_pages``, then the same feasibility
-        degrade pass) to find out which kind each page is, rather than
-        assuming a full page and comparing the wrong drawing to the right
-        one.
-        """
-        # CARD-200 (SCOPE+): `plan.toc_page_count` is this card's own new
-        # term in `first_answer_page`'s own arithmetic.
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages) + 1
-        titles = generator.custom_titles()
-        payloads = list(zip(plan.ids, plan.payloads))
-
-        answers = []
-        for index, (_, payload) in enumerate(payloads):
-            number = index + 1
-            width, height = _answer_extent(payload, number)
-            answers.append(
-                Answer(number=number, width=width, height=height, level=_pairable_tier(payload))
-            )
-        answer_plan = _degrade_infeasible_packed_pages(
-            plan_small_answer_pages(answers), payloads, generator.page_spec(first_answer_page)
-        )
-
-        checked = 0
-        for index, entry in enumerate(answer_plan):
-            new_number = first_answer_page + index
-            old_number = new_number - plan.toc_page_count - TITLE_PAGE_COUNT
-            reference = reference_answer_page(generator, entry, payloads, old_number, titles)
-            assert _matches_shifted_content(
-                _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
-            ), f"answer page {new_number} does not match its pre-CARD-201 content"
-            checked += 1
-        assert checked == len(answer_plan) == 3, checked
-
-    def test_the_comparison_has_teeth(self, generator):
-        """Control: a genuinely different puzzle fails this same comparison."""
-        plan = generator.section_plan(baseline_puzzles())
-        entry = next(e for e in plan.pages if isinstance(e, PuzzlePagePlan) and e.pair is None)
-        payload = plan.payloads[entry.numbers[0] - 1]
-        real = reference_puzzle_page(generator, payload, entry.numbers[0], entry.page_number - 1)
-        other_payload = next(
-            plan.payloads[e.numbers[0] - 1]
-            for e in plan.pages
-            if isinstance(e, PuzzlePagePlan) and e.pair is None and e is not entry
-        )
-        other = reference_puzzle_page(generator, other_payload, entry.numbers[0], entry.page_number - 1)
-        assert not _matches_shifted_content(_ink_bbox_crop(real), _ink_bbox_crop(other))
-
-
-# --------------------------------------------------------------------------
-# CARD-200 AC-8 — content above the new footer band is unchanged
-# --------------------------------------------------------------------------
-
-
-def _footer_band_height(dpi: int) -> int:
-    """One folio line's own height, in pixels, at ``dpi`` (CARD-200)."""
-    font = _band_font(type_px(FOLIO_PT, dpi))
-    ascent, descent = font.getmetrics()
-    return ascent + descent
-
-
-def _below_running_head(image: Image.Image) -> Image.Image:
-    """``image`` with its answer page's running-head strip blanked out.
-
-    The strip is ``RUNNING_HEAD_MM`` deep from the first inked row (the head's
-    own type); everything under it is the solutions themselves.
-    """
-    from nonogram.admin.book_pdf_generator import RUNNING_HEAD_MM
-
-    mask = np.asarray(image.convert("L")) < INK_LEVEL
-    top = int(np.flatnonzero(mask.any(axis=1))[0])
-    strip = int(round(RUNNING_HEAD_MM * image.info.get("dpi", (300, 300))[0] / 25.4))
-    out = image.copy()
-    ImageDraw.Draw(out).rectangle((0, 0, out.width, top + strip), fill="white")
-    return out
-
-
-def _above_footer(image: Image.Image, cutoff: int) -> Image.Image:
-    """``image``, with every row at or below ``cutoff`` dropped (CARD-200).
-
-    ``cutoff`` is the first row of the page's footer band — since CARD-222
-    the frame's own footer rule, where it was a folio line above the usable
-    bottom before (:func:`_footer_band_height`; see the ``cutoff`` fixture for
-    why it moved). It is the same for every interior page of one
-    book, because a book page's top/bottom margins (unlike its left/right
-    ones) never move with parity (verified against
-    ``book_page_spec.book_page_spec``'s own body, not assumed: only
-    ``left_margin_mm`` depends on parity, and ``page_frame``'s own ``top``/
-    ``bottom`` come from ``top_mm``/``height_mm``/``bottom_mm`` alone). A
-    caption's own slack sits inside this same dropped band on a solved or
-    packed answer page — deliberately: AC-8 is about the mark *above* the
-    footer band, and the caption's own pixels are unedited by this card and
-    already covered by ``tests/test_book_solved_answer_key.py``.
-    """
-    return image.crop((0, 0, image.width, max(cutoff, 0)))
-
-
-class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
-    """AC-8 (G-3) — every mark above the new footer band is unedited by this card.
-
-    The same "compare by content, not by raw bytes" technique
-    :class:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`
-    already uses for CARD-201's own shift (a book page's margins mirror by
-    parity, ADR-0036, so a raw digest differs for that reason alone even
-    where nothing else moved) — extended here two ways: the reference is
-    built at ``entry.page_number`` minus CARD-206's own ``TITLE_PAGE_COUNT``
-    (this card's own one-page insertion; it was CARD-200's
-    ``toc_page_count`` until CARD-206 — see :meth:`_reference`), and both the real page and
-    the reference are cropped to :func:`_above_footer` *before* the
-    ink-bbox crop, so neither side's own folio digits (which legitimately
-    differ between the two page numbers being compared) can ever enter the
-    comparison. What is left to disagree is exactly the claim G-3 makes:
-    the grid, the clues, the band and the answer caption.
-
-    A genuinely different puzzle still fails this comparison
-    (``test_the_comparison_has_teeth``), the same control
-    :class:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`
-    already keeps for the un-cropped version.
-
-    **What this class deliberately does NOT pin: either slot's absolute
-    position** (cycle-4 review F-11, the one surviving mutant M4 — dropping
-    CARD-204 Fix 4's three ``folio_reserve_px=_folio_reserve_px(...)``
-    arguments from the reference geometry (here: :meth:`_reference` and
-    :meth:`_qr_boxes`) leaves this class green). That is
-    not a tolerance that could be tightened: :func:`_ink_bbox_crop` crops
-    each side to its own ink, per slot, so it cancels **any pure translation
-    of a slot by construction** — which is exactly what this class needs,
-    since the flush edge mirrors with parity (see the class named above). A
-    108 px sideways shift
-    of the lower slot's whole drawing is therefore invisible here, by design;
-    passing the production reserve into the reference is correctness hygiene
-    for the helper, not coverage. The absolute lower-slot position IS pinned,
-    by three other modules: ``tests/property/test_book_two_up.py``
-    (``test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve``),
-    ``tests/property/test_book_export_interior.py``
-    (``_expected_drawing_left_mm``) and ``tests/test_book_puzzle_frame.py``
-    (``_expected_pair_boxes``). Read this class as "the same content", never
-    as "in the same place".
-    """
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def generator(cls) -> BookPDFGenerator:
-        return BookPDFGenerator(corpus_book())
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def plan(cls, generator):
-        return generator.section_plan(baseline_puzzles())
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def exported(cls, generator, plan):
-        return interior_pages_of(export_of(generator, baseline_puzzles()))
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def cutoff(cls, generator) -> int:
-        """The first row of the page's footer, which this class drops.
-
-        **CARD-222 widens it from one folio line to the frame's own footer
-        band.** CARD-200's footer was one line — the folio alone — so a line's
-        height was the whole band. The frame the owner's artifact asks for
-        gives that band three rows (the hairline, the grid-size label beside
-        the folio, and the QR icon's reserved row), and the label's side flips
-        with parity: it is set against the *inner* margin, which is the left of
-        a right-hand page and the right of a left-hand one. This class
-        compares a page with its opposite-parity twin and allows only a
-        translation between them, so a mark that changes sides is not
-        something it can absorb — and it is not something it is about either
-        (AC-8 is the marks *above* the footer). The band's own top is
-        ``interior_frame``'s footer rule, so that is the cut.
-        """
-        spec = generator.page_spec(1)
-        band = interior_frame(spec).footer_rule.y
-        line = page_frame(spec).bottom - _footer_band_height(generator.dpi)
-        assert band < line, (
-            "the frame's footer band must be deeper than CARD-200's one folio "
-            f"line, or this cut is the wrong one: {band} against {line}"
-        )
-        return band
-
-    def _reference(self, generator, plan, entry):
-        """CARD-201's own trick, pointed at **this** card's own insertion:
-        the position this content held before CARD-206's title page existed
-        (``entry.page_number - TITLE_PAGE_COUNT``).
-
-        It was the pre-CARD-200 position (``- toc_page_count``) until
-        CARD-206. The two classes split the work by parity, deliberately:
-        ``TITLE_PAGE_COUNT`` is 1, so this shift is **odd** and the two pages
-        compared are opposite parities — which is why this class crops the
-        footer band away and masks the QR icon and the header rule, and why
-        it is the one that can state CARD-206's own G-2 claim ("the geometry
-        is untouched; only positions shift"). The even-shift, whole-page
-        comparison against CARD-201's own layout is
-        :class:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`'s.
-        """
-        old_number = entry.page_number - TITLE_PAGE_COUNT
-        if isinstance(entry, DividerPagePlan):
-            return generator.create_divider_page(old_number, entry.text)
-        payloads = [plan.payloads[number - 1] for number in entry.numbers]
-        if entry.pair is None:
-            (payload,) = payloads
-            return reference_puzzle_page(generator, payload, entry.numbers[0], old_number)
-        old_pair = compute_pair_layout(
-            (payloads[0].row_clues, payloads[0].column_clues),
-            (payloads[1].row_clues, payloads[1].column_clues),
-            generator.page_spec(old_number),
-            # CARD-204 Fix 4: production's own `puzzle_pages` always passes
-            # the fixed folio reserve, so this reference must too — a
-            # reference built without it would sit `_folio_reserve_px`
-            # pixels off production's own lower slot, and the comparison
-            # below would be tolerating a real displacement instead of
-            # checking the content.
-            folio_reserve_px=_folio_reserve_px(generator.dpi),
-            # CARD-248: and the footer strip, for the same reason — without
-            # it the reference pair is fitted into 29.878 mm more height than
-            # production gives it, so every mark on it sits at a different y
-            # and at a different cell.
-            footer_reserve_px=interior_frame(
-                generator.page_spec(old_number)
-            ).footer_depth,
-        )
-        old_entry = replace(entry, page_number=old_number, pair=old_pair)
-        return reference_two_up_page(generator, old_entry, payloads)
-
-    def _frame_boxes(self, generator, page_number):
-        """CARD-222: the frame's header rule, as a box to mask.
-
-        The rule runs the page's whole text width, so it pins the ink bounding
-        box ``_ink_bbox_crop`` normalises by to the usable area's own edges on
-        **both** sides. The drawing underneath is flush with the outer margin
-        and mirrors with parity, and its own half-rule overhang rounds to a
-        different pixel on the two sides — measured: a 1 px difference in the
-        crop's width, which is not a translation and so not something this
-        comparison can absorb. Masked for that reason (the QR icon that was
-        masked beside it left in CARD-391), and the rule has its own, direct evidence elsewhere
-        (``tests/test_book_page_frame.py``'s AC-2: one y, one weight, on every
-        puzzle page).
-
-        The footer's own marks need no mask: the ``cutoff`` fixture drops the
-        whole footer band before this comparison sees it.
-        """
-        rule = interior_frame(generator.page_spec(page_number)).header_rule
-        return [
-            SimpleNamespace(
-                left=rule.left,
-                top=rule.y - rule.width,
-                right=rule.right,
-                bottom=rule.y + rule.width,
-            )
-        ]
-
-    @staticmethod
-    def _masked(image: Image.Image, boxes) -> Image.Image:
-        if not boxes:
-            return image
-        masked = image.copy()
-        draw = ImageDraw.Draw(masked)
-        for box in boxes:
-            draw.rectangle(
-                (box.left - 2, box.top - 2, box.right + 2, box.bottom + 2),
-                fill=(255, 255, 255),
-            )
-        return masked
-
-    def test_every_puzzle_or_divider_page_matches_above_the_footer(
-        self, generator, plan, exported, cutoff
-    ):
-        """A two-up pair is compared slot by slot, not as one page.
-
-        ``_ink_bbox_crop`` normalises a *whole* image to its own single ink
-        bounding box, which is exactly the right cancellation for a page
-        whose content is one rigid block that merely slides sideways with
-        parity. That is true only when both slots share the same drawing
-        width: each slot's own flush formula anchors at the usable area's
-        outer edge on an ODD page (so *both* slots' ``drawing_right``
-        always equals ``usable_right``, independent of either one's own
-        width) but at the gutter-side edge on an EVEN page (so both
-        ``drawing_left`` always equal ``usable_left``) — a slot narrower
-        than its partner therefore sits at a *different* offset from the
-        page's own ink-bbox-crop origin depending on which edge is flush,
-        which flips between the two opposite parities this comparison
-        checks. Splitting at the pair's own (parity-independent)
-        upper/lower midline first, and cropping+comparing each slot's own
-        ink bbox separately, cancels exactly that per-slot translation,
-        regardless of whether the two puzzles share a width.
-
-        **History (CARD-204 Fix 1, reverted by Fix 3).** Fix 1 introduced
-        this split because it also pulled the *lower* slot back from the
-        flush edge by a folio reserve that the upper slot never got,
-        adding a second, reserve-driven source of the same kind of
-        per-slot asymmetry on top of the width-driven one above. Fix 3
-        removed that reserve entirely, but the split is kept: the
-        width-driven asymmetry it also cancels is a structural property of
-        mirrored-margin flush alignment (FR-030), not something Fix 1
-        introduced or Fix 3 touches.
-        """
-        checked = 0
-        for entry in plan.pages:
-            old_number = entry.page_number - TITLE_PAGE_COUNT
-            new_page = self._masked(
-                exported[entry.page_number - 1],
-                self._frame_boxes(generator, entry.page_number),
-            )
-            reference = self._masked(
-                self._reference(generator, plan, entry),
-                self._frame_boxes(generator, old_number),
-            )
-            new_above = _above_footer(new_page, cutoff)
-            reference_above = _above_footer(reference, cutoff)
-            pair = getattr(entry, "pair", None)
-            if pair is None:
-                slots = ((new_above, reference_above),)
-            else:
-                # The midline is the pair's own usable_top/usable_bottom
-                # boundary between the two slots — fixed by the book's top
-                # and bottom margins alone (never mirrored by parity, see
-                # _above_footer's own docstring), so it is the same split
-                # point for the real page and the opposite-parity reference.
-                midline = pair.upper.page.usable_bottom
-                slots = (
-                    (new_above.crop((0, 0, new_above.width, midline)),
-                     reference_above.crop((0, 0, reference_above.width, midline))),
-                    (new_above.crop((0, midline, new_above.width, new_above.height)),
-                     reference_above.crop((0, midline, reference_above.width, reference_above.height))),
-                )
-            for slot_new, slot_reference in slots:
-                assert _matches_shifted_content(
-                    _ink_bbox_crop(slot_new), _ink_bbox_crop(slot_reference)
-                ), (
-                    f"interior page {entry.page_number}'s content above the "
-                    "footer band does not match its pre-CARD-200 content"
-                )
-            checked += 1
-        assert checked == len(plan.pages) >= 5, checked
-
-    def test_the_guide_pages_match_above_the_footer(self, generator, exported, cutoff):
-        """The guide's own two pages carry no TOC-driven shift at all
-        (they are always interior pages 1-2) — this is a direct check that
-        the folio alone is the only new mark on them (AC-1/G-3), not a
-        shifted-content comparison.
-        """
-        for number in GUIDE_INTERIOR_PAGES:
-            reference = reference_guide_page(generator, number)
-            assert _matches_shifted_content(
-                _ink_bbox_crop(_above_footer(exported[number - 1], cutoff)),
-                _ink_bbox_crop(_above_footer(reference, cutoff)),
-            ), f"interior page {number} (the guide) moved above its own footer band"
-
-    def test_the_solutions_divider_matches_above_the_footer(
-        self, generator, plan, exported, cutoff
-    ):
-        new_number = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
-        old_number = new_number - TITLE_PAGE_COUNT
-        # The Solutions opener (the approved solutions mockup), drawn at the
-        # old position, as production's ``divider_page`` draws it.
-        reference = generator.create_solutions_opener(old_number, len(plan.payloads))
-        assert _matches_shifted_content(
-            _ink_bbox_crop(_above_footer(exported[new_number - 1], cutoff)),
-            _ink_bbox_crop(_above_footer(reference, cutoff)),
-        )
-
-    def test_every_answer_page_matches_above_the_footer(
-        self, generator, plan, exported, cutoff
-    ):
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages) + 1
-        titles = generator.custom_titles()
-        payloads = list(zip(plan.ids, plan.payloads))
-
-        answers = []
-        for index, (_, payload) in enumerate(payloads):
-            number = index + 1
-            width, height = _answer_extent(payload, number)
-            answers.append(
-                Answer(number=number, width=width, height=height, level=_pairable_tier(payload))
-            )
-        answer_plan = _degrade_infeasible_packed_pages(
-            plan_small_answer_pages(answers), payloads, generator.page_spec(first_answer_page)
-        )
-
-        checked = 0
-        for index, entry in enumerate(answer_plan):
-            new_number = first_answer_page + index
-            old_number = new_number - TITLE_PAGE_COUNT
-            reference = reference_answer_page(generator, entry, payloads, old_number, titles)
-            # Since the running head lost its rule (owner, 2026-11-09) its two
-            # labels swap sides with parity and no longer span the frame, so
-            # the head strip is furniture like the folio: compare below it.
-            assert _matches_shifted_content(
-                _ink_bbox_crop(_below_running_head(_above_footer(exported[new_number - 1], cutoff))),
-                _ink_bbox_crop(_below_running_head(_above_footer(reference, cutoff))),
-            ), f"answer page {new_number}'s content above the footer band does not match"
-            checked += 1
-        assert checked == len(answer_plan) == 3, checked
-
-    def test_the_comparison_has_teeth(self, generator, cutoff):
-        """Control: a genuinely different puzzle still fails this comparison."""
-        plan = generator.section_plan(baseline_puzzles())
-        entry = next(e for e in plan.pages if isinstance(e, PuzzlePagePlan) and e.pair is None)
-        payload = plan.payloads[entry.numbers[0] - 1]
-        real = reference_puzzle_page(generator, payload, entry.numbers[0], entry.page_number)
-        other_payload = next(
-            plan.payloads[e.numbers[0] - 1]
-            for e in plan.pages
-            if isinstance(e, PuzzlePagePlan) and e.pair is None and e is not entry
-        )
-        other = reference_puzzle_page(generator, other_payload, entry.numbers[0], entry.page_number)
-        assert not _matches_shifted_content(
-            _ink_bbox_crop(_above_footer(real, cutoff)),
-            _ink_bbox_crop(_above_footer(other, cutoff)),
-        )
-
-    def test_the_crop_actually_removes_a_folio(self, generator, exported, cutoff):
-        """Control: the crop is not a no-op — a folio really sits below it."""
-        full = np.asarray(exported[-1].convert("L")) < INK_LEVEL
-        cropped = np.asarray(_above_footer(exported[-1], cutoff).convert("L")) < INK_LEVEL
-        assert full.sum() > cropped.sum(), (
-            "cropping above the footer band removed no ink — the last "
-            "answer page's own folio was not where this test expected it"
-        )
-
 
 # --------------------------------------------------------------------------
 # AC-4 — the interior and the cover are still two files
@@ -4359,70 +2447,21 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         assert export.pages_saved == 2
 
     def test_parity_still_counts_from_interior_page_1(self, export):
-        """The guide's page 1 is right-hand, and the two single-puzzle pages are not.
+        """Parity counts from interior page 1, and the cover is never numbered
+        (FR-043, INV-013, G-2).
 
-        Parity counts from interior page 1 — the guide's own first page,
-        which is right-hand — and the cover file is never numbered (FR-043,
-        INV-013, G-2). On Book 1 the binding-side gutter is 0.5 in and, since
-        CON-018's amendment of 2026-10-17 (CARD-222), the outside margin is
-        **0.5 in too** — so a page's usable area starts 150 px from the left
-        whichever hand it is, where a left-hand page's used to start at
-        112.5 px. The *width* of the two margins no longer tells the two
-        parities apart (CON-018's own note on this); which side each mark
-        sits on still does, and that is what the gaps below read.
-
-        **CARD-224 (SCOPE+): the drawing cannot carry this signal at all any
-        more, and the footer can.** CARD-204 read parity off the drawing's own
-        flush edge (a right-hand page's grid ended exactly 150 px in from the
-        trim's right edge, whatever the puzzle's width). This card centres the
-        drawing again, and on CON-018 as amended the two side margins are
-        equal — so a centred drawing lands on the *same* pixel column at
-        either parity and its edges say nothing about which hand the page is.
-        What still mirrors is the page furniture: CARD-222 puts the
-        grid-size label on the **inner** side of the footer line. (CARD-223's
-        2 cm QR placeholder in the outer corner was the heavier signal and
-        was read here until CARD-391 removed it; a book with a Play page also
-        puts its pointer on the outer side, and this baseline book has none.)
-        So the parity is read as "which end of the footer line holds the
-        label" — ink, as before, and a quantity that is still a function of
-        the page's own hand.
-
-        **CARD-201 note (SCOPE+): this moved.** The baseline book's two
-        single-puzzle pages are interior 6 and interior 8 now (up from 5 and
-        7 before this card — the guide's own second page shifts everything
-        after it by one), both **even**, so both must sit *left* of the
-        middle — the opposite of their pre-CARD-201 parity. That is still
-        the measurement that would break if the cover ever rejoined the
-        interior's numbering: every interior page's parity would flip again,
-        and these two would land 18.75 px to the *right* instead.
-
-        **CARD-200 note (SCOPE+): this moved again.** The baseline book's
-        1-page table of contents (its 4 entries fit Book 1's own trim's TOC
-        capacity comfortably) sits between the guide and the puzzle section,
-        so the two single-puzzle pages are interior 7 and interior 9 now
-        (up from 6 and 8) — still both **odd** positions shifted from even
-        ones by the TOC's own one-page insertion, so the parity each must
-        show is now the *opposite* of CARD-201's own note: both now sit
-        *right* of the middle, back to their original, pre-CARD-201 side.
-
-        **CARD-206 note (SCOPE+): this moved a third time, the same way.**
-        The blank title / copyright page is reserved as interior page 1, so
-        the two single-puzzle pages are interior **8 and 10** now, both
-        **even**, and their grid-size label is back at the *right* end of
-        the footer line. Interior page 1 itself no longer carries the guide: it carries
-        no ink at all, so the guide's own leftmost-ink reading below moves to
-        the guide's first page, interior 2 — a **left-hand** page, whose
-        usable area starts at the outside margin. On CON-018 as amended both
-        side margins are 0.5 in, so the 150 px figure that reading asserts is
-        unchanged; which margin it is has flipped, and the bound is the same.
-        (Owner, 2026-11-09: page 1 is now the title and copyright page and
-        does carry centred text, but still no folio; nothing below reads it.)
-
-        Measured off the ink alone: the drawing's own edges — its clue
-        gutter's outer edge and its grid's right border — never
-        ``book_page_spec`` or ``compute_layout``.
+        On Book 1 both side margins are 0.5 in (CON-018 as amended), so a
+        centred drawing lands on the same columns at either parity; what
+        mirrors is the footer's grid-size label, set on the page's **inner**
+        side. The baseline book's two single-puzzle pages are interior 8 and
+        10, both even (left-hand), so the label sits at the right-hand end of
+        the footer line. Interior page 2, the guide's first page, is
+        left-hand too: its leftmost ink starts at the 0.5 in margin. Measured
+        off the ink alone.
         """
         interior = interior_pages_of(export.interior.getvalue())
+
+        #: The footer line's rows        interior = interior_pages_of(export.interior.getvalue())
 
         #: The footer line's rows and the usable area's two edges, in this
         #: page's own pixels, written out rather than imported: 0.5 in margins
@@ -4450,33 +2489,13 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
             # And the drawing itself is centred, which is why it can no
             # longer be asked: both of its side gaps are the same.
             drawing = drawing_of(page)
-            # CARD-355: the left side is read as a BOUNDARY (the frame rule's
-            # centre, ``frame_centre_of``), not as ``drawing.left``, which is
-            # an ink extent that the two media disagree about by 3 px (a PDF
-            # rasteriser mitres the frame's outer corner; see ``Drawing``'s
-            # own comment and CARD-336). The 4 px bound is NOT moved (G-2).
-            # Measured this round on both pages (8 and 10), difference of the
-            # two gaps: 1.5 px read off the raster medium, 3.5 px read off
-            # the vector one -- half a pixel of the bound, which is the
-            # residue ``drawing.left`` would have spent (6 px, red) and the
-            # reason the reading is a boundary here.
-            left_gap = frame_centre_of(page, drawing).frame_left - usable_left
+            left_gap = drawing.left - usable_left
             right_gap = usable_right - drawing.grid_right
             assert abs(left_gap - right_gap) <= 4, (number, left_gap, right_gap)
 
-        # And page 1 itself: the guide page's text starts at the gutter
-        # margin, 150 px in, not at the 112.5 px outside margin a left-hand
-        # page would give it.
-        #
-        # **CARD-201 note (SCOPE+): the lower bound widened.** Page 1's own
-        # leftmost ink is now a diagram's frame (the basic-rule line or a
-        # cell-state icon), not a letter — every framed drawing on this book
-        # bleeds up to half a heavy rule past its own nominal edge by design
-        # (``_stroke_drawing``'s own docstring; the raster guide-page tests
-        # CARD-229 retired tolerated the same bleed as ``FRAME_BLEED_PX``),
-        # which a letter's ink never
-        # did. Measured at this book's own rule widths: 6 px short of 150,
-        # comfortably inside a 10 px allowance.
+        # And the guide's first page: its leftmost ink (a diagram's rule,
+        # which bleeds up to half a heavy rule past its nominal edge) starts
+        # at the 150 px margin.
         ink = np.asarray(interior[GUIDE_INTERIOR_PAGES[0] - 1].convert("L")) < 128
         leftmost = int(np.where(ink.any(axis=0))[0].min())
         assert 139 < leftmost < 160, leftmost
@@ -4508,24 +2527,13 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
         passing on a failure that happened too early to matter) and that the
         caller got an exception rather than a truncated PDF.
 
-        ``solved_puzzle_page`` (CARD-197) drew every answer page until
-        CARD-202: it still draws a large (unpacked) answer's full page, but
-        the baseline book's first answer page is now a packed one
-        (``_packed_answer_page``, CARD-202), so both are forced to fail here
-        — whichever one the walk reaches first still fails cleanly, and the
-        baseline book's own packing shape (``tests/helpers/book_corpus.py``)
-        still puts that first failure at the same twelfth page either way
-        (CARD-200: up from the tenth — the table of contents' own one page,
-        ahead of the puzzle section, shifts every later page by one;
-        CARD-206: up from the eleventh, the blank title page's own one page,
-        ahead of all of it).
+        Both answer writers (full and packed) are forced to fail, so the
+        first answer page, the twelfth, is where the walk stops.
         """
         written: List[int] = []
         handed: List[Any] = []
         write_page = BookPDFGenerator._write_page
         write_pdf = BookPDFGenerator._write_pdf
-        solved_puzzle_page = BookPDFGenerator.solved_puzzle_page
-        packed_answer_page = BookPDFGenerator._packed_answer_page
 
         def counting(self, *args, **kwargs):
             written.append(1)
@@ -4548,24 +2556,17 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             raise ValueError("this answer will not draw")
 
         generator = BookPDFGenerator(corpus_book())
-        # The answer section is drawn by the raster methods in one medium and
-        # by an injected writer in the other; the failure is forced at BOTH,
-        # so whichever the walk reaches first still fails cleanly.
         generator.pages = replace(
             generator.pages, answer=refuses, packed_answer=refuses
         )
         BookPDFGenerator._write_page = counting
         BookPDFGenerator._write_pdf = handing_over
-        BookPDFGenerator.solved_puzzle_page = refuses
-        BookPDFGenerator._packed_answer_page = refuses
         try:
             with pytest.raises(RuntimeError) as raised:
                 export_of(generator, baseline_puzzles())
         finally:
             BookPDFGenerator._write_page = write_page
             BookPDFGenerator._write_pdf = write_pdf
-            BookPDFGenerator.solved_puzzle_page = solved_puzzle_page
-            BookPDFGenerator._packed_answer_page = packed_answer_page
 
         assert "could not be drawn" in str(raised.value)
         # The blank title page (CARD-206), the 2-page guide (CARD-201), the
@@ -4676,9 +2677,3 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
 
         assert "the page plan prints" in str(raised.value)
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

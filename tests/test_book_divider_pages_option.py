@@ -58,7 +58,6 @@ from dataclasses import replace
 import pytest
 from PIL import ImageChops
 
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_page_spec import (
     DEFAULT_DIVIDER_PAGES,
@@ -71,18 +70,15 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
     GUIDE_TITLE,
-    PageKind,
-    PageMedium,
     PuzzlePagePlan,
     TOC_SOLUTIONS_LABEL,
     interior_page_count,
-    page_medium,
     structural_toc_entries,
 )
 from tests.helpers.db import sqlite_session_scope
-from tests.helpers.page_ink import drawing_of, frame_centre_of
+from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import interior_images
-from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of, _puzzle
+from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of
 from tests.test_book_plan_storage import (
     AC198_MATRIX,
     MODES,
@@ -123,23 +119,6 @@ def _generator(divider_pages):
 
 def _puzzles():
     return _book_of(*AC253_MEMBERS)
-
-
-def _unpackable_puzzles():
-    """AC-253's members, each one cell over the packing limit both ways.
-
-    The parity class below measures every answer page with ``drawing_of``,
-    which reads ONE ruled grid per page. AC-253's 20x20s used to be too wide
-    to pack (the limit was 15x20); the owner raised it to
-    :data:`PACKED_MAX_WIDTH` x :data:`PACKED_MAX_HEIGHT`, so a 20x20 now packs
-    and its page carries several grids. Sized from the constants, so the
-    premise "nothing here packs" follows the limit rather than a remembered
-    figure.
-    """
-    return [
-        _puzzle(name, tier, PACKED_MAX_WIDTH + 1, PACKED_MAX_HEIGHT + 1, mark=index)
-        for index, (name, tier) in enumerate(AC253_MEMBERS)
-    ]
 
 
 class TestDividerPages_TheDefaultIsEveryBookAsItWasBefore:
@@ -197,7 +176,7 @@ class TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages:
         The cell above reads the **plan**, which holds the three level
         dividers; the SOLUTIONS page is not in it — ``interior_stream`` yields
         that one directly. The three level dividers go through
-        ``create_divider_page``; the SOLUTIONS one, with no picture uploaded,
+        ``create_level_divider``; the SOLUTIONS one, with no picture uploaded,
         is the approved mockup's opener, ``create_solutions_opener``. Counting
         the calls of both over the whole walk is the one place that sees every
         divider the book draws, which is what makes this the criterion for
@@ -207,18 +186,18 @@ class TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages:
         for a generator that draws no dividers at all.
         """
         drawn: list[str] = []
-        original = BookPDFGenerator.create_divider_page
+        original = BookPDFGenerator.create_level_divider
         original_opener = BookPDFGenerator.create_solutions_opener
 
-        def record(self, page_number, text="SOLUTIONS"):
-            drawn.append(text)
-            return original(self, page_number, text)
+        def record(self, page_number, level, puzzle_range):
+            drawn.append(level.label)
+            return original(self, page_number, level, puzzle_range)
 
         def record_opener(self, page_number, puzzle_count):
             drawn.append("SOLUTIONS")
             return original_opener(self, page_number, puzzle_count)
 
-        monkeypatch.setattr(BookPDFGenerator, "create_divider_page", record)
+        monkeypatch.setattr(BookPDFGenerator, "create_level_divider", record)
         monkeypatch.setattr(BookPDFGenerator, "create_solutions_opener", record_opener)
 
         list(_generator(True).interior_stream(list(_puzzles())).pages)
@@ -292,47 +271,20 @@ class TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages:
 MIRROR_GUTTER_MM = 20.0
 MIRROR_OUTSIDE_MM = 10.0
 
-#: The pages of this book that carry a measurable drawing: its 5 puzzle pages
-#: and its 5 answer pages (one per puzzle — :func:`_unpackable_puzzles` sizes
-#: them one over the packing limit, so nothing here packs). The
-#: title page, the two guide pages, the TOC and any divider carry no ruled
-#: grid, so ``drawing_of`` declines them. Asserted, because a loop that
-#: quietly stopped finding any page to measure would pass.
-#:
-#: Measured in both states and in two domains: this file, and a standalone
-#: probe over the same book outside pytest. 18 pages with the dividers, 14
-#: without, 10 measurable in each.
-MEASURABLE_PAGES = 10
+#: The pages of this book that carry a measurable drawing: its 5 puzzle
+#: pages (one 21x20 each). Its answers pack several to a page, and
+#: ``drawing_of`` reads one grid, so answer pages are not measured.
+MEASURABLE_PAGES = 5
 
-#: The absolute-centre and odd-minus-even bound, in device pixels. Its value is
-#: declared (with its residue) in ``_problems`` and pinned by
-#: ``test_the_bound_is_the_declared_number``: change it only by moving that
-#: declaration.
+#: The absolute-centre and odd-minus-even bound, in device pixels. Measured on
+#: the nominal book: centres 1.4-1.6 px off the coordinate, odd-even 0.1 px.
 CENTRE_BOUND_PX = 2
 
 
 def _measurable_page_numbers(generator, puzzles) -> list[int]:
-    """The 1-based interior pages that carry a ruled drawing, from the PLAN.
-
-    CARD-359 (ADR-0042/R6). This walk used to find them by asking
-    ``drawing_of`` and skipping the pages it declined -- a selection made by
-    the very instrument being run, which is only sound while a page that is
-    not a puzzle reads as "no ruled grid". In the vector medium that is not
-    so: poppler's raster of the guide's second page carries ruled lines the
-    raster page never had, ``drawing_of`` reads a 7 x 1 "grid" off it, and
-    the walk measured a page that is not the subject (measured under the
-    five-kind probe: page 3, offset 160.5 px). The set is now derived from
-    the plan's own kinds -- a :class:`PuzzlePagePlan` is a puzzle page, and
-    this book's answer pages are the last ``len(puzzles)`` pages, one per
-    puzzle -- and a ``ValueError`` on a page in it is a failure.
-    """
+    """The 1-based interior puzzle pages, from the PLAN's own kinds (CARD-359)."""
     plan = generator.section_plan(puzzles)
-    total = generator.interior_stream(list(puzzles)).page_count
-    puzzle_pages = [
-        page.page_number for page in plan.pages if isinstance(page, PuzzlePagePlan)
-    ]
-    answers = list(range(total - len(puzzles) + 1, total + 1))
-    return puzzle_pages + answers
+    return [page.page_number for page in plan.pages if isinstance(page, PuzzlePagePlan)]
 
 
 class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
@@ -389,9 +341,7 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         ``gutter_mm`` / ``outside_mm`` are the margins the book is really
         built with; the expectations below always use :data:`MIRROR_GUTTER_MM`
         and :data:`MIRROR_OUTSIDE_MM`. A shifted pair therefore stands for a
-        generator that drew the nominal book wrongly, which is what lets the
-        residue controls below pin the bounds from both sides without
-        patching ``src/``.
+        generator that drew the nominal book wrongly.
 
         Returns a list of messages, empty when the book is drawn where the
         nominal margins say (so a caller asserts on it; nothing here returns
@@ -404,134 +354,54 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
             **{DIVIDER_PAGES_COLUMN: flag},
         )
         generator = BookPDFGenerator(book)
-        pages = interior_images(generator.interior_pages(list(_unpackable_puzzles())))
+        pages = interior_images(generator.interior_pages(list(_puzzles())))
         if page_shift_px:
             # A drift common to every page (the white margin absorbs the wrap).
             pages = [ImageChops.offset(page, page_shift_px, 0) for page in pages]
         expected_offset = (MIRROR_GUTTER_MM - MIRROR_OUTSIDE_MM) / 2 * (300 / 25.4)
         problems: list[str] = []
-        frame_lefts: dict[bool, set[float]] = {True: set(), False: set()}
+        lefts: dict[bool, set[float]] = {True: set(), False: set()}
         widths: set[int] = set()
-        numbers = _measurable_page_numbers(generator, list(_unpackable_puzzles()))
+        numbers = _measurable_page_numbers(generator, list(_puzzles()))
         for number in numbers:
             page = pages[number - 1]
             drawing = drawing_of(page)
-            boundary = frame_centre_of(page, drawing).frame_left
-            # WHICH SIDE: the sign of the drawing's centre from the trim's
-            # middle, medium-blind (the media differ by about 1 px against
-            # an offset of 59).
-            offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
-            if (offset > 0) != (number % 2 == 1):
-                problems.append(f"page {number}: wrong side ({offset:.1f} px)")
-            # HOW FAR, ABSOLUTE (CARD-359 review F-1): the centre of the
-            # drawing between its left BOUNDARY (medium-blind to half a
-            # pixel) and its grid's right edge (an ink reading), against
-            # half the margin difference. The old 2 px bound, unmoved.
-            # MEASURED residue (this tip, nominal book): raster 0.70 and
-            # 0.80 px off the coordinate, vector 1.70 and 1.80 px -- the
-            # vector grid edge reads 1 px left of the raster's (CARD-336),
-            # so the vector margin to the bound is 0.2 px, not 1.2. That is
-            # the reason the bound cannot be tightened and the reason it is
-            # thin; it is not widened (G-2).
-            # DECLARED RESIDUE OF THE VECTOR HEADROOM (CARD-359 review 2).
-            # Re-measured this round: with the bound at 1.5 px the vector
-            # medium reds 3 of the 97 (nominal 1.7-1.8 px) and raster passes
-            # all 97, so 1.5 is a LOUD false red in vector only; at 2.3 px
-            # vector passes all 97 and raster reds 2 (the residue table's
-            # entries that stop being caught). Consequences: (1) about 0.2 px
-            # of vector headroom means a poppler or rendering change of about
-            # 0.3 px on the grid edge flips this test red -- a loud false
-            # red, and only once PUZZLE is vector; (2) the sensitivity is
-            # ONE-SIDED, because the nominal sits at the bound's edge: a
-            # common left-margin shift shorter by 0.03 mm is red in both
-            # media, longer by 0.4 mm is green in both, longer by 0.6 mm is
-            # green in vector (red in raster), longer by 0.8 mm is red in
-            # both (measured this round; the 2.3 px and 1.5 px figures are
-            # the two bound sweeps above, 97 tests each). (3) NOBODY MAY
-            # WIDEN CENTRE_BOUND_PX to quiet a false red without moving this
-            # declaration with it.
+            boundary = drawing.left
+            # The drawing's centre (row-clue edge to grid's right edge) from
+            # the trim's middle. WHICH SIDE is its sign; HOW FAR, ABSOLUTE, is
+            # its size against half the margin difference.
             centre = (boundary + drawing.grid_right) / 2 - page.width / 2
+            if (centre > 0) != (number % 2 == 1):
+                problems.append(f"page {number}: wrong side ({centre:.1f} px)")
             if abs(abs(centre) - expected_offset) > CENTRE_BOUND_PX:
                 problems.append(
                     f"page {number}: centre {centre:.2f} px (bound {CENTRE_BOUND_PX} px)"
                 )
-            frame_lefts[number % 2 == 1].add(boundary)
+            lefts[number % 2 == 1].add(boundary)
             widths.add(drawing.grid_right - drawing.grid_left)
         if len(numbers) != MEASURABLE_PAGES:
             problems.append(f"{len(numbers)} measurable pages, not {MEASURABLE_PAGES}")
-        # HOW FAR, RELATIVE: the boundary of an odd page sits exactly
+        # HOW FAR, RELATIVE: the drawing's left edge on an odd page sits
         # (gutter - outside) right of an even page's, whatever the common
         # centring bias. This cancels any shift common to every page, which
-        # is why the absolute check above exists. The 0.3 mm gutter shift is
-        # caught here by the equal-width precondition (a 1 px rounding
-        # difference between the odd and even drawing), NOT by the bound.
+        # is why the absolute check above exists.
         if len(widths) != 1:
             problems.append(f"drawings differ in width: {sorted(widths)}")
-        elif len(frame_lefts[True]) == len(frame_lefts[False]) == 1:
-            (odd_left,) = frame_lefts[True]
-            (even_left,) = frame_lefts[False]
+        elif len(lefts[True]) == len(lefts[False]) == 1:
+            (odd_left,) = lefts[True]
+            (even_left,) = lefts[False]
             if abs((odd_left - even_left) - 2 * expected_offset) > CENTRE_BOUND_PX:
                 problems.append(
                     f"odd-even boundary {odd_left - even_left:.1f} px "
                     f"(bound {CENTRE_BOUND_PX} px)"
                 )
         else:
-            problems.append(f"boundaries differ within a parity: {frame_lefts}")
+            problems.append(f"boundaries differ within a parity: {lefts}")
         return problems
 
     @pytest.mark.parametrize("flag", [True, False])
     def test_every_pages_parity_equals_its_own_1_based_position(self, flag) -> None:
         assert self._problems(flag) == []
-
-    # -- the residue, declared and pinned from both sides (ADR-0039/R3) ------
-    # The bound is 2 px on the page's absolute centre and on the odd-minus-even
-    # boundary. What it lets through is MEDIUM-DEPENDENT, and was measured on
-    # this tip by building the book with a shifted real margin while the
-    # expectation stays nominal. The shifts are 0.1 mm steps because THIS
-    # TEST formats the margin with ``:.2f`` cm; the product accepts finer
-    # margins (the column is an unconstrained string), so the residue below is
-    # the BOUND's, not a limit of what can be built (see the four-decimal
-    # measurement in ``TestParity_TheBoundIsPinnedFromBothSides``). The reason is the one stated in
-    # ``_problems``: the nominal vector centre already sits 1.8 px from the
-    # coordinate, 0.2 px inside the bound, so in vector EVERY shift of 0.1 mm
-    # (0.6 px of centre) is caught in one direction; in raster (1.2 px of
-    # room) a 0.1 mm shift is inside the residue in the direction that moves
-    # the centre toward the coordinate. Each row is the declared outcome
-    # (True = caught) for (raster, vector); the test asserts the table, so the
-    # residue is pinned from both sides and a changed medium or a changed
-    # bound reds it.
-    #   (gutter, outside) delta in mm : (raster, vector)
-    _RESIDUE = {
-        (-0.1, 0.0): (False, True),
-        (0.0, 0.1): (False, True),
-        (0.1, 0.0): (True, True),
-        (0.0, 0.2): (True, True),
-        (0.0, -0.1): (True, True),
-        (-0.2, 0.0): (True, True),
-    }
-
-    # Ids (CARD-359 review 2): were shift0..shift5, in sorted key order; now
-    # named by the shift, e.g. gutter-0.1mm.
-    @pytest.mark.parametrize(
-        "shift",
-        [
-            pytest.param(key, id=f"gutter{key[0]:+}mm-outside{key[1]:+}mm")
-            for key in sorted(_RESIDUE)
-        ],
-    )
-    def test_the_residue_is_what_the_table_declares(self, shift) -> None:
-        gutter_delta, outside_delta = shift
-        raster, vector = self._RESIDUE[shift]
-        declared = vector if page_medium(PageKind.PUZZLE) is PageMedium.VECTOR else raster
-        caught = self._problems(
-            True, MIRROR_GUTTER_MM + gutter_delta, MIRROR_OUTSIDE_MM + outside_delta
-        )
-        assert bool(caught) is declared, (shift, declared, caught)
-
-    def test_the_bound_is_the_declared_number(self) -> None:
-        """Pins the declaration in ``_problems`` from the loose side: the
-        residue and headroom figures there were measured at 2 px."""
-        assert CENTRE_BOUND_PX == 2
 
     def test_a_common_shift_of_every_page_is_caught_by_the_absolute_check(
         self,
@@ -560,8 +430,8 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         sides = {}
         for flag in (True, False):
             generator = BookPDFGenerator(self._mirrored(flag))
-            pages = interior_images(generator.interior_pages(list(_unpackable_puzzles())))
-            number = _measurable_page_numbers(generator, list(_unpackable_puzzles()))[0]
+            pages = interior_images(generator.interior_pages(list(_puzzles())))
+            number = _measurable_page_numbers(generator, list(_puzzles()))[0]
             drawing = drawing_of(pages[number - 1])
             offset = (
                 (drawing.left + drawing.grid_right) / 2 - pages[number - 1].width / 2
@@ -944,9 +814,3 @@ class TestDividerPages_PrintSetupStoresTheChoice:
         assert tag
         assert "checked" not in tag.group(0)
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

@@ -545,13 +545,13 @@ class TestSuiteProfile_RankingIsDeterministic:
         # file, this goes red and the snapshot (and the profile) are restated
         # deliberately rather than silently diverging.
         live = ranker.regrep_render_set(REPO_ROOT / "tests")
-        assert live == list(ranker.RENDER_HEAVY_SNAPSHOT), {
-            "added since freeze": sorted(
-                set(live) - set(ranker.RENDER_HEAVY_SNAPSHOT)
-            ),
-            "gone since freeze": sorted(
-                set(ranker.RENDER_HEAVY_SNAPSHOT) - set(live)
-            ),
+        expected = [
+            path for path in ranker.RENDER_HEAVY_SNAPSHOT
+            if path not in ranker.RENDER_SET_RETIRED
+        ]
+        assert live == expected, {
+            "added since freeze": sorted(set(live) - set(expected)),
+            "gone since freeze": sorted(set(expected) - set(live)),
         }
 
     def test_the_frozen_render_set_is_sorted_and_duplicate_free(self) -> None:

@@ -350,23 +350,6 @@ class TestBookPDFGeneration:
         assert cover.size[0] > 0
         assert cover.size[1] > 0
 
-    def test_create_guide_page(self):
-        """Test creating a guide page."""
-        from nonogram.admin.book_pdf_generator import BookPDFGenerator
-
-        gen = BookPDFGenerator()
-        guide = gen.create_guide_page(
-            puzzle_count=10,
-            easy_count=3,
-            medium_count=4,
-            hard_count=3,
-        )
-
-        assert guide is not None
-        assert guide.mode == "RGB"
-        assert guide.size[0] > 0
-        assert guide.size[1] > 0
-
     def test_generate_book_pdf_empty(self):
         """Test generating PDF with no puzzles."""
         from nonogram.admin.book_pdf_generator import BookPDFGenerator
@@ -394,9 +377,3 @@ class TestBookPDFGeneration:
         assert medium_count == 1
         assert hard_count == 1
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

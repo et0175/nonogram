@@ -1,15 +1,15 @@
 {
   "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
   "digests": {
-    "answer_full": "8ba946c603d22287280fe844fceb8e64a99c5e2231807604c0ba350193a73817",
-    "answer_packed_one": "00342e65c7cda3a74e46006aa2486dbcaf88c00263bb359646b6f94b6949bd7b",
-    "answer_packed_two": "0b54ab8a16da534f5d7ae503fd67e0acbc1441920be419298c3944234cecc879",
+    "answer_full": "c554e4aebb62af85bb908518dc81c2791488aeb83cf196c0d414a6d12ff4a86d",
+    "answer_packed_one": "770fbcf15b228f5694cd132f64f2025135e0d42058e6e91676b174bef6268afe",
+    "answer_packed_two": "1ed890b19c753b48cd8b8e7178c3fbfbed8a2b097fff3ba4b97ea0b7ec442dbf",
     "guide_1": "f20b604838031bd7094a6cd435e64f2c810f33c648ac44a938a0249678ca0a35",
     "guide_2": "91c7524b0a3dffdf3a3ebb8a635fe2bb472956a9bd9c9fff52b95e62b77eb962",
     "play": "6f24d48691c415c3a848f802436de64fb7d95eded071719b0de91dafdebd92bf",
-    "puzzle_single_15x15": "6158093648c298c742be354c5510581a80709e141f1a29b33413ef6c50de845a",
-    "puzzle_single_30x30": "9c3586478d416d072074b50ee2d4126a45763ee82c50603d2a726a2f377671c6",
-    "puzzle_two_up": "3bf8c38844cf141ce36fdb3f409eb0ec06f3c8afdc8830cf8221500378c68dbb",
+    "puzzle_single_15x15": "b982d7db3dc1a79f20746a3e38ed9bbda9cd3c188cec0160bd554be50a4e9875",
+    "puzzle_single_30x30": "fa5a936c12823f9179c94251947fe18912d5d0f4a4809b842c18d3c5cd2f474f",
+    "puzzle_two_up": "19a6ac5bf3985df824894fa56e2764f74560509ce1a7a83bf4c57f4f47f6b90f",
     "title": "a3896738935b7820eb3c1aa248cc31251c66a57997f70b0d40bb223a0f2d28ef",
     "toc": "0dc244c192aa54000e2adfe1f4c7434a75fd43727f26cff4d93b2c96e9b836c7"
   },

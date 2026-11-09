@@ -293,6 +293,16 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_puzzle_edit_routes.py",
 )
 
+#: Files in the frozen snapshot that no longer render (2026-11-09, the PDF
+#: test curation: their raster-page tests were deleted). They stay in
+#: RENDER_HEAVY_SNAPSHOT because the recorded rankings were computed with
+#: them; the drift check subtracts them from the snapshot instead.
+RENDER_SET_RETIRED: tuple[str, ...] = (
+    "tests/test_admin_tier_surfaces.py",
+    "tests/test_book_scaffolding.py",
+    "tests/test_book_solved_page.py",
+)
+
 # --------------------------------------------------------------------------
 # Artefact header contract
 #

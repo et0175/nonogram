@@ -640,40 +640,24 @@ def _bands_written_on(stream):
     return header_lines(stream.render().decode("cp1252"))
 
 
-def _bands_the_export_prints(app, client, monkeypatch, book_id, arms=None):
+def _bands_the_export_prints(app, client, monkeypatch, book_id):
     """``{puzzle id: band text}`` as the real interior download draws them.
 
-    Spies on the step that writes the band onto a puzzle page while
-    ``/book/<id>/download-pdf`` renders the interior, and names each page's
-    puzzle by its row clues, which differ from member to member. A puzzle page
-    is a bitmap or operators depending on the medium its kind declares
-    (ADR-0042/R1), and each is built by its own method, so each is spied: the
-    bitmap page's payload step records the band it was given, and the
-    operators page's method records the band line its returned stream SHOWS
-    (CARD-382). Exactly one of the two runs for a given page; ``arms``, when a
-    list is passed, receives ``"bitmap"`` or ``"operators"`` once per page so a
-    caller can say which medium it really read.
+    Spies on the vector puzzle-page methods while ``/book/<id>/download-pdf``
+    renders the interior, records the band line each returned stream SHOWS
+    (CARD-382), and names each page's puzzle by its row clues, which differ
+    from member to member.
     """
     from nonogram.admin.book_pdf_generator import BookPDFGenerator
 
-    real = BookPDFGenerator._puzzle_payload
     real_one = BookPDFGenerator.vector_puzzle_page
     real_two = BookPDFGenerator.vector_two_up_page
     drawn = []
-
-    def spy(payload, puzzle_number):
-        banded = real(payload, puzzle_number)
-        drawn.append((payload.row_clues, banded.difficulty))
-        if arms is not None:
-            arms.append("bitmap")
-        return banded
 
     def spy_one(self, payload, *args, **kwargs):
         stream = real_one(self, payload, *args, **kwargs)
         (band,) = _bands_written_on(stream)
         drawn.append((payload.row_clues, band))
-        if arms is not None:
-            arms.append("operators")
         return stream
 
     def spy_two(self, plan, payloads):
@@ -682,11 +666,8 @@ def _bands_the_export_prints(app, client, monkeypatch, book_id, arms=None):
         assert len(bands) == len(payloads) == 2, bands
         for payload, band in zip(payloads, bands, strict=True):
             drawn.append((payload.row_clues, band))
-            if arms is not None:
-                arms.append("operators")
         return stream
 
-    monkeypatch.setattr(BookPDFGenerator, "_puzzle_payload", staticmethod(spy))
     monkeypatch.setattr(BookPDFGenerator, "vector_puzzle_page", spy_one)
     monkeypatch.setattr(BookPDFGenerator, "vector_two_up_page", spy_two)
     response = client.post(f"/book/{book_id}/download-pdf", data={"part": "interior"})
@@ -937,61 +918,8 @@ class TestBookDetail_UndrawableMemberHasNoNumber:
         assert 'id="numbers-unavailable"' not in body
 
 
-class TestBookDetail_TheBandReadingFollowsTheMedium:
-    """CARD-382 -- the reading of the printed band reaches both media, and can fail."""
-
-    def _arm(self, monkeypatch, *, operators: bool):
-        from nonogram.admin.book_pdf_generator import (
-            _RASTER_DECLARATIONS,
-            PageKind,
-            PageMedium,
-            RasterDeclaration,
-            page_medium,
-        )
-
-        if operators:
-            monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.PUZZLE, raising=False)
-            assert page_medium(PageKind.PUZZLE) is PageMedium.VECTOR
-        else:
-            monkeypatch.setitem(
-                _RASTER_DECLARATIONS,
-                PageKind.PUZZLE,
-                _RASTER_DECLARATIONS.get(
-                    PageKind.PUZZLE,
-                    RasterDeclaration(
-                        reason="put back by this test: the tree has lifted it",
-                        authority="CARD-382",
-                        expires_with=("CARD-322",),
-                    ),
-                ),
-            )
-            assert page_medium(PageKind.PUZZLE) is PageMedium.RASTER
-
-    def test_the_same_numbers_are_read_off_a_bitmap_page_and_an_operators_page(
-        self, admin_app, client, monkeypatch
-    ):
-        book_id, ids = _book_stored_as(admin_app, MIXED)
-        page = _read(client, f"/book/{book_id}")
-        expected = {
-            row["id"]: BAND.format(number=row["hash"].strip(), tier=TIER_LABELS[row["tier"].strip()])
-            for row in page.rows
-        }
-
-        # One context per walk: the spies stack otherwise, and the second walk
-        # would call the first walk's spy and write into its list.
-        bitmap_arms: list = []
-        with monkeypatch.context() as first:
-            self._arm(first, operators=False)
-            from_bitmaps = _bands_the_export_prints(admin_app, client, first, book_id, bitmap_arms)
-        operator_arms: list = []
-        with monkeypatch.context() as second:
-            self._arm(second, operators=True)
-            from_operators = _bands_the_export_prints(admin_app, client, second, book_id, operator_arms)
-
-        # Each walk read the medium it was set up to read, on every member.
-        assert set(bitmap_arms) == {"bitmap"} and len(bitmap_arms) == len(ids)
-        assert set(operator_arms) == {"operators"} and len(operator_arms) == len(ids)
-        assert from_bitmaps == from_operators == expected
+class TestBookDetail_TheBandIsReadOffTheOperators:
+    """CARD-382 -- the band reader finds the header line, and only it."""
 
     def test_the_band_line_is_found_by_where_it_sits_and_not_mistaken_for_other_text(self):
         from nonogram.admin.book_vector import ContentStream

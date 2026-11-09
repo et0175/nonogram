@@ -146,7 +146,10 @@ def _lettering_font(size: int) -> ImageFont.FreeTypeFont:
 
     Cached by size: a book asks for one or two sizes across its whole key.
     """
-    return ImageFont.truetype(io.BytesIO(_lettering_font_bytes()), size=size)
+    # BASIC, not Pillow's default RAQM when libraqm is installed: RAQM measures
+    # differently (a soft hyphen as zero, kerned pairs), so the same book
+    # would print different pixels on different machines.
+    return ImageFont.truetype(io.BytesIO(_lettering_font_bytes()), size=size, layout_engine=ImageFont.Layout.BASIC)
 
 
 def _clue_font(layout: Layout) -> ImageFont.FreeTypeFont:

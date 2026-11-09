@@ -95,6 +95,10 @@ are kept near 65 characters.
 
 ### First, a defect this draft uncovered: the guide page's type is about 6.7 pt
 
+> **Since 2026-11-09** the raster `create_guide_page` this section describes is deleted; the guide
+> is written as vector operators by `book_guide_spread` and `book_guide_vector`. The section is
+> kept as the history of the type-size decision.
+
 `create_guide_page` sets the body font to 28 px and the title to 48 px. The interior renders
 at **300 DPI**, where 1 pt = 4.167 px — so the body is **6.7 pt** and the title **11.5 pt**.
 Book body text is normally 10–12 pt; 6.7 pt is smaller than a legal footnote, and the "title"

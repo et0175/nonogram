@@ -85,7 +85,8 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
   `ContentStream.round_mark` to "called nowhere" now holds it to that one caller
   (`TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee`), and the written interior is
   held to "only the guide's first page carries curve operators, and exactly the key strip's
-  nine dots" (`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`). CARD-207 and CARD-233
+  nine dots" (then `TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`; since 2026-11-09 the
+  raster dots are the level divider's, `TestDifficultyDots_OnlyTheLevelDividerDrawsRasterDots`). CARD-207 and CARD-233
   widen the second the same way for their pages.
 - 2026-10-17: **The cell floor restated 4.8 → 4.75 mm, decision unchanged** — the
   owner-approved NFR-008 amendment of the same day (CARD-225 owns the requirement; the
@@ -187,7 +188,10 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     print the same difficulty glyph, and four slightly different dots cannot be
     fixed once a book is on paper.
   scope: {code: ["src/nonogram/**"]}
-  check: {kind: test, ref: test_the_books_own_pages_carry_no_undeclared_round_mark}
+  check: {kind: test, ref: test_the_books_own_vector_sheets_carry_no_round_mark}
+  # 2026-11-09: the raster page-render instrument (test_the_books_own_pages_
+  # carry_no_undeclared_round_mark) was retired with the raster interior;
+  # the vector stream check and the ast walk below hold the rule.
   # tests/test_book_difficulty_dots.py (CARD-241, widened by CARD-243). Two
   # instruments, neither inside the other, and the rule is only as wide as
   # their union:

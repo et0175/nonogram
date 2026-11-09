@@ -52,16 +52,14 @@ from PIL import Image
 from nonogram import clues
 from nonogram.admin.book_answer_key import Answer, plan_small_answer_pages
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
 from nonogram.admin import book_vector
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
-from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers import pdf_vector
-from tests.helpers.page_ink import drawing_of, frame_centre_of
+from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 
@@ -458,38 +456,23 @@ def _reference_band(
     reference is the *operators* the page writer draws for the same puzzle at
     the position and number ``identity`` names, rasterised by the same poppler
     -- two renderings of one medium, which is what a pixel comparison is a claim
-    about. **The DPI is the drawn stream's own, by construction**: ``like`` is
+    about (an interior puzzle page is always operators, ADR-0042). **The DPI is the drawn stream's own, by construction**: ``like`` is
     used only for an ``isinstance`` check and is never read for a DPI, so
     nothing in this function makes the reference's DPI the interior page's. What
     pins it is one test, ``test_the_single_and_the_two_up_page_are_drawn_at_one_dpi``,
-    which reads both streams' ``dpi``. A bitmap reference
-    against a poppler render could never match and said nothing. ``identity``
+    which reads both streams' ``dpi``. ``identity``
     is parsed here only to hand the writer its number and tier; the words it
     must have printed are read back from the page's text layer by
     :func:`_band_lines`, so ``band_identity`` is not trusted to spell them.
     """
-    if isinstance(like, ContentStream):
-        found = _IDENTITY.fullmatch(identity)
-        assert found is not None, f"{identity!r} is not a band this module writes"
-        number, tier = int(found.group(1)), found.group(2)
-        drawn = BookPDFGenerator(_book()).vector_puzzle_page(
-            _payload_of(puzzle, tier), number, page_number
-        )
-        ink = _band_ink(interior_images([drawn])[0], TOP_MM)
-        return ink if ink is None or not shift_px else ink._replace(left=ink.left + shift_px)
-    payload = ExportPayload(
-        grid=puzzle["grid"],
-        row_clues=tuple(tuple(clue) for clue in puzzle["clues_rows"]),
-        column_clues=tuple(tuple(clue) for clue in puzzle["clues_cols"]),
-        seed=0,
-        mode="random",
-        width=puzzle["width"],
-        height=puzzle["height"],
-        name=None,
-        difficulty=identity,
+    assert isinstance(like, ContentStream), "an interior puzzle page is operators"
+    found = _IDENTITY.fullmatch(identity)
+    assert found is not None, f"{identity!r} is not a band this module writes"
+    number, tier = int(found.group(1)), found.group(2)
+    drawn = BookPDFGenerator(_book()).vector_puzzle_page(
+        _payload_of(puzzle, tier), number, page_number
     )
-    blank, _ = render_pages(payload, page_spec=book_page_spec(_book(), page_number))
-    ink = _band_ink(blank, TOP_MM)
+    ink = _band_ink(interior_images([drawn])[0], TOP_MM)
     return ink if ink is None or not shift_px else ink._replace(left=ink.left + shift_px)
 
 
@@ -1355,16 +1338,6 @@ class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
         shifted = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM, shift_px=1)
         assert not _same_ink(one, shifted), "the band's place across the page is compared"
 
-    def test_a_reference_is_drawn_in_the_medium_of_the_page_it_is_held_against(self):
-        """``like=`` is what selects the medium, and the two media do differ:
-        a poppler render of a stream is not the bitmap COMP-007 drew, which is
-        why a cross-medium reference could only ever say no."""
-        puzzle = _puzzle(**_SMALL_PAIR)
-        bitmap = _reference_band(puzzle, 6, "Puzzle 1 · Easy")
-        stream = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
-
-        assert bitmap is not None and stream is not None
-        assert (bitmap.left, bitmap.image.tobytes()) != (stream.left, stream.image.tobytes())
 
     @staticmethod
     def _pair_payloads() -> list:
@@ -1626,27 +1599,9 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         single = drawing_of(pages[6])
 
         # AC-190's retired top edge: the band's foot, on every page and parity.
-        #
-        # CARD-382: each medium is read with ITS OWN reading of the slot's top
-        # edge. A bitmap keeps the first inked line, exactly as before this
-        # card (so a 3 px shift up still reds it there: 0.27 px off the band's
-        # foot). An operators page is read as the frame's BOUNDARY
-        # (``frame_centre_of``), because its first inked line is half a
-        # six-line rule outside the path: 2.73 px off, 0.231 mm, over this
-        # assertion's 0.2 mm; the boundary is 0.23 px (0.020 mm) off. The
-        # bound is 0.2 mm in both and is not widened.
-        raw = _raw_interior(
-            [
-                _puzzle(**_SMALL_PAIR, puzzle_id="one"),
-                _puzzle(**_SMALL_PAIR, puzzle_id="two"),
-                _puzzle(**self.BIG, puzzle_id="big"),
-            ]
-        )
-        top_edge_px = (
-            frame_centre_of(pages[5], upper).frame_top
-            if isinstance(raw[5], ContentStream)
-            else upper.top
-        )
+        # The slot's top edge is its drawing's first inked line: with no clue
+        # frame (owner, 2026-11-09) no rule straddles it.
+        top_edge_px = upper.top
         # The upper slot's own row is its band's foot plus the two-up gap, so
         # a single page pinned to the band's foot sits one gap ABOVE it.
         retired_gap_mm = (TOP_MM + BAND_MM) - _mm(top_edge_px)
@@ -1668,84 +1623,29 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         )
 
     def test_that_row_is_the_top_margin_plus_the_band(self):
-        """The upper slot's frame BOUNDARY is the top margin plus the band, to
-        half a device pixel -- one reading, on the one medium the interior has.
+        """The upper slot's drawing starts at the top margin plus the band
+        (plus the two-up gap, floored to whole pixels), to half a device pixel.
 
-        **CARD-322 (owner ruling 2026-11-06, placed-edge cells).** CARD-382
-        found this claim could not be met in BOTH media by any single reading
-        (first inked line: +0.27 px bitmap, -2.73 px operators; frame
-        boundary: +0.77 bitmap, -0.23 operators, against the stated coordinate
-        306.73 px) and left it red as declared residue. After the flip the
-        interior exists in operators only, so the claim is the one reading it
-        always had: the frame boundary (``frame_centre_of``, the centre of the
-        frame's top rule) is within half a pixel of the stated row.
-
-        Measured on this page: **-0.23 px** (the stated 306.73 against a rule
-        centred on 306.5), inside the bound ``_mm(0.5)`` = 0.0423 mm with 0.27
-        px of room, which is why neither the bound nor the coordinate is moved
-        (G-3b). The control: a frame drawn one pixel off the boundary is outside
-        the bound on either side (-1.23 and +0.77 px), where the old first-
-        inked-line reading could not tell a 1 px shift from the 2.73 px it
-        already carried.
-
-        **Since the two-up gap** the stated row is the band's foot plus
-        :data:`TWO_UP_RULE_GAP_MM` floored to whole pixels (35 px), so the
-        drawing keeps its old sub-pixel phase and the boundary still measures
-        -0.23 px against the stated row.
+        Read as the drawing's first inked line: with no clue frame (owner,
+        2026-11-09) no rule is centred on the row. Measured on this page:
+        **+0.27 px** against the stated 341.73 px. The control: the page moved
+        one pixel down or up is read again the same way and leaves the bound.
         """
         pages = self._pages()
         upper, _ = drawings_of(pages[5])
-        boundary = frame_centre_of(pages[5], upper)
 
         stated_px = self.UPPER_ROW_MM * PX_PER_MM
-        error_px = boundary.frame_top - stated_px
-        assert abs(error_px) <= 0.5 + 1e-9, (error_px, "the frame is not on the row")
-        # The measured figure, written in the test (ADR-0039/R3).
-        assert error_px == pytest.approx(-0.23, abs=0.01), error_px
-        # The control that can fail, on the page itself: the rendered operators
-        # page moved one pixel down or up is read again by the same two calls,
-        # and each reading leaves the bound.
+        error_px = upper.top - stated_px
+        assert abs(error_px) <= 0.5 + 1e-9, (error_px, "the drawing is not on the row")
+        assert error_px == pytest.approx(0.27, abs=0.01), error_px
         from PIL import ImageChops
 
         for shift in (-1, +1):
             moved = ImageChops.offset(pages[5], 0, shift)
             moved_upper, _ = drawings_of(moved)
-            moved_error = frame_centre_of(moved, moved_upper).frame_top - stated_px
-            assert abs(moved_error) > 0.5, (shift, moved_error, "a 1 px shift of the frame is invisible")
+            moved_error = moved_upper.top - stated_px
+            assert abs(moved_error) > 0.5, (shift, moved_error, "a 1 px shift is invisible")
             assert moved_error == pytest.approx(error_px + shift, abs=0.01), (shift, moved_error)
-
-    def test_the_declared_residue_of_the_half_pixel_claim(self):
-        """The figures :meth:`test_that_row_is_the_top_margin_plus_the_band`
-        declares, pinned (a measurement, not a tolerance for that claim): both
-        readings of the upper slot's top edge against the stated coordinate, in
-        the medium the page really is, and the boundary reading of the lower
-        slot as the matched control that it reads a boundary and not noise."""
-        raw = _raw_interior(
-            [
-                _puzzle(**_SMALL_PAIR, puzzle_id="one"),
-                _puzzle(**_SMALL_PAIR, puzzle_id="two"),
-                _puzzle(**self.BIG, puzzle_id="big"),
-            ]
-        )
-        pages = interior_images(raw)
-        upper, lower = drawings_of(pages[5])
-        stated = self.UPPER_ROW_MM * PX_PER_MM
-        boundary = frame_centre_of(pages[5], upper)
-
-        assert boundary.top_rule_px == 6, "the frame rule was read, not assumed"
-        if isinstance(raw[5], ContentStream):
-            # Unchanged by the two-up gap: it is whole pixels (35 px), so the
-            # stated row moves with the drawing.
-            ink_error, boundary_error = -2.73, -0.23
-        else:
-            ink_error, boundary_error = +0.27, +0.77
-        assert upper.top - stated == pytest.approx(ink_error, abs=0.01)
-        assert boundary.frame_top - stated == pytest.approx(boundary_error, abs=0.01)
-        # The control: the slot below is read by the same two readings, a whole
-        # number of device pixels further down, so each reading moves with the
-        # page and is no constant.
-        lower_boundary = frame_centre_of(pages[5], lower)
-        assert lower_boundary.frame_top - boundary.frame_top == lower.top - upper.top > 1000
 
     def test_the_two_pages_really_do_print_different_cells(self):
         """The negative control: two rows differing is not two identical pages.
@@ -1805,10 +1705,3 @@ def test_the_measured_extents_are_inside_con_011() -> None:
                   dict(columns=20, rows=20)):
         assert MIN_SIZE <= shape["columns"] <= MAX_SIZE
         assert MIN_SIZE <= shape["rows"] <= MAX_SIZE
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

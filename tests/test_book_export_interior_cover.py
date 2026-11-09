@@ -59,15 +59,11 @@ from PIL import Image, ImageDraw, PdfParser
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_pdf_generator import (
     GUIDE2_TITLE,
     GUIDE_TITLE,
     TITLE_PAGE_COUNT,
-    PageKind,
-    PageMedium,
-    page_medium,
 )
 from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from tests.helpers import pdf_vector
@@ -97,9 +93,8 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     ``test_a_puzzle_of_this_module_never_shares_a_page_with_the_next``, so a
     pairing rule or profile that made it false is caught by name rather than
     as a page-count failure with no stated cause.
-    ``answer_pages`` is how many pages the answer section takes (CARD-198:
-    one full solved page per puzzle, no packing) — named at the call site
-    for what it is now, not derived from a packing walk. A book with no
+    ``answer_pages`` is how many pages the answer section takes
+    (:func:`_packed_answer_pages` for a one-level book). A book with no
     puzzles has no divider, no TOC and no answer section at all.
 
     The title page's own term is **1** (CARD-206: the blank title /
@@ -123,17 +118,20 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     return 1 + 2 + toc_pages + levels + puzzle_count + 1 + answer_pages
 
 
-#: Every puzzle this module writes is this many cells wide (and 20 tall): one
-#: wider than the answer key's packing limit, so each answer still takes a
-#: full page of its own (CARD-198's treatment) and ``answer_pages`` stays the
-#: puzzle count. These were 20x20s until the owner raised the limit to
-#: ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT`` (20 x 25, from 15 x 20), which
-#: made a 20x20 answer pack four to a page; derived from the constant so a
-#: second raise cannot do the same silently.
-_PUZZLE_WIDTH = PACKED_MAX_WIDTH + 1
+#: Every puzzle this module writes is this many cells wide (and 20 tall):
+#: a 21x20 never pairs two-up (FR-040), so the puzzle-page count is the
+#: puzzle count.
+_PUZZLE_WIDTH = 21
 
-#: This module's standard book: three easy 21x20s, one answer page each.
-STANDARD_BOOK_PAGES = _interior_pages(3, 3)
+
+def _packed_answer_pages(puzzle_count):
+    """Answer pages for ``puzzle_count`` answers of one level (CARD-202):
+    pages of 4 while 4 remain, then one of 2, then one of 1."""
+    return puzzle_count // 4 + (puzzle_count % 4 + 1) // 2
+
+
+#: This module's standard book: three easy 21x20s, answers on 2 pages (2 + 1).
+STANDARD_BOOK_PAGES = _interior_pages(3, _packed_answer_pages(3))
 
 
 def _rectangle(width, height, left, top, right, bottom):
@@ -261,67 +259,25 @@ def _read_interior(data):
 
 
 def _guide_page(puzzle_count, easy, medium=0, hard=0, page_number=2):
-    """The guide page this book's **page 2** must hold -- three easy puzzles.
+    """The guide page the writer draws at ``page_number`` (default: page 2).
 
-    In the medium the export writes it in (CARD-357, ADR-0042/R6): a page the
-    export writes as operators is compared with the SAME writer asked for the
-    same position, rendered by the same engine, and never with the raster
-    method's Pillow drawing of it -- a poppler render against a PIL bitmap is a
-    cross-medium comparison that is false for a reason that has nothing to do
-    with the claim. Whether the kind is operators is read off the registry
-    (``page_medium``), so the same call is right on the unlifted tree.
-
-    ``create_guide_page``'s own default position is the guide's first page,
-    which since CARD-206 is interior page 2 (a verso), so ``page_number=2``.
-
-    **What this weakens, declared (ADR-0039/R3).** The comparison made here is
-    "the export's page is, to ``same_page``, the page the writer draws at this
-    position": it is no longer "that page looks like the raster-era Pillow
-    drawing of the guide". CARRIED, NOT HELD BY ANY COMMITTED TEST (it would be
-    red unprobed): poppler's render of the stream against Pillow's bitmap of
-    guide page 2 had an ink overlap of 0.887 where ``same_page`` demands 0.9
-    and a mean grey difference of 1.63 against its 6.0, measured by an
-    uncommitted script during CARD-357. ``same_page``'s thresholds are not
-    moved (G-2).
-
-    What the same-writer comparison does NOT see, each with its own reading:
-    (1) a defect that moves the export's writer and this reference together --
-    measured with the stale ``TITLE_PAGE_COUNT`` binding in
-    ``book_guide_vector``, both drew the SECOND half and the comparison stayed
-    green -- is caught by :func:`_guide_title_of`; (2) the folio: positions 2
-    and 4 are the same page to ``same_page`` (overlap 0.9992, grey 0.0076,
-    re-measured in the CARD-357 fix round, one differing operator), caught by
-    :func:`_guide_folio_of`. Controls that fail just past it:
-    ``test_the_two_guide_pages_are_not_the_same_page``, and the title/folio
-    readings' own tests.
-
-    UNHELD (owner decision pending): nothing in this module holds a guide
-    page's CONTENT beyond its position, half and folio: a stray black block
-    planted on every guide page left every test in this module green. The
-    REVIEWER (not me) also measured, over the 17 guide-related files a
-    bounded grep found, that the same block patched at ``book_guide_vector``
-    and every importing module leaves them green (unprobed 150 passed in 5
-    files and 838 passed, 1 skipped in 12; under the probe the 68 reds are
-    identical with and without the plant); a one-point shift of the content
-    also survives; a stray text run is caught only incidentally (3 failed,
-    because the folio reading takes poppler's last word). Tests that never
-    name the guide were not searched, and no surviving authority is named.
+    The same vector writer asked for the same position, rendered by the same
+    engine (CARD-357). It cannot see a defect that moves the export's writer
+    and this reference together, nor the folio (positions 2 and 4 read as
+    the same page to ``same_page``); :func:`_guide_title_of` and
+    :func:`_guide_folio_of` read those.
     """
     generator = BookPDFGenerator()
-    if page_medium(PageKind.GUIDE) is PageMedium.VECTOR:
-        return page_image(
-            generator.pages.guide(
-                generator.page_spec(page_number),
-                generator.dpi,
-                page_number,
-                puzzle_count=puzzle_count,
-                easy_count=easy,
-                medium_count=medium,
-                hard_count=hard,
-            )
+    return page_image(
+        generator.pages.guide(
+            generator.page_spec(page_number),
+            generator.dpi,
+            page_number,
+            puzzle_count=puzzle_count,
+            easy_count=easy,
+            medium_count=medium,
+            hard_count=hard,
         )
-    return generator.create_guide_page(
-        puzzle_count, easy, medium, hard, page_number=page_number
     )
 
 
@@ -478,13 +434,10 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
 
     def test_the_interior_runs_title_guide_puzzles_divider_answers(self, covered_book):
         """1 title + 2 guide + TOC + the "Easy" divider + 3 puzzles +
-        SOLUTIONS + 3 answers.
+        SOLUTIONS + the answers (two packed pages).
 
-        The answer section is three pages, one per puzzle (CARD-198) — FR-042
-        packed it to one page for a while (CARD-134), before this card
-        unpacked it again. What this AC is about is the *order* of the
-        sections and the cover's absence from them; CARD-206 adds one page at
-        the front and moves nothing else.
+        What this AC is about is the *order* of the sections and the cover's
+        absence from them.
         """
         client, book_id = covered_book
         data = _download(client, "finalise", book_id, "interior")
@@ -791,15 +744,15 @@ class TestBookFinalise_OffersBothDownloads:
         # Since CARD-129 the figure is the interior's **own** page count, not
         # the un-paired bound the screen used to print with a "~": a
         # 3-puzzle book of easy 21x20s is 1 guide + 1 divider + 3 puzzle
-        # pages + SOLUTIONS + 3 answer pages (CARD-198: one per puzzle).
-        assert f'data-interior-page-count="{_interior_pages(3, 3)}"' in body
+        # pages + SOLUTIONS + the packed answer pages.
+        assert f'data-interior-page-count="{STANDARD_BOOK_PAGES}"' in body
         assert 'data-interior-page-count-exact="true"' in body
         # The figure the owner reads, not the attribute beside it: the text of
         # the very <dd> that carries the count is the bare number, with no
         # "~" in front (CARD-153, F-004 — the old split-and-slice looked only
         # at the attribute's own value and could never fail), and the
         # sentence under the interior's contents does not say "About".
-        pages = _interior_pages(3, 3)
+        pages = STANDARD_BOOK_PAGES
         (shown,) = re.findall(
             r'<dd[^>]*\bdata-interior-page-count="\d+"[^>]*>(.*?)</dd>', body, re.S
         )
@@ -1018,23 +971,20 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
     which is how the Finalise screen calls it — it is therefore the
     un-paired plan: an **upper bound**, which is what that screen has
     always labelled it ("~") and what CARD-129 owns making exact (EC-034).
-    Since CARD-198 the answer term is no longer a packing saving to widen
-    the bound with — one answer page per puzzle is exact either way — so
-    what still widens the one-argument call beyond the real file is only
-    the divider term, CARD-128's "the most dividers a book of that many
-    puzzles could open": a three-puzzle book of one level plans 11 and
-    writes 9.
+    What widens the one-argument call beyond the real file is the packing
+    of the answers and the divider term (CARD-128's "the most dividers a book
+    of that many puzzles could open").
 
     So the two statements are asserted separately, and both against the
     written file: the plan given every term is the file's page count exactly,
     and the screen's figure is never less than it.
     """
 
-    #: How many answer pages these books take: one per puzzle, unconditionally
-    #: (CARD-198). Written out here rather than asked of the generator.
+    #: How many answer pages these books take, written out here rather than
+    #: asked of the generator.
     @staticmethod
     def _answer_pages(puzzle_count):
-        return puzzle_count
+        return _packed_answer_pages(puzzle_count)
 
     @staticmethod
     def _interior_of(puzzle_count):
@@ -1177,15 +1127,14 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         # The figure on the screen, against this module's own arithmetic and
         # not against the function that produced it. Since CARD-129 it is the
         # **exact** count of the file the button beside it downloads (EC-034):
-        # the puzzle-page term is the count (a 21x20 never pairs here), and
-        # since CARD-198 the answer term is the count too — one page each.
+        # the puzzle-page term is the count (a 21x20 never pairs here).
         exact = _interior_pages(
             puzzle_count, self._answer_pages(puzzle_count), min(1, puzzle_count)
         )
         assert f'data-interior-page-count="{exact}"' in body
-        assert f'data-unpaired-page-count="{exact}"' in body, (
-            "nothing pairs in this module's books, so the two counts are equal"
-        )
+        # The unpaired estimate neither pairs nor packs: one answer page each.
+        unpaired = _interior_pages(puzzle_count, puzzle_count, min(1, puzzle_count))
+        assert f'data-unpaired-page-count="{unpaired}"' in body
         assert exact == pages, "the screen's figure is the downloaded file's"
         # The one-argument bound the screen used to print is still a bound.
         assert interior_page_count(puzzle_count) >= pages
@@ -1253,21 +1202,18 @@ class TestBookExport_TitlePageCountedEverywhere:
         )
 
         # This module's own arithmetic, with the title page's term in it.
-        assert written == _interior_pages(puzzle_count, puzzle_count)
-        # **Exactly one more page than before this card.** The pre-card
-        # make-up of one of this module's easy books was 2 guide + 1 TOC +
-        # 1 divider + n puzzle pages + SOLUTIONS + n answer pages, i.e.
-        # `5 + 2n` — written out here as the figure it was, so the +1 is one
-        # readable term rather than a diff against a deleted helper.
-        assert written == (5 + 2 * puzzle_count) + 1
-        # The generator's own formula, given every term, and the sheet-free
-        # KDP estimate: nothing pairs or packs in a book of 21x20s, so all
-        # three figures are the same number rather than merely ordered.
+        answers = _packed_answer_pages(puzzle_count)
+        assert written == _interior_pages(puzzle_count, answers)
+        # The generator's own formula, given every term, is the same number.
         assert (
-            interior_page_count(puzzle_count, puzzle_count, puzzle_count, 1, toc_pages=1)
+            interior_page_count(puzzle_count, puzzle_count, answers, 1, toc_pages=1)
             == written
         )
-        assert unpaired_interior_page_count(rows) == written
+        # The sheet-free KDP estimate neither pairs nor packs: one answer page
+        # per puzzle, with the same title-page term.
+        assert unpaired_interior_page_count(rows) == _interior_pages(
+            puzzle_count, puzzle_count
+        )
 
     @pytest.mark.parametrize("title_pages", (2, 3))
     def test_each_position_is_counted_from_the_constant_not_a_literal(
@@ -1339,27 +1285,24 @@ class TestBookExport_TitlePageCountedEverywhere:
             page_image(pages[title_pages]), _guide_page(3, 3, page_number=title_pages + 1)
         ), "the guide's first half follows the reserved pages"
         first_guide_page = pages[title_pages]
-        if page_medium(PageKind.GUIDE) is PageMedium.VECTOR:
-            assert _guide_title_of(first_guide_page) == GUIDE_TITLE, (
-                "the page after the reserved ones draws the guide's FIRST half"
-            )
-            assert _guide_folio_of(first_guide_page) == title_pages + 1, (
-                "and prints the folio of its own position"
-            )
-        else:
-            assert isinstance(first_guide_page, Image.Image), (
-                "a guide page written as a bitmap is held by the comparison above"
-            )
+        assert _guide_title_of(first_guide_page) == GUIDE_TITLE, (
+            "the page after the reserved ones draws the guide's FIRST half"
+        )
+        assert _guide_folio_of(first_guide_page) == title_pages + 1, (
+            "and prints the folio of its own position"
+        )
         assert generator.section_plan(list(rows)).pages[0].page_number == (
             title_pages + 2 + 1 + 1
         ), "the puzzle section opens after the title pages, the guide and the TOC"
         expected = len(pages)
-        assert expected == 12 - 1 + title_pages
+        # 3 easy 21x20s: 2 guide + TOC + divider + 3 + SOLUTIONS + 2 answer pages.
+        assert expected == 10 + title_pages
         assert (
-            bpg.interior_page_count(3, 3, 3, 1, toc_pages=1) == expected
+            bpg.interior_page_count(3, 3, 2, 1, toc_pages=1) == expected
         ), "interior_page_count still counts a literal, not the constant"
+        # The KDP estimate does not pack: one answer page more here.
         assert (
-            book_kdp.unpaired_interior_page_count(rows) == expected
+            book_kdp.unpaired_interior_page_count(rows) == expected + 1
         ), "the KDP estimate still counts a literal, not the constant"
 
 
@@ -1461,27 +1404,19 @@ class TestBookExport_TheGuideComparisonIsInOneMedium:
 
     @staticmethod
     def _assert_guide_folios(data):
-        """The interior's two guide pages print the folios of their positions.
-
-        Which arm runs is read off the FILE. Probed (the guide written as
-        operators) the text layer is read: the two pages after the title
-        page(s) carry folios ``TITLE_PAGE_COUNT + 1`` and ``+ 2``. UNPROBED the
-        guide is a bitmap with no text layer, so the folio is NOT exercised
-        there: that arm asserts the two pages are raster and nothing more.
+        """The interior's two guide pages print the folios of their positions:
+        the two pages after the title page(s), ``TITLE_PAGE_COUNT + 1`` and ``+ 2``.
         """
-        media = pdf_vector.page_media(data)
         first = TITLE_PAGE_COUNT
-        if media[first] == pdf_vector.VECTOR:
-            assert pdf_vector.PDFTOTEXT is not None, "pdftotext is MISSING"
-            with tempfile.TemporaryDirectory(prefix="guide-folio-") as directory:
-                text = pdf_vector.extracted_text(data, out_dir=Path(directory))
-            pages = text.split("\f")
-            assert [_folio_in(pages[n]) for n in (first, first + 1)] == [
-                TITLE_PAGE_COUNT + 1,
-                TITLE_PAGE_COUNT + 2,
-            ]
-        else:
-            assert media[first : first + 2] == [pdf_vector.RASTER] * 2
+        assert pdf_vector.page_media(data)[first : first + 2] == [pdf_vector.VECTOR] * 2
+        assert pdf_vector.PDFTOTEXT is not None, "pdftotext is MISSING"
+        with tempfile.TemporaryDirectory(prefix="guide-folio-") as directory:
+            text = pdf_vector.extracted_text(data, out_dir=Path(directory))
+        pages = text.split("\f")
+        assert [_folio_in(pages[n]) for n in (first, first + 1)] == [
+            TITLE_PAGE_COUNT + 1,
+            TITLE_PAGE_COUNT + 2,
+        ]
 
     def test_the_exported_guide_pages_print_their_own_folios(self):
         """The empty book's interior: guide folios 2 and 3."""
@@ -3792,7 +3727,10 @@ class Generator:
     #: ``page_number`` parameter (default 1) of ``vector_title_contents``,
     #: the title / copyright page that replaces the blank page 1. No row
     #: removed. Read off this test's own failure listing.
-    POSITION_SITE_COUNT = 40
+    #: The raster interior writers' deletion (owner, 2026-11-09): 38 -- **-2**,
+    #: the ``page_number`` defaults of the deleted ``create_guide_page`` and
+    #: ``create_title_page``. Nothing added.
+    POSITION_SITE_COUNT = 38
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -4425,10 +4363,16 @@ class Generator:
         # (raster, PIL ``draw.*`` calls), the guide's join line in
         # ``draw_example_line`` and the dividers' puzzle ranges in the walk.
         # Read off this test's own measurement.
-        ((), 950),
-        (("builtins",), 656),
-        (("builtins", "definitions and imports"), 245),
-        (("builtins", "definitions and imports", "parameters"), 242),
+        #
+        # **The raster interior writers' deletion (owner, 2026-11-09)
+        # re-measured it a thirteenth time: -270 refusals** (950 -> 680,
+        # 656 -> 441, 245 -> 160, 242 -> 159, last two still 0): the 19
+        # deleted writers and the bitmap arms of ``produce`` took their PIL
+        # calls and helpers with them. Read off this test's own measurement.
+        ((), 680),
+        (("builtins",), 441),
+        (("builtins", "definitions and imports"), 160),
+        (("builtins", "definitions and imports", "parameters"), 159),
         (
             (
                 "builtins",
@@ -6397,7 +6341,9 @@ class Generator:
         # ``vector_title_contents`` (the title / copyright page) and in
         # ``create_level_divider`` (the restyled level divider). Same door,
         # definition count still one.
-        assert inside == 28, inside
+        # The raster interior writers' deletion (owner, 2026-11-09): 21, the
+        # seven door calls inside the deleted writers gone with them.
+        assert inside == 21, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "
@@ -6891,9 +6837,11 @@ class TestDoorAxis_TheNextIndirectionIsNotSilentEither:
                     if owner.get(node) is not holder:
                         nested.add(node.name)
 
-        assert len(nested) >= 9, (
-            "the walk finds fewer than the nine nested definitions measured "
-            f"inside this module's classes on 2026-10-25, so this control "
+        # Four since the raster guide writer, which held five of the nine
+        # measured on 2026-10-25, was deleted on 2026-11-09.
+        assert len(nested) >= 4, (
+            "the walk finds fewer than the four nested definitions measured "
+            f"inside this module's classes on 2026-11-09, so this control "
             f"would pass vacuously: {sorted(nested)}"
         )
 
@@ -7796,9 +7744,3 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
             "file's own padding guard (negative control)"
         )
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

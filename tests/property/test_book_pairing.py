@@ -73,6 +73,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.clues import compute_clues
 from nonogram.export import ExportPayload
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers.page_ink import ink_mask
 from tests.helpers.pdf_pages import page_image
 from tests.helpers.two_up_ink import drawings_of
 
@@ -571,8 +572,8 @@ def _pages_for_a_qualifying_run(length: int) -> int:
 def _expected_answer_pages(order: list[Puzzle]) -> int:
     """How many pages the answer section takes for ``order``.
 
-    CARD-202: a puzzle small enough (width<=15, height<=20) packs with its
-    same-level run instead of CARD-198's one page each; a level change or a
+    CARD-202: a puzzle packs with its same-level run (every supported size
+    does since the owner's 2026-11-09 decision); a level change or a
     non-qualifying puzzle closes the run (G-6). Written out here rather than
     imported (``nonogram.admin.book_answer_key.plan_small_answer_pages``):
     this module's subject is the *pairing* walk, and an answer-page count
@@ -584,7 +585,7 @@ def _expected_answer_pages(order: list[Puzzle]) -> int:
     run_level = None
     in_run = False
     for puzzle in order:
-        qualifies = puzzle.columns <= 15 and puzzle.rows <= 20
+        qualifies = puzzle.columns <= MAX_SIZE and puzzle.rows <= MAX_SIZE
         level = puzzle.tier_of_record
         if qualifies and in_run and level == run_level:
             run_length += 1
@@ -617,23 +618,40 @@ def _extent_of(puzzle: Puzzle) -> tuple[int, int, int, int]:
     return (puzzle.columns, puzzle.rows, puzzle.across, puzzle.down)
 
 
-def _measured_extent(drawing) -> tuple[int, int, int, int]:
+def _drawing_top(ink, drawing) -> int:
+    """Where ``drawing``'s column-clue gutter starts, read down its grid's left border.
+
+    The grid's vertical rules run from the drawing's top edge down to the
+    grid's bottom border, so the unbroken run of ink in that border's column
+    that reaches ``grid_bottom`` starts on the drawing's top edge. Read on the
+    whole page rather than taken from ``drawings_of``: with no clue frame
+    (2026-11-09) nothing rules a two-up slot's top edge, and the helper's cut
+    between the two slots can fall inside the lower slot's first clue row.
+    """
+    column = ink[: drawing.grid_bottom + 1, drawing.grid_left]
+    top = drawing.grid_bottom
+    while top > 0 and column[top - 1]:
+        top -= 1
+    return top
+
+
+def _measured_extent(drawing, ink) -> tuple[int, int, int, int]:
     """The same four numbers, read off one drawing's own ink.
 
-    ``tests.helpers.page_ink`` reports the grid's extents directly and the
-    drawing's own left and top edges — the outer edges of the two clue gutters
-    — so the drawing's extents are those edges' distance from the grid's far
-    borders in cells, at the cell the page actually printed. Rounded to whole
-    cells: the edges are each rounded to a whole device pixel independently, so
-    the quotient lands a few thousandths off a whole number (measured: 23.966
-    for 24), which is two orders of magnitude from the next integer.
+    ``tests.helpers.page_ink`` reports the grid's extents and the drawing's own
+    left edge — the outer edge of the row-clue gutter — and
+    :func:`_drawing_top` the top one, so the drawing's extents are those
+    edges' distance from the grid's far borders in cells, at the cell the page
+    actually printed. Rounded to whole cells: the edges are each rounded to a
+    whole device pixel independently, so the quotient lands a few thousandths
+    off a whole number (measured: 23.966 for 24).
     """
     cell = drawing.cell
     return (
         drawing.columns,
         drawing.rows,
         round((drawing.grid_right - drawing.left) / cell),
-        round((drawing.grid_bottom - drawing.top) / cell),
+        round((drawing.grid_bottom - _drawing_top(ink, drawing)) / cell),
     )
 
 
@@ -1013,7 +1031,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         # The blank title page (CARD-206), the 2-page guide (CARD-201), the
         # table of contents (CARD-200), a
         # divider per non-empty level, the puzzle pages, the SOLUTIONS
-        # divider, one answer page per puzzle (CARD-198).
+        # divider, and the packed answer pages.
         assert len(interior) == (
             1 + 2 + toc_page_count + dividers + len(expected) + 1
             + _expected_answer_pages(printed)
@@ -1047,13 +1065,11 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         # it needs pixels and survives the medium (the 1-3 px the media
         # disagree by is under a hundredth of a cell). ``page_image`` hands a
         # raster page back unchanged and rasterises an operators page.
-        drawn = [
-            [
-                _measured_extent(drawing)
-                for drawing in drawings_of(page_image(interior[number - 1]))
-            ]
-            for number in numbers_of
-        ]
+        drawn = []
+        for number in numbers_of:
+            image = page_image(interior[number - 1])
+            ink = ink_mask(image)
+            drawn.append([_measured_extent(drawing, ink) for drawing in drawings_of(image)])
         assert drawn == [
             [_extent_of(printed[n - 1]) for n in numbers] for numbers in expected
         ], label
@@ -1286,9 +1302,3 @@ def test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber() -> N
 
     assert cases == len(REGIMES)
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

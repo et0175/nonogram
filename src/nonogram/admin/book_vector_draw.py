@@ -94,7 +94,6 @@ __all__ = [
     "set_centred",
     "set_from_top",
     "set_right_from_top",
-    "set_right_middle",
 ]
 
 
@@ -383,28 +382,6 @@ def line_height_px(size_px: float, metrics: FontMetrics) -> float:
     measures a line's depth with.
     """
     return ascent_px(size_px, metrics) + descent_px(size_px, metrics)
-
-
-def set_right_middle(
-    stream: ContentStream,
-    text: str,
-    right: float,
-    center_y: float,
-    size_px: float,
-    metrics: FontMetrics,
-    *,
-    grey: float = INK_GREY,
-) -> None:
-    """Set ``text`` ending at ``right``, centred on ``center_y``.
-
-    Pillow's ``anchor="rm"`` — how a solved slot's caption is placed, so that
-    the reader's eye runs down the grid's right edge and meets the picture's
-    name there (CARD-203). The vertical half is :func:`set_centred`'s own.
-    """
-    size_pt = stream.to_points(size_px)
-    left = right - advance_px(text, size_px, metrics)
-    baseline = center_y + _middle_em(metrics) * size_px
-    stream.text(text, left, baseline, size_pt, grey=grey)
 
 
 def set_from_top(

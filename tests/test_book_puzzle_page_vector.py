@@ -2,20 +2,9 @@
 
 Every claim *about the vector page* is made against **the content stream of a
 written PDF** (ADR-0042/R6) or against **poppler**, an engine that did not
-write it: no claim about it is made by counting dark pixels. A **raster** page
-is read in two places, and neither of them is a reading of the vector page:
-
-* AC-1's **positive control** — the raster twin of the same page really does
-  carry an image XObject, which is what makes AC-1's reading capable of
-  failing;
-* the **cross-medium seam** (:class:`TestPuzzlePage_AgreesWithTheRasterTwin`)
-  — the one place the two media are read *against each other*, the raster
-  side off its own ink. That class's own docstring says why a seam that read
-  only the stream was not one.
-
-Both take the same bitmap from the ``twin`` fixture, so the whole module
-allocates **one** page raster; its other 35 tests allocate none, which is the
-point of the card.
+write it: no claim about it is made by counting dark pixels. One bitmap is
+made, a blank page of the same size: AC-1's positive control, which shows the
+XObject reading can fail.
 
 The two readings, and what each is for
 --------------------------------------
@@ -36,21 +25,6 @@ The two readings, and what each is for
   numbers are held against FreeType by CARD-294's
   ``TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader``; this module
   does not re-derive them.
-
-What is deliberately **not** converted here (G-4)
--------------------------------------------------
-
-``tests/test_book_pdf_band.py``, ``tests/test_book_puzzle_frame.py`` and
-``tests/test_book_cell_size.py`` keep every one of their pixel-reading sites,
-and every node id they declare. The reason is the board's state rather than
-the card's text: the puzzle page this card writes is **not yet the page the
-book ships**. CARD-298 is the card that makes ``_write_pdf`` choose a medium
-per page, and until it lands the raster page is the artefact, so converting
-its assertions would drop the control on what ships in exchange for a control
-on what does not. The conversion is CARD-298's to trigger and CARD-299's to
-finish; what this module adds is the stream-side half, beside the ink-side
-half rather than instead of it. ``TestPuzzlePage_AgreesWithTheRasterTwin``
-is the seam that makes the two halves comparable while both exist.
 """
 
 from __future__ import annotations
@@ -100,6 +74,7 @@ from nonogram.export.layout import (
     HeaderBand,
     InteriorFrame,
     Layout,
+    PuzzleFrame,
     PageRule,
     DIFFICULTY_DOT_GAP_RATIO,
     DIFFICULTY_DOT_RATIO,
@@ -110,11 +85,9 @@ from nonogram.export.layout import (
     header_band,
     interior_frame,
 )
-from nonogram.admin.book_page_spec import GRID_RULES
 from nonogram.export.png import INK
-from tests.helpers import page_ink, pdf_vector
+from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
-from tests.helpers.shared_fixture_controls import page_digest
 
 NO_POPPLER = "poppler (pdftotext) is not installed: AC-3's independent engine is absent"
 needs_poppler = pytest.mark.skipif(pdf_vector.PDFTOTEXT is None, reason=NO_POPPLER)
@@ -428,14 +401,26 @@ class Expected:
         ]
 
     def shading(self) -> list[Mark]:
-        """The clue gutters' tint: one filled box per gutter, under everything."""
+        """The clue gutters' tint: one filled box per gutter, under everything.
+
+        On a placed page it reaches the drawing's own edge (the outermost clue
+        box), not ``gutter x cell``, which falls short where the pitch is
+        fractional and ``cell`` is it floored.
+        """
         layout = self.layout
+        page = layout.page
         marks: list[Mark] = []
         if layout.row_gutter_cells:
-            left = layout.grid_left - layout.row_gutter_cells * layout.cell
+            left = (
+                layout.grid_left - layout.row_gutter_cells * layout.cell
+                if page is None else page.drawing_left
+            )
             marks.append((left, layout.grid_top, layout.grid_left, layout.grid_bottom))
         if layout.column_gutter_cells:
-            top = layout.grid_top - layout.column_gutter_cells * layout.cell
+            top = (
+                layout.grid_top - layout.column_gutter_cells * layout.cell
+                if page is None else page.drawing_top
+            )
             marks.append((layout.grid_left, top, layout.grid_right, layout.grid_top))
         return [
             Stroke(
@@ -981,7 +966,7 @@ def _case(
     The stream comes from :meth:`BookPDFGenerator.vector_puzzle_page` — the
     call a book really makes — and the ``Layout`` is then recomputed from the
     same spec, which is the same answer because ``compute_layout`` is pure and
-    total (``_blank_page`` relies on exactly that for its own second call).
+    total.
     """
     payload = BookPDFGenerator._payload(row)
     sizes = generator.cell_sizes([payload])
@@ -1081,59 +1066,28 @@ def min_trim_hero() -> Case:
 
 @dataclass(frozen=True)
 class Twin:
-    """One puzzle drawn **both** ways: the stream, and the raster page's ink.
-
-    The same row, the same puzzle number, the same interior page, the same
-    book — so the only difference between the two sides is the medium, which
-    is what makes a disagreement between them mean something.
+    """The first baseline puzzle's page as operators, and a bitmap of the page's size.
 
     Attributes:
         generator: The book this page belongs to.
-        case: The vector side, read back out of a written PDF like every
-            other :class:`Case`.
-        page: The raster side's page bitmap. **The module's only one.**
-        drawing: What :func:`tests.helpers.page_ink.drawing_of` measures off
-            that bitmap — the grid's box and its rule count, in device
-            pixels, found by looking at the page and nothing else. That
-            helper imports no ``nonogram.export.layout`` and no
-            ``book_page_spec`` (its own docstring), so it is a reading of the
-            ink rather than a second statement of the geometry.
-        digest: ``page``'s pixels when the fixture drew it, so a consumer
-            that drew on the shared bitmap is a failure rather than a
-            surprise for whatever ran next (see
-            :class:`TestPuzzlePage_TheSharedPagesAreNotMutated`).
+        case: The puzzle page, written as operators.
+        page: A blank bitmap of the same page size: AC-1's positive control,
+            the medium the reading must be able to tell apart.
     """
 
     generator: BookPDFGenerator
     case: Case
     page: Image.Image
-    drawing: page_ink.Drawing
-    digest: bytes
 
 
 @pytest.fixture(scope="module")
 def twin() -> Twin:
-    """The first baseline puzzle, drawn as a stream and as a bitmap, once.
-
-    One bitmap for the whole module: AC-1's positive control and the
-    cross-medium seam both take this fixture rather than drawing a page each.
-    """
+    """The first baseline puzzle's vector page, and one bitmap of its size."""
     generator = BookPDFGenerator(corpus_book())
     row = print_order(baseline_puzzles())[0]
-    case = _case(generator, row, 1, A_PUZZLE_PAGE, "the raster twin's own page")
-    page = generator._blank_page(
-        BookPDFGenerator._payload(row),
-        1,
-        A_PUZZLE_PAGE,
-        generator.cell_sizes([BookPDFGenerator._payload(row)]),
-    )
-    return Twin(
-        generator=generator,
-        case=case,
-        page=page,
-        drawing=page_ink.drawing_of(page),
-        digest=page_digest(page),
-    )
+    case = _case(generator, row, 1, A_PUZZLE_PAGE, "the first baseline puzzle")
+    page = Image.new("L", (generator.page_width_px, generator.page_height_px), 255)
+    return Twin(generator=generator, case=case, page=page)
 
 
 def _furniture_words(sheet: _Furniture) -> list[str]:
@@ -1156,116 +1110,6 @@ def _furniture_words(sheet: _Furniture) -> list[str]:
     if sheet.pointer is not None:
         words += sheet.pointer[0].split()
     return words
-
-
-def _furniture_rows(case: Case) -> tuple[int, ...]:
-    """The rows this page's **furniture** rules are stroked on (CARD-306).
-
-    Derived from COMP-007's :class:`~nonogram.export.layout.InteriorFrame`
-    and from the footer's own all-or-nothing verdict — the header rule
-    always, the footer hairline only where the page's content clears it — so
-    this moves with the sheet rather than naming two numbers.
-    """
-    frame = case.furniture.frame
-    bottom = case.furniture.content_bottom
-    rows = [frame.header_rule.y]
-    if bottom is None or bottom <= frame.footer_rule.y:
-        rows.append(frame.footer_rule.y)
-    return tuple(rows)
-
-
-def _grid_strokes(case: Case) -> list[Stroke]:
-    """``case``'s ruled lines with the **sheet's** rules taken out (CARD-306).
-
-    Every reader below this point is asking about the *grid* — how many rules
-    a column boundary gets, which weights the drawing carries, how the ink and
-    the stream place the same box. Since CARD-306 the page also carries the
-    interior frame's two horizontal rules, which are furniture and answer none
-    of those questions.
-
-    **Default-DENY, not a filter** (ADR-0039/R2): the rows that come out are
-    :func:`_furniture_rows`' derived set, and exactly one stroke must be found
-    on each. A furniture rule that moved, doubled or vanished reds here rather
-    than quietly leaving the grid's readings one rule short — which is the
-    failure mode a ``!=`` filter would have.
-    """
-    wanted = {
-        _pt(Decimal(case.layout.height - row), case.layout.dpi): row
-        for row in _furniture_rows(case)
-    }
-    grid: list[Stroke] = []
-    found: dict[Decimal, int] = {y: 0 for y in wanted}
-    for mark in case.found:
-        if not isinstance(mark, Stroke) or mark.kind != "line":
-            continue
-        _x1, y1, _x2, y2 = mark.numbers
-        if y1 == y2 and y1 in found:
-            found[y1] += 1
-            continue
-        grid.append(mark)
-    assert all(count == 1 for count in found.values()), (found, wanted)
-    return grid
-
-
-def _device_rules(case: Case) -> tuple[list[tuple[Decimal, Decimal]], ...]:
-    """``case``'s ruled lines back in **device pixels**, as the raster has them.
-
-    Returns ``(verticals, horizontals)``, each a list of
-    ``(position, width)``: the position of a vertical is its ``x`` and of a
-    horizontal its ``y`` **measured down from the page's top**, because that
-    is the frame a bitmap is indexed in and a comparison between two media
-    has to be made in one of them. Only ``Stroke``s are read — the frame's
-    ``re`` box and the text are not ruled lines — and the conversion is the
-    one the stream itself did, run backwards.
-    """
-    scale = Decimal(POINTS_PER_INCH) / Decimal(case.layout.dpi)
-    height = Decimal(case.layout.height)
-    verticals: list[tuple[Decimal, Decimal]] = []
-    horizontals: list[tuple[Decimal, Decimal]] = []
-    for mark in _grid_strokes(case):
-        x1, y1, x2, _y2 = mark.numbers
-        if x1 == x2:
-            verticals.append((x1 / scale, mark.width / scale))
-        else:
-            horizontals.append((height - y1 / scale, mark.width / scale))
-    return verticals, horizontals
-
-
-def _inked_rule_widths(twin: Twin) -> list[int]:
-    """How wide the raster page's rules really are, counted in its own pixels.
-
-    One scanline through the middle of the first row of cells, and the
-    lengths of its unbroken runs of ink. Exactly the reading
-    ``tests/test_book_pdf_band.py``'s ``TestBookPdf_EveryFifthGridLineWider``
-    makes, and exactly the reading
-    ``meta/profiling/card295_puzzle_page_price.py``'s **ink arm** makes — that
-    instrument cross-checks it against the stream's ``w`` operands before it
-    times anything, and this is that cross-check moved to where something
-    runs it.
-
-    The scan starts at the grid's left border and runs one cell past its
-    right one, so the first and last runs are heavy rules and every run
-    between them is a rule of one of the two weights; a clue digit's ink is
-    outside the box on both axes.
-    """
-    drawing = twin.drawing
-    mask = page_ink.ink_mask(twin.page)
-    middle = drawing.grid_top + round(
-        (drawing.grid_bottom - drawing.grid_top) / drawing.rows / 2
-    )
-    cell = round((drawing.grid_right - drawing.grid_left) / drawing.columns)
-    widths: list[int] = []
-    run = 0
-    for inked in mask[middle, drawing.grid_left : drawing.grid_right + cell].tolist():
-        if inked:
-            run += 1
-        elif run:
-            widths.append(run)
-            run = 0
-    if run:
-        widths.append(run)
-    assert len(widths) >= drawing.columns + 1, widths
-    return sorted(set(widths))
 
 
 # --------------------------------------------------------------------------
@@ -1336,9 +1180,9 @@ class TestPuzzlePage_CarriesNoImageXObject:
         The identity below is counted rather than asserted as a constant: a
         ``line`` is ``m l S`` and a rectangle is ``re`` followed by its own
         paint operator, so the strokes that are *not* lines (the drawing's
-        frame) are ``S - m`` on one side and ``re`` on the other. Two
-        independent ways of counting the same rectangles, which is what makes
-        it a check and not a restatement.
+        frame, when a layout carries one) are ``S - m`` on one side and ``re``
+        less its fills on the other. Since the owner took the clue frame off
+        (2026-11-09) both count zero.
 
         **The approved mockup's header (CARD-207 scope) widened the set by
         exactly what it draws**: ``q``/``Q``/``Tr`` for the emboldened
@@ -1375,9 +1219,9 @@ class TestPuzzlePage_CarriesNoImageXObject:
         assert tally["m"] == tally["l"] + tally["h"]
         assert tally["h"] == tally["B"] == 3 and tally["c"] == 4 * tally["h"], tally
         assert tally["q"] == tally["Q"] == tally["Tr"] == 1, tally
-        # The rectangles: the drawing's frame, stroked, and the two gutters, filled.
+        # The rectangles: the two gutters, filled, and no frame (owner, 2026-11-09).
         assert tally["f"] == 2, tally["f"]
-        assert tally["S"] - (tally["m"] - tally["h"]) == tally["re"] - tally["f"] == 1
+        assert tally["S"] - (tally["m"] - tally["h"]) == tally["re"] - tally["f"] == 0
         # The mark is one pair for the whole clue set, not one per digit.
         assert tally["BMC"] == tally["EMC"] == 1, (tally["BMC"], tally["EMC"])
 
@@ -1412,13 +1256,12 @@ class TestPuzzlePage_CarriesNoImageXObject:
             for y in numbers[1:6:2]:
                 assert bottom <= Decimal(y) <= top, (numbers, bottom, top)
 
-    def test_the_raster_twin_of_the_same_page_does_carry_one(self, twin: Twin) -> None:
+    def test_a_bitmap_page_does_carry_one(self, twin: Twin) -> None:
         """The control: this reading can fail, and here is it failing.
 
-        The same puzzle, the same page number, the same book — drawn the way
-        the book draws it today and written by the generator's own
-        ``_write_pdf``. If this page's resources did *not* name an XObject,
-        every assertion in this class would be measuring nothing.
+        A bitmap of the same page size, written by the generator's own
+        ``_write_pdf``. If its resources did *not* name an XObject, every
+        assertion in this class would be measuring nothing.
         """
         # CARD-382: the bitmap is filed under the COVER kind, not the PUZZLE
         # kind. ``_write_pdf`` refuses a bitmap under a kind declared as
@@ -1444,8 +1287,8 @@ class TestPuzzlePage_CarriesNoImageXObject:
         self, twin: Twin
     ) -> None:
         """CARD-382's matched control for the refusal fix above, in one run:
-        the same puzzle written as operators names no XObject and written as a
-        bitmap names one, and the label the bitmap is filed under is a kind
+        the puzzle page written as operators names no XObject and a bitmap of
+        its size names one, and the label the bitmap is filed under is a kind
         that is a bitmap in this tree. (Filed under the PUZZLE kind, a tree that
         declares it operators refuses the write: that is the red this fixes, and
         the refusal is ``_write_pdf``'s own.)"""
@@ -1570,15 +1413,29 @@ class TestPropertyTest_PuzzlePage_WriterDerivesNoGeometry:
     def test_an_unframed_layout_gets_no_frame(self, corpus: list[Case]) -> None:
         """``frame is None`` draws nothing, rather than a box round the grid.
 
-        The guide's cell icon is exactly this layout (CARD-201), so the branch
-        is live rather than theoretical.
+        Every book puzzle page is this layout since the owner took the clue
+        frame off (2026-11-09). The control is the same layout handed a frame:
+        the writer then draws one, so the absence is read by a reading that
+        can see a box.
         """
         case = corpus[0]
         bare = _replace_layout(case.layout, frame=None)
         marks = self._drawn(bare, case.band, case.text, 10_000)
+        layout = case.layout
+        framed = _replace_layout(
+            layout,
+            frame=PuzzleFrame(
+                left=layout.grid_left,
+                top=layout.grid_top,
+                right=layout.grid_right,
+                bottom=layout.grid_bottom,
+                width=layout.thick_rule,
+            ),
+        )
+        boxed = self._drawn(framed, case.band, case.text, 10_000)
 
         assert not [mark for mark in marks if getattr(mark, "kind", "") == "box"]
-        assert [mark for mark in case.found if getattr(mark, "kind", "") == "box"]
+        assert [mark for mark in boxed if getattr(mark, "kind", "") == "box"]
 
     def test_a_layout_with_no_clues_sets_no_digits(self, corpus: list[Case]) -> None:
         case = corpus[0]
@@ -2031,10 +1888,6 @@ def _header_words(text: str) -> list[str]:
     return number.split() + ([tier.upper()] if tier else [])
 
 
-def _shown_strings(stream_text: str) -> list[str]:
-    return [mark.text for mark in marks_of(stream_text) if isinstance(mark, Shown)]
-
-
 # --------------------------------------------------------------------------
 # The grid routine is a routine, not a page (CARD-296's AC-4, pointed back)
 # --------------------------------------------------------------------------
@@ -2188,223 +2041,6 @@ class TestPuzzlePageStream_TheBareWriterDrawsOnlyTheDrawingAndTheBand:
         composed = [mark.text for mark in hero.found if isinstance(mark, Shown)]
         assert len(composed) > len(shown)
 
-    def test_the_raster_twin_shows_more(self, twin: Twin) -> None:
-        """The other side of the same statement, measured not assumed.
-
-        The raster page of the same puzzle carries a folio, a grid-size label
-        and a QR caption. Named here so the gap is a number somebody can act
-        on rather than a sentence in a docstring.
-        """
-        from nonogram.export.layout import interior_frame
-
-        frame = interior_frame(twin.generator.page_spec(A_PUZZLE_PAGE))
-        assert frame.header_rule.width > 0 and frame.footer_rule.width > 0
-        assert twin.page.size == (
-            twin.generator.page_width_px,
-            twin.generator.page_height_px,
-        )
-
-
-class TestPuzzlePage_AgreesWithTheRasterTwin:
-    """The seam: the drawn **bitmap** and the written **stream**, against each
-    other.
-
-    **This class read only the stream until CARD-295's fix round, and that is
-    the hole it now closes** (cycle 1, F-001): "the raster renderer would
-    stroke the same ``Layout``, so the vector page uses it unchanged" is a
-    syllogism, not a measurement, and the first two tests below prove only its
-    second half. Cycle 1 measured the gap — it reversed ``png._draw_grid``'s
-    major sort *and* moved every vertical rule 7 device pixels, so that the
-    two media genuinely disagreed about both order and position, and this
-    module stayed 35-green while the raster's own file went red. A seam that
-    cannot see the other side of itself is not a seam, and G-4's refusal to
-    convert the three pixel-reading files rests on this one: the stream half
-    is added **beside** the ink half, which is only safe while something stops
-    the two drifting.
-
-    So the last two tests read the raster page's **own ink** —
-    :func:`tests.helpers.page_ink.drawing_of` and one scanline — and hold it
-    against the operands the stream really emitted. What is compared is only
-    what *can* be compared across the two media, and each is named below
-    rather than left as "they agree":
-
-    * **counted** — one vertical rule group per column boundary, in both;
-    * **spanned** — the grid's width and height in device pixels, identically;
-    * **placed** — the two media's edges differ by **one** offset, the same
-      number on all four, and no more than half a heavy rule. That residue is
-      Pillow's own line-cap convention for an even-width stroke and not a
-      disagreement about geometry: PDF strokes a path centred on its
-      coordinate and Pillow's thick line does not, so the constant is the
-      thing to hold rather than zero;
-    * **weighted** — the widths the ink measures are the widths the stream
-      sets, which is the comparison
-      ``meta/profiling/card295_puzzle_page_price.py``'s ``claim`` arm already
-      made (ink ``[3, 6]`` device pixels against stream ``[0.72, 1.44]``
-      points) and that nothing in the suite ran.
-
-    **What the seam does not reach**, by its shape rather than as a list: it
-    compares the *grid*, because the grid is the mark both media draw from the
-    same ``Layout`` fields and the only one whose ink is identifiable without
-    a second renderer. The clue digits are not compared across the media —
-    their ink is the face's rasterisation on one side and poppler's on the
-    other — and AC-3 holds them against poppler instead. The band is text and
-    the same applies. A later card that makes the two media *interchangeable*
-    (**CARD-298**) is where that widens.
-    """
-
-    def test_every_ruled_line_is_at_the_layouts_own_device_position(
-        self, hero: Case
-    ) -> None:
-        scale = Decimal(POINTS_PER_INCH) / Decimal(hero.layout.dpi)
-        # The **grid's** rules: since CARD-306 the page also carries the
-        # interior frame's two, which are the sheet's and are read by
-        # ``TestSheetFurniture_*`` instead (:func:`_grid_strokes`).
-        lines = _grid_strokes(hero)
-        strokes = lines
-
-        assert len(lines) == len(hero.layout.vertical_lines) + len(
-            hero.layout.horizontal_lines
-        )
-        # The widths are compared in **points**, not device pixels, because
-        # since CARD-227 that is the unit the sheet states them in: a book
-        # page declares ADR-0037/R2's three physical weights and the stream
-        # sets them through no conversion, so dividing by ``scale`` here would
-        # be inventing a device reading of a number no device chose. The
-        # positions above are still device pixels, which is the half of this
-        # test that ``scale`` is for.
-        widths = {mark.width for mark in lines}
-        assert widths == {Decimal("0.3"), Decimal("1.1"), Decimal("1.3")}, widths
-
-    def test_the_thin_rules_are_stroked_before_the_heavy_ones(
-        self, hero: Case
-    ) -> None:
-        """The ordering claim, which is the one a set comparison cannot make."""
-        thin = Decimal("0.3")
-        # Stroked marks only: the gutters' tint is filled, before every rule.
-        order = [
-            mark.width == thin
-            for mark in hero.found
-            if isinstance(mark, Stroke) and mark.width != FILLED
-        ]
-        assert any(order) and not all(order), order
-        assert order == sorted(order, reverse=True), order
-
-    def test_the_ink_and_the_stream_rule_the_same_grid(self, twin: Twin) -> None:
-        """Counted, spanned and placed — the geometry half of the seam.
-
-        The raster side is read off the bitmap by ``page_ink``, which is told
-        nothing about the ``Layout``; the vector side is the operands of a
-        written PDF, converted back to device pixels. Neither number comes
-        from the other's arithmetic, and neither comes from ``compute_layout``
-        at all, so this is the one assertion in the module that would notice
-        the **raster** page moving.
-        """
-        verticals, horizontals = _device_rules(twin.case)
-        drawing = twin.drawing
-        heavy = max(width for _position, width in verticals + horizontals)
-        major_x = sorted(position for position, width in verticals if width == heavy)
-        major_y = sorted(position for position, width in horizontals if width == heavy)
-
-        # counted
-        assert len(verticals) == drawing.columns + 1, (len(verticals), drawing.columns)
-        assert len(horizontals) == drawing.rows + 1, (len(horizontals), drawing.rows)
-        assert len(major_x) >= 2 and len(major_y) >= 2, (major_x, major_y)
-        # spanned
-        assert major_x[-1] - major_x[0] == drawing.grid_right - drawing.grid_left
-        assert major_y[-1] - major_y[0] == drawing.grid_bottom - drawing.grid_top
-        # placed — one offset on all four edges, inside half a heavy rule
-        offsets = {
-            Decimal(drawing.grid_left) - major_x[0],
-            Decimal(drawing.grid_right) - major_x[-1],
-            Decimal(drawing.grid_top) - major_y[0],
-            Decimal(drawing.grid_bottom) - major_y[-1],
-        }
-        assert len(offsets) == 1, offsets
-        assert abs(offsets.pop()) * 2 <= heavy, (offsets, heavy)
-        # and the frame is drawn, or not, in both
-        boxes = [
-            mark
-            for mark in twin.case.found
-            if isinstance(mark, Stroke) and mark.kind == "box"
-        ]
-        assert bool(boxes) is drawing.framed is (twin.case.layout.frame is not None)
-
-    def test_the_inked_widths_are_never_the_declared_figures(self, twin: Twin) -> None:
-        """The weighted half, **re-expressed by CARD-227 and now a stronger seam.**
-
-        Until CARD-227 this arm compared ``[3, 6]`` device pixels off the page
-        against ``[0.72, 1.44]`` points off the stream and asserted the two
-        were the same two rules. **That comparison is now false by design**,
-        and not because either medium drifted: ADR-0037/R2 as amended
-        2026-10-25 states the interior's weights as physical points — 0.3 /
-        0.8 / 1.3 — which hold *only* in a content stream, while the raster
-        twin keeps COMP-007's proportional ``cell / 30`` device rule. Two
-        media that state different widths is the card. A seam that kept
-        asserting they agreed would have had to be satisfied by undoing it.
-
-        So what is held here instead is the thing R2 actually makes falsifiable
-        on real ink, and it is the measured form of AC-7: **no width this page
-        was rasterised at is the device count of a declared figure.** At
-        300 DPI those counts are 1 / 3 / 5 px — the one-pixel grey cell grid
-        7 of 17 reviews of the 450-puzzle book complained about — and the
-        raster twin's own widths are 3 and 6 px.
-
-        Both hierarchies are asserted intact first, so the comparison cannot
-        pass by either side collapsing to one weight, and the positive arm —
-        the instrument's **reach** — is that the reading can see a width the
-        twin really does stroke, so its silence about 1 px is a measurement
-        rather than a blind spot.
-
-        **That reach arm is keyed on the layout's own ``thin_rule``, not on a
-        declared figure's count** (review cycle 1, F-007). It used to be
-        ``counts[1] in inked``, which was true only by a coincidence of this
-        book's fitted cell: ``counts[1]`` was ``round(0.8 pt at 300 DPI)`` = 3 (5 since the fifth went to 1.1 pt)
-        and ``layout.thin_rule`` is also 3, so on a book whose thin rule
-        fitted to 4 px the arm would have reddened with nothing wrong. The
-        page is known to ink ``thin_rule`` for a reason that has nothing to do
-        with the declared weights — it is COMP-007's proportional
-        ``cell / 30`` under the 0.25 mm raster floor — so keying on it makes
-        the reach arm independent of the figures the negative arm is about.
-        The coincidence itself is recorded rather than relied on.
-
-        **Each figure stays in its own domain.** The stream's widths are read
-        in points, because points are the unit it states them in; the ink's
-        are read in device pixels, because that is what a bitmap has. The one
-        number that crosses is the declared figures' *device count*, which is
-        the quantity ADR-0037/R2 names and the only one the two sides can be
-        compared through at all.
-        """
-        stated = sorted({mark.width for mark in _grid_strokes(twin.case)})
-        inked = _inked_rule_widths(twin)
-        counts = sorted(
-            round(rule.width_pt * twin.case.layout.dpi / 72)
-            for rule in (GRID_RULES.cell, GRID_RULES.fifth, GRID_RULES.border)
-        )
-
-        # Both media still carry a hierarchy of their own.
-        assert stated == [Decimal("0.3"), Decimal("1.1"), Decimal("1.3")], stated
-        assert inked == sorted(
-            {twin.case.layout.thin_rule, twin.case.layout.thick_rule}
-        ), (inked, twin.case.layout.thin_rule, twin.case.layout.thick_rule)
-
-        # The refused configuration is not on the page: 1 px is absent.
-        assert counts == [1, 5, 5], counts
-        assert counts[0] not in inked, (inked, counts)
-        # ... and the reading can see a width the page is known to ink for a
-        # reason independent of the declared figures, so its silence about
-        # 1 px is a measurement rather than a blind spot.
-        assert twin.case.layout.thin_rule in inked, (
-            inked,
-            twin.case.layout.thin_rule,
-        )
-        # The coincidence F-007 named, declared rather than relied on: on this
-        # book thin_rule and counts[1] were the same 3 px until the fifth went
-        # to 1.1 pt (5 px); the reach arm above never depended on it.
-        assert (twin.case.layout.thin_rule, counts[1]) == (3, 5), (
-            twin.case.layout.thin_rule,
-            counts,
-        )
-
 
 class TestPuzzlePage_TheSharedPagesAreNotMutated:
     """A ``ContentStream`` is mutable and two fixtures here are module-scoped.
@@ -2506,20 +2142,6 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         assert len(stream.operators) == len(expected) + _state_operators(
             striped
         ) + _header_state_operators(expected)
-
-    def test_the_shared_raster_twin_is_the_bitmap_the_fixture_drew(
-        self, twin: Twin
-    ) -> None:
-        """The same question about the module's one page bitmap.
-
-        A ``PIL.Image`` is mutable and the twin is handed to the generator's
-        own ``_write_pdf`` by AC-1's control, so the seam's ink reading is
-        only a reading of *that* page while nothing has drawn on it since.
-        ``page_digest`` is ``tests/helpers/shared_fixture_controls.py``'s, the
-        same reader ``tests/test_book_pdf_band.py`` checks its shared interior
-        with.
-        """
-        assert page_digest(twin.page) == twin.digest
 
 
 def _furniture_state_operators(sheet: _Furniture) -> int:
@@ -2623,10 +2245,6 @@ MARKED_CONTENT_OPERATORS = 2
 # --------------------------------------------------------------------------
 # CARD-306 — the sheet's furniture on the vector puzzle page
 # --------------------------------------------------------------------------
-
-
-def _text_marks(case: Case) -> list[Shown]:
-    return [mark for mark in case.found if isinstance(mark, Shown)]
 
 
 def _furniture_only(case: Case) -> list[Mark]:
@@ -3651,10 +3269,3 @@ class TestSheetFurniture_TheTwoUpPageCarriesItToo:
         height = Decimal(stream.height_px)
         for rule in (frame.header_rule, frame.footer_rule):
             assert _pt(height - rule.y, int(stream.dpi)) in rows, rule
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

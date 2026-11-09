@@ -207,13 +207,25 @@ _BOLD_RATIO = 0.04
 
 
 def shade_clue_cells(stream: ContentStream, layout: Layout, *, shade: float = CLUE_SHADE) -> None:
-    """Tint the row-clue and column-clue gutters, under the rules and digits."""
+    """Tint the row-clue and column-clue gutters, under the rules and digits.
+
+    On a placed page the tint starts at the drawing's own edges: there the
+    pitch is fractional and ``layout.cell`` is it floored, so ``gutter x cell``
+    would stop short of the outermost clue box by up to a pixel per box.
+    """
     stream.fill_grey(shade)
+    placement = layout.page
     if layout.row_gutter_cells:
-        left = layout.grid_left - layout.row_gutter_cells * layout.cell
+        left = (
+            layout.grid_left - layout.row_gutter_cells * layout.cell
+            if placement is None else placement.drawing_left
+        )
         stream.rectangle(left, layout.grid_top, layout.grid_left, layout.grid_bottom, paint="fill")
     if layout.column_gutter_cells:
-        top = layout.grid_top - layout.column_gutter_cells * layout.cell
+        top = (
+            layout.grid_top - layout.column_gutter_cells * layout.cell
+            if placement is None else placement.drawing_top
+        )
         stream.rectangle(layout.grid_left, top, layout.grid_right, layout.grid_top, paint="fill")
 
 

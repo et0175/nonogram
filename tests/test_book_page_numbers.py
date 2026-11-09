@@ -1,9 +1,9 @@
 """CARD-200 — every interior page carries its own page number; the cover never does.
 
 **CARD-206 narrows "every" by exactly one page, and names it.** The interior's
-page 1 is the blank title / copyright page
+page 1 is the title / copyright page
 (``book_pdf_generator.TITLE_PAGE_COUNT``, AC-283): a title page carries no
-folio in any printed book, and this one carries no ink at all. AC-1's claim
+folio in any printed book. AC-1's claim
 below is therefore *every interior page but the title page*, and the
 title page's own folio-lessness is asserted here as part of the same set
 equality rather than left to the card's own test alone — so a folio that
@@ -51,29 +51,23 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import pytest
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
 from nonogram import clues
-from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_answer_key import (
     Answer,
     PackedAnswerPage,
 )
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
+from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
-    _RASTER_DECLARATIONS,
     FOLIO_PT,
     FOLIO_RESERVE_DIGITS,
     GUIDE_PAGE_COUNT,
     SIZE_LABEL_SEPARATOR,
     TITLE_PAGE_COUNT,
     BookPDFGenerator,
-    PageKind,
     PuzzlePagePlan,
-    RasterDeclaration,
-    _band_font,
-    _draw_folio,
     _folio_reserve_px,
     page_frame,
     page_is_right_hand,
@@ -87,7 +81,6 @@ from nonogram.export.layout import (
     compute_pair_layout,
     interior_frame,
 )
-from nonogram.export.png import BACKGROUND
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
 from tests.helpers.pdf_vector import word_boxes
 
@@ -361,7 +354,7 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
     def test_every_page_of_a_book_holding_one_of_every_kind_is_numbered(
         self, monkeypatch
     ) -> None:
-        """The baseline book: the blank title page, guide x2, TOC, 3 dividers
+        """The baseline book: the title page, guide x2, TOC, 3 dividers
         incl. SOLUTIONS, a
         two-up page, a single-puzzle page, a packed-2-up answer page, a
         packed-alone answer page and a full answer page — one of every kind
@@ -396,7 +389,7 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
 
         title_pages = set(range(1, TITLE_PAGE_COUNT + 1))
         assert set(folios) == set(range(1, drawn + 1)) - title_pages, (
-            "every interior page but the blank title page should carry "
+            "every interior page but the title page should carry "
             "exactly one folio; missing or extra pages: "
             f"{(set(range(1, drawn + 1)) - title_pages) ^ set(folios)}"
         )
@@ -446,7 +439,7 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
             "draw it over the grid"
         )
         # The omission is specific to pages with no measurable room — plus
-        # CARD-206's own blank title page, which has no ink for a folio to
+        # CARD-206's own title page, which has no ink for a folio to
         # collide with and draws none by design (TITLE_PAGE_COUNT) — and the
         # set is now stated exactly rather than bounded (CARD-221): **both**
         # guide pages (at this 10 cm trim not one of the five fallback forms
@@ -803,35 +796,15 @@ def _two_up_rule_gap_px(placement) -> int:
     return gap
 
 
-def _folio_calls(monkeypatch: pytest.MonkeyPatch, page_number: int, draw_call) -> List[_TextCall]:
-    """Spy on one direct page-drawing call (not a whole interior walk) and
-    tag every ``draw.text`` it makes with ``page_number`` — the same
-    technique :func:`_spy_interior` uses for a full export, narrowed to one
-    method call so each test below can construct its own tight-fit geometry
-    directly, without building a whole book around it.
-    """
-    calls: List[_TextCall] = []
-    original = ImageDraw.ImageDraw.text
-
-    def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
-        calls.append(_TextCall(page_number, str(text), kwargs.get("anchor")))
-        return original(self, xy, text, fill, font, *args, **kwargs)
-
-    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
-    try:
-        draw_call()
-    finally:
-        monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
-    return calls
+def _page_folios(generator: BookPDFGenerator, stream: ContentStream, page_number: int) -> dict:
+    """``{page: folio}`` of one vector page, read as :func:`_spy_interior` reads a book."""
+    return _folios(_operators_calls(stream, page_number, generator))
 
 
 class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
-    """Review cycle 1 shipped ``_blank_page``/``_two_up_page``/
-    ``_packed_answer_page`` all calling ``_draw_folio`` without a
-    ``content_bottom`` (or, for the latter two, without any horizontal
-    figure either), so each one's "is there room, or should I omit it"
-    check treated its entire usable area as free space regardless of where
-    the puzzle's own grid actually ended. Each test below constructs a real,
+    """The folio is omitted rather than set over a page's own grid when the
+    content leaves it no room (review cycle 1 shipped the puzzle, two-up and
+    packed-answer pages without that check), read off the vector pages. Each test below constructs a real,
     internally-consistent tight-fit grid (verified by direct measurement,
     not assumed) and checks the folio is correctly omitted rather than
     drawn over the ink — and a matching control confirms the fix does not
@@ -856,23 +829,19 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert placement is not None
         assert placement.usable_bottom - placement.drawing_bottom == 0
 
-    def test_blank_page_omits_the_folio_when_the_grid_is_page_fit_bound(
-        self, monkeypatch
-    ) -> None:
+    def test_blank_page_omits_the_folio_when_the_grid_is_page_fit_bound(self) -> None:
         generator = BookPDFGenerator(corpus_book("f1-blank-tight"))
         payload = generator._payload(_tight_fit_single_page_puzzle())
         page_number = 3
 
-        calls = _folio_calls(
-            monkeypatch, page_number, lambda: generator._blank_page(payload, 1, page_number)
-        )
+        stream = generator.vector_puzzle_page(payload, 1, page_number)
 
-        assert not _folios(calls), (
+        assert not _page_folios(generator, stream, page_number), (
             "a page-fit-bound blank page drew a folio directly over its own "
             "grid instead of omitting it"
         )
 
-    def test_blank_page_still_draws_the_folio_with_real_slack(self, monkeypatch) -> None:
+    def test_blank_page_still_draws_the_folio_with_real_slack(self) -> None:
         """Control: an ordinary puzzle (plenty of slack below the grid)
         still gets its folio — the fix must not turn into a blanket
         omission.
@@ -881,14 +850,12 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         payload = generator._payload(puzzle("f1-blank-slack-p", 10, 10, 2, "easy", "Slack"))
         page_number = 3
 
-        calls = _folio_calls(
-            monkeypatch, page_number, lambda: generator._blank_page(payload, 1, page_number)
-        )
+        stream = generator.vector_puzzle_page(payload, 1, page_number)
 
-        assert _folios(calls) == {page_number: str(page_number)}
+        assert _page_folios(generator, stream, page_number) == {page_number: str(page_number)}
 
     def test_two_up_page_omits_the_folio_when_the_lower_slots_corner_has_no_room_either(
-        self, monkeypatch
+        self,
     ) -> None:
         """A two-up pair whose lower slot's drawing reaches both the page's
         bottom margin (to within the two-up rule gap, ``TWO_UP_RULE_GAP_MM``,
@@ -929,16 +896,14 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert pair.lower.page.usable_right - pair.lower.page.drawing_right == 0
 
         plan = PuzzlePagePlan(page_number, (1, 2), pair)
-        calls = _folio_calls(
-            monkeypatch, page_number, lambda: generator._two_up_page(plan, [upper, lower])
-        )
+        stream = generator.vector_two_up_page(plan, [upper, lower])
 
-        assert not _folios(calls), (
+        assert not _page_folios(generator, stream, page_number), (
             "a two-up page whose lower slot has no room on either axis drew "
             "a folio directly over its own grid instead of omitting it"
         )
 
-    def test_two_up_page_s_folio_now_has_reserved_room(self, monkeypatch) -> None:
+    def test_two_up_page_s_folio_now_has_reserved_room(self) -> None:
         """CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
         reserve"): the folio reliably reappears on two-up pages, in both
         parities, because every pair is laid out with a fixed, book- and
@@ -1011,10 +976,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             assert abs(gap - spare / 2) <= 1, (page_number, gap, spare)
 
             plan = PuzzlePagePlan(page_number, (1, 2), pair)
-            calls = _folio_calls(
-                monkeypatch, page_number, lambda: generator._two_up_page(plan, [duck, owl])
-            )
-            assert _folios(calls) == {page_number: str(page_number)}, (
+            stream = generator.vector_two_up_page(plan, [duck, owl])
+            assert _page_folios(generator, stream, page_number) == {
+                page_number: str(page_number)
+            }, (
                 "a two-up page with the fixed reserve in place should draw its "
                 f"folio normally (page {page_number}, {'ODD' if right_hand else 'EVEN'})"
             )
@@ -1079,243 +1044,126 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert gap(early_target) >= _folio_reserve_px(small_book.dpi)
 
     def test_a_four_digit_folio_fits_the_reserve_exactly_and_a_fifth_digit_degrades(
-        self, monkeypatch
+        self,
     ) -> None:
-        """Cycle-4 review F-10: :data:`FOLIO_RESERVE_DIGITS`' declared ceiling
-        sits exactly on ``_draw_folio``'s own ``<=`` clearance boundary, with
-        **zero** slack — the reserve is the width of the widest four-digit
-        string this face draws, an exact equality rather than a margin — and
-        until that review nothing exercised it: the suite's other two-up folio
-        tests all run on one- to three-digit page numbers, and
-        ``test_the_fixed_reserve_is_identical_across_book_scales`` only
-        asserts ``>= 3`` digits. Any change to the packed face's digit
-        advance or its kerning would therefore move the four-digit case
-        silently from "draws" to "omitted" with no failing test (the baseline
-        fixture guards rendered pages, not this boundary).
-
-        Both sides of the cliff are pinned: at exactly the reserve's own
-        clearance a four-digit folio draws (the ceiling the reserve is sized
-        for) and a five-digit one is omitted — the pre-existing "omit rather
-        than collide" path, i.e. a graceful loss of the folio on a book no
-        trim CON-018 stocks could be bound at anyway, never ink over the grid.
-        Both parities are checked because the clearance test reads
-        ``content_left`` on a left-hand page and ``content_right`` on a
-        right-hand one.
-
-        **CARD-224 moved the vehicle, not the claim.** This test used to put
-        the two page numbers on a real two-up page, whose lower slot sat
-        exactly ``reserve_px`` from its outer corner by construction (the
-        flush-outer anchor plus CARD-204 Fix 4's shift). Centring that slot
-        leaves it *half its own spare* from that corner instead — 549 px on
-        this pair, five times the reserve — so a two-up page no longer stands
-        on the boundary this test is about, and demonstrating the cliff
-        through one would have meant hunting a pair whose spare happened to
-        be twice the reserve. The clearance figure is therefore handed to
-        :func:`_draw_folio` directly, which is where the ``<=`` lives; the
-        equality on the face's own measurements, which is the other half of
-        F-10's claim, is unchanged and still asserted first.
+        """Cycle-4 review F-10: :data:`FOLIO_RESERVE_DIGITS`' ceiling sits on
+        the folio's own clearance boundary. The reserve is the widest
+        four-digit string, rounded up to a whole pixel (``_folio_reserve_px``),
+        so with exactly the reserve left at the corner a four-digit folio
+        draws and a five-digit one is omitted, never set over the content.
+        Both parities, because the check reads ``content_left`` on a left-hand
+        page and ``content_right`` on a right-hand one. Measured on the
+        embedded face the vector folio is set in.
         """
+        from nonogram.admin.book_vector import interior_face_metrics
+        from nonogram.admin.book_vector_draw import advance_px, draw_folio
+
         generator = BookPDFGenerator(corpus_book("f10-folio-digit-ceiling"))
         reserve_px = _folio_reserve_px(generator.dpi)
+        face = interior_face_metrics()
+        size_px = type_px(FOLIO_PT, generator.dpi)
+        def widest(digits: int) -> float:
+            return max(advance_px(str(d) * digits, size_px, face) for d in range(10))
 
-        # The equality the whole ceiling rests on, asserted rather than
-        # described in prose: the reserve is exactly the widest
-        # FOLIO_RESERVE_DIGITS-digit string, so the clearance test below
-        # clears by 0 px at four digits and fails at five.
-        font = _band_font(type_px(FOLIO_PT, generator.dpi))
-        widest = max((str(digit) for digit in range(10)), key=font.getlength)
-        assert font.getlength(widest * FOLIO_RESERVE_DIGITS) == reserve_px
-        assert font.getlength(widest * (FOLIO_RESERVE_DIGITS + 1)) > reserve_px
+        # The reserve is measured with Pillow's hinted advances, which round
+        # each digit to a whole pixel, so it may sit a pixel above the vector
+        # face's own figure; it never falls short of four digits or covers five.
+        assert widest(FOLIO_RESERVE_DIGITS) <= reserve_px <= math.ceil(
+            widest(FOLIO_RESERVE_DIGITS)
+        ) + 1, reserve_px
+        assert widest(FOLIO_RESERVE_DIGITS + 1) > reserve_px
 
-        # One page's box, and content that reaches the folio's own row with
-        # exactly the reserve left at the corner — the geometry a two-up page
-        # had until CARD-224, handed straight to the function that judges it.
+        # No vertical room at all: the content stands on the folio's own row,
+        # so the horizontal figure decides.
         left, top, right, bottom = 150, 113, 2400, 3159
-        # (9999, 10001) are both ODD/right-hand, (9998, 10000) both
-        # EVEN/left-hand: within each pair the parity, the geometry and the
-        # reserve are identical and the digit count is the only variable.
         for four_digit, five_digit in ((9999, 10001), (9998, 10000)):
             assert page_is_right_hand(four_digit) == page_is_right_hand(five_digit)
-            right_hand = page_is_right_hand(four_digit)
             for page_number, should_draw in ((four_digit, True), (five_digit, False)):
-                page = Image.new("RGB", (2550, 3300), BACKGROUND)
-                draw = ImageDraw.Draw(page)
-                calls = _folio_calls(
-                    monkeypatch,
-                    page_number,
-                    lambda draw=draw, page_number=page_number: _draw_folio(
-                        draw,
-                        left,
-                        top,
-                        right,
-                        bottom,
-                        page_number,
-                        generator.dpi,
-                        # No vertical room at all: the content stands on the
-                        # folio's own row, so the horizontal figure decides.
-                        content_bottom=bottom,
-                        content_right=right - reserve_px,
-                        content_left=left + reserve_px,
-                    ),
+                stream = ContentStream(width_px=2550, height_px=3300, dpi=generator.dpi)
+                drawn = draw_folio(
+                    stream, left, top, right, bottom, str(page_number), size_px, face,
+                    right_hand=page_is_right_hand(page_number),
+                    content_bottom=bottom,
+                    content_right=right - reserve_px,
+                    content_left=left + reserve_px,
                 )
-                assert right_hand == page_is_right_hand(page_number)
-                folios = _folios(calls)
-                if should_draw:
-                    assert folios == {page_number: str(page_number)}, (
-                        f"a {len(str(page_number))}-digit folio is exactly what the "
-                        f"fixed reserve is sized for, but page {page_number} omitted it"
-                    )
-                else:
-                    assert not folios, (
-                        f"a {len(str(page_number))}-digit folio does not fit the fixed "
-                        f"reserve and must be omitted, not drawn over the grid "
-                        f"(page {page_number})"
-                    )
+                assert drawn is should_draw, (page_number, drawn)
+
+    @staticmethod
+    def _packed_folios(
+        generator: BookPDFGenerator, member: dict, count: int, page_number: int = 9
+    ) -> dict:
+        """The folio of a packed answer page holding ``count`` copies of ``member``."""
+        payload = generator._payload(member)
+        payloads = [(f"id{n}", payload) for n in range(1, count + 1)]
+        plan = PackedAnswerPage(
+            tuple(
+                Answer(number=n, width=payload.width, height=payload.height, level=Tier.EASY)
+                for n in range(1, count + 1)
+            )
+        )
+        stream = generator.pages.packed_answer(
+            generator.page_spec(page_number), generator.dpi, plan, payloads, page_number, {}
+        )
+        return _page_folios(generator, stream, page_number)
 
     def test_packed_answer_page_omits_the_folio_when_the_corner_tile_is_page_fit_bound(
-        self, monkeypatch
+        self,
     ) -> None:
-        """The packed-answer corner tile — the one tile that can physically
-        reach the folio's own corner — can be just as page-fit-bound as a
-        full single answer page's grid (review cycle 1's own claim that a
-        packed page's tiles "never reach the page's bottom-outer corner"
-        does not hold: confirmed by direct measurement, a 20-row/15-column,
-        depth-7 member at capacity 4 lands its corner tile's drawing within
-        2px of both the tile's own bottom and right edges, well inside the
-        folio digit's own width).
-        """
-        tight = puzzle("f1-packed-tight", 15, 20, 7, "easy", "Tight")
+        """The packed page's corner tile can be as page-fit-bound as a full
+        answer page's grid. A 25 x 30, depth-10 member at capacity 4 (packed
+        since 2026-11-09, ``PACKED_MAX_*`` = ``MAX_SIZE``) leaves its corner
+        tile less than a folio's line below and nothing to its right, measured
+        below rather than assumed."""
+        from nonogram.admin.book_answer_vector import answer_section_spec
+        from nonogram.admin.book_vector import interior_face_metrics
+        from nonogram.admin.book_vector_draw import line_height_px
+        from nonogram.export.layout import compute_packed_solved_layout
+
+        tight = puzzle("f1-packed-tight", 25, 30, 10, "easy", "Tight")
         generator = BookPDFGenerator(corpus_book("f1-packed-tight-book"))
-        payloads = [(f"id{n}", generator._payload(tight)) for n in range(1, 5)]
-        answers = tuple(
-            Answer(number=n, width=15, height=20, level=Tier.EASY) for n in range(1, 5)
+        payload = generator._payload(tight)
+        layout = compute_packed_solved_layout(
+            [(payload.row_clues, payload.column_clues)] * 4,
+            4,
+            answer_section_spec(generator.page_spec(9)),
         )
-        plan = PackedAnswerPage(answers)
-        page_number = 9
+        corner = layout.slots[3].page  # page 9 is right-hand: the bottom-right tile
+        folio_line = line_height_px(type_px(FOLIO_PT, DPI), interior_face_metrics())
+        assert corner.usable_bottom - corner.drawing_bottom < folio_line
+        assert corner.usable_right - corner.drawing_right == 0
 
-        calls = _folio_calls(
-            monkeypatch,
-            page_number,
-            lambda: generator._packed_answer_page(plan, payloads, page_number, {}),
-        )
-
-        assert not _folios(calls), (
+        assert not self._packed_folios(generator, tight, 4), (
             "a packed answer page whose corner tile has no room drew a "
             "folio directly over its own grid instead of omitting it"
         )
 
-    def test_packed_answer_page_still_draws_when_the_corner_tile_has_room(
-        self, monkeypatch
-    ) -> None:
-        """Control: an ordinary packed page (plenty of slack in its corner
-        tile) still gets its folio.
-        """
+    def test_packed_answer_page_still_draws_when_the_corner_tile_has_room(self) -> None:
+        """Control: an ordinary packed page still gets its folio."""
         easy = puzzle("f1-packed-slack", 10, 10, 3, "easy", "Slack")
         generator = BookPDFGenerator(corpus_book("f1-packed-slack-book"))
-        payloads = [(f"id{n}", generator._payload(easy)) for n in range(1, 3)]
-        answers = tuple(
-            Answer(number=n, width=10, height=10, level=Tier.EASY) for n in range(1, 3)
-        )
-        plan = PackedAnswerPage(answers)
-        page_number = 9
+        assert self._packed_folios(generator, easy, 2) == {9: "9"}
 
-        calls = _folio_calls(
-            monkeypatch,
-            page_number,
-            lambda: generator._packed_answer_page(plan, payloads, page_number, {}),
-        )
-
-        assert _folios(calls) == {page_number: str(page_number)}
-
-    def test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio(
-        self, monkeypatch
-    ) -> None:
-        """Review cycle 2, F-001: the two tests above only ever exercise a
-        fully-filled packed page (4-of-4, 2-of-2) — the one shape where a
-        mutated ``corner_index <= len(layout.slots)`` (instead of the real
-        ``<``) still agrees with the real operator, so neither test actually
-        pins it. ``plan_small_answer_pages`` also produces a genuinely
-        different page: a capacity-2 page holding exactly one leftover
-        answer. That one answer fills the page's *left* tile (slot index 0,
-        fill order is left-to-right then top-to-bottom); on a right-hand
-        page the folio's own corner is the *right* tile (index 1), which is
-        never filled here — ``corner_index`` (1) equals ``len(layout.slots)``
-        (1) exactly, the one value where ``<`` and ``<=`` disagree: the real
-        ``<`` correctly reads the corner as empty (``corner_placement is
-        None``), while a mutated ``<=`` indexes ``layout.slots[1]`` on a
-        1-slot tuple and raises ``IndexError``.
-
-        Since the corner is genuinely empty, there is nothing there to
-        collide with, so the folio must still be drawn (not omitted) —
-        mirroring the control above, but with a real unfilled corner rather
-        than a fully-filled page.
-        """
+    def test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio(self) -> None:
+        """Review cycle 2, F-001: a capacity-2 page holding one leftover
+        answer fills only the left tile; on a right-hand page the folio's
+        corner tile is empty, so there is nothing to collide with and the
+        folio draws (and the corner lookup, ``corner < len(slots)``, must not
+        index past the one slot)."""
         easy = puzzle("f1-packed-leftover", 10, 10, 3, "easy", "Leftover")
         generator = BookPDFGenerator(corpus_book("f1-packed-leftover-book"))
-        payloads = [("id1", generator._payload(easy))]
-        answers = (Answer(number=1, width=10, height=10, level=Tier.EASY),)
-        plan = PackedAnswerPage(answers)
-        assert plan.capacity == 2, "this test only pins the single-leftover shape"
-        page_number = 9
-        assert page_is_right_hand(page_number), "the corner-collision check differs by parity"
-
-        calls = _folio_calls(
-            monkeypatch,
-            page_number,
-            lambda: generator._packed_answer_page(plan, payloads, page_number, {}),
-        )
-
-        assert _folios(calls) == {page_number: str(page_number)}, (
-            "a packed answer page with one leftover answer has an empty "
-            "folio-corner slot, so the folio must be drawn, not omitted "
-            "(and the corner lookup must not raise)"
-        )
+        assert PackedAnswerPage((Answer(number=1, width=10, height=10, level=Tier.EASY),)).capacity == 2
+        assert page_is_right_hand(9), "the corner-collision check differs by parity"
+        assert self._packed_folios(generator, easy, 1) == {9: "9"}
 
 
 # --------------------------------------------------------------------------
 # CARD-382 -- the controls for the operators reading
 # --------------------------------------------------------------------------
 
-#: The five kinds an interior writes as operators once ADR-0042/R1 is flipped.
-_FIVE_KINDS = (
-    PageKind.TITLE,
-    PageKind.GUIDE,
-    PageKind.TOC,
-    PageKind.ANSWER,
-    PageKind.PUZZLE,
-)
-
-
-def _declare_all(monkeypatch: pytest.MonkeyPatch, *, raster: bool) -> None:
-    """Put the five declarations back (``raster``) or take them out, whatever the tree.
-
-    The same move ``tests/test_book_pdf.py``'s ``_ensure_declared`` makes
-    (CARD-379): the claim is about BOTH mediums, so the test states which one
-    it walks and asserts the state it reached rather than hoping the tree
-    happens to be in it.
-    """
-    for kind in _FIVE_KINDS:
-        if raster:
-            monkeypatch.setitem(
-                _RASTER_DECLARATIONS,
-                kind,
-                _RASTER_DECLARATIONS.get(
-                    kind,
-                    RasterDeclaration(
-                        reason="put back by this test: the tree has lifted it",
-                        authority="CARD-382",
-                        expires_with=("CARD-322",),
-                    ),
-                ),
-            )
-        else:
-            monkeypatch.delitem(_RASTER_DECLARATIONS, kind, raising=False)
-        assert (kind in _RASTER_DECLARATIONS) is raster, kind
-
-
 class TestBookPageNumbers_TheOperatorsReadingCanFail:
-    """The reading that stands in for ``draw.text`` on an operators page agrees
-    with it where both exist, and is wrong where it should be."""
+    """The reading that stands in for ``draw.text`` on an operators page names
+    the anchor a string sits at, and refuses a digit that is not a folio."""
 
     def _page(self, *marks) -> ContentStream:
         stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
@@ -1331,48 +1179,6 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
 
             words = word_boxes(write_vector_pdf([probe], 1).getvalue(), 1, out_dir=Path(directory))
         return (max(w.right for w in words) - min(w.left for w in words)) * 300 / 72.0
-
-    def test_the_two_mediums_name_the_same_marks_and_the_same_sides(self, monkeypatch) -> None:
-        """The matched control, in ONE run: the baseline book walked as bitmaps
-        and again as operators, and every folio and grid-size label
-        comes back with the same page, text and anchor. (Measured across the
-        baseline, 60-puzzle and minimum-trim books: 267 marks, 0 differences, before
-        CARD-229 took the guide's pages out of the comparison.)"""
-        puzzles = baseline_puzzles()
-
-        def marks(calls):
-            # Not the guide's pages: since CARD-229 the vector guide is a
-            # different design (centred folio under a footer rule) from the
-            # raster ``create_guide_page`` it once twinned, which nothing in
-            # the product draws and CARD-387 deletes. Its folios are held by
-            # ``TestGuideSpread_SitsOnPagesTwoAndThree`` and the vector
-            # guide's own record-against-stream cells.
-            return sorted(
-                (call.page, call.text, call.anchor)
-                for call in calls
-                if call.page not in _GUIDE_PAGES
-                and (
-                    _is_folio(call)
-                    or (call.anchor in _CORNER_ANCHORS and _SIZE_LABEL.fullmatch(call.text))
-                )
-            )
-
-        _declare_all(monkeypatch, raster=True)
-        raster_calls, raster_drawn = _spy_interior(
-            BookPDFGenerator(corpus_book()), puzzles, monkeypatch
-        )
-        _declare_all(monkeypatch, raster=False)
-        vector_calls, vector_drawn = _spy_interior(
-            interior_generator(corpus_book()), puzzles, monkeypatch
-        )
-        assert raster_drawn == vector_drawn
-        # 13 on the baseline book once the guide's two pages (two folios) are
-        # out of the comparison; it was 15 with them.
-        assert len(marks(raster_calls)) >= 13, "the bitmap walk found almost no marks"
-        assert marks(vector_calls) == marks(raster_calls)
-        # The operators walk really read operators: the bitmap walk made the
-        # draw.text calls for a page, the operators walk made none for them.
-        assert {call.anchor for call in vector_calls if _is_folio(call)} >= {"mb"}
 
     def test_an_anchor_is_read_from_where_the_string_sits(self) -> None:
         generator = BookPDFGenerator(corpus_book())
@@ -1414,10 +1220,3 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
         # The same digit on the folio line, outside both: a folio.
         control = _operators_calls(self._page(("8", centred, frame.baseline)), 7, generator)
         assert _folios(control) == {7: "8"}
-
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

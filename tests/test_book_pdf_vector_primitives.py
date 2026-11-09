@@ -913,7 +913,11 @@ class TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader:
 
     @staticmethod
     def _freetype():
-        return ImageFont.truetype(BytesIO(interior_face_bytes()), 1000)
+        # BASIC: one glyph's own advance, as a PDF ``/Widths`` entry is; RAQM
+        # shapes, and sets a soft hyphen at zero width.
+        return ImageFont.truetype(
+            BytesIO(interior_face_bytes()), 1000, layout_engine=ImageFont.Layout.BASIC
+        )
 
     def test_every_encoded_width_is_the_width_freetype_measures(self):
         metrics = interior_face_metrics()

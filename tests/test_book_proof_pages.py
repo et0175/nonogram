@@ -13,7 +13,7 @@ CARD-172 — square and landscape trims carry the note in a clear spot:
     AC-4  test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet (extended)
     AC-5  test_a_trim_with_no_room_for_the_note_is_refused_and_says_so,
           test_a_trim_with_no_room_for_the_note_is_reported_not_served
-    AC-6  TestBookProof_PortraitProofsAreByteIdentical
+    AC-6  retired 2026-11-09 (a pixel pin of an older layout)
 
 CARD-179 — the wrapped fallback note keeps each number with its unit:
 
@@ -65,8 +65,6 @@ trim is required to change that ink, so the note cannot be a fixed picture.
 from __future__ import annotations
 
 import ast
-import hashlib
-import json
 import random
 import re
 import warnings
@@ -75,7 +73,7 @@ from typing import Iterable
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.book_proof as book_proof_module
@@ -83,8 +81,6 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
-    _draw_page_frame,
-    grid_size_label,
     page_frame,
 )
 from nonogram.admin import book_vector
@@ -95,13 +91,11 @@ from nonogram.admin.book_proof import (
     proof_pages,
     render_proof_pdf,
 )
-from nonogram.export.layout import compute_layout, interior_frame
+from nonogram.export.layout import compute_layout
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import (
-    RASTER,
-    page_medium_of,
     pdf_page_count,
     pdf_pages,
 )
@@ -726,53 +720,11 @@ class TestBookProof_AnnotationIsProofOnly:
         first_puzzle_page = 6
         generator = BookPDFGenerator(book)
         page = generator.interior_pages([row])[first_puzzle_page - 1]
-        if page_medium_of(page) != RASTER:
-            # CARD-359 (ADR-0042/R6): the page is operators, so there is no
-            # bitmap to hold byte for byte against COMP-007's raster, and a
-            # byte comparison across media is false whatever the page says.
-            # WHAT HOLDS in this medium is narrower than what was retired,
-            # and it is stated so (review F-3): the stream shows none of the
-            # proof note's own wording. WHAT IS RETIRED is "no ink of any
-            # kind beyond the page, the frame and the caption": a stray rule
-            # or a reworded note passes this arm (measured: a stray vertical
-            # line appended to every vector puzzle page leaves this module at
-            # 105 passed). The named survivor
-            # ``test_nothing_on_the_book_export_path_imports_this_module``
-            # holds only the proof-note ROUTE (``book_proof`` is imported by
-            # ``app.py`` alone), not stray ink. Stray ink on the vector puzzle
-            # page is held by ``tests/test_book_puzzle_page_vector.py``
-            # (MEASURED here: the same stray line reds 10 of its 65, on its
-            # own corpus); this fixture is drawn by the same writer
-            # (``vector_puzzle_page``) but that module does not read THIS
-            # fixture's page, and no claim is made that it does.
-            self._assert_no_proof_note_in_the_stream(page)
-        else:
-            self._assert_the_raster_page_is_the_composed_one(
-                page, generator, book, puzzle, first_puzzle_page
-            )
+        # The page is operators (ADR-0042), so what holds is that the
+        # stream shows none of the proof note's own wording; stray ink on the
+        # vector puzzle page is held by tests/test_book_puzzle_page_vector.py.
+        self._assert_no_proof_note_in_the_stream(page)
 
-    @staticmethod
-    def _assert_the_raster_page_is_the_composed_one(
-        page, generator, book, puzzle, first_puzzle_page
-    ) -> None:
-        """The raster arm: COMP-007's page plus the frame and caption, byte for byte."""
-        expected, _ = render_pages(
-            puzzle.payload("Puzzle 1 · Hard"),
-            page_spec=book_page_spec(book, first_puzzle_page),
-        )
-        spec = book_page_spec(book, first_puzzle_page)
-        layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
-        draw = ImageDraw.Draw(expected)
-        _draw_page_frame(
-            draw,
-            interior_frame(spec),
-            first_puzzle_page,
-            generator.dpi,
-            size_label=grid_size_label(layout.columns, layout.rows),
-            content_bottom=None if layout.page is None else layout.page.drawing_bottom,
-        )
-        assert _foot_strip(page).tobytes() == _foot_strip(expected).tobytes()
-        assert page.tobytes() == expected.tobytes()
 
     @staticmethod
     def _texts_of(stream) -> str:
@@ -1024,8 +976,7 @@ class TestBookProof_ProofPagesRoute:
 
 #: KDP paperback trims a puzzle book is actually printed on, **as the two
 #: ``books`` columns store them** — portrait sheets, whose note sits at the
-#: foot. These nine are also the trims ``TestBookProof_PortraitProofsAreByteIdentical``
-#: pins to main's pixels (CARD-172 AC-6). Square and landscape trims are
+#: foot. Square and landscape trims are
 #: :data:`FALLBACK_TRIMS_CM`; a small square that fits no spot is covered by
 #: ``TestBookProof_BandAndAnnotation.test_a_trim_with_no_room_for_the_note_is_refused_and_says_so``.
 CORPUS_TRIMS_CM: tuple[tuple[str, str], ...] = (
@@ -1488,192 +1439,6 @@ class TestBookProof_FallbackNoteHoldsTheTenPointFloor:
         cap_height = len(_runs(first_glyph.any(axis=1))[0])
 
         assert cap_height >= FLOOR_CAP_PX, (cap_height, FLOOR_CAP_PX)
-
-
-class TestBookProof_PortraitProofsAreByteIdentical:
-    """AC-6 — every portrait corpus trim prints exactly the pixels main printed.
-
-    The digests were recorded from main (b05c443) before CARD-172 changed
-    ``book_proof.py``; the fixture says how.
-
-    **CARD-392:** the fixture this class reads against is now
-    ``proof_baseline_card392.json``. The footer band shrank from 29.878 mm to
-    9.878 mm, so the puzzle area a proof page's drawing floats in is 20 mm
-    deeper and its footer rule and folio sit 20 mm lower: **all nine**
-    portrait trims move again, and only by that band. ``book_proof.py`` is
-    untouched. All superseded fixtures stay.
-
-    **CARD-391:** the fixture before that was ``proof_baseline_card391.json``. That card removes the placeholder QR icon
-    from ``render_pages``, and a proof page is drawn through the same call a
-    real interior page uses, so the icon leaves it too: **all nine** portrait
-    trims move, and only by that icon. ``book_proof.py`` loses only the branch
-    that cleared the strip of an icon that never sat there. All superseded
-    fixtures stay.
-
-    **CARD-224:** the fixture this class reads against is now
-    ``proof_baseline_card224.json``. That card reverses CARD-204's central
-    decision — the drawing is centred across the usable width again — and
-    floats it at 42% of CARD-222's puzzle-area spare height instead of pinning
-    it to the band's foot (FR-032 as amended 2026-10-17, AC-366/AC-367, with
-    AC-190 retired). A proof page is drawn through the same ``render_pages``
-    call a real interior page uses, so both moves reach it: **all nine**
-    portrait trims move, which is the one shape this chain expects of a
-    placement change (where CARD-223's own recording expected, and got, three
-    moved pages and ten byte-identical ones). ``book_proof.py`` itself is
-    untouched by this card — what changed under the page is COMP-007's answer,
-    which is exactly what this comparison exists to make visible. All
-    superseded fixtures stay.
-
-    **CARD-223:** the fixture before that was
-    ``proof_baseline_card223.json``. That card moves the placeholder QR icon
-    from the gutter-side strip to the footer's **outer** bottom corner, and
-    tightens its room check from two centimetres of slack below the drawing
-    to a whole footer strip of it, so the icon moves (or goes) on every one
-    of these nine trims. ``book_proof.py`` itself is untouched by that card:
-    what changed under this page is COMP-007's answer about the icon's box, which
-    is exactly the kind of move this comparison exists to make visible.
-    All superseded fixtures stay.
-
-    **CARD-222:** the fixture before that was
-    ``proof_baseline_card222.json``. CON-018's amendment of 2026-10-17 moves
-    three of the four margins — the top and the bottom move every mark on
-    every one of these nine trims and shorten the drawing, the outside margin
-    moves the right-aligned drawing sideways — so all nine trims differ from
-    CARD-204's recording, which that fixture's own ``moved_from_card204``
-    records. The side margins it stores moved with the profile too
-    (``outside_margin_cm`` '0.95' -> '1.27'), so the trims are proofed on the
-    margins a book created today really holds. Both superseded fixtures stay.
-
-    **CARD-204 (SCOPE+):** the fixture this class read against before that was
-    ``proof_baseline_card204.json``, not ``proof_baseline_card172.json``.
-    CARD-204 reverses FR-032's centred horizontal placement to
-    right-aligned (mirrored by parity) and reserves/draws a placeholder QR
-    icon on the proof page's own drawing wherever the new geometry leaves
-    room for one — every one of this corpus's nine portrait trims moves
-    for both reasons, which is exactly "what main prints" for a main that
-    now includes this card. The superseded ``card172`` fixture stays, per
-    this project's own baseline-chain convention (``tests/helpers/book_corpus.py``'s
-    own docstring): never regenerated to make a test fail less, kept
-    beside the new one as the evidence of what changed and why.
-    """
-
-    BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card392.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    CARD391_BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card391.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    CARD224_BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card224.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    CARD222_BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card222.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    CARD204_BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card204.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    def test_every_trim_moved_off_the_card391_recording(self) -> None:
-        """The attribution, measured rather than written down (CARD-392).
-
-        Shrinking the footer band must have moved every one of these trims --
-        if one of them still matched CARD-391's recording, the move never
-        reached that trim and this class's new reference would be pinning the
-        wrong thing. CARD-391's own move off CARD-224's stays asserted on its
-        recording (every trim also differs from CARD-224's).
-        """
-        assert set(self.BASELINE["moved_from_card391"]) == set(self.BASELINE["digests"])
-        for key, digests in self.BASELINE["digests"].items():
-            assert digests != self.CARD391_BASELINE["digests"][key], key
-            assert digests != self.CARD224_BASELINE["digests"][key], key
-
-    def test_every_trim_also_differs_from_the_card222_recording(self) -> None:
-        """The older link in the chain, kept: CARD-223's own move took every
-        trim off CARD-222's recording and nothing since has moved one back."""
-        for key, digests in self.BASELINE["digests"].items():
-            assert digests != self.CARD222_BASELINE["digests"][key], key
-
-    def test_every_trim_also_differs_from_the_card204_recording(self) -> None:
-        """The older link in the chain, kept: CON-018's amended margins moved
-        every trim off CARD-204's recording and nothing since has moved one
-        back onto it."""
-        for key, digests in self.BASELINE["digests"].items():
-            assert digests != self.CARD204_BASELINE["digests"][key], key
-
-    def test_the_recording_carries_a_control_that_did_not_move(self) -> None:
-        """The recording's own internal control (CARD-224 review cycle 1, F-009).
-
-        All nine digests above are new numbers, because every pixel of a proof
-        page is downstream of the single placed drawing it carries — so unlike
-        ``book_baseline_card224.json``, which keeps seven unmoved pages as its
-        control, this recording has no unmoved digest to offer. A recording in
-        which every number is new cannot by itself tell "the placement moved"
-        from "the recorder moved".
-
-        What the placement cannot reach is the **sheet**: each page's size in
-        device pixels is the stored trim at 300 DPI and nothing else, identical
-        on both pages of a trim and identical to what CARD-223's recorder
-        produced. Checked here against the pages this recorder returns *and*
-        against the trim arithmetic restated below, so a recorder that had
-        changed its DPI, its reading of the stored centimetres or its
-        orientation fails here while the digests would only say "everything
-        moved".
-        """
-        control = self.BASELINE["unmoved_control_page_px"]
-
-        assert set(control) == set(self.BASELINE["digests"])
-        assert set(control) == set(self.CARD391_BASELINE["digests"]), (
-            "a control is only a control while this recording covers the same "
-            "trims as the recording it is attributed against"
-        )
-        for width_cm, height_cm in CORPUS_TRIMS_CM:
-            key = f"{width_cm}x{height_cm}"
-            expected = [
-                round(float(width_cm) * 10 / 25.4 * 300),
-                round(float(height_cm) * 10 / 25.4 * 300),
-            ]
-
-            assert control[key] == expected, (key, control[key], expected)
-
-            book = _book_cm(
-                width_cm,
-                height_cm,
-                self.BASELINE["gutter_margin_cm"],
-                self.BASELINE["outside_margin_cm"],
-                f"control-{width_cm}x{height_cm}",
-            )
-            sizes = [list(page.size) for page in proof_pages(book)]
-
-            assert sizes == [expected, expected], (key, sizes)
-
-    def test_the_baseline_covers_every_portrait_corpus_trim(self) -> None:
-        assert set(self.BASELINE["digests"]) == {f"{w}x{h}" for w, h in CORPUS_TRIMS_CM}
-
-    @pytest.mark.parametrize("width_cm,height_cm", CORPUS_TRIMS_CM)
-    def test_both_pages_match_mains_pixels(self, width_cm: str, height_cm: str) -> None:
-        book = _book_cm(
-            width_cm,
-            height_cm,
-            self.BASELINE["gutter_margin_cm"],
-            self.BASELINE["outside_margin_cm"],
-            f"baseline-{width_cm}x{height_cm}",
-        )
-        digests = [hashlib.sha256(page.tobytes()).hexdigest() for page in proof_pages(book)]
-        assert digests == self.BASELINE["digests"][f"{width_cm}x{height_cm}"]
 
 
 # --------------------------------------------------------------------------

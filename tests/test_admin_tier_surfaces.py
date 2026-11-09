@@ -27,7 +27,7 @@ from jinja2 import Environment, FileSystemLoader
 
 import nonogram.admin
 
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, tier_breakdown
+from nonogram.admin.book_pdf_generator import tier_breakdown
 from nonogram.admin.puzzle_review import PuzzleFilter, PuzzleReviewService
 from nonogram.difficulty import Tier, tier_of_record
 
@@ -84,24 +84,6 @@ def test_every_tier_reads_zero_rather_than_missing_on_an_empty_book() -> None:
     counts = tier_breakdown([])
 
     assert [counts[tier] for tier in Tier] == [0, 0, 0]
-
-
-# --------------------------------------------------------------------------
-# The printed guide page
-# --------------------------------------------------------------------------
-
-
-def test_the_guide_page_still_takes_three_counts() -> None:
-    """Three counts, one per tier, since CARD-098 retired the fourth.
-
-    The parameter had a default so that callers predating ADR-0025 kept
-    working; both the default and the parameter are gone with the tier.
-    """
-    guide = BookPDFGenerator().create_guide_page(
-        puzzle_count=10, easy_count=3, medium_count=4, hard_count=3
-    )
-
-    assert guide is not None
 
 
 # --------------------------------------------------------------------------
