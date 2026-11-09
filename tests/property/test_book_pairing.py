@@ -554,19 +554,9 @@ def _book_cell_books() -> list[tuple[Sheet, list[Puzzle]]]:
 
 
 def _pages_for_a_qualifying_run(length: int) -> int:
-    """CARD-202's own chunking, over a run length alone: 4 at a time while at
-    least 4 remain, then 2 at a time while at least 2 remain, then a lone 1
-    if one is left over (owner decision, resolved 2026-10-08)."""
-    pages = 0
-    while length >= 4:
-        pages += 1
-        length -= 4
-    while length >= 2:
-        pages += 1
-        length -= 2
-    if length == 1:
-        pages += 1
-    return pages
+    """A run's pages over its length alone: 4 to a page, the last page
+    holding whatever 1-3 are left (owner decision 2026-11-09, CARD-232 AC-4)."""
+    return -(-length // 4)
 
 
 def _expected_answer_pages(order: list[Puzzle]) -> int:

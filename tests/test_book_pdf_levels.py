@@ -693,12 +693,12 @@ class TestBookPdf_EmptyLevelHasNoDivider:
         self,
     ) -> None:
         """Title page, guide (2 pages), TOC (1), Easy, 3 puzzles, Medium,
-        2 puzzles, SOLUTIONS, 3 answer pages (easy 2 + 1, medium 2: a packed
-        page holds one level, CARD-202): fifteen pages.
+        2 puzzles, SOLUTIONS, 2 answer pages (easy 3, medium 2: a packed
+        page holds one level, CARD-202): fourteen pages.
         """
         pages = _interior(_book_of(*self.MEMBERS))
 
-        assert len(pages) == 15
+        assert len(pages) == 14
         assert interior_shape(pages[:11]) == [
             "divider Easy",
             "puzzle",

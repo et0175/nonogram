@@ -2,8 +2,8 @@
   "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
   "digests": {
     "answer_full": "c554e4aebb62af85bb908518dc81c2791488aeb83cf196c0d414a6d12ff4a86d",
-    "answer_packed_one": "770fbcf15b228f5694cd132f64f2025135e0d42058e6e91676b174bef6268afe",
-    "answer_packed_two": "1ed890b19c753b48cd8b8e7178c3fbfbed8a2b097fff3ba4b97ea0b7ec442dbf",
+    "answer_packed_one": "e6d65f36ac52d4e4170dae4b9f2f1a661478a32f44bb4e0e609a715e82cbe7f3",
+    "answer_packed_two": "6527e1d7c551f182fcea47d1735e454d7327e0e454594d915122c2904e9d9821",
     "guide_1": "f20b604838031bd7094a6cd435e64f2c810f33c648ac44a938a0249678ca0a35",
     "guide_2": "91c7524b0a3dffdf3a3ebb8a635fe2bb472956a9bd9c9fff52b95e62b77eb962",
     "play": "6f24d48691c415c3a848f802436de64fb7d95eded071719b0de91dafdebd92bf",

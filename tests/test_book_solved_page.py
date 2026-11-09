@@ -126,7 +126,7 @@ class TestBookSolvedPage_TheVectorBoundariesAreTheThinGreyRule:
         )
         packed = compute_packed_solved_layout(
             [(payload.row_clues, payload.column_clues)],
-            2,
+            4,
             answer_section_spec(generator.page_spec(page_number)),
         )
         layout = packed.slots[0]

@@ -3703,7 +3703,7 @@ def _degrade_infeasible_packed_pages(
             if len(half) == 1:
                 degraded.append(half[0])
                 continue
-            pair_page = PackedAnswerPage(half)
+            pair_page = PackedAnswerPage(half, capacity=PACKED_TWO_UP)
             if _packed_page_is_feasible(pair_page, payloads, page_spec):
                 degraded.append(pair_page)
             else:

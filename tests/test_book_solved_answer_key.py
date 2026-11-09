@@ -516,7 +516,11 @@ def _answers_for(puzzles: Sequence[dict]) -> Tuple[Answer, ...]:
 
 
 class TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage:
-    """AC-1 — a single-tier book of qualifying answers packs 4, then 2, to a page."""
+    """AC-1 — a single-tier book of qualifying answers packs 4 to a page.
+
+    Since 2026-11-09 (CARD-232 AC-4) a level's leftover page keeps the 2x2
+    positions: it is laid out at capacity 4 whatever its count.
+    """
 
     def test_six_qualifying_easy_answers_pack_as_four_then_two(self) -> None:
         answers = _answers_for(
@@ -525,7 +529,7 @@ class TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage:
         plan = plan_small_answer_pages(list(answers))
 
         assert [p.numbers for p in plan] == [(1, 2, 3, 4), (5, 6)]
-        assert [p.capacity for p in plan] == [4, 2]
+        assert [p.capacity for p in plan] == [4, 4]
         assert len(plan) == 2 < len(answers)
 
     def test_the_wiring_draws_exactly_what_the_pure_walk_planned(self) -> None:
@@ -572,15 +576,15 @@ class TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage:
         assert _page_reading(pages[start - 1])[0] == _page_reading(uncustomised)[0]
         assert _page_reading(pages[start - 1]) != _page_reading(uncustomised)
 
-    def test_a_run_of_three_leftover_packs_as_two_then_one_never_as_three(
+    def test_a_run_of_three_leftover_shares_one_page_in_the_2x2_positions(
         self,
     ) -> None:
-        """No secondary threshold gates 2 vs 4 — a leftover 3 is 2-then-1."""
+        """A leftover of three is one page, laid out as a 2x2 with one spot empty."""
         answers = _answers_for(_small_book_of(*[(10, 10, "easy")] * 3, depth=3))
         plan = plan_small_answer_pages(list(answers))
 
-        assert [p.numbers for p in plan] == [(1, 2), (3,)]
-        assert [p.capacity for p in plan] == [2, 2]
+        assert [p.numbers for p in plan] == [(1, 2, 3)]
+        assert [p.capacity for p in plan] == [4]
 
 
 class TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly:
@@ -602,11 +606,11 @@ class TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly:
 
         assert all(isinstance(entry, PackedAnswerPage) for entry in plan)
         levels = [entry.level for entry in plan]
-        assert levels == [Tier.EASY, Tier.EASY, Tier.MEDIUM]
-        # Never padded to 4 with a Medium answer, and never 3-up (no such
-        # capacity exists): the 3 Easy answers are 2-then-1, not 3.
-        assert [entry.numbers for entry in plan] == [(1, 2), (3,), (4, 5)]
-        assert [entry.capacity for entry in plan] == [2, 2, 2]
+        assert levels == [Tier.EASY, Tier.MEDIUM]
+        # Never padded to 4 with a Medium answer: the 3 Easy answers close
+        # their own page, in the 2x2 positions.
+        assert [entry.numbers for entry in plan] == [(1, 2, 3), (4, 5)]
+        assert [entry.capacity for entry in plan] == [4, 4]
 
     def test_no_packed_page_ever_holds_two_levels(self) -> None:
         answers = _answers_for(_small_book_of(*self.PUZZLES, depth=3))
@@ -1575,7 +1579,8 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                         generator.page_spec(11 + index),
                         generator.dpi,
                         PackedAnswerPage(
-                            (Answer(number=index + 1, width=12, height=12, level=Tier.EASY),)
+                            (Answer(number=index + 1, width=12, height=12, level=Tier.EASY),),
+                            capacity=2,
                         ),
                         [(row["id"], row_payload) for row, row_payload in zip(puzzles, payloads)],
                         11 + index,
@@ -3103,7 +3108,8 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
                 answers=tuple(
                     Answer(number=index + 1, width=extent, height=extent, level=Tier.EASY)
                     for index in range(capacity)
-                )
+                ),
+                capacity=capacity,
             )
             stream = book_answer_vector.packed_answer_page(
                 generator.page_spec(page_number), generator.dpi, plan, payloads, page_number, {}
@@ -3319,7 +3325,9 @@ class TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt:
         stream = book_answer_vector.packed_answer_page(
             generator.page_spec(11),
             generator.dpi,
-            PackedAnswerPage((Answer(number=1, width=12, height=12, level=Tier.EASY),)),
+            PackedAnswerPage(
+                (Answer(number=1, width=12, height=12, level=Tier.EASY),), capacity=2
+            ),
             [(puzzle["id"], payload)],
             11,
             {},

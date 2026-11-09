@@ -270,7 +270,7 @@ def _expected_drawing_left_mm(
 
 
 def _packed_cell_mm(group):
-    """CARD-202's one shared cell for ``group`` (2 or 4 small answers), in mm.
+    """CARD-202's one shared cell for ``group`` (1 to 4 small answers), in mm.
 
     Independent of :func:`~nonogram.export.layout.compute_packed_solved_layout`
     (CLAUDE.md: prefer an independent second implementation): two equal
@@ -278,7 +278,7 @@ def _packed_cell_mm(group):
     every answer's own drawing fits its own tile below its own band, capped
     at :data:`PACKED_MAX_CELL_MM`.
     """
-    rows = -(-len(group) // 2)  # ceil(len(group) / 2)
+    rows = 2  # a 2x2 even for a leftover page of 1-3 (2026-11-09, CARD-232 AC-4)
     tile_height = (
         PACKED_USABLE_HEIGHT_MM - (rows - 1) * PACKED_GAP_MM
     ) / rows
@@ -664,20 +664,12 @@ def _qualifies_for_packing(puzzle):
 
 
 def _grouped_run(run):
-    """A same-level qualifying run cut into CARD-202's own page groups:
-    4 at a time while at least 4 remain, then 2 at a time while at least 2
-    remain, then a lone 1 if one is left over (owner decision, resolved
-    2026-10-08). Pure arithmetic over the run alone, independent of
+    """A same-level qualifying run cut into its page groups: 4 at a time,
+    the last group holding whatever 1-3 are left (owner decision 2026-11-09,
+    CARD-232 AC-4). Pure arithmetic over the run alone, independent of
     :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`
     (CLAUDE.md: prefer an independent second implementation)."""
-    groups = []
-    index = 0
-    while index < len(run):
-        remaining = len(run) - index
-        take = 4 if remaining >= 4 else min(remaining, 2)
-        groups.append(tuple(run[index : index + take]))
-        index += take
-    return groups
+    return [tuple(run[index : index + 4]) for index in range(0, len(run), 4)]
 
 
 def _answer_section_plan(printed):
@@ -685,7 +677,7 @@ def _answer_section_plan(printed):
     pages exactly as CARD-202 packs them: one ``(kind, group)`` per page, in
     print order. ``kind`` is ``"full"`` for a large (non-qualifying) answer's
     own CARD-198 page (always a 1-tuple, drawn by ``solved_puzzle_page``) or
-    ``"packed"`` for a CARD-202 packed page (a 1-, 2- or 4-tuple — a lone
+    ``"packed"`` for a CARD-202 packed page (a 1- to 4-tuple — a lone
     qualifying leftover still packs, with one slot empty, drawn by
     ``_packed_answer_page``; the two kinds of 1-tuple are drawn by different
     methods at different geometry and must not be conflated). A level change
