@@ -578,7 +578,7 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             page.evaluate("() => document.querySelector('.player-stage').scrollTo({left: 0, top: 0, behavior: 'instant'})")
             page.wait_for_timeout(300)  # the zoom's own scroll and the scroll event are async: let them land
 
-            # Resumes with the next single pointer (the pinch zoomed: re-read the geometry).
+            # Resumes with the next single pointer (back at 100% since CARD-404, above: re-read the geometry).
             fingers("touchStart", _centre(page, 9, 4))
             fingers("touchEnd")
             is_crossed_at(9, 4, "crossing did not resume after the pinch")

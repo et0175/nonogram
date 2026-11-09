@@ -1070,6 +1070,7 @@ class TestSolverClues_EveryNumberKeepsAOneCellSlot:
         # A column number's box is one CLUE cell tall: the cell up to 23.33 px,
         # 23.33 px beyond it (CARD-404, the capped clues; it was the cell).
         slot = min(height, 14 / 0.6)
+        # 0.01, not 0.001: 14 / 0.6 is not a 1/64 px multiple, and the box lands on one
         assert [c for c in seen["columns"] if abs(c["height"] - slot) > 0.01] == [], seen["columns"]
         assert all(r["width"] < width for r in seen["rows"] if len(r["text"]) == 1), seen["rows"]
 
@@ -1230,7 +1231,7 @@ class TestSolverClues_TheCircleIsVisible:
         # CARD-193: below 820 px the cell floor is removed, so at 390 the
         # measured value is this grid's 14.4 px numeral-driven column floor
         # (two-digit column numbers), not the old 24 px phone floor.
-        assert cell == pytest.approx({1100: 14.4, 1440: 17.5, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403: the cell's height term reads the stage's measured top (1440 was 17.67)
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.5, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403/404: measured top, board margin (1440 was 17.67)
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -1453,8 +1454,11 @@ class TestPlayerNumerals_TwelvePixelFloor:
         _open_player(browser_page, live)
         fonts = browser_page.evaluate(_NUMERALS)
         # 16.8 (0.6 x 28) until CARD-404 (owner finding 2026-11-07: the clue
-        # numbers cap at a readable size): the cap, 14 px, binds from a
-        # 23.33 px cell up, so a 28 px desktop cell draws 14 px numerals.
+        # numbers cap at a readable size; owner ruling 2026-11-09: the cap
+        # applies at every zoom, 100% included): the cap, 14 px, binds from a
+        # 23.33 px cell up, so a 28 px desktop cell draws 14 px numerals. The
+        # test's name keeps "0_6_of_the_28_px_cell" only because a rename to
+        # fit is refused by the card's guardrail.
         assert fonts and all(abs(f - 14) < 0.01 for f in fonts), sorted(set(fonts))
 
     def test_15x15_phone_numerals_sit_at_the_12px_floor(self, browser_page, live) -> None:

@@ -1042,8 +1042,9 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
     #: 300 % — because the row band stops widening once its numerals reach
     #: 14 px. The columns still give up at 150 % HERE: this 30 x 30's column
     #: clues stack eight deep, and eight capped clue cells (23.33 px each)
-    #: are more than STICK_MAX_SHARE of a 720 px window's port. Recorded on the
-    #: card as the boundary the cap does not move.
+    #: are more than STICK_MAX_SHARE of a 720 px window's port. Owner ruling
+    #: 2026-11-09 ("all as recommended"): STICK_MAX_SHARE stays; a band too
+    #: big AT the cap scrolls with the board rather than covering it.
     GIVES_UP_AT = {"rows": 325, "cols": 150}
 
     def test_each_axis_keeps_its_clues_up_to_the_zoom_its_band_outgrows(
