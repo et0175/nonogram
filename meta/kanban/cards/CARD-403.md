@@ -1,6 +1,6 @@
 # CARD-403: The board's scroll box ends above the fold at any toolbar height — no scroll inside a scroll — and the jump while scrolling is reproduced and fixed
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** bug
 **Estimate:** 3c (1d)
@@ -83,4 +83,19 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread (owner 2026-11-09: "go ahead and fix your findings"). Cut from card/401 (serialized: same files).
+[Impl 2026-11-09] 9facc38b + review fixes. solver.js measureStageTop() writes --player-stage-top (px, document top of #puzzle-player) at the start of every draw and from a ResizeObserver on the toolbar and header (which then runs keepCluesInView). admin.css --player-above = measured top + space-4 (falls back to the one-row --player-chrome-h before the first measurement); BOTH the stage cap (max(100svh - above, 5rem)) and the cell's height term read it — item 1 as written. It cannot oscillate: the top depends only on what is above the stage. viewportChanged redraws a big board only when innerWidth or the measured 100svh changes; redraw() restores the stage's scroll.
+[AC-5, the jump] Not reproduced on a device (none available to this session). Mechanism found by reading: a phone fires `resize` when its URL bar collapses mid-scroll; a big board was REDRAWN on every resize and the new table reset the stage's scroll to 0. Guard TestSolverZoom_StageEndsAboveTheFold::test_a_resize_keeps_the_board_and_its_scroll fails on the merge-base in emulation (run by the reviewer) and passes here. Closed as "fails on the merge-base in emulation, not reproduced on a device".
+[AC-6, verdict change for the owner] On the ADMIN page at 900 x 700, a plain 30 x 30 at 125% no longer keeps its column band: the honest port (388 px) is shorter than the band (168.6) / STICK_MAX_SHARE (0.4) allows. The CARD-271 corner case and the panning test were moved to 900 x 800, where both axes keep again; the 22 x 14 "ordinary laptop" doubling cases moved from 1280 x 720 to 1280 x 760 (at 720 the honest cell is 23.25, under the 24 px bar, so the ladder no longer tries the doubled rung). These are verdict changes at those windows, caused by the stage no longer extending below the fold, and are recorded here for the owner's sign-off; CARD-404 (clue numerals capped) shrinks the band and is expected to restore the 900 x 700 verdict.
+[Measure 2026-11-09] Shared-UI preview, main (with 401) -> this branch, stage top / bottom, cell px; 15x15 (0b91) and 30x30 (5260):
+  | viewport | board | 100% before -> after | 200% bottom before -> after |
+  | 390x844  | 15x15 | 210/614 c20.06 -> 210/614 c20.06 | 826 -> 828 |
+  | 390x844  | 30x30 | 210/779 c14.40 -> same | 826 -> 828 |
+  | 844x390  | both  | 139/301 (stage 162) -> 139/374 (stage 235) | 301 -> 374 |
+  | 1280x720 | 15x15 | 151/642 c24.59 -> 151/701 c27.65 | 643 -> 704 |
+  | 1280x720 | 30x30 | 151/643 c14.40 -> 151/704 c14.55 | 643 -> 704 |
+  | 1440x900 | 15x15 | 151/707 c28.00 -> same (cap) | 823 -> 884 |
+  | 1440x900 | 30x30 | 151/823 c17.68 -> 151/884 c19.29 | 823 -> 884 |
+  Every bottom is at or above innerHeight - 16 on the public page. On the ADMIN page the real chrome is taller than the estimate (+27 px at 1280 x 720, more at 390), which is where the bug showed and where the re-pinned ports/overflows come from.
+[Tests] New: TestSolverZoom_StageEndsAboveTheFold (an 18-viewport sweep — the card's 1140-viewport sweep cut per the owner's test budget — with the 5rem-floor rule that never exempts AC-4's 390x844 / 844x390; and the AC-5 guard). Net +2 node ids (one parameter re-labelled 900x700 -> 900x800, recorded in the browser-family registry). Re-measured, each dated in place: clues ROOMS ports/overflows, StayInView and stage-scroller overflows, phone mirrored-gutter overflow/scroll, desktop admin cells (1440 30x30 17.016, rings 17.91, laptop doubled 20.02), doubled 30x25 overflow 478. AC-3's draw-twice and page-scroll claims rest on review evidence (the measurement depends only on what is above the stage) plus the unchanged burst-resize cell. Plant: restoring the one-row cap reds every phone viewport of the sweep (run 2026-11-09).
+[Review 1/3] Score: 5.0 — F-001 critical (12rem floor below the fold at 844x390, the sweep's exemption hid it): fixed, floor 5rem, no exemption at AC-4's viewports. F-002 (AC-6 verdict moved, not asserted): recorded above for owner sign-off. F-003 (notes): this note. F-004 (max() wasted public room): fixed, measured top everywhere. F-005 (observer did not re-run the bands): fixed. Report meta/review/20261109T120000Z-CARD-403-cycle1.yml.
