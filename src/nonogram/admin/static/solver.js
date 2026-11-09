@@ -2275,15 +2275,21 @@ function wireMarking(container, player) {
       // CARD-408: and bring the line into view — its CELLS, on the axis
       // across the line (a row vertically, a column horizontally).
       const table = container.querySelector(".player-board");
-      // The line's cells AND its labelled clue box, on both axes: a whole
-      // zoomed line seldom fits, and revealScroll then puts the line's start
-      // — its clue — just past the band, so the player sees the clue and
-      // the first cells (review cycle 1, F-002: AC-2 names the clue box).
+      // Across the line, its cells (a row vertically, a column sideways).
+      // Along it, its labelled clue box (AC-2; review cycle 1, F-002) — but
+      // only when that axis's band is NOT kept: a kept band pins the clue in
+      // view already, and moving anyway snapped a player's sideways scroll
+      // back to the start on every press (review cycle 2, F-101).
       if (table !== null) {
-        const parts = [...linedParts(table, ladderLine.axis, ladderLine.index)]
-          .filter((part) => part.matches("td.player-cell")
-            || (part.matches("th.player-clue") && part.getAttribute("aria-hidden") !== "true"));
-        bringIntoView(container, parts, "xy");
+        const parts = [...linedParts(table, ladderLine.axis, ladderLine.index)];
+        const cells = parts.filter((part) => part.matches("td.player-cell"));
+        const clue = parts.filter((part) => part.matches("th.player-clue")
+          && part.getAttribute("aria-hidden") !== "true");
+        const row = ladderLine.axis === "row";
+        bringIntoView(container, cells, row ? "y" : "x");
+        if (!table.classList.contains(row ? "is-keeping-rows" : "is-keeping-cols")) {
+          bringIntoView(container, clue, row ? "x" : "y");
+        }
       }
     }
   }

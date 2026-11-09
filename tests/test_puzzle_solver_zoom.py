@@ -1427,8 +1427,8 @@ _IN_VIEW = """(selector) => {
   const clue = document.querySelector('th.player-clue.is-hint-line:not([aria-hidden="true"])');
   const clueBox = clue ? clue.getBoundingClientRect() : null;
   return { count: cells.length, axis: clue ? (clue.classList.contains('is-row') ? 'row' : 'col') : null,
-           clueIn: clueBox !== null && clueBox.right > port.left && clueBox.left < port.left + stage.clientWidth
-             && clueBox.bottom > port.top && clueBox.top < port.top + stage.clientHeight,
+           clueIn: clueBox !== null && clueBox.left >= port.left - 0.5 && clueBox.right <= port.left + stage.clientWidth + 0.5
+             && clueBox.top >= port.top - 0.5 && clueBox.bottom <= port.top + stage.clientHeight + 0.5,
            y: cells.every((c) => inside(c.getBoundingClientRect(), 'y')),
            x: cells.every((c) => inside(c.getBoundingClientRect(), 'x')),
            scroll: [stage.scrollLeft, stage.scrollTop], pageY: scrollY };
@@ -1483,6 +1483,13 @@ class TestSolverZoom_HintComesIntoView:
             hint = page.locator('[data-player-action="hint"]')
             hint.click()
             line = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
+            # The player scrolls ALONG the line a little; rung 2 points at the
+            # same, still-visible line and must not move the stage (AC-5;
+            # review cycle 2, F-101/F-102: a both-axis bring-in snapped this).
+            page.evaluate("""(axis) => { const s = document.querySelector('.player-stage');
+              if (axis === 'row') s.scrollLeft = Math.min(150, s.scrollWidth - s.clientWidth);
+              else s.scrollTop = Math.min(150, s.scrollHeight - s.clientHeight); }""", line["axis"])
+            moved = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
             hint.click()  # rung 2: the same line, already in view
             again = page.evaluate(_IN_VIEW, "td.player-cell.is-hint-line")
             page.evaluate(far)
@@ -1501,7 +1508,10 @@ class TestSolverZoom_HintComesIntoView:
             context.close()
         # Across the line, every cell; and the line's clue box is in the stage.
         assert line["count"] == 30 and line[{"row": "y", "col": "x"}[line["axis"]]] and line["clueIn"], line
-        assert again["scroll"] == line["scroll"], (line, again)
+        if moved["clueIn"]:  # the band is kept: everything still in view, nothing moves
+            assert again["scroll"] == moved["scroll"], (moved, again)
+        else:  # no kept band (844 x 390): the clue scrolled away and is brought back
+            assert again["clueIn"], (moved, again)
         assert cell["count"] == 1 and cell["x"] and cell["y"], cell
         assert check["count"] == 30 and check["y"], check
         assert {line["pageY"], again["pageY"], cell["pageY"], check["pageY"]} == {page_y}
