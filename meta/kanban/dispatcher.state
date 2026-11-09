@@ -480,13 +480,7 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
-  # CARD-410 DISPATCHED 2026-11-09T22:32Z (player-phone thread); serial after 409.
-  - card: CARD-410
-    branch: card/410-probe-flags-broken-lines
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-410
-    started: 2026-11-09T22:32Z
-    estimate: 3c (1d)
-    cut_from: 240ed2fa
+# CARD-410 CLEARED 2026-11-09T23:18Z: merged e1e1144b, done, review 9.0 on cycle 1, estimate 3c -> 0.33. Player-set gate 1394 passed. Entry dropped.
 # CARD-409 CLEARED 2026-11-09T22:31Z: merged e8d2540c, done, review 9.0 on cycle 3 (7.0, 7.5), estimate 3c -> 1.0. Player-set gate 1392 passed. Entry dropped.
 # CARD-408 CLEARED 2026-11-09T19:51Z: merged 86c4eaf4, done, review 9.0 on cycle 3 (7.0, 8.0), estimate 3c -> 1.0. Player-set gate 1392 passed. Entry dropped.
 # CARD-407 CLEARED 2026-11-09T18:40Z: merged 6f4bab4f, done, review 8.5 on cycle 1, estimate 2c -> 0.5. Player-set gate 1389 passed. Entry dropped.
