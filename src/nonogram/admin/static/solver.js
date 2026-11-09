@@ -1203,9 +1203,14 @@ function start() {
     let boardWidth;
     let boardHeight;
     if (zoomNow > ZOOM_MIN) {
+      // The smaller 100% table clamps the stage's scroll; it is put back
+      // with the zoom (review cycle 2, F-101: the view jumped to the 100%
+      // board's limits on every resize while zoomed in).
+      const scrolled = [stage.scrollLeft, stage.scrollTop];
       table.style.setProperty("--player-zoom", "1");
       [boardWidth, boardHeight] = [table.offsetWidth, table.offsetHeight];
       table.style.setProperty("--player-zoom", String(zoomNow / 100));
+      [stage.scrollLeft, stage.scrollTop] = scrolled;
     } else {
       const scale = zoomNow / 100;
       [boardWidth, boardHeight] = [table.offsetWidth / scale, table.offsetHeight / scale];
@@ -1375,7 +1380,10 @@ function start() {
       // A zoom that lands on Fit checks that Fit really fits (measureFit's
       // overshoot loop); measureFit's own setFloor calls re-enter here, so
       // the flag makes the re-entry a plain re-measure of the bands.
-      if (!measuringFit) measureFit();
+      // Only at or below 100%: above it the floor cannot have changed (a
+      // zoom moves no layout the floor reads), and measuring there would
+      // force two layouts per pinch move (review cycle 2, F-103).
+      if (!measuringFit && marking.getZoom() <= ZOOM_MIN) measureFit();
     },
   });
   // CARD-267: the crosshair's own pointer listeners, on the same stage and
@@ -2106,7 +2114,7 @@ function wireMarking(container, player) {
     const midX = (p1.x + p2.x) / 2 - stageBox.left;
     const midY = (p1.y + p2.y) / 2 - stageBox.top;
     const pinched = pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2), zoomFloor);
-    if (pinched <= zoomFloor + 1e-6 && zoom > zoomFloor + 1e-6) beforeFit = Math.max(ZOOM_MIN, zoom);
+    if (pinched <= zoomFloor + 1e-6 && zoom > zoomFloor + 1e-6) beforeFit = Math.max(ZOOM_MIN, pinch.startZoom);
     applyZoom(pinched, midX, midY);
   }
 
