@@ -109,3 +109,7 @@ arm it fires.
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate; where none
   exists it defaults to **deny** (check: review-lens)
 - ADR-0038/R8 — failures are loud, never silent (check: review-lens)
+
+## Triage 2026-11-09
+
+Still open: the stream reader is live for the raster dividers and the Solutions opener, and its three refusal arms are still undemonstrated.

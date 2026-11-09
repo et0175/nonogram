@@ -1,6 +1,6 @@
 # CARD-208: Printed clue numbers sit in ruled boxes, like the player's clue cells
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -25,10 +25,10 @@ floor, and the file is already CARD-207's too — they serialize). See the
 `## Decomposition 2026-10-24` section at the end: SEVEN ACs became THIRTEEN, and
 the card was deliberately NOT split. -->
 
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -404,3 +404,7 @@ as light as the design wants without colliding with the pixel grid.
 - The open owner question on this card — whether "clue areas shaded" means each
   number's own box or the whole gutter band — is **unaffected** by ADR-0042 and
   still owed.
+
+## RETIRED 2026-11-09 — board triage
+
+The clue-shading half is built (`shade_clue_cells`, CLUE_SHADE). The ruled boxes are withdrawn: the owner's 2026-11-09 layout has no frame around the clues and lets the shading mark the clue area.

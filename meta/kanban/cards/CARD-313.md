@@ -1,6 +1,6 @@
 # CARD-313: `test_book_pdf_memory.py` stops measuring a bitmap that is no longer retained — the rewrite its premise has been waiting for a page conversion to justify
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-309
 **Touches:** tests/test_book_pdf_memory.py, meta/profiling/adr-0042-migration-census.md
-**Review score:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 board triage; built under other work, no review of its own.
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09
+**Actual:** built elsewhere (see the closing note).
+**Merge commit:** bf1c5ec7
 **Blocked by:** —
 
 ## Why this card exists, and why it is NOT CARD-299's
@@ -121,3 +121,7 @@ actually converts the pages — rather than on CARD-299.
   deciding the rewrite's shape, and say so.
 - CARD-299's round left this file **completely untouched** (54 passed, 1 skipped), so
   there is no partial rewrite to inherit or reconcile.
+
+## Closed 2026-11-09 — board triage
+
+Its premise was settled by CARD-355 (`TestBookPdfMemory_TheMemoryClaimsDisposition`: a vector page is held to one page alive at a time, a bitmap page is still costed) and CARD-322 (streaming-shape test retired, survivor named). The 2026-11-09 curation (bf1c5ec7) cut `PAGE_FACTORIES` to the raster dividers, opener and cover and retired the old pixel-baseline chain.

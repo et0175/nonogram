@@ -210,3 +210,7 @@ distinction onto tone alone.
 - This card's citation of ADR-0037/R2 must be re-read against ADR-0042/R7 before
   the card is rewritten; the clause it leans on is the one R7 narrows.
 - Its tests move from ink measurement to content-stream assertions.
+
+## Triage 2026-11-09
+
+Still open. Built: shared cell, centring, one footer line. Not built: equal slots split by a light rule (AC-1), aligned bottoms (AC-3), the per-slot float `PairLayout`'s docstring still calls unimplemented, and the AC-8/AC-7 bookkeeping. Worth one owner look at whether the equal-slot look is still wanted.

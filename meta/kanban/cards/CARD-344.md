@@ -118,3 +118,7 @@ would mean inventing the mechanism twice.
   (check: review-lens)
 - ADR-0042/R6 — the independent pixel oracles are exempt from the conversion by name
   (check: `TestEdgeOffset_ThePixelOraclesStillReadPixels`)
+
+## Triage 2026-11-09
+
+Still open, small. The 3 px overhang now only matters on poppler renders of vector pages; the frame reasoning in its comment no longer applies (`BOOK_PUZZLE_FRAME = False`). Fold in: delete the now-dead `framed` / `frame_centre_of` / `FrameCentre` / `_outer_rule_is_a_frames` helpers from tests/helpers/page_ink.py (CARD-351 and CARD-353 retired).

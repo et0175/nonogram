@@ -1,6 +1,6 @@
 # CARD-351: `Drawing.framed` reports False on 94 of 136 framed answer pages, and the module that reads it contradicts itself about which fields are safe
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-336
 **Touches:** tests/helpers/page_ink.py, tests/property/test_book_pdf_geometry.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -132,3 +132,7 @@ duplicate to one checkable place** rather than reconcile the wording.
   none exists it defaults to **deny** (check: review-lens)
 - ADR-0042/R6 — the independent pixel oracles are exempt from the conversion by name
   (check: `TestEdgeOffset_ThePixelOraclesStillReadPixels`)
+
+## RETIRED 2026-11-09 — board triage
+
+Subject gone: framed answer pages no longer exist (vector answer pages, `BOOK_PUZZLE_FRAME = False`), and no test reads `Drawing.framed`. The dead frame helpers in tests/helpers/page_ink.py are noted on CARD-344.

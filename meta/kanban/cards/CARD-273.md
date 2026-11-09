@@ -223,3 +223,7 @@ staleness. **A relocation card's dependency list is not documentation; it is the
 thing that stops the relocation landing under a card that is mid-flight.** It
 needs re-deriving at dispatch, not trusting: every card whose `Touches` meets
 this one's belongs in it.
+
+## Triage 2026-11-09
+
+Still open, figures stale: admin/ now holds 20 `book_*.py` modules (21,165 lines) after the vector interior landed. Re-derive the module list, importers and dependencies before the move.

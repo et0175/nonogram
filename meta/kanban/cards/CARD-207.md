@@ -1,6 +1,6 @@
 # CARD-207: A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -16,11 +16,11 @@
 **Depends on:** CARD-204, CARD-322, CARD-222, CARD-228
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_band.py, tests/test_book_pdf.py, tests/test_book_interior_type_floor.py
-**Review score:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 board triage; built under other work, no review of its own.
 **Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-09
+**Actual:** built elsewhere (see the closing note).
+**Merge commit:** 8efe806d
 **Blocked by:** —
 
 ## What to implement
@@ -181,3 +181,6 @@ decision**. CARD-293 §6 classifies this card as *written, tests retargeted*: a 
   phase runs first: dispatching this card before it would mean writing
   pixel-measuring tests and then converting them.
 
+## Closed 2026-11-09 — board triage
+
+Built under the approved-mockup header work (8efe806d): `book_puzzle_vector.draw_puzzle_header` sets "Puzzle N" flush left and the tier dots and word flush right on one baseline; the lower slot of a two-up page carries its own header rule. Tests in tests/test_book_pdf_band.py read the split header.

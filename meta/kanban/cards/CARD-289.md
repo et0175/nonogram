@@ -205,3 +205,7 @@ three cards and none existed. -->
   that the export path constructs is a small change with a wide blast radius —
   every constructor call site must pass them. Find the call sites by AST, not by
   grep, and say how many there were.
+
+## Triage 2026-11-09
+
+Still open as written: `InteriorStream` carries neither `first_answer_page` nor the TOC rows, and tests/test_book_toc.py still re-spells `_solutions_divider_page`. Line numbers in this card are stale after the 2026-11-09 deletion.

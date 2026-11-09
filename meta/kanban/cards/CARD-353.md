@@ -1,6 +1,6 @@
 # CARD-353: Nothing asserts that `frame_centre_of` reduces a bitmap to a mask — the new oracle is held by one of the two guards that hold the old one
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c (0.25d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-336
 **Touches:** tests/test_book_pdf.py
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-09 board triage. No work is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-09
+**Actual:** none — retired (see the closing note).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -99,3 +99,7 @@ is the thing this card changes.
   hand-written (check: review-lens)
 - ADR-0042/R6 — the independent pixel oracles are exempt from the conversion by name
   (check: `TestEdgeOffset_ThePixelOraclesStillReadPixels`)
+
+## RETIRED 2026-11-09 — board triage
+
+Both guards it names were deleted in the 2026-11-09 curation (6369f1ab); `frame_centre_of` has no caller left (noted on CARD-344 for removal).
