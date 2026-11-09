@@ -807,8 +807,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 0], (corner, seen["overflow"])
-            assert seen["scroll"] == [136 if col else 0, 0], (corner, seen["scroll"])
+            assert seen["overflow"] == [136, 108], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap
+            assert seen["scroll"] == [136 if col else 0, 108 if row else 0], (corner, seen["scroll"])
 
             # The mirrored row band is pinned to the scrollport's RIGHT edge
             # and the column band to its top; both wholly inside it, at every
@@ -908,7 +908,7 @@ class TestSolverPhone_MirroredGutterSticks:
         room = _room(page)
         assert room["keeping"] == [False, True], room
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
-        assert room["port"] == [358, 583] and room["overflow"] == [346, 0], room
+        assert room["port"] == [358, 398] and room["overflow"] == [346, 185], room  # 583 / 0 until CARD-403's measured stage cap
         # Past the share the rule allows, re-derived here from solver.js's
         # own constant rather than from the class it set — off the RAW cover
         # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs

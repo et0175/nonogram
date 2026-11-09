@@ -1092,6 +1092,9 @@ function start() {
   // tests/test_puzzle_solver_clues.py
   // TestSolverClues_TheLadderStopsAtTheFirstRungThatFits.
   function drawSettledLayout(zoom) {
+    // CARD-403: the stage's top first, so the cell this ladder measures is
+    // the cell the page will show (the height term reads it).
+    measureStageTop();
     const ladder = layoutLadder();
     const plain = ladder[ladder.length - 1];
     const plainCells = drawBoard(stage, payload, plain, zoom);
@@ -1124,7 +1127,31 @@ function start() {
   // changed by the classes this sets: the measurement cannot oscillate
   // (asserted in tests/test_puzzle_solver_clues.py
   // TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted).
+  // THE STAGE'S MEASURED TOP (CARD-403, owner findings 2026-11-07: "the
+  // board's box starts 317 px down an 844 px screen and is still 616 px
+  // tall"). admin.css used to cap the stage at 100svh less
+  // --player-chrome-h, a sum that assumes ONE toolbar row; on a phone the
+  // toolbar, the probe bar and the counters stack, and the stage's bottom
+  // edge and its sideways scrollbar fell below the fold. Its real distance
+  // from the top of the document is written here as --player-stage-top
+  // (px), which the cap AND the cell's height term read — both, because at
+  // 100% the fitted size is what 100% means (CARD-195): a cap that followed
+  // the real top while the cell still assumed one toolbar row clipped a
+  // board that was meant to fit (measured: the success frame cut and the
+  // board scrolled 12 px on solve). The measurement cannot oscillate: the
+  // stage's top depends only on what stands ABOVE it, never on the stage's
+  // own height or the cell, so writing either does not move what was
+  // measured.
+  function measureStageTop() {
+    const top = Math.round(stage.getBoundingClientRect().top + window.scrollY);
+    const value = `${top}px`;
+    if (stage.style.getPropertyValue("--player-stage-top") !== value) {
+      stage.style.setProperty("--player-stage-top", value);
+    }
+  }
+
   function keepCluesInView() {
+    measureStageTop();
     // The fallback fails CLOSED, toward not sticking (CARD-271 review cycle
     // 1, F-003). `Infinity` is the largest value `affords` can be handed, so
     // the only axis that still keeps with its band unmeasurable is one whose
@@ -1156,6 +1183,11 @@ function start() {
 
   function redraw() {
     const zoom = marking.getZoom();
+    // CARD-403 ("the jump"): a redraw replaces the table, and the stage's
+    // scroll position went with it — on a phone a resize fires whenever the
+    // URL bar collapses mid-scroll, so the board snapped back to its corner
+    // under the player's finger. The position is put back after the draw.
+    const scrolled = [stage.scrollLeft, stage.scrollTop];
     cellElements = drawSettledLayout(zoom);
     table = stage.querySelector(".player-board");
     clueNumbers = clueNumbersOf(table);
@@ -1180,6 +1212,7 @@ function start() {
     crosshair.forget();
     showProgress(null);
     marking.refresh();
+    [stage.scrollLeft, stage.scrollTop] = scrolled;
   }
 
   // Pointer, tool, history and keyboard input is wired once, to `stage`
@@ -1302,10 +1335,34 @@ function start() {
   // board's draws). Redrawing every board on every resize would have paid a
   // board build for a decision that needs two class toggles.
   const isBig = payload.width > BIG_SIDE || payload.height > BIG_SIDE;
+  // CARD-403: only a change the board's size can depend on redraws it. The
+  // cell is sized from the stage's width and from 100svh, and svh is the
+  // SMALL viewport — it does not change when a phone's URL bar collapses,
+  // which changes innerHeight and fires `resize`. So the key is the width
+  // and the measured svh, and a resize that changes neither re-measures the
+  // clue bands and the stage's top instead of rebuilding the table.
+  const svhProbe = document.createElement("div");
+  svhProbe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;top:0;left:0;width:0;height:100svh";
+  document.body.appendChild(svhProbe);
+  const sizeKey = () => `${window.innerWidth}x${svhProbe.getBoundingClientRect().height}`;
+  let drawnAt = sizeKey();
+  // And whenever what stands above the stage changes height without a
+  // window resize — the toolbar wrapping, the probe bar's note appearing, the
+  // hint line — the stage's top moves, so it is measured again. Observing
+  // the toolbar and the header covers every such element (all live in one
+  // of the two).
+  if (typeof ResizeObserver === "function") {
+    const above = new ResizeObserver(() => measureStageTop());
+    for (const element of [toolbar, document.querySelector(".player-head")]) {
+      if (element) above.observe(element);
+    }
+  }
   const viewportChanged = () => {
+    const key = sizeKey();
     // redraw() re-measures as part of drawing — see keepCluesInView() in it.
-    if (isBig) redraw();
+    if (isBig && key !== drawnAt) redraw();
     else keepCluesInView();
+    drawnAt = key;
   };
   mirrorQuery.addEventListener("change", viewportChanged);
   // CARD-212: and the window itself, not only the breakpoint. CARD-193's

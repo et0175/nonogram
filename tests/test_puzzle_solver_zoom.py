@@ -977,8 +977,14 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
     @pytest.mark.parametrize(
         "name, grid, viewport, feet, zoom, expected",
         [
-            ("plain 30x30 at 900x700", _GRID_30x30, {"width": 900, "height": 700}, 0, 125,
-             [212, 253]),
+            # CARD-403 (owner finding 2026-11-07, the stage ends above the
+            # fold): the stage is now capped at its measured top, so at
+            # 900 x 700 the 125% board's column band covers more than
+            # STICK_MAX_SHARE of the shorter port and the case no longer is
+            # "the highest zoom that keeps both axes". The window is 100 px
+            # taller instead, re-measured.
+            ("plain 30x30 at 900x800", _GRID_30x30, {"width": 900, "height": 800}, 0, 125,
+             [212, 237]),
             ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [778, 487]),
         ],
         ids=lambda value: value if isinstance(value, str) else "",
@@ -1098,7 +1104,9 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
         assertion covered.
         """
         page = browser_page
-        page.set_viewport_size({"width": 900, "height": 700})
+        # 900 x 800, not 900 x 700, since CARD-403's measured cap (see the
+        # plain case of TestSolverZoom_CluesStayInViewWhileZoomed).
+        page.set_viewport_size({"width": 900, "height": 800})
         puzzle = live.store(_GRID_30x30)
         _open(page, live, puzzle)
         _set(page, [F if on else E for on in _GRID_30x30[0]] + ["unknown"] * (30 * 29))
@@ -1121,3 +1129,89 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
         # scroll position is not one of the room condition's terms, so it
         # cannot change the answer.
         assert panned == [[True, True]] * 6, panned
+
+
+# ==========================================================================
+# CARD-403 — the stage ends above the fold; a resize does not throw the
+# board back to its corner
+# ==========================================================================
+
+_STAGE_EDGE = """() => { const s = document.querySelector('.player-stage').getBoundingClientRect();
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return { bottom: s.bottom, height: s.height, floor: 12 * rem, innerHeight }; }"""
+
+
+@pytest.mark.browser
+class TestSolverZoom_StageEndsAboveTheFold:
+    """CARD-403 AC-1/AC-4 (owner findings 2026-11-07): the stage's bottom
+    edge, and with it its sideways scrollbar, is inside the window at page
+    scroll 0 for a 30 x 30 board at 100% and at 200%, whatever stands above
+    the stage — the cap follows the stage's measured top
+    (--player-stage-top), not the one-toolbar-row --player-chrome-h.
+
+    The card's sweep (320..1440 x 320..900) is cut to a grid of 18 viewports
+    that crosses every toolbar layout (one to three compact rows, the 600 px
+    and 820 px breakpoints, short and tall), owner test budget; 390 x 844 and
+    844 x 390 are AC-4's own. A 390-tall window narrower than 568 px is no
+    device (a phone held sideways is wider) and its toolbar alone fills it,
+    so it is left out; where the chrome above the stage leaves less than
+    admin.css's 12rem floor (the admin's nav wraps tall on small windows) the
+    stage must be exactly that floor instead. Plant: restoring the one-row cap
+    (max-height: calc(100svh - var(--player-chrome-h))) reds every phone
+    viewport of the grid (run, 2026-11-09)."""
+
+    def test_sweep(self, browser, live) -> None:
+        puzzle = live.store(BIG)
+        late = []
+        context = browser.new_context(viewport={"width": 390, "height": 844})
+        page = context.new_page()
+        try:
+            _open(page, live, puzzle)
+            viewports = [(w, h) for w in (320, 390, 600, 844, 1280)
+                         for h in (390, 568, 844, 900) if not (w < 568 and h == 390)]
+            for width, height in viewports:
+                page.set_viewport_size({"width": width, "height": height})
+                page.reload()
+                page.wait_for_selector(".player-board")
+                for percent in (100, 200):
+                    _zoom_to(page, percent)
+                    edge = page.evaluate(_STAGE_EDGE)
+                    # Either the bottom is in the window, or what stands
+                    # above the stage leaves less than the 12rem floor and
+                    # the stage is exactly that floor (the admin's top bar
+                    # and nav wrap tall on a small window).
+                    floored = abs(edge["height"] - edge["floor"]) <= 1
+                    if edge["bottom"] > edge["innerHeight"] + 0.5 and not floored:
+                        late.append((width, height, percent, edge))
+                _zoom_to(page, 100)
+        finally:
+            context.close()
+        assert late == [], late
+
+    def test_a_resize_keeps_the_board_and_its_scroll(self, browser, live) -> None:
+        """AC-5, the jump. Not reproduced on a real phone (no device here);
+        the mechanism found by reading is: a resize — which a phone fires
+        when its URL bar collapses mid-scroll — redrew a big board, the
+        redraw replaced the table, and the stage's scroll went back to 0,
+        the board snapping to its corner under the finger. Guard: a resize
+        that changes nothing the board's size depends on keeps the SAME
+        table, and a real one keeps the stage's scroll position."""
+        context = browser.new_context(viewport={"width": 390, "height": 844})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(BIG))
+            _zoom_to(page, 200)
+            page.evaluate("""() => { const s = document.querySelector('.player-stage');
+              s.scrollLeft = 120; s.scrollTop = 90; window.__table = document.querySelector('.player-board'); }""")
+            page.evaluate("() => window.dispatchEvent(new Event('resize'))")
+            page.wait_for_timeout(600)
+            same = page.evaluate("() => window.__table === document.querySelector('.player-board')")
+            page.set_viewport_size({"width": 380, "height": 844})
+            page.wait_for_timeout(600)
+            scrolled = page.evaluate("""() => { const s = document.querySelector('.player-stage');
+              return [s.scrollLeft, s.scrollTop, window.__table === document.querySelector('.player-board')]; }""")
+        finally:
+            context.close()
+        assert same, "a resize that changed nothing rebuilt the table"
+        assert scrolled[2] is False, "the width change should redraw (the control of this test)"
+        assert scrolled[0] > 0 and scrolled[1] > 0, scrolled
