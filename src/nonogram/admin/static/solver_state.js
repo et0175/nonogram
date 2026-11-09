@@ -1387,6 +1387,24 @@ export function checkpointHistory(history, probe) {
   return historyOf(board, history.done.slice(0, keep), []);
 }
 
+// The lines the open probe has BROKEN (CARD-410, owner finding 2026-11-07:
+// "Flag broken lines during a probe"): every row and column that no
+// placement of its clue fits on `board` (lineForced returns null) and that
+// one did fit on `checkpointBoard`, the board the probe opened on. A line the
+// player's marks had broken BEFORE the probe is not the probe's doing and is
+// not returned. Reads the clues and the marks only — never the solution — so
+// it is the same in public mode. Returns { rows, columns }: frozen arrays of
+// 0-based indices, ascending.
+export function brokenLines(board, checkpointBoard, rows, columns) {
+  const line = (b, axis, index) => (axis === "row"
+    ? Array.from({ length: b.width }, (_, c) => b.cells[index * b.width + c])
+    : Array.from({ length: b.height }, (_, r) => b.cells[r * b.width + index]));
+  const broken = (b, axis, clue, index) => lineForced(clue, line(b, axis, index)) === null;
+  const pick = (axis, clues) => Object.freeze(clues.flatMap((clue, index) => (
+    broken(board, axis, clue, index) && !broken(checkpointBoard, axis, clue, index) ? [index] : [])));
+  return Object.freeze({ rows: pick("row", rows), columns: pick("column", columns) });
+}
+
 // ---------------------------------------------------------------------------
 // Saving a game in this browser (CARD-185; FR-044 AC-360..AC-365, EC-046/047)
 //

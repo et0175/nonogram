@@ -619,7 +619,7 @@ import { boardOfGrid } from "./solver_state.js";
 // save is written from and the two transitions are all pure (ADR-0038/R4);
 // the three buttons, the one-line notice and the marker on the member cells
 // are this file's.
-import { abandonProbe, checkpointHistory, nextProbe, probeCells } from "./solver_state.js";
+import { abandonProbe, brokenLines, checkpointHistory, nextProbe, probeCells } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -995,12 +995,35 @@ function start() {
   // between calls, so there is no stale half-painted state a redraw could
   // leave behind — the crosshair's forget() has no counterpart here.
   function paintProbe() {
-    const members = new Set(probeCells(history, marking.getProbe())
+    const probe = marking.getProbe();
+    const members = new Set(probeCells(history, probe)
       .map(([row, col]) => row * payload.width + col));
     cellElements.forEach((element, index) => {
       if (members.has(index)) element.dataset.probe = "true";
       else delete element.dataset.probe;
     });
+    paintBroken(probe);
+  }
+
+  // CARD-410 (owner finding 2026-11-07: "Flag broken lines during a probe.
+  // When a row or column can no longer match its clue, tint that clue red
+  // and gently highlight the Contradiction button."): .is-broken on every
+  // clue box of a line the open probe broke (solver_state.js brokenLines:
+  // broken now and not at the checkpoint) — both twins of a doubled axis, by
+  // AXIS + data-line — and .is-flagged on Contradiction while there is one.
+  // Derived and rewritten with paintProbe, so a close (Keep, Contradiction),
+  // an undo or a redraw leaves nothing stale. No probe, no flag (and the
+  // editor has no probe bar, so it never flags).
+  function paintBroken(probe) {
+    const broken = probe === null ? { rows: [], columns: [] }
+      : brokenLines(history.board, checkpointHistory(history, probe).board, payload.rows, payload.columns);
+    const lines = { row: new Set(broken.rows), col: new Set(broken.columns) };
+    for (const box of table.querySelectorAll("th.player-clue")) {
+      const axis = box.classList.contains("is-row") ? "row" : "col";
+      box.classList.toggle("is-broken", lines[axis].has(Number(box.dataset.line)));
+    }
+    document.querySelector('[data-player-probe-action="abandon"]')
+      ?.classList.toggle("is-flagged", broken.rows.length + broken.columns.length > 0);
   }
 
   // CARD-193 mirrored the row clues of boards wider than BIG_SIDE to the

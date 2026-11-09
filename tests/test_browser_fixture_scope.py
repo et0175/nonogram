@@ -748,6 +748,12 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_probe.py::TestSolverProbe_StateIsPureAndStatesAreFour::test_broken_lines_match_a_brute_force_line_oracle": (
+        "CARD-410", "AC-1 (owner finding 2026-11-07): brokenLines against the brute-force line oracle, the checkpoint subtraction included",
+    ),
+    "tests/test_puzzle_solver_probe.py::TestSolverProbe_BrokenLinesAreFlagged::test_a_line_the_probe_breaks_turns_its_clue_red": (
+        "CARD-410", "AC-2..AC-5: the probe's broken line clue turns red on both twins and Contradiction is flagged; cleared by Keep and Contradiction",
+    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_HintComesIntoView::test_reveal_scroll_against_an_independent_rule": (
         "CARD-408", "AC-1: revealScroll (the stage offset that shows a box clear of a sticky band) against an independent rule",
     ),
