@@ -516,7 +516,18 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         shrank: the widest trigger is now "Maybe" at 92.1 px natural width
         (CARD-247 made the fourth label "Clear", 82.4 px — the narrowest of
         the four, where "Undecided" was the widest at 124), so the content
-        comes to 164.1 px inside the 208 px floor against CARD-211's 204."""
+        comes to 164.1 px inside the 208 px floor against CARD-211's 204.
+
+        **CARD-401 re-measured them again (owner findings 2026-11-07: "reduce
+        region icon to 2 cells"; "Mobile - have only icons on buttons").** Two
+        cells instead of three make the toggle 49 px, so at 1280x720 and
+        1440x900 the slot stays 208 and the trigger grows into the 15 px the
+        toggle gave back: 151, with the toggle 159 px into the group. At
+        390x844 the compact toolbar drops the 13rem floor (it is what kept the
+        tools and history from sharing a row): trigger 44 (its swatch alone at
+        the 44 px tap minimum), toggle 49, gap 8 -> a 101 px slot, toggle at 52.
+        The claim is unchanged at every viewport: one slot width, one trigger
+        width and one toggle offset for all four brushes."""
         context = browser.new_context(viewport={"width": width, "height": height})
         page = context.new_page()
         try:
@@ -534,6 +545,11 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
             )
         finally:
             context.close()
+        if width == 390:  # compact (CARD-401): figures in the docstring
+            assert round(boxes["slot"]) == round(boxes["tools"]) == 101, (brush, width, boxes)
+            assert round(boxes["trigger"]) == 44, (brush, width, boxes)
+            assert round(boxes["regionOffset"]) == 52, (brush, width, boxes)
+            return
         assert round(boxes["slot"]) == round(boxes["tools"]) == 208, (brush, width, boxes)
         # 136 px = 208 less the toggle (64 since CARD-247 — three 16 px cells
         # sharing two 1 px rules, plus the toggle's own padding and borders)
@@ -543,8 +559,8 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         # 71.7 px toggle: re-measured, not relaxed — the two assertions are as
         # tight as they were, and the toggle's width is pinned by them (it is
         # 208 - 136 - 8, which is why there is no third number for it).
-        assert round(boxes["trigger"]) == 136, (brush, width, boxes)
-        assert round(boxes["regionOffset"]) == 144, (brush, width, boxes)
+        assert round(boxes["trigger"]) == 151, (brush, width, boxes)
+        assert round(boxes["regionOffset"]) == 159, (brush, width, boxes)
 
 
 # ==========================================================================
@@ -556,6 +572,12 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
 class TestSolverRegion_ShowsThreeCellsInTheActiveBrush:
     """CARD-247 AC-3 — the Region toggle's face is three cells in the chosen
     brush's mark, not the word "Region".
+
+    RETIRED CLAIM, 2026-11-07 (CARD-401): "three". The owner's finding
+    "reduce region icon to 2 cells" makes it TWO cells at every width; the
+    class and method names keep the old word only because the card's
+    guardrail forbids renaming a test to fit. Everything below about why a
+    run of the current brush's mark is the right picture still holds.
 
     Three cells rather than one of each state: Region makes the next drag
     mark with the CURRENT brush, so a three-cell run in that brush's mark is a
@@ -587,17 +609,17 @@ class TestSolverRegion_ShowsThreeCellsInTheActiveBrush:
         toggle = _region_toggle(browser_page)
         cells = toggle.locator(".player-swatch")
 
-        assert cells.count() == 3
+        assert cells.count() == 2  # three until CARD-401 (owner 2026-11-07: "reduce region icon to 2 cells")
         assert toggle.text_content().strip() == "", toggle.text_content()
         assert toggle.locator(".player-brush-run").get_attribute("aria-hidden") == "true"
         # The initial brush is Black, and the toggle agrees with the trigger
         # from the first paint (solver.js calls syncTrigger in start()).
-        assert [cells.nth(i).get_attribute("data-state") for i in range(3)] == [F, F, F]
+        assert [cells.nth(i).get_attribute("data-state") for i in range(2)] == [F, F]
 
-        boxes = [cells.nth(i).bounding_box() for i in range(3)]
+        boxes = [cells.nth(i).bounding_box() for i in range(2)]
         assert all(box["width"] >= 8 and box["height"] >= 8 for box in boxes), boxes
         lefts = [round(box["x"]) for box in boxes]
-        assert lefts == sorted(lefts) and len(set(lefts)) == 3, boxes
+        assert lefts == sorted(lefts) and len(set(lefts)) == 2, boxes
         assert len({round(box["y"]) for box in boxes}) == 1, boxes
 
         # Three cells have to be TELLABLE APART, which three ink fills drawn
@@ -622,14 +644,14 @@ class TestSolverRegion_ShowsThreeCellsInTheActiveBrush:
         states, looks = {}, {}
         for brush in MENU_ORDER:
             _tool(browser_page, brush)
-            states[brush] = [cells.nth(i).get_attribute("data-state") for i in range(3)]
+            states[brush] = [cells.nth(i).get_attribute("data-state") for i in range(2)]
             looks[brush] = cells.nth(0).evaluate(look)
             # the icon and the trigger are written by one function, so they
             # can never disagree about which brush is chosen
             assert _trigger(browser_page).locator(".player-swatch").get_attribute(
                 "data-state") == BRUSHES[brush], brush
 
-        assert states == {brush: [BRUSHES[brush]] * 3 for brush in MENU_ORDER}, states
+        assert states == {brush: [BRUSHES[brush]] * 2 for brush in MENU_ORDER}, states
         rendered = {brush: tuple(sorted(value.items())) for brush, value in looks.items()}
         assert len(set(rendered.values())) == 4, looks
         assert looks["Maybe"]["mark"] == '"?"', looks["Maybe"]

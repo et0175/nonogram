@@ -939,3 +939,68 @@ class TestSolverPhone_MirroredGutterSticks:
             }"""
         )
         assert landed == "TD.player-cell", landed
+
+
+# ==========================================================================
+# CARD-401 — the compact toolbar: icons only when narrow OR short
+# ==========================================================================
+
+#: The labelled toolbar buttons, by accessible name. Check is admin-only.
+_LABELLED = ("Undo", "Redo", "Reset", "Hint", "Check", "Probe")
+
+_LABEL_BOXES = """() => [...document.querySelectorAll('.player-btn-label')].map((label) => {
+  const button = label.closest('button');
+  const icon = button.querySelector('svg');
+  return { name: label.textContent.trim(),
+           label: label.getBoundingClientRect().width,
+           icon: icon ? icon.getBoundingClientRect().width : 0,
+           button: button.getBoundingClientRect().width };
+})"""
+
+
+@pytest.mark.browser
+class TestSolverPhone_CompactToolbar:
+    """CARD-401 (owner findings 2026-11-07: "Mobile - have only icons on
+    buttons, no text"; "Icon-only should switch on for short screens as well
+    as narrow ones"). admin.css's "Compact toolbar" condition is narrow OR
+    short: at 390 x 844 (phone) and 844 x 390 (landscape phone) every
+    labelled button shows its icon and no visible word, keeps its accessible
+    name, and is at least 44 px wide; at 1280 x 720 the words are back.
+
+    One control that can fail, per the owner's test budget: dropping the
+    ``(max-height: 500px)`` arm reds the 844 x 390 cell alone; dropping the
+    clip rule reds both compact cells."""
+
+    @pytest.mark.parametrize("width,height,compact", [(390, 844, True), (844, 390, True), (1280, 720, False)])
+    def test_icons_only_when_compact(self, browser_page, live, width, height, compact) -> None:
+        from playwright.sync_api import expect
+
+        browser_page.set_viewport_size({"width": width, "height": height})
+        _open(browser_page, live, live.store(BIG))
+        boxes = browser_page.evaluate(_LABEL_BOXES)
+        assert sorted(box["name"] for box in boxes) == sorted(_LABELLED), boxes
+        for box in boxes:
+            if compact:
+                assert box["label"] <= 1 and box["icon"] > 0 and box["button"] >= 44, box
+            else:
+                assert box["label"] > 1, box
+        for name in _LABELLED:
+            expect(browser_page.get_by_role("button", name=name, exact=True)).to_have_count(1)
+
+    def test_the_solved_banner_keeps_the_name_visible_on_a_phone(self, browser, live) -> None:
+        """AC-6: the picture's name is the reward (CARD-163); on a phone the
+        word "Solved:" is what goes, never the name. The board-does-not-move
+        half is TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth, unchanged."""
+        from tests.test_puzzle_solver_maybe import GRID as SOLVE_GRID, NAME, _solve_and_measure
+
+        context = browser.new_context(viewport={"width": 390, "height": 844})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(SOLVE_GRID, name=NAME))
+            _solve_and_measure(page)
+            name_box = page.locator("[data-player-solved-name]").bounding_box()
+            label_box = page.locator(".player-solved-label").bounding_box()
+        finally:
+            context.close()
+        assert name_box and name_box["width"] > 1 and name_box["height"] > 1, name_box
+        assert label_box["width"] <= 1, label_box

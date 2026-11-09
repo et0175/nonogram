@@ -248,8 +248,8 @@
 //             Region toggle, a plain <button> carrying its state in
 //             aria-pressed ("true"/"false") rather than aria-checked — it is
 //             a mode, not one option among several, which is what a screen
-//             reader should announce. Since CARD-247 its face is three
-//             .player-swatch cells in the chosen brush's mark instead of the
+//             reader should announce. Since CARD-247 its face is .player-swatch cells (three; two since CARD-401)
+//             in the chosen brush's mark instead of the
 //             word "Region" — syncTrigger writes their data-state from the
 //             brush, the run is aria-hidden, and the button's name comes
 //             from an aria-label the template carries (the text that used to
