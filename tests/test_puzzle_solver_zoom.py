@@ -49,6 +49,7 @@ from tests.test_puzzle_solver_marking import (
     _states,
     _tool,
 )
+from tests.test_puzzle_solver_page import _to_hundred
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _STATIC,
     _open,
@@ -1196,6 +1197,7 @@ class TestSolverZoom_StageEndsAboveTheFold:
                 page.set_viewport_size({"width": width, "height": height})
                 page.reload()
                 page.wait_for_selector(".player-board")
+                _to_hundred(page)  # CARD-407: a big board opens at Fit on a compact screen
                 for percent in (100, 200):
                     _zoom_to(page, percent)
                     edge = page.evaluate(_STAGE_EDGE)
@@ -1383,3 +1385,25 @@ class TestSolverZoom_Fit:
         assert max(one_more) > 0, one_more
         assert (readout, out_disabled) == ("Fit", "true")
         assert (back, again, up) == ("100%", "Fit", "100%")
+
+    def test_a_big_board_opens_at_fit_on_a_compact_screen_only(self, browser, live) -> None:
+        """CARD-407 AC-1 (owner ruling 2026-11-07: a board that does not fit
+        at 100% opens at Fit, on compact screens only). The 30 x 30 opens at
+        Fit at 390 x 844 and at 100% at 1280 x 720 (where it does not fit
+        either: desktop keeps 100%); a 10 x 10 that fits opens at 100% on the
+        phone. Plant: inverting the compact condition reds both 30 x 30 arms."""
+        big, small = live.store(_GRID_30x30), live.store(_unique_grid(10, 10, seed=40701))
+        seen = {}
+        for name, puzzle, viewport in (("phone big", big, (390, 844)), ("desktop big", big, (1280, 720)),
+                                       ("phone small", small, (390, 844))):
+            context = browser.new_context(viewport={"width": viewport[0], "height": viewport[1]})
+            page = context.new_page()
+            try:
+                _open(page, live, puzzle, keep_opening_zoom=True)
+                page.wait_for_timeout(200)
+                seen[name] = (_zoom_readout(page), page.evaluate("""() => { const s = document.querySelector('.player-stage');
+                  return s.scrollWidth <= s.clientWidth && s.scrollHeight <= s.clientHeight; }"""))
+            finally:
+                context.close()
+        assert seen == {"phone big": ("Fit", True), "desktop big": ("100%", False),
+                        "phone small": ("100%", True)}, seen

@@ -1229,6 +1229,8 @@ def _open_editor(page, live, puzzle_id):
     page.goto(f"{live.url}/puzzle/{puzzle_id}/editor")
     page.wait_for_function("window.puzzlePlayer !== undefined")
     page.wait_for_selector("#puzzle-editor:not([hidden])")
+    from tests.test_puzzle_solver_page import _to_hundred
+    _to_hundred(page)  # CARD-407: a big board opens at Fit on a compact screen; these cells measure 100%
 
 
 def _message(page) -> str:

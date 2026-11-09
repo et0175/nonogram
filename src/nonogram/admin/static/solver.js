@@ -1181,6 +1181,8 @@ function start() {
   // (review cycle 1: a cell that refused to shrink drove the loop to 1%).
   const FIT_MIN = 10;
   let measuringFit = false;
+  let openingDecided = false;
+  const compactQuery = window.matchMedia("(max-width: 600px), (max-height: 500px)");
   function measureFit() {
     if (measuringFit) return;
     measuringFit = true;
@@ -1221,6 +1223,16 @@ function start() {
     if (!(stage.clientWidth > 0) || !(height - margin > 0)) return;
     let floor = Math.max(FIT_MIN, fitZoom(boardWidth, boardHeight, stage.clientWidth, height - margin));
     marking.setFloor(floor);
+    // CARD-407 (owner ruling 2026-11-07): a puzzle whose whole board does
+    // not fit at 100% OPENS at Fit, on compact screens only (the CARD-401
+    // condition, narrow or short); desktop keeps opening at 100%. Once, at
+    // the first measurement: after that the zoom is the player's. Nothing
+    // is saved, so every load applies the rule again. The board is not
+    // redrawn for it — a zoom is a CSS multiplier on the table drawn once.
+    if (!openingDecided) {
+      openingDecided = true;
+      if (floor < ZOOM_MIN && compactQuery.matches) marking.openAt(floor);
+    }
     // At Fit and still scrolling: shrink by the measured overshoot (the
     // fixed-size rules are a larger share of a smaller board), then by one
     // percent, until nothing scrolls; a handful of re-layouts at most.
@@ -2050,6 +2062,14 @@ function wireMarking(container, player) {
     else syncZoom();
   }
 
+  // The opening zoom (CARD-407): Fit for a big puzzle on a compact screen.
+  // The toggle's way back is 100%, the zoom the player would otherwise have
+  // opened at.
+  function openAt(floor) {
+    beforeFit = ZOOM_MIN;
+    applyZoom(floor, 0, 0);
+  }
+
   function toggleFit() {
     if (zoomFloor >= ZOOM_MIN) return;
     const centre = [container.clientWidth / 2, container.clientHeight / 2];
@@ -2690,7 +2710,7 @@ function wireMarking(container, player) {
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
   // Check and the explain line.
   if (probeBar !== null) probeBar.hidden = false;
-  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor };
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt };
 }
 
 start();
