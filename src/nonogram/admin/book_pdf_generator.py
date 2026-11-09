@@ -5259,7 +5259,8 @@ class BookPDFGenerator:
             )
 
         title_pt = 32.0
-        words = str(self.book.metadata.title or "").split()
+        metadata = getattr(self.book, "metadata", None)
+        words = str(getattr(metadata, "title", "") or "").split()
         lines: List[str] = []
         for word in words:
             candidate = f"{lines[-1]} {word}" if lines else word
