@@ -1,6 +1,6 @@
 # CARD-406: A Fit zoom step below 100% shows the whole board — the zoom model learns a floor that is the board's own fit
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/406-fit-zoom
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-406
 **Source:** owner player findings 2026-11-07, items 2, 5 and 9: "A 'Fit' zoom step below 100% that shows the whole board." (item 2); "With Fit, the whole 29 rows would fit at roughly 10 px cells." (item 5); the usage line "Zoom: - / + or Fit to see the whole puzzle." (item 9).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-403, CARD-404
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Depends on CARD-403 (the stage height: Fit is computed against it) and CARD-404 (the clue band at 10 px cells is a capped, constant strip; without it Fit's cell size is dominated by an uncapped numeral floor). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T14:39Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
