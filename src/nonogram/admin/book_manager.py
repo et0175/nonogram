@@ -112,6 +112,14 @@ class Book:
     # Read it through ``print_specs.stored_player_domain`` and not off this
     # field, so one place decides that a blank column is no domain.
     player_domain: Optional[str] = None
+    # Migration 020 (owner, 2026-11-09): the title page's optional lines —
+    # the series above the title, the subtitle under it and the author line.
+    # ``None`` is "not set", every book that existed before the columns, and
+    # the title page leaves that line out. Stored already cleaned
+    # (:func:`title_page_text`), so a reader takes them as they are.
+    subtitle: Optional[str] = None
+    series_name: Optional[str] = None
+    authors: Optional[str] = None
     # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.75 mm
     # floor (TERM-025). Read it through :meth:`BookManager.floor_overrides`
     # rather than off the book, so both storage modes answer the same way.
@@ -569,6 +577,51 @@ def _refuse_invalid_details(title, description, theme, target_audience) -> None:
         raise InvalidBookDetails("Target audience cannot be empty", "target_audience")
 
 
+#: The title page's three optional lines (migration 020), in the order the
+#: page sets them top to bottom less the title: the series above it, the
+#: subtitle under it, the author line under that. Also the General info
+#: form's input names, and the ``books`` columns, which are spelled the same.
+TITLE_PAGE_FIELDS = ("series_name", "subtitle", "authors")
+
+#: The longest a title-page line may be, after stripping. Generous for a
+#: subtitle that runs to two lines at 14 pt, and short enough that nothing
+#: pasted by accident reaches the page.
+TITLE_PAGE_TEXT_MAX = 160
+
+#: "Leave this field as it is", for :meth:`BookManager.update_book_details`'s
+#: title-page arguments — distinct from ``None``, which clears it.
+KEEP = object()
+
+
+def title_page_text(value, field_name: str) -> Optional[str]:
+    """``value`` as a title-page line is stored: stripped, and empty is ``None``.
+
+    The light validation the owner asked for and nothing more: surrounding
+    whitespace goes, a blank entry clears the line, and an entry longer than
+    :data:`TITLE_PAGE_TEXT_MAX` is refused naming its field. Which characters
+    the embedded face can set is the title page's concern, not this one's —
+    it substitutes rather than refuses (``BookPDFGenerator.vector_title_contents``).
+
+    Raises:
+        InvalidBookDetails: the stripped text is too long, or not text.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise InvalidBookDetails(f"{field_name} must be text", field_name)
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if len(cleaned) > TITLE_PAGE_TEXT_MAX:
+        label = field_name.replace("_", " ").capitalize()
+        raise InvalidBookDetails(
+            f"{label} is {len(cleaned)} characters; the most a title-page line "
+            f"may hold is {TITLE_PAGE_TEXT_MAX}",
+            field_name,
+        )
+    return cleaned
+
+
 class BookManager:
     """Service for managing books and their puzzles.
 
@@ -614,6 +667,10 @@ class BookManager:
         target_audience: str,
         size: str = "8x10",
         cover_image_url: Optional[str] = None,
+        *,
+        subtitle: Optional[str] = None,
+        series_name: Optional[str] = None,
+        authors: Optional[str] = None,
     ) -> str:
         """Create a new book.
 
@@ -624,6 +681,8 @@ class BookManager:
             target_audience: Target audience (e.g., 'seniors')
             size: Trim size for KDP (default "8x10")
             cover_image_url: URL to cover image
+            subtitle, series_name, authors: The title page's optional lines
+                (migration 020), cleaned by :func:`title_page_text`.
 
         Returns:
             book_id
@@ -634,6 +693,11 @@ class BookManager:
                 create route does — is unaffected by the field name it adds.
         """
         _refuse_invalid_details(title, description, theme, target_audience)
+        title_page = {
+            "subtitle": title_page_text(subtitle, "subtitle"),
+            "series_name": title_page_text(series_name, "series_name"),
+            "authors": title_page_text(authors, "authors"),
+        }
 
         if self._session_factory is None:
             # Legacy mode: in-memory dict
@@ -651,7 +715,10 @@ class BookManager:
             )
 
             # AC-181 (CON-018): a new book stores the Book 1 print profile.
-            book = Book(book_id=book_id, metadata=metadata, **BOOK1_PROFILE.stored_columns())
+            book = Book(
+                book_id=book_id, metadata=metadata,
+                **BOOK1_PROFILE.stored_columns(), **title_page,
+            )
             self.books[book_id] = book
             # ADR-0034: every new book starts on the default plan.
             self._plans[book_id] = DEFAULT_PLAN
@@ -683,6 +750,7 @@ class BookManager:
                     # AC-181 (CON-018): a new book stores the Book 1 print
                     # profile, explicitly rather than through column defaults.
                     **BOOK1_PROFILE.stored_columns(),
+                    **title_page,
                 )
                 db.add(book)
                 db.flush()  # get the auto-generated UUID
@@ -744,6 +812,10 @@ class BookManager:
             # every row after it, until the owner sets one: there is no
             # backfill, because no base was ever chosen for any book.
             player_domain=getattr(book_row, "player_domain", None),
+            # Migration 020: NULL is "not set", with no backfill, as above.
+            subtitle=getattr(book_row, "subtitle", None),
+            series_name=getattr(book_row, "series_name", None),
+            authors=getattr(book_row, "authors", None),
             # NULL is a row from before migration 012: no override was ever
             # given, which is the reading that keeps the floor closed.
             floor_overrides=list(book_row.floor_overrides or []),
@@ -2647,8 +2719,17 @@ class BookManager:
         description: str,
         theme: str,
         target_audience: str,
+        *,
+        subtitle=KEEP,
+        series_name=KEEP,
+        authors=KEEP,
     ) -> bool:
         """Store the book's general info — the four fields creation asks for.
+
+        And, since migration 020, the title page's three optional lines.
+        Each is :data:`KEEP` unless given — a caller that predates them
+        leaves them as stored — and otherwise is cleaned by
+        :func:`title_page_text`, so a blank one clears that line.
 
         The general-info step of the workflow, on a book that already exists
         (CARD-130, FR-038). Validated by ``_refuse_invalid_details``, the same
@@ -2679,6 +2760,15 @@ class BookManager:
                 F-006).
         """
         _refuse_invalid_details(title, description, theme, target_audience)
+        title_page = {
+            name: title_page_text(value, name)
+            for name, value in (
+                ("subtitle", subtitle),
+                ("series_name", series_name),
+                ("authors", authors),
+            )
+            if value is not KEEP
+        }
 
         if self._session_factory is None:
             # Legacy mode: in-memory dict
@@ -2686,6 +2776,8 @@ class BookManager:
             if not book:
                 return False
 
+            for name, value in title_page.items():
+                setattr(book, name, value)
             book.metadata.title = title
             book.metadata.description = description
             book.metadata.theme = theme
@@ -2706,6 +2798,8 @@ class BookManager:
                 book_row.description = description
                 book_row.theme = theme
                 book_row.target_audience = target_audience
+                for name, value in title_page.items():
+                    setattr(book_row, name, value)
                 book_row.updated_at = datetime.utcnow()
 
                 db.commit()

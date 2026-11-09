@@ -21,6 +21,11 @@
 {% set field_description = entered.get('description', '') if entered is not none else (stored.description if stored else '') %}
 {% set field_theme = entered.get('theme', '') if entered is not none else (stored.theme if stored else '') %}
 {% set field_audience = entered.get('target_audience', '') if entered is not none else (stored.target_audience if stored else '') %}
+{#- Migration 020: the title page's optional lines. They live on the Book,
+    not its metadata, and an unset one is None, shown as an empty box. -#}
+{% set field_series_name = entered.get('series_name', '') if entered is not none else ((book.series_name or '') if editing else '') %}
+{% set field_subtitle = entered.get('subtitle', '') if entered is not none else ((book.subtitle or '') if editing else '') %}
+{% set field_authors = entered.get('authors', '') if entered is not none else ((book.authors or '') if editing else '') %}
 
 {#- CARD-130 review cycle 2 (F-006): the refused control is **marked**, not
     only refilled. `error_fields` names the one input the domain refused
@@ -76,6 +81,36 @@
                                placeholder="e.g. Christmas Nonograms 2026" required
                                {% if 'title' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}>
                     </div>
+
+                    {#- Migration 020: printed on interior page 1, the title and
+                        copyright page. All three optional; left blank, the
+                        page leaves that line out. -#}
+                    <fieldset class="mb-3" id="title-page-fields">
+                        <legend class="form-label">Title page <span class="text-muted small">(optional)</span></legend>
+                        <div class="mb-2">
+                            <label for="series_name" class="form-label">Series name</label>
+                            <input type="text" class="form-control{% if 'series_name' in invalid_fields %} is-invalid{% endif %}" id="series_name" name="series_name"
+                                   value="{{ field_series_name }}" maxlength="{{ title_page_text_max() }}"
+                                   placeholder="e.g. Anna &amp; Olga's Ultimate Puzzle Selection"
+                                   {% if 'series_name' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}>
+                        </div>
+                        <div class="mb-2">
+                            <label for="subtitle" class="form-label">Subtitle</label>
+                            <input type="text" class="form-control{% if 'subtitle' in invalid_fields %} is-invalid{% endif %}" id="subtitle" name="subtitle"
+                                   value="{{ field_subtitle }}" maxlength="{{ title_page_text_max() }}"
+                                   placeholder="e.g. 160 Festive Puzzles — Easy, Medium &amp; Hard"
+                                   {% if 'subtitle' in invalid_fields %}aria-invalid="true" aria-describedby="general-info-error"{% endif %}>
+                        </div>
+                        <div>
+                            <label for="authors" class="form-label">Authors</label>
+                            <input type="text" class="form-control{% if 'authors' in invalid_fields %} is-invalid{% endif %}" id="authors" name="authors"
+                                   value="{{ field_authors }}" maxlength="{{ title_page_text_max() }}"
+                                   placeholder="e.g. Anna and Olga"
+                                   aria-describedby="authors-help{% if 'authors' in invalid_fields %} general-info-error{% endif %}"
+                                   {% if 'authors' in invalid_fields %}aria-invalid="true"{% endif %}>
+                            <div class="form-text" id="authors-help">Printed as "by …" and in the copyright line.</div>
+                        </div>
+                    </fieldset>
 
                     <div class="mb-3">
                         <label for="description" class="form-label">Description</label>

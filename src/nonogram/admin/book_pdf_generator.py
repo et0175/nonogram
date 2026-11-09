@@ -370,6 +370,7 @@ import enum
 import logging
 import math
 import time
+import unicodedata
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -4455,6 +4456,52 @@ def _cover_title_face(book_title: str) -> ImageFont.FreeTypeFont:
     return face
 
 
+#: Close WinAnsi stand-ins for characters an owner may type into a title
+#: page line that the embedded face's encoding cannot carry (owner,
+#: 2026-11-09). "—", "–", "’", "&" and "©" are all WinAnsi and need none;
+#: these are for what is *not*, so a pasted glyph degrades to its plain
+#: spelling instead of refusing the whole book (:class:`UnrepresentableText`).
+_TITLE_PAGE_STAND_INS = {
+    "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2015": "\u2014",
+    "\u2212": "-", "\u2032": "'", "\u2033": '"', "\u00a0": " ",
+    "\u2009": " ", "\u202f": " ", "\u2002": " ", "\u2003": " ",
+    "\u2117": "(P)",
+}
+
+
+def _settable(value: str) -> str:
+    """``value`` with every character the embedded face cannot set replaced.
+
+    Each character is tried against :func:`encode_text`, the one judge of
+    what the interior's face carries. One it refuses becomes its
+    :data:`_TITLE_PAGE_STAND_INS` entry if that is itself settable, else its
+    compatibility decomposition stripped of combining marks (``é`` stays —
+    it is WinAnsi — but ``ő`` becomes ``o``), else ``?``. Never raises.
+    """
+    def ok(text: str) -> bool:
+        try:
+            encode_text(text)
+        except UnrepresentableText:
+            return False
+        return True
+
+    out = []
+    for character in value:
+        if ok(character):
+            out.append(character)
+            continue
+        stand_in = _TITLE_PAGE_STAND_INS.get(character)
+        if stand_in is not None and ok(stand_in):
+            out.append(stand_in)
+            continue
+        plain = "".join(
+            c for c in unicodedata.normalize("NFKD", character)
+            if not unicodedata.combining(c)
+        )
+        out.append(plain if plain and ok(plain) else "?")
+    return "".join(out)
+
+
 class BookPDFGenerator:
     """Generates a book's interior PDF (guide, puzzles, answers) and cover file.
 
@@ -5239,10 +5286,23 @@ class BookPDFGenerator:
         """Interior page 1 with the book's title and copyright (owner, 2026-11-09).
 
         Replaces the blank reserved page the owner chose on 2026-10-13: a
-        blank first page is what KDP's "Look Inside" would open on. The
-        title, emboldened and centred a third of the way down, the puzzle
-        count under it in grey, and the copyright lines at the foot of the
-        usable area. No folio, as on any title page.
+        blank first page is what KDP's "Look Inside" would open on. Centred
+        on the usable width, top to bottom:
+
+        * the **series name** (migration 020), uppercase in grey at 10.5 pt,
+          above the title — only if the book has one;
+        * the **title**, 32 pt emboldened, wrapped at 80 % of the width, its
+          first baseline a third of the way down;
+        * the **subtitle** in grey at 14 pt — or, for a book with none, the
+          "N picture puzzles" line in its place;
+        * "by {authors}" at 13 pt, if the book names its authors;
+        * at the foot of the usable area, the copyright notice — naming the
+          authors when there are any — and the reproduction line, grey 10 pt.
+
+        No folio, as on any title page. Every string is passed through
+        :func:`_settable` first, so a character the embedded face's
+        WinAnsi encoding cannot carry is set as its nearest equivalent
+        instead of refusing the whole book.
         """
         frame = page_frame(self.page_spec(page_number))
         stream = ContentStream(width_px=frame.width, height_px=frame.height, dpi=self.dpi)
@@ -5250,6 +5310,7 @@ class BookPDFGenerator:
         pt = self.dpi / 72.0
         left, right = frame.left, frame.right
         middle = (left + right) / 2
+        secondary = 0.37
 
         def centred(value: str, baseline: float, size_pt: float, grey: float, bold: bool = False) -> None:
             width = face.advance(value) * size_pt * pt
@@ -5258,34 +5319,78 @@ class BookPDFGenerator:
                 embolden_pt=size_pt * 0.04 if bold else 0.0,
             )
 
-        title_pt = 32.0
+        def wrapped(value: str, size_pt: float, share: float) -> List[str]:
+            """``value``'s words, filled into lines no wider than ``share`` of the width."""
+            lines: List[str] = []
+            for word in value.split():
+                candidate = f"{lines[-1]} {word}" if lines else word
+                if lines and face.advance(candidate) * size_pt * pt <= (right - left) * share:
+                    lines[-1] = candidate
+                else:
+                    lines.append(word)
+            return lines
+
+        def own(name: str) -> Optional[str]:
+            value = getattr(self.book, name, None)
+            value = _settable(str(value).strip()) if value is not None else ""
+            return value or None
+
         metadata = getattr(self.book, "metadata", None)
-        words = str(getattr(metadata, "title", "") or "").split()
-        lines: List[str] = []
-        for word in words:
-            candidate = f"{lines[-1]} {word}" if lines else word
-            if lines and face.advance(candidate) * title_pt * pt <= (right - left) * 0.8:
-                lines[-1] = candidate
-            else:
-                lines.append(word)
-        y = frame.height * 0.34
-        for line in lines:
+        title = _settable(str(getattr(metadata, "title", "") or ""))
+        series_name, subtitle, authors = own("series_name"), own("subtitle"), own("authors")
+
+        title_pt, series_pt, subtitle_pt, authors_pt = 32.0, 10.5, 14.0, 13.0
+        title_top = frame.height * 0.34
+
+        if series_name:
+            series_lines = wrapped(series_name.upper(), series_pt, 0.8)
+            # The last series line sits a clear gap above the title's first
+            # baseline; any line before it stacks upwards from there.
+            last = title_top - (title_pt + 12.0) * pt
+            for index, line in enumerate(series_lines):
+                offset = len(series_lines) - 1 - index
+                centred(line, last - offset * series_pt * 1.4 * pt, series_pt, secondary)
+
+        y = title_top
+        for line in wrapped(title, title_pt, 0.8):
             centred(line, y, title_pt, 0.0, bold=True)
             y += title_pt * 1.2 * pt
-        if puzzle_count:
+
+        y += 14 * pt  # the first line under the title: where the count always sat
+        if subtitle:
+            for line in wrapped(subtitle, subtitle_pt, 0.8):
+                centred(line, y, subtitle_pt, secondary)
+                y += subtitle_pt * 1.35 * pt
+        elif puzzle_count:
             noun = "picture puzzle" if puzzle_count == 1 else "picture puzzles"
-            centred(f"{puzzle_count} {noun}", y + 14 * pt, 14.0, 0.37)
+            centred(f"{puzzle_count} {noun}", y, subtitle_pt, secondary)
+            y += subtitle_pt * 1.35 * pt
+
+        if authors:
+            y += 18 * pt
+            for line in wrapped(f"by {authors}", authors_pt, 0.8):
+                centred(line, y, authors_pt, 0.0)
+                y += authors_pt * 1.35 * pt
 
         year = getattr(self.book, "created_at", None)
-        notice = (
-            f"Copyright © {year.year}. All rights reserved." if year is not None
-            else "All rights reserved."
-        )
+        holder = authors.rstrip(".") if authors else None
+        if year is not None and holder:
+            notice = f"Copyright © {year.year} {holder}. All rights reserved."
+        elif year is not None:
+            notice = f"Copyright © {year.year}. All rights reserved."
+        elif holder:
+            notice = f"Copyright © {holder}. All rights reserved."
+        else:
+            notice = "All rights reserved."
+        notice = _settable(notice)
         base = frame.bottom - 16 * pt
-        centred(notice, base, 10.0, 0.37)
+        notice_lines = wrapped(notice, 10.0, 1.0)
+        for index, line in enumerate(notice_lines):
+            offset = len(notice_lines) - 1 - index
+            centred(line, base - offset * 14 * pt, 10.0, secondary)
         centred(
             "No part of this book may be reproduced without written permission.",
-            base + 14 * pt, 10.0, 0.37,
+            base + 14 * pt, 10.0, secondary,
         )
         return stream
 

@@ -17,6 +17,12 @@ title / copyright page, carrying no folio and no ink at all, and the guide
 follows on pages 2 and 3. ``TestBookExport_InteriorStartsAtGuidePage`` asserted
 the retired statement and is renamed to the registry's own planned name above.
 
+**Owner, 2026-11-09: page 1 is no longer blank.** It is the title and
+copyright page (``BookPDFGenerator.vector_title_contents``): the book's title,
+its copyright notice and the reproduction line, still with no folio, no image
+and never the cover. The class and test names below still say "blank" because
+they are cited by id; what they assert is now :func:`_assert_the_title_page`.
+
 The book of AC-283 is a Book 1 profile book (8.5 x 11 in trim) holding three
 easy 21x20 puzzles, with a cover image uploaded through the Finalise screen —
 the real upload, so the tests also cover the defect that the upload was
@@ -383,6 +389,31 @@ def _ink_pixels(page):
     return int((np.asarray(page.convert("L")) < 255).sum())
 
 
+#: The line the title and copyright page sets on every book (owner, 2026-11-09).
+TITLE_PAGE_NOTICE = "No part of this book may be reproduced without written permission."
+
+
+def _assert_the_title_page(data, page=None, title=BOOK_TITLE):
+    """Interior page 1 of ``data`` is the title and copyright page.
+
+    Read from the page's own content stream (the strings it sets), not from
+    the writer: the reproduction line, the book's title in the 32 pt lines
+    (``title=None`` for a generator with no book, which has none), and **no
+    folio** -- no string that is only a number. ``page``, the page's pixels
+    when the caller has them, must carry ink: the strings are really drawn.
+    """
+    placed = pdf_vector.placed_text(pdf_vector.content_streams(data)[0])
+    texts = [text for _x, _y, _size, text in placed]
+    assert TITLE_PAGE_NOTICE in texts, texts
+    if title is not None:
+        assert " ".join(t for _x, _y, size, t in placed if size == 32.0) == title, texts
+    assert not any(text.strip().isdigit() for text in texts), (
+        "interior page 1 is the title page -- it prints no folio", texts
+    )
+    if page is not None:
+        assert _ink_pixels(page) > 0, "the title page's strings draw no ink"
+
+
 def _generated_title_cover():
     return BookPDFGenerator().create_cover_page(BOOK_TITLE)
 
@@ -397,25 +428,24 @@ def covered_book(admin_app):
 
 
 class TestBookExport_InteriorOpensWithABlankTitlePage:
-    """AC-283 (CARD-206's AC-1) — page 1 is blank, page 2 is the guide's first.
+    """AC-283 (CARD-206's AC-1) — page 1 is the title page, page 2 is the guide's first.
 
     Two claims, measured two different ways, because neither implies the
-    other: page 1 holds **no ink at all** (:func:`_ink_pixels`, a count over
-    the page's own pixels) and page 2 **is** the guide's first page (a page
-    comparison against ``create_guide_page``). A page that was blank but in
-    the wrong place would pass the first alone; a guide page on page 2 with
-    a folio printed on page 1 would pass the second alone.
+    other: page 1 is the title and copyright page with **no folio**
+    (:func:`_assert_the_title_page`, read off its own content stream) and
+    page 2 **is** the guide's first page (a page comparison against
+    ``create_guide_page``). Page 1 was blank until the owner made it the
+    title and copyright page on 2026-11-09.
     """
 
     def test_page_one_carries_no_ink_of_any_kind(self, covered_book):
+        """Now: the title and copyright page, and still no folio (2026-11-09)."""
         client, book_id = covered_book
-        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
+        data = _download(client, "finalise", book_id, "interior")
+        interior = _read_interior(data)
 
         assert interior[0].size == TRIM_PX
-        assert _ink_pixels(interior[0]) == 0, (
-            "interior page 1 is the blank title page — no folio, no title, "
-            "no rule, no ink of any kind (AC-283)"
-        )
+        _assert_the_title_page(data, interior[0])
 
     # CARD-220 examined this test and the one above as a deletion candidate
     # and KEPT BOTH. They call the same `_ink_pixels` on two pages, which is
@@ -430,7 +460,8 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
     def test_the_ink_count_would_have_caught_a_folio(self, covered_book):
         """The negative has teeth: the measurement does see a page's marks.
 
-        The control is the **divider** page, which is the least-inked page
+        (Kept since 2026-11-09 as the instrument proof for
+        :func:`_assert_the_title_page`'s ink clause.) The control is the **divider** page, which is the least-inked page
         the generator draws that is not the title page — one centred word and
         a folio. If :func:`_ink_pixels` could not see that, it could not see
         a folio on the title page either.
@@ -476,7 +507,7 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
         )
 
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
-        # The blank title page (CARD-206), the 2-page guide (CARD-201), the
+        # The title page (CARD-206), the 2-page guide (CARD-201), the
         # 1-page TOC (CARD-200), the "Easy" divider, the puzzle, SOLUTIONS,
         # its answer.
         assert export.interior_page_count == 8
@@ -499,14 +530,16 @@ class TestBookExport_InteriorHoldsNoCoverPage:
         """CARD-206's AC-5, on the page the cover would have taken.
 
         The book has an uploaded cover, so the one page an interior could
-        plausibly have grown a cover on is its new page 1. It is blank
-        instead, and the cover is still its own one-page file.
+        plausibly have grown a cover on is its new page 1. It is the title
+        and copyright page instead (blank until 2026-11-09), and the cover is
+        still its own one-page file.
         """
         client, book_id = covered_book
-        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
+        data = _download(client, "finalise", book_id, "interior")
+        interior = _read_interior(data)
         cover = pdf_pages(_download(client, "finalise", book_id, "cover"))
 
-        assert _ink_pixels(interior[0]) == 0
+        _assert_the_title_page(data, interior[0])
         assert not same_page(interior[0], _cover_art().resize(TRIM_PX))
         assert len(cover) == 1 and cover[0].size == TRIM_PX
         assert same_page(cover[0], _cover_art().resize(TRIM_PX))
@@ -589,10 +622,12 @@ class TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover:
         assert same_page(pages[0], _generated_title_cover())
 
     def test_the_interior_still_starts_at_the_blank_title_page(self, bare_book):
+        """The title and copyright page since 2026-11-09, not a blank one."""
         client, book_id = bare_book
-        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
+        data = _download(client, "finalise", book_id, "interior")
+        interior = _read_interior(data)
 
-        assert _ink_pixels(interior[0]) == 0
+        _assert_the_title_page(data, interior[0])
         assert same_page(interior[1], _guide_page(3, 3))
         assert not any(same_page(p, _generated_title_cover()) for p in interior)
 
@@ -695,10 +730,11 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
         self, covered_book, route
     ):
         client, book_id = covered_book
-        interior = _read_interior(_download(client, route, book_id, "interior"))
+        data = _download(client, route, book_id, "interior")
+        interior = _read_interior(data)
         cover = pdf_pages(_download(client, route, book_id, "cover"))
 
-        assert _ink_pixels(interior[0]) == 0
+        _assert_the_title_page(data, interior[0])
         assert same_page(interior[1], _guide_page(3, 3))
         assert len(interior) == STANDARD_BOOK_PAGES
         assert len(cover) == 1 and cover[0].size == TRIM_PX
@@ -829,9 +865,10 @@ class TestBookFinalise_LostCoverFileIsNotPassedOffAsUploaded:
 
     def test_the_interior_is_still_downloadable(self, lost_cover):
         client, book_id = lost_cover
-        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
+        data = _download(client, "finalise", book_id, "interior")
+        interior = _read_interior(data)
 
-        assert _ink_pixels(interior[0]) == 0
+        _assert_the_title_page(data, interior[0])
         assert same_page(interior[1], _guide_page(3, 3))
 
     def test_once_the_screen_has_said_so_the_cover_is_the_title_cover(self, lost_cover):
@@ -945,9 +982,10 @@ class TestBookExport_RoutesRenderOnlyTheRequestedPart:
             raise AssertionError("a cover was rendered for an interior download")
 
         monkeypatch.setattr(BookPDFGenerator, "create_cover_page", no_cover)
-        interior = _read_interior(_download(client, route, book_id, "interior"))
+        data = _download(client, route, book_id, "interior")
+        interior = _read_interior(data)
 
-        assert _ink_pixels(interior[0]) == 0
+        _assert_the_title_page(data, interior[0])
         assert same_page(interior[1], _guide_page(3, 3))
 
 
@@ -1242,7 +1280,8 @@ class TestBookExport_TitlePageCountedEverywhere:
         rather than by reading: a position written as a literal ``3`` would
         agree with ``TITLE_PAGE_COUNT == 1`` for ever and disagree the moment
         the constant changes. So the constant is changed, and the written
-        interior is re-read: the front matter is ``title_pages`` blank pages,
+        interior is re-read: the front matter is ``title_pages`` title pages
+        (blank ones until 2026-11-09),
         the guide's first page follows them (and is still the guide's *first*
         half, not its second — the half selection is counted from the same
         constant), the puzzle section's own opening page moves by the same
@@ -1283,14 +1322,18 @@ class TestBookExport_TitlePageCountedEverywhere:
         generator = bpg.BookPDFGenerator()
         pages = list(generator.interior_stream(list(rows)).pages)
 
+        # Owner, 2026-11-09: the reserved pages are title and copyright pages
+        # now, not blank ones, so they are found by the notice they set
+        # (read off each page's own operators) rather than by having no ink.
         blank = [
             number
             for number, page in enumerate(pages, start=1)
-            if np.asarray(page_image(page).convert("L")).min() == 255
+            if isinstance(page, ContentStream)
+            and any(f"({TITLE_PAGE_NOTICE})" in op for op in page.operators)
         ]
         assert blank == list(range(1, title_pages + 1)), (
             "the reserved front-matter pages are the interior's first pages "
-            "and nothing after them is blank"
+            "and nothing after them is a title page"
         )
         assert same_page(
             page_image(pages[title_pages]), _guide_page(3, 3, page_number=title_pages + 1)
@@ -1494,7 +1537,9 @@ class TestBookExport_TheGuideComparisonIsInOneMedium:
 
 
 class TestBookExport_EmptyBookUnchanged:
-    """CARD-206 AC-6 — the blank title page never becomes a book's only page.
+    """CARD-206 AC-6 — the title page never becomes a book's only page.
+
+    (Blank until the owner made it the title and copyright page, 2026-11-09.)
 
     What "unchanged" is, exactly, and what it is not. The empty book's
     interior gains the title page like every other book's — that is the
@@ -1513,11 +1558,14 @@ class TestBookExport_EmptyBookUnchanged:
     def test_the_interior_is_the_title_page_and_the_guide_and_nothing_else(self):
         from nonogram.admin.book_pdf_generator import interior_page_count
 
-        pages = _read_interior(self._empty_interior().getvalue())
+        data = self._empty_interior().getvalue()
+        pages = _read_interior(data)
 
         assert len(pages) == _interior_pages(0, 0) == 3
         assert interior_page_count(0) == len(pages)
-        assert _ink_pixels(pages[0]) == 0
+        # The title and copyright page since 2026-11-09; a generator with no
+        # book has no title to set, only the notice.
+        _assert_the_title_page(data, pages[0], title=None)
         assert same_page(pages[1], _guide_page(0, 0))
         assert same_page(pages[2], _guide_page(0, 0, page_number=3))
 
