@@ -178,9 +178,8 @@
   prefers-reduced-motion.
 
   Both controls also WRITE WHAT THEY SAY ON THE PAGE, in
-  #puzzle-player-explain (.player-explain) — the third item of the
-  .page-head.player-head row above, beside the puzzle's title and directly
-  above the toolbar. CARD-269's review cycle 1 measured, by SHA-256 of element
+  #puzzle-player-explain (.player-explain) — since CARD-409 a strip over the
+  board (see the CARD-409 comment at the stage). CARD-269's review cycle 1 measured, by SHA-256 of element
   screenshots with getAnimations() settled, that rung 2's board and toolbar
   were indistinguishable from rung 1's: the only channel every rung had was
   #puzzle-player-announce, which is 1 x 1 and clipped, so the rung whose job
@@ -199,18 +198,13 @@
   and showProgress's hint branch), so the hidden channel cannot drift from
   the seen one.
 
-  The title row was chosen by measurement, and it is the only place on this
-  page that holds a line of text for free: it costs ZERO vertical space at
-  every width, so the toolbar, the page head and the BOARD are all in exactly
-  the boxes they were in before this line existed (#puzzle-player-controls
-  74.797 px at 1280 px / 38.797 px at 1440 px, .page-head 52 px, board top
-  238.797 / 202.797 px — empty and full, measured both ways). admin.css
-  carries the arithmetic and the two placements that were tried and could not
-  be afforded: the page has 4.187 px of vertical slack at 1280 x 720 and a
-  line of this type needs 22.328 px. The cost is paid at narrow widths
-  instead — below about 1270 px the longest sentence is ellipsised, which
-  admin.css declares as the residual and which costs a screen reader nothing,
-  since #puzzle-player-announce still carries every sentence in full.
+  Where it is drawn changed in CARD-409 (owner finding 2026-11-07: "the hint
+  text right by the board"): it is no longer a line in the title row but a
+  strip over the stage's bottom edge, or its top below the column clues when
+  the hint's target would be under it; when neither edge is clear the stage
+  scrolls the target above the strip (solver.js placeExplain). It moves
+  nothing around the stage, and the next pointer-down away from Hint or
+  Check, or Escape, clears it.
 
   Zoom (CARD-195): a third toolbar group, after History and before the
   counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,

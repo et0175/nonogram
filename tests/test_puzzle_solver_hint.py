@@ -1609,8 +1609,20 @@ _DRAWN_BOARDS = "performance.getEntriesByName('nonogram-player-board-draw').leng
 
 #: Whether the answer strip lies over a hinted line's cell or the revealed
 #: cell (CARD-409's AC-3; review cycles 1 and 2).
+#: Review cycle 3, F-201: also true when the revealed cell (or a hinted
+#: ROW — a column runs the board's height) is out of the
+#: stage's box or above the column clues' bottom, or when the strip itself
+#: starts above the column clues' bottom (it would cover a clue).
 _STRIP_COVERS = """() => { const s = document.getElementById('puzzle-player-explain').getBoundingClientRect();
-  return [...document.querySelectorAll('td.player-cell.is-hint-line, td.player-cell.is-hinted')].some((c) => {
+  const v = document.querySelector('.player-stage').getBoundingClientRect();
+  const clues = document.querySelector('.player-board thead').getBoundingClientRect().bottom;
+  if (s.top < clues - 0.5) return true;
+  const line = [...document.querySelectorAll('td.player-cell.is-hint-line')];
+  const oneRow = new Set(line.map((c) => c.dataset.row)).size === 1 ? line : [];
+  const hidden = [...document.querySelectorAll('td.player-cell.is-hinted'), ...oneRow].some((c) => {
+    const b = c.getBoundingClientRect();
+    return b.top < Math.max(v.top, clues) - 0.5 || b.bottom > v.bottom + 1.5; });
+  return hidden || [...document.querySelectorAll('td.player-cell.is-hint-line, td.player-cell.is-hinted')].some((c) => {
     const b = c.getBoundingClientRect();
     return b.bottom > s.top && b.top < s.bottom && b.right > s.left && b.left < s.right; }); }"""
 
@@ -2387,7 +2399,8 @@ _BOXES_AROUND_THE_LINE = """() => {
     return [b.left, b.top, b.width, b.height]; };
   return {
     head: box('.page-head'),
-    board: box('.player-board'),
+    board: (() => { const [l, t, w, h] = box('.player-board');
+      return [l, t + document.querySelector('.player-stage').scrollTop, w, h]; })(),
     toolbar: box('#puzzle-player-controls'),
     counters: box('.player-counters'),
     progress: box('#puzzle-player-progress'),
@@ -2754,9 +2767,10 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                 if (width, height) in ((390, 844), (844, 390), (1440, 900)):
                     page.evaluate(_SET_BOARD, [U if r == only else F if GRID[r][c] else E
                                                for r in range(SIDE) for c in range(SIDE)])
-                    for _ in range(3):
+                    for _ in range(3):  # every rung, not only the last (F-201)
                         _hint(page).click()
                         page.wait_for_timeout(50)
+                        covered = covered or page.evaluate(_STRIP_COVERS)
                     hinted_row = page.evaluate("() => [...document.querySelectorAll('td.player-cell.is-hinted')].map((c) => Number(c.dataset.row))")
                     assert hinted_row == [only], (width, height, hinted_row)
                     covered = covered or page.evaluate(_STRIP_COVERS)
@@ -2771,11 +2785,11 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
             assert not covered, (width, height, "the strip covers the hinted line")
             # Review cycle 2, F-101: on the landscape phone neither edge of the
             # short stage is clear, so the STAGE scrolls the hinted row above
-            # the strip — the board moves inside the stage there, by design;
-            # the page and everything around the stage still do not.
-            names = ("head", "toolbar", "counters", "progress") if (width, height) == (844, 390) \
-                else ("head", "board", "toolbar", "counters", "progress")
-            for name in names:
+            # the strip — the board moves inside the stage there, by design.
+            # Review cycle 3, F-204: there the board is compared in STAGE
+            # coordinates (its top plus the stage's scroll), so a real layout
+            # move of the board is still caught.
+            for name in ("head", "board", "toolbar", "counters", "progress"):
                 if not (empty[name] == full[name] == after[name]):
                     moved.append((width, name, empty[name], full[name], after[name]))
         assert checked == 4

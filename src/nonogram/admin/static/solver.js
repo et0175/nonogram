@@ -1750,11 +1750,8 @@ function checkText(row) {
 //: level apart in two button corners. The test's _pixel_delta carries that
 //: correction and bounds the claim by LEVEL instead.)
 //:
-//: #puzzle-player-explain is a plain <p> in the page-head row, beside the
-//: puzzle's title and directly above the toolbar — the only place on this page
-//: that holds a line of text at zero vertical cost, which is why it is not in
-//: the toolbar-to-board gap where it reads most naturally (admin.css has the
-//: arithmetic, the two placements that were tried, and the residual). It
+//: #puzzle-player-explain is a strip over the board (CARD-409: the stage's
+//: bottom edge, or its top below the column clues — see placeExplain). It
 //: carries aria-hidden="true": the live region stays
 //: THE assistive-technology channel and stays unchanged, so a screen reader
 //: meets each sentence once as an announcement instead of twice.
@@ -1830,7 +1827,7 @@ function replaceExplain() {
   if (line !== null && line.textContent !== "") requestAnimationFrame(() => placeExplain(line));
 }
 
-// CARD-409: the strip over the board's bottom edge goes away on the next
+// CARD-409: the strip over the board goes away on the next
 // pointer-down anywhere and on Escape — it is a glance, not a panel; the
 // live region (#puzzle-player-announce) keeps the sentence for a screen
 // reader regardless. Wired once, from start().
