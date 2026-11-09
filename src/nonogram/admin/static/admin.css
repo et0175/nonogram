@@ -1672,6 +1672,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      drops the word "Solved:" visually: smaller type, up to two lines inside
      the tools' box, so the board does not move on solve. */
 .player-compact-icon { display: none; }
+/* solver.js's compactQuery (CARD-407's opening at Fit) repeats this
+   condition; change the two together. */
 @media (max-width: 600px), (max-height: 500px) {
   .player-head h1 { font-size: var(--text-xl); }
   .player-toolbar { gap: var(--space-2); }

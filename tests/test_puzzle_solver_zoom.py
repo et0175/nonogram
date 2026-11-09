@@ -1400,7 +1400,6 @@ class TestSolverZoom_Fit:
             page = context.new_page()
             try:
                 _open(page, live, puzzle, keep_opening_zoom=True)
-                page.wait_for_timeout(200)
                 seen[name] = (_zoom_readout(page), page.evaluate("""() => { const s = document.querySelector('.player-stage');
                   return s.scrollWidth <= s.clientWidth && s.scrollHeight <= s.clientHeight; }"""))
             finally:

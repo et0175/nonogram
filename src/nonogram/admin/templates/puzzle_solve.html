@@ -216,8 +216,11 @@
   counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,
   a plain (non-live) "100%" readout and a "Zoom in" button — 100% to 300% in
   25-point steps on the buttons, continuous by a two-finger pinch on the
-  board. It is a view setting only: it changes no board state, is never
-  saved, and solver.js resets it to 100% on every page load.
+  board — and down to Fit, the zoom that shows the whole board (CARD-406).
+  It is a view setting only: it changes no board state and is never saved.
+  Every page load (a resume included) opens at 100%, except that a puzzle
+  whose board does not fit at 100% opens at Fit on a compact screen
+  (CARD-407, owner ruling 2026-11-07); a reload applies the same rule again.
 
   Crosshair (CARD-267, owner decision 2026-10-22): the row and the column of
   the cell the pointer is on are tinted, and so are their clue boxes, so the

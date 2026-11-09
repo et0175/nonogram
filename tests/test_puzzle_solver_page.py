@@ -763,22 +763,18 @@ def _open(page, live, puzzle_id, keep_opening_zoom=False):
     whose board does not fit at 100% OPENS at Fit on a compact screen; the
     suite's layout cells measure the 100% board, so this helper zooms back to
     100% unless the caller asks for the opening zoom itself
-    (``keep_opening_zoom=True``, TestSolverZoom_OpensAtFit)."""
+    (``keep_opening_zoom=True``,
+    TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only)."""
     page.goto(f"{live.url}/puzzle/{puzzle_id}/solve")
     page.wait_for_function("window.puzzlePlayer !== undefined")
     if not keep_opening_zoom:
-        readout = page.locator("[data-player-zoom-readout]")
-        if readout.count() and readout.text_content() == "Fit":
-            page.locator('[data-player-zoom-action="in"]').click(force=True)
-            page.wait_for_function(
-                "document.querySelector('[data-player-zoom-readout]').textContent === '100%'")
-            # The zoom-in anchored the view on the stage's centre; a fresh
-            # page at 100% opens at the stage's home.
-            page.evaluate("() => document.querySelector('.player-stage').scrollTo({left: 0, top: 0, behavior: 'instant'})")
+        _to_hundred(page)
 
 
 def _to_hundred(page):
-    """After a reload: back from the CARD-407 opening Fit to 100%, as _open does."""
+    """Back from the CARD-407 opening Fit to 100% and the stage's home (the
+    zoom-in anchors the view on the stage's centre; a fresh page at 100%
+    opens at its home)."""
     readout = page.locator("[data-player-zoom-readout]")
     if readout.count() and readout.text_content() == "Fit":
         page.locator('[data-player-zoom-action="in"]').click(force=True)
