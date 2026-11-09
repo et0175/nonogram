@@ -829,18 +829,26 @@ class TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt:
 
     def test_the_drawer_reports_which_footer_it_drew(self) -> None:
         """The verdict is returned, so a caller need not re-derive it."""
-        from nonogram.admin.book_pdf_generator import _draw_page_frame
+        from nonogram.admin.book_sheet_vector import SheetFurniture, draw_sheet_furniture
+        from nonogram.admin.book_vector import interior_face_metrics
 
         frame = interior_frame(book_page_spec(None, 1))
-        page = Image.new("RGB", (2550, 3300), (255, 255, 255))
-        draw = ImageDraw.Draw(page)
-        assert _draw_page_frame(draw, frame, 7, DPI, size_label="20 x 20") is True
-        assert (
-            _draw_page_frame(
-                draw, frame, 7, DPI, size_label="20 x 20", content_bottom=frame.page_bottom
+        face = interior_face_metrics()
+
+        def drew_footer(content_bottom) -> bool:
+            stream = ContentStream(width_px=2550, height_px=3300, dpi=DPI)
+            furniture = SheetFurniture(
+                frame=frame,
+                folio="7",
+                folio_size_px=40.0,
+                size_label="20 x 20",
+                label_size_px=40.0,
+                content_bottom=content_bottom,
             )
-            is False
-        )
+            return draw_sheet_furniture(stream, furniture, face)
+
+        assert drew_footer(None) is True
+        assert drew_footer(frame.page_bottom) is False
 
 
 class TestBookPageFrame_TwoUpCarriesTheWholeFrame:
@@ -1115,7 +1123,7 @@ class TestBookPageFrame_EachFigureIsDeclaredOnce:
         frame_source = _function_source(
             package / "export" / "layout.py", "interior_frame", "_usable_box_px"
         ) + _function_source(
-            package / "admin" / "book_pdf_generator.py", "_draw_page_frame", "_draw_rule"
+            package / "admin" / "book_sheet_vector.py", "draw_sheet_furniture", "draw_page_rule"
         )
         for _, name in PRE_EXISTING_SAME_NUMBER:
             assert name not in frame_source, name

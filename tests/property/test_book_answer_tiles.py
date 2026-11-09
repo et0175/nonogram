@@ -303,7 +303,6 @@ from nonogram.admin.book_answer_key import (
     plan_small_answer_pages,
     qualifies_for_packing,
 )
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.difficulty import Tier
 
 _TIERS = (Tier.EASY, Tier.MEDIUM, Tier.HARD, None)
@@ -322,17 +321,17 @@ def _random_levels(rng: random.Random, count: int) -> list:
 
 
 def _random_answers(rng: random.Random, count: int) -> list:
-    """``count`` answers, numbered 1..count, with extents swept across and
-    beyond the packing threshold (:data:`PACKED_MAX_WIDTH`/``HEIGHT``) and
-    run lengths varied by drawing levels from a small alphabet, biased to
-    repeat (:func:`_random_levels`) so a level repeats long enough to form a
-    real run most of the time.
+    """``count`` answers, numbered 1..count, with extents swept across the
+    whole supported range (``MIN_SIZE``..``MAX_SIZE``) and run lengths varied
+    by drawing levels from a small alphabet, biased to repeat
+    (:func:`_random_levels`) so a level repeats long enough to form a real
+    run most of the time.
     """
     levels = _random_levels(rng, count)
     answers = []
     for index in range(count):
-        width = rng.randint(MIN_SIZE, PACKED_MAX_WIDTH + 5)
-        height = rng.randint(MIN_SIZE, PACKED_MAX_HEIGHT + 5)
+        width = rng.randint(MIN_SIZE, MAX_SIZE)
+        height = rng.randint(MIN_SIZE, MAX_SIZE)
         answers.append(
             Answer(number=index + 1, width=width, height=height, level=levels[index])
         )
@@ -341,8 +340,8 @@ def _random_answers(rng: random.Random, count: int) -> list:
 
 def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage() -> None:
     """Over a seeded corpus: the walk is a lossless, order-preserving partition
-    of its input into pages that never mix tiers or exceed capacity, and a
-    bare (unpacked) entry is always one that genuinely does not qualify.
+    of its input into packed pages that never mix tiers or exceed capacity,
+    and every answer of a supported size packs (owner decision 2026-11-09).
     """
     rng = random.Random(202)
     cases = 0
@@ -373,7 +372,7 @@ def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage()
                 # G-6: one level per packed page, never mixed.
                 assert len({a.level for a in entry.answers}) == 1
                 # Owner decision: never more than 4, and every member
-                # genuinely qualifies (width<=15, height<=20).
+                # qualifies.
                 assert len(entry.answers) <= PACKED_FOUR_UP
                 assert all(qualifies_for_packing(a) for a in entry.answers)
                 assert entry.capacity in (PACKED_TWO_UP, PACKED_FOUR_UP)
@@ -383,15 +382,11 @@ def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage()
                     saw_two_up_leftover = True
             else:
                 bare_entries += 1
-                # A bare (unpacked) entry is always one CARD-198 still gives
-                # a full page: it must genuinely fail the threshold, never a
-                # qualifying answer that merely failed to join a run.
-                assert not qualifies_for_packing(entry)
         cases += 1
 
     assert cases == 300
     assert packed_pages >= 50, packed_pages
-    assert bare_entries >= 50, bare_entries
+    assert bare_entries == 0, "an answer of a supported size took a page of its own"
     assert saw_four_up, "the corpus never produced a 4-up packed page"
     assert saw_two_up_leftover, "the corpus never produced a leftover 2-up page"
 
@@ -432,8 +427,8 @@ def test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenM
             answers = [
                 Answer(
                     number=index + 1,
-                    width=rng.randint(MIN_SIZE, PACKED_MAX_WIDTH),
-                    height=rng.randint(MIN_SIZE, PACKED_MAX_HEIGHT),
+                    width=rng.randint(MIN_SIZE, MAX_SIZE),
+                    height=rng.randint(MIN_SIZE, MAX_SIZE),
                     level=Tier.EASY,
                 )
                 for index in range(run_length)
@@ -444,9 +439,3 @@ def test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenM
             checked += 1
     assert checked == 300
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()
