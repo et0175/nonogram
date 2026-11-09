@@ -1,6 +1,6 @@
 # CARD-407: A big puzzle opens at Fit — the player sees what they are solving before they zoom in
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/407-open-at-fit
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-407
 **Source:** owner player findings 2026-11-07, item 2: "Big puzzles would open at Fit, so the player sees what they're solving." 'Big' is not defined by the owner (owner Q11).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-406
 **Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_page.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T17:30Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
