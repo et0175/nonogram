@@ -1,6 +1,6 @@
 # CARD-410: Probe flags broken lines — a row or column the probe's marks can no longer satisfy tints its clue red, and the Contradiction button is gently highlighted
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/410-probe-flags-broken-lines
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-410
 **Source:** owner player findings 2026-11-07, item 8, second bullet: "Flag broken lines during a probe. When a row or column can no longer match its clue, tint that clue red and gently highlight the Contradiction button."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-404
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_probe.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. After CARD-404 because the clue box geometry and tints it edits are the surface this card paints on. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T22:32Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
