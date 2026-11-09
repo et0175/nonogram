@@ -13,9 +13,8 @@ PDF's own page count, for every book — is in
 inside margin once a book passes 150 pages, and a book that goes up with too
 narrow a one is rejected *at upload*, after everything else about it looked
 finished. Every way of getting the count wrong lands within a page or two of
-that boundary: leaving the answer key out of it (AC-271) makes a 275-page
-book (CARD-198: one full solved page per puzzle, up from the packed key's
-155) look like a 125-page one, and counting the separate cover file into it
+that boundary: leaving the answer key out of it (AC-271) makes a 166-page
+book look like a 128-page one, and counting the separate cover file into it
 (AC-288) makes an exactly-150-page book look like a 151-page one. So the
 counts here are exact numbers, and each is **measured off the export's own
 page plan** in ``test_the_scenario_really_has_that_many_pages`` beside the
@@ -26,8 +25,11 @@ The books are built from puzzle records written straight into the store, as
 150-puzzle book would otherwise cost 150 uniqueness proofs, and the page plan
 reads a record's grid, clues and tier and nothing else. Nothing here draws a
 page: the interior's three counts are settled by ``interior_stream`` before a
-pixel exists, which is why a 284-page book (CARD-198: up from 180) is
-affordable as a test at all.
+pixel exists, which is why a 594-page book is affordable as a test at all.
+
+The answer key packs up to four answers to a page, one level per page
+(CARD-202; every size up to ``limits.MAX_SIZE`` since 2026-11-09): a level
+of ``n`` answers takes :func:`answer_pages` pages.
 """
 
 from __future__ import annotations
@@ -58,7 +60,6 @@ from nonogram.admin.book_pdf_generator import (
     structural_toc_entry_count,
 )
 from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
-from tests.helpers.legacy_book_layout import LEGACY_PACKED_MAX_HEIGHT as PACKED_MAX_HEIGHT, LEGACY_PACKED_MAX_WIDTH as PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import BookManager, BookStatus
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_plan import BUCKETS, TIERS, DistributionPlan, Split, bucket_of
@@ -142,33 +143,14 @@ def alone(tier: str, number: int) -> dict:
     return _record(22, 22, 6, tier, number)
 
 
-def alone_unpackable(tier: str, number: int) -> dict:
-    """A puzzle that prints alone **and** keeps a full answer page of its own.
-
-    Was ``alone_six_up``, a 20 x 20: the largest INV-011 kept at six answers
-    to a page under the old packed key, and — while the packing limit was
-    15 x 20 — too wide to pack under CARD-202's, so one answer page per
-    puzzle. The owner raised that limit to :data:`PACKED_MAX_WIDTH` x
-    :data:`PACKED_MAX_HEIGHT` (2026-11-09), so a 20 x 20 now packs four to a
-    page. Sized one over the width limit, read off the constant, so the
-    premise "one answer page per puzzle" follows the limit rather than a
-    remembered figure. Square, with 6-deep clues: 27 cells down, so two of
-    them would need a ~4.1 mm shared cell against FR-040's 7.0 mm minimum
-    and never pair.
-    """
-    return _record(PACKED_MAX_WIDTH + 1, PACKED_MAX_WIDTH + 1, 6, tier, number)
-
-
 def pairs_up(tier: str, number: int) -> dict:
     """A puzzle that **does** share a page with its same-tier neighbour.
 
     21 x 10 with 4-deep clues: 14 cells down, so two of them fit one page at
     the 7.5 mm standard cell (28 cells would fit 7.84 mm of the 219.586 mm a
     pair has under the one-line footer; 7.13 mm under CARD-248's strip), over
-    FR-040's 7.0 mm — which is what AC-271 and
-    CK-1 need: a book that pairs on the puzzle pages while its answer section
-    still prints one full page per puzzle behind the SOLUTIONS divider
-    (CARD-198).
+    FR-040's 7.0 mm — which is what AC-271 needs: a book that pairs on its
+    puzzle pages.
 
     **5-deep until CARD-248.** That card reserves a 29.878 mm footer strip
     out of every pair's height so a two-up page can carry both its puzzles'
@@ -183,26 +165,10 @@ def pairs_up(tier: str, number: int) -> dict:
     return _record(21, 10, 4, tier, number)
 
 
-def pairs_up_unpackable(tier: str, number: int) -> dict:
-    """A puzzle that pairs on its puzzle page and keeps a full answer page.
-
-    Was ``pairs_up_six``, a 20 x 10 (4-deep clues, 5-deep until CARD-248 —
-    see :func:`pairs_up`): the largest longest side INV-011 ever kept at six
-    answers to a page under the old packed key. The owner's 2026-11-09
-    packing limit (:data:`PACKED_MAX_WIDTH` x :data:`PACKED_MAX_HEIGHT`)
-    packs a 20 x 10 four to a page now, so a book of them no longer grows by
-    one answer page per puzzle — and no puzzle can be both six-up under the
-    old key (longest side <= 20) and over the new limit (wider than 20 or
-    taller than 25). So this one is :data:`PACKED_MAX_WIDTH` + 1 wide, read
-    off the constant: the same 14 cells down as :func:`pairs_up`, so it still
-    pairs two-up, and the old packed key put it four-up rather than six-up.
-    CARD-198's AC-8 needs exactly this combination: a book whose puzzle pages
-    pairing already shortens, and whose answer pages the old packed key
-    packed tightly enough to sit under the old 300-page ceiling — so that
-    *only* one full answer page per puzzle, unpacked, is what can now carry
-    it past KDP's modelled table altogether.
-    """
-    return _record(PACKED_MAX_WIDTH + 1, 10, 4, tier, number)
+def answer_pages(count: int) -> int:
+    """Answer pages for ``count`` answers of one level (CARD-202): pages of 4
+    while 4 remain, then one of 2, then one of 1. Written out, not imported."""
+    return count // 4 + (count % 4 + 1) // 2
 
 
 def corpus(*runs) -> list[dict]:
@@ -215,190 +181,60 @@ def corpus(*runs) -> list[dict]:
     return records
 
 
-#: AC-288's book: exactly 150 interior pages. **CARD-198 note (recomputed,
-#: not the original corpus):** since the answer section is now one page per
-#: puzzle rather than a packed tile, an all-``alone`` corpus like the one
-#: this book used before CARD-198 adds exactly *two* pages (one puzzle page,
-#: one answer page) per puzzle, never one — so no such corpus can sit one
-#: puzzle away from another that is exactly one page longer, which is CK-1's
-#: own premise. This corpus instead pairs its medium tier (``pairs_up``): at
-#: an *odd* count one of them prints alone (same puzzle-page count as the
-#: *even* count one more, where it pairs with the previously-alone one
-#: instead), so the next puzzle adds exactly one *answer* page and nothing
-#: else — the only way left to make two books differ by exactly one page.
-#:
-#: **CARD-201 note (recomputed again, not the CARD-198 corpus):** the guide
-#: grew from one page to two, so hitting 150 exactly needs one fewer page
-#: from this corpus than CARD-198's own (42 easy, 41 medium) did. An
-#: all-``alone`` tier can only move the total by an even number (one puzzle
-#: page plus one answer page, together), so the odd one-page adjustment has
-#: to come from the paired tier's own odd/even toggle instead, the same
-#: mechanism CK-1 already uses one step further on: 40 easy (alone) + 43
-#: medium (``pairs_up``, odd — 22 puzzle pages, one of them unpaired) keeps
-#: the medium tier's own count odd, so :data:`CK1_OVER_CORPUS` can still add
-#: its "one puzzle, one page" by the same odd-to-even step CK-1 is about.
-#: 2-page guide (CARD-201) + a 2-page table of contents (CARD-200: 82
-#: entries, over the TOC's own 43-row-per-Book-1-page capacity) + 2 level
-#: dividers + 61 puzzle pages (39 easy alone + 22 medium, 21 pairs and 1
-#: alone) + the SOLUTIONS divider + 82 answer pages (one per puzzle) = 150.
-#: **CARD-200 note (recomputed, not the CARD-201 corpus):** the TOC's own
-#: 2 pages is exactly offset by one fewer easy puzzle (40 -> 39) than
-#: CARD-201 needed to hit 150 without a TOC — the boundary this test (and
-#: CK-1 below) is *about* is 150 pages exactly, so the corpus is retuned to
-#: it rather than the page-count constant renamed away from it. Recomputed
-#: and checked against the generator's own page plan, not asserted from this
-#: arithmetic alone (``test_the_scenario_really_has_that_many_pages``
-#: equivalents throughout this module always measure the live plan).
-#:
-#: **CARD-205 note (retuned a third time, same discipline):** the table of
-#: contents now lists *sections*, not puzzles — six rows for a two-level
-#: book (the guide, two headings with their ranges, the solutions), one page
-#: on any trim — so this corpus's TOC term fell from 2 pages to 1 and the
-#: book came to 149. The boundary this test is about is still 150 exactly,
-#: and CK-1's premise still needs the medium tier's count *odd* here (so
-#: that one more medium puzzle adds an answer page and no puzzle page). No
-#: adjustment of 39 easy + an odd medium count reaches 150 — an
-#: all-``alone`` tier only ever moves the total by two, and the paired tier
-#: by two across an even count — so the split moves to 41 + 41: 2 guide + 1
-#: TOC + 2 dividers + 41 easy puzzle pages + 21 medium puzzle pages (20
-#: pairs, 1 alone) + the SOLUTIONS divider + 82 answer pages = 150.
-#:
-#: **CARD-206 note (retuned a fourth time, same discipline).** The blank
-#: title / copyright page is reserved as interior page 1, so the 41 + 41
-#: split came to 151 and the boundary this test is *about* is still 150
-#: exactly. The constraint is unchanged — the medium tier's count must stay
-#: **odd**, so that CK-1's one extra medium puzzle pairs with the lone one
-#: and adds an answer page and no puzzle page, i.e. exactly +1 — and with
-#: ``E`` easy ``alone``s and ``M`` (odd) paired mediums the total is
-#: ``7 + 2E + M + (M + 1) / 2``, so 150 needs ``4E + 3M == 285``: the only
-#: odd-``M`` solution near this corpus is **39 + 43**. That is
-#: 1 title + 2 guide + 1 TOC + 2 dividers + 39 easy puzzle pages + 22 medium
-#: puzzle pages (21 pairs, 1 alone) + the SOLUTIONS divider + 82 answer
-#: pages (39 + 43, the same 82 as before) = 150. Recomputed and still
-#: checked against the generator's own live page plan below, never asserted
-#: from this arithmetic alone.
-AC288_CORPUS = ((alone, "easy", 39), (pairs_up, "medium", 43))
+#: AC-288's book: exactly 150 interior pages. 1 title + 2 guide + 1 TOC +
+#: 2 dividers + 85 easy puzzle pages (``alone``) + 24 medium ones (48
+#: ``pairs_up``, all paired) + SOLUTIONS + 22 + 12 answer pages
+#: (:func:`answer_pages` of 85 and 48) = 150. 85 is 1 more than a multiple of
+#: 4, so one more easy puzzle adds its puzzle page and no answer page
+#: (:data:`CK1_OVER_CORPUS`). Measured off the live plan below.
+AC288_CORPUS = ((alone, "easy", 85), (pairs_up, "medium", 48))
 AC288_PAGES = 150
 
-#: CK-1's other side: the same book with one more (pairing) medium puzzle,
-#: which is exactly one page longer — see :data:`AC288_CORPUS`'s note. The
-#: medium tier's 43 (odd, one alone) becomes 44 (even, all paired): the same
-#: 22 puzzle pages either way, and one more answer page. Still a six-row,
-#: one-page TOC (CARD-205) — the structural list does not grow with the
-#: puzzle count at all, so no corpus of this shape can cross a TOC page
-#: boundary a second time.
-CK1_OVER_CORPUS = ((alone, "easy", 39), (pairs_up, "medium", 44))
+#: CK-1's other side: the same book with one more easy puzzle, exactly one
+#: page longer (its puzzle page; 86 answers still take 22 answer pages).
+CK1_OVER_CORPUS = ((alone, "easy", 86), (pairs_up, "medium", 48))
 CK1_OVER_PAGES = 151
 
-#: AC-179's book: 2 guide + 2 dividers + 140 pages + 1 + 140 answer pages
-#: (CARD-198: one per puzzle, where this book took 36 four-up pages before
-#: this card) + a 1-page table of contents (**CARD-205**: six structural
-#: rows — the guide, two level headings with their ranges, the solutions —
-#: where CARD-200's per-puzzle listing took 4 pages for these 140 entries)
-#: = 286, and **287 since CARD-206** reserved the blank title page. Still
-#: inside KDP's 151-300 band, same as the 180 pages this
-#: corpus produced before CARD-198 — the corpus itself is unchanged; only
-#: what one page per puzzle, unpacked, plus the TOC and the title page, adds
-#: up to is bigger.
+#: AC-179's book: 1 title + 2 guide + 1 TOC + 2 dividers + 140 puzzle pages
+#: + SOLUTIONS + 18 + 18 answer pages = 183, inside KDP's 151-300 band. On
+#: AC-179's illegal 0.60 cm gutter the book has no sheet, so finalise counts
+#: it sheet-free -- unpaired and unpacked, one answer page per puzzle: 287,
+#: the same band.
 AC179_CORPUS = ((alone, "easy", 70), (alone, "medium", 70))
-AC179_PAGES = 287
+AC179_PAGES = 183
+AC179_SHEET_FREE_PAGES = 287
 
-#: AC-271's book: 150 puzzles, each now with its own full answer page
-#: (CARD-198: one per puzzle, where this book packed 30 before this card),
-#: behind 127 interior pages — 2 guide + a **1-page** TOC (CARD-205: six
-#: structural rows, where CARD-200's ceil(150 / 43) took 4) + 2 dividers +
-#: 121 puzzle pages (29 of them shared) + the SOLUTIONS divider — and, since
-#: **CARD-206**, the blank title page in front of all of it, so 128 rather
-#: than 127. 278
-#: interior pages in all.
+#: AC-271's book: 150 puzzles behind 128 interior pages -- 1 title + 2 guide
+#: + 1 TOC + 2 dividers + 121 puzzle pages (29 of them shared) + SOLUTIONS --
+#: and 23 + 15 answer pages (:func:`answer_pages` of 90 easy and 60 medium):
+#: 166 in all, over 150, while the 128 alone would be under it.
 AC271_CORPUS = (
-    (alone_unpackable, "easy", 90),
+    (alone, "easy", 90),
     (pairs_up, "medium", 58),
     (alone, "medium", 2),
 )
 AC271_PUZZLES = 150
-AC271_ANSWER_PAGES = 150
+AC271_ANSWER_PAGES = 38
 AC271_TOC_PAGES = 1
 AC271_PAGES_BEFORE_THE_KEY = 128
-AC271_PAGES = 278
+AC271_PAGES = 166
 
-#: CARD-199 AC-5's book: inside the new 301-500 band. **CARD-198 note:** 200
-#: medium `alone`s (down from 277 before this card, which would now land at
-#: 557 pages — the 501-590 band, not this test's target): 1 guide + a 5-page
-#: TOC (**CARD-205**: four structural rows for this one-level book — the
-#: guide, "Medium" and its range, the solutions — where CARD-200's
-#: ceil(200 / 43) took 5) + 1 level divider + 200 puzzle pages + the
-#: SOLUTIONS divider + 200 answer pages (CARD-198: one per puzzle, where
-#: this book packed 50 before this card) = 405, and **406 since CARD-206**
-#: reserved the blank title page. Still inside the 301-500 band.
-AC199_NEW_BAND_CORPUS = ((alone, "medium", 200),)
-AC199_NEW_BAND_PAGES = 406
+#: CARD-199 AC-5's book: inside the new 301-500 band. 280 medium ``alone``s:
+#: 1 title + 2 guide + 1 TOC + 1 divider + 280 puzzle pages + SOLUTIONS + 70
+#: answer pages = 356.
+AC199_NEW_BAND_CORPUS = ((alone, "medium", 280),)
+AC199_NEW_BAND_PAGES = 356
 
-#: CARD-199 AC-6's book, unchanged by CARD-198 (the corpus, not the count):
-#: 241 medium `alone`s. **CARD-198 note:** this book was pre-computed by
-#: CARD-199 at CARD-198's own "roughly 305 pages" regression estimate, using
-#: the *packed* key's arithmetic (1 + 1 + 241 + 1 + 61 = 305, ceil(241 / 4)
-#: answer pages) as a stand-in for what CARD-198 would actually produce. The
-#: real CARD-198 implementation is one answer page per puzzle, unpacked:
-#: 1 + 1 + 241 + 1 + 241 = 485 — still inside the 301-500 band and still
-#: over the *old* 300-page ceiling this test is about (where this book used
-#: to be refused outright as "not modelled" before CARD-199's table), so the
-#: test's own claim holds exactly as before; only the page count naming it
-#: changed, recomputed against the real page plan rather than reused from
-#: the earlier estimate. CARD-200 added a 6-page TOC (ceil(241 / 43)) for
-#: 492; **CARD-205** replaces it with the four-row structural list, one
-#: page: 487; **CARD-206** adds the blank title page: 488. Still inside the
-#: 301-500 band and still over the *old*
-#: 300-page ceiling, which is all this test's claim rests on.
+#: CARD-199 AC-6's book: just over the old 300-page ceiling. 241 medium
+#: ``alone``s: 6 front/section pages + 241 puzzle pages + 61 answer pages
+#: (:func:`answer_pages` of 241) = 308.
 AC199_CARD198_CORPUS = ((alone, "medium", 241),)
-AC199_CARD198_PAGES = 488
+AC199_CARD198_PAGES = 308
 
-#: CARD-198's own AC-8 book: a book that *was* inside the old 300-page
-#: ceiling, purely because of the answer section's old packing, and crosses
-#: even CARD-199's widened 590-page ceiling once that packing is gone. 444
-#: one-tier 20 x 10 puzzles, all pairing two-up and all six-up-packable
-#: under the old key (the corpus as CARD-198 built it; it is now 394 wider
-#: ones — see the 2026-11-09 note at the end):
-#:
-#: * old (packed, pre-CARD-198) arithmetic: 1 guide + 1 divider + 222 paired
-#:   puzzle pages + the SOLUTIONS divider + 74 six-up answer pages
-#:   (ceil(444 / 6)) = 299 — inside the old 300-page ceiling, and the gutter
-#:   this book stores (CON-018's own 0.5 in) was always enough for it;
-#: * CARD-198: 1 + 1 + 222 + 1 + 444 (one answer page per puzzle) = 669 —
-#:   over :data:`~nonogram.admin.book_kdp.MAX_MODELLED_PAGE_COUNT` (590)
-#:   purely from the answer section's own growth, with the puzzle section
-#:   unchanged;
-#: * CARD-200 added an 11-page TOC (ceil(444 / 43)) on top of the live
-#:   plan's own 670 (not the "669" hand-arithmetic above, which this
-#:   module's own ``test_the_scenario_really_has_that_many_pages`` has
-#:   always measured against the real plan rather than trusted): 681.
-#:   **CARD-205** replaces that TOC with the four-row structural list for
-#:   this one-level book, one page: 671; **CARD-206** adds the blank title
-#:   page: 672 — still far over the 590-page
-#:   ceiling this test is about, and still over it for the answer section's
-#:   own reason rather than the TOC's.
-#:
-#: :data:`AC8_OLD_PACKED_PAGES` is a reconstruction of the *pre*-CARD-198
-#: book (no TOC, no title page, the packed key) and is left as it was: it is
-#: not a figure this interior produces.
-#:
-#: **2026-11-09 note (retuned, same discipline).** The owner raised the
-#: answer key's packing limit to :data:`PACKED_MAX_WIDTH` x
-#: :data:`PACKED_MAX_HEIGHT`, so 444 20 x 10s now pack four to a page (111
-#: answer pages, 339 in all) and the book no longer crosses anything. No
-#: puzzle is both six-up under the old key and over the new limit (see
-#: :func:`pairs_up_unpackable`), so the corpus moves to one
-#: ``PACKED_MAX_WIDTH + 1`` wide, which the old key packed **four**-up, and
-#: to the count that keeps the old book at the same 299: 394 puzzles, all
-#: pairing — 1 + 1 + 197 paired puzzle pages + 1 + 99 four-up answer pages
-#: (ceil(394 / 4)) = 299. Today's interior: 6 front/back pages + 197 + 394
-#: answer pages (one per puzzle, nothing packs) = 597, over the 590-page
-#: ceiling purely from the answer section's own growth, as before.
-#: Measured against the live plan below, not asserted from this arithmetic.
-AC8_CORPUS = ((pairs_up_unpackable, "easy", 394),)
-AC8_PUZZLES = 394
-AC8_OLD_PACKED_PAGES = 299
-AC8_PAGES = 597
+#: A book past KDP's modelled table (590 pages): 470 medium ``alone``s, 6
+#: front/section pages + 470 puzzle pages + 118 answer pages = 594.
+BEYOND_TABLE_CORPUS = ((alone, "medium", 470),)
+BEYOND_TABLE_PAGES = 594
 
 
 # --------------------------------------------------------------------------
@@ -720,7 +556,7 @@ class TestKdpGutterTable:
 
 
 class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
-    """AC-179 (FR-030) — 0.60 cm stored, 180 interior pages: refused.
+    """AC-179 (FR-030) — 0.60 cm stored, a 151-300-page book: refused.
 
     The reconciliation CARD-115's handover asked for. AC-179's illustrative
     0.60 cm is below ``book_page_spec``'s 0.635 cm side-margin floor, so such
@@ -734,10 +570,9 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
       which can only name a band at or above the true one, and the refusal is
       certain regardless because a gutter below the sheet builder's floor is
       below *every* band of KDP's table;
-    * this book pairs nothing at any gutter (see :func:`alone`), so that bound
-      **is** its interior's page count: 180 pages on the illegal gutter, 180
-      on a legal one, 180 before pairing. The "whose interior PDF runs to 180
-      pages" of the criterion is measured, not assumed.
+    * this book pairs nothing at any gutter (see :func:`alone`); the bound
+      also leaves the answers unpacked, so it reads 287 where the real
+      interior is 183 -- the same band either way, measured below.
     """
 
     def test_finalise_is_refused_naming_the_band_against_the_stored_value(
@@ -747,7 +582,7 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
 
         shown = refusal_of(panel.finalise(book_id))
 
-        assert f"{AC179_PAGES} pages" in shown
+        assert f"{AC179_SHEET_FREE_PAGES} pages" in shown
         assert KDP_BAND_TEXT in shown
         assert "stores 0.60 cm" in shown
 
@@ -767,30 +602,31 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
         assert panel.status(book_id) == DRAFT
 
     def test_the_scenario_really_has_that_many_pages(self, panel) -> None:
-        """180 interior pages, on a legal gutter and on AC-179's own.
+        """183 interior pages on two legal gutters; 287 sheet-free.
 
-        The same 140 rows, three ways: the export's page plan on CON-018's
-        0.5 in gutter, the same plan on the 0.375 in one, and the sheet-free
-        count the refusal above used. All 180 — which is what makes this
-        book's page count a fact about the book rather than about its margins.
+        The same 140 rows: the export's page plan on the 0.375 in gutter and
+        on CON-018's 0.5 in one (the same count, so it is a fact about the
+        book rather than its margins), and the sheet-free count the refusal
+        above used -- both in KDP's 151-300 band.
         """
         legal = panel.book(AC179_CORPUS)
         assert panel.counts(legal).page_count == AC179_PAGES
-        assert panel.counts(legal).unpaired_page_count == AC179_PAGES
+        assert panel.counts(legal).unpaired_page_count == AC179_SHEET_FREE_PAGES
 
         book = panel.books.get_book(legal)
         book.gutter_margin_cm = "1.27"
         assert panel.counts(legal).page_count == AC179_PAGES
 
         rows = [panel.store.get_puzzle(pid) for pid in book.puzzle_ids]
-        assert unpaired_interior_page_count(rows) == AC179_PAGES
+        assert unpaired_interior_page_count(rows) == AC179_SHEET_FREE_PAGES
+        assert kdp_page_band(AC179_PAGES) == kdp_page_band(AC179_SHEET_FREE_PAGES)
 
     def test_at_the_profiles_own_gutter_the_same_book_is_accepted(
         self, panel
     ) -> None:
-        """The criterion is about the gutter, not about the 180 pages.
+        """The criterion is about the gutter, not about the page count.
 
-        The same 180-page book storing CON-018's 0.5 in gutter — KDP's
+        The same book storing CON-018's 0.5 in gutter — KDP's
         minimum for the 151-300 band — finalises. Without this the refusal
         above could be coming from the page count alone.
         """
@@ -808,17 +644,11 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
 
 
 class TestBookFinalise_PageCountIncludesAnswerKeyPages:
-    """AC-271 (FR-042) — 125 pages before the key + 150 answer pages = 275.
+    """AC-271 (FR-042) — 128 pages before the key + 38 answer pages = 166.
 
-    The criterion that matters most, re-pointed at CARD-198's own
-    arithmetic: before this card, the *packed* key brought a 150-puzzle book
-    back from over 300 pages to 155; since CARD-198 the answer section is
-    one full page per puzzle, unpacked, so the same book is 275 — still well
-    short of KDP's old 300-page ceiling (and comfortably inside CARD-199's
-    widened table), but still the count that must include the answer
-    section at all: a count that left it out would put this book at 125
+    A count that left the answer section out would put this book at 128
     pages — inside KDP's 0.375 in band — and pass a book KDP would refuse at
-    upload for its real 275.
+    upload for its real 166.
     """
 
     def test_finalise_is_refused_naming_the_band_for_a_hundred_and_fifty_five(
@@ -833,18 +663,16 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
         assert panel.status(book_id) == DRAFT
 
     def test_the_answer_key_is_what_crosses_the_boundary(self, panel) -> None:
-        """Pin the criterion's own arithmetic: 125 + 150, and 125 alone passes.
+        """Pin the criterion's own arithmetic: 128 + 38, and 128 alone passes.
 
-        The 125 pages before the key are the guide page, the two level
-        dividers, the 121 puzzle pages and the SOLUTIONS divider; 150 is one
-        answer page per puzzle (CARD-198). The second assertion is the bug
-        this criterion exists to make impossible — at 125 pages the very
-        same gutter is accepted.
+        The second assertion is the bug this criterion exists to make
+        impossible — at 128 pages the very same gutter is accepted.
         """
         book_id = panel.book(AC271_CORPUS)
         counts = panel.counts(book_id)
 
         assert counts.answer_page_count == AC271_ANSWER_PAGES
+        assert AC271_ANSWER_PAGES == answer_pages(90) + answer_pages(60)
         assert counts.page_count == AC271_PAGES
         assert counts.page_count - counts.answer_page_count == (
             AC271_PAGES_BEFORE_THE_KEY
@@ -855,12 +683,11 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
         assert gutter_refusal(AC271_PAGES, 0.95) is not None
 
     def test_the_book_really_holds_a_hundred_and_fifty_puzzles(self, panel) -> None:
-        """150 answers on 150 pages (CARD-198), each puzzle answered once."""
         book_id = panel.book(AC271_CORPUS)
         counts = panel.counts(book_id)
 
         assert len(panel.books.get_book(book_id).puzzle_ids) == AC271_PUZZLES
-        assert counts.unpaired_page_count - counts.page_count == 29, (
+        assert counts.pages_saved_by_pairing == 29, (
             "the book's two-up pages are what make it 121 puzzle pages"
         )
 
@@ -872,10 +699,8 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
 
         assert f'data-interior-page-count="{AC271_PAGES}"' in shown
         assert f'data-answer-page-count="{AC271_ANSWER_PAGES}"' in shown
-        # 305 before CARD-200; +4 for this book's own 4-page TOC (150
-        # entries) until CARD-205 replaced the per-puzzle listing with the
-        # six-row structural one, which is a single page: +1, so 306; and
-        # +1 again for CARD-206's blank title page, so 307.
+        # Before pairing (and packing): 1 title + 2 guide + 1 TOC + 2 dividers
+        # + 150 puzzle pages + SOLUTIONS + 150 answer pages.
         assert 'data-unpaired-page-count="307"' in shown
 
 
@@ -948,13 +773,8 @@ class TestBookFinalise_GutterCheckAtHundredFiftyPageBoundary:
     same tiers, the same stored 0.375 in gutter. So the verdict that changes
     between them is the page count crossing 150 and can be nothing else.
 
-    **CARD-198 note.** Since the answer section is one page per puzzle, an
-    extra puzzle ordinarily costs *two* pages (its own puzzle page and its
-    own answer page) — never the clean "+1" this boundary needs. The
-    corpora's medium tier (:func:`pairs_up`) is what keeps it at one: 41 is
-    odd, so one of them prints alone; 42 is even, so that same one now pairs
-    with the new puzzle instead — the puzzle-page count does not move, and
-    only the new puzzle's own answer page does.
+    The extra easy puzzle adds its own puzzle page and no answer page: 85
+    and 86 answers both take 22 packed pages.
     """
 
     def test_one_page_over_the_boundary_is_refused(self, panel) -> None:
@@ -986,8 +806,8 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
 
     The exactly-150-page book of :data:`AC288_CORPUS` is accepted at a 0.375 in
     gutter. Given a stored player domain it prints a Play online page, and its
-    last puzzle page is a recto (page 67), so a blank page goes in front of it:
-    page 68 blank, page 69 the Play page, 152 pages in all. The gutter band is
+    last puzzle page is a recto (page 115), so a blank page goes in front of it:
+    page 116 blank, page 117 the Play page, 152 pages in all. The gutter band is
     read at that TRUE total, so the same book is now refused at the band it
     crosses into; and the screen says, either way, whether the page prints and
     where.
@@ -1005,7 +825,7 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
         assert panel.counts(plain).page_count == AC288_PAGES
         assert panel.counts(with_domain).page_count == 152
         assert "No player domain set: this book prints no Play online page." in panel.shown(plain)
-        assert "Prints a Play online page at page 69." in panel.shown(with_domain)
+        assert "Prints a Play online page at page 117." in panel.shown(with_domain)
         # A stored value no address can be made of is no domain at all: no
         # page, no blank, and the screen says so (F-2).
         hand_edited = panel.book(AC288_CORPUS, title="Autumn")
@@ -1027,7 +847,7 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
 
 
 class TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages:
-    """AC-5 (FR-030) — 350 interior pages, storing the *old* band's minimum.
+    """AC-5 (FR-030) — a 301-500-page book, storing the *old* band's minimum.
 
     Inside the new 301-500 band, KDP's minimum there (0.625 in / 1.59 cm) is
     wider than the old 151-300 band's (0.5 in / 1.27 cm) this book stores.
@@ -1056,7 +876,7 @@ class TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages:
         assert panel.gutter(book_id) == "1.27"
 
     def test_the_scenario_really_has_that_many_pages(self, panel) -> None:
-        """350 pages, measured off the export's own page plan, not assumed."""
+        """Measured off the export's own page plan, not assumed."""
         book_id = panel.book(AC199_NEW_BAND_CORPUS, gutter="1.27")
 
         assert panel.counts(book_id).page_count == AC199_NEW_BAND_PAGES
@@ -1067,7 +887,7 @@ class TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages:
     def test_at_the_new_bands_own_minimum_the_same_book_is_accepted(
         self, panel
     ) -> None:
-        """The criterion is about the gutter, not about the 350 pages."""
+        """The criterion is about the gutter, not about the page count."""
         book_id = panel.book(AC199_NEW_BAND_CORPUS, gutter="1.59")
 
         response = panel.finalise(book_id)
@@ -1077,7 +897,7 @@ class TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages:
 
 
 class TestBookFinalise_ABookJustOverTheOldThreeHundredPageCeilingNowFinalises:
-    """AC-6 (CARD-198's own regression scenario) — ~305 pages now finalises.
+    """AC-6 — a book just over 300 pages finalises.
 
     Before this card, a book this size was refused outright with
     ``KdpPageCountNotModelled`` because the table stopped at 300 pages. This
@@ -1102,97 +922,28 @@ class TestBookFinalise_ABookJustOverTheOldThreeHundredPageCeilingNowFinalises:
         assert gutter_refusal(AC199_CARD198_PAGES, 1.59) is None
 
 
-class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
-    """AC-8 (CARD-198) — a book that used to finalise can now refuse outright.
+class TestBookFinalise_ABookPastTheModelledTableIsRefusedAsNotModelled:
+    """A book over KDP's modelled table (590 pages): finalise refuses it
+    cleanly with :class:`KdpPageCountNotModelled`'s own wording, never
+    crashes and never truncates the count to something that fits."""
 
-    :data:`AC8_CORPUS` sat at 299 pages under the old *packed* answer key —
-    comfortably inside the old 300-page ceiling, on the gutter CON-018's own
-    profile stores — purely because its answers packed six-up as tightly as
-    INV-011 ever allowed and its puzzle pages paired two-up (four-up since
-    the 2026-11-09 retune: see :data:`AC8_CORPUS`'s note). Since CARD-198
-    replaced that packed key with one full answer page per puzzle, the exact
-    same book, same gutter, same everything else, is :data:`AC8_PAGES`
-    pages — over even
-    CARD-199's widened 590-page ceiling. Finalise must refuse it cleanly with
-    :class:`KdpPageCountNotModelled`'s own wording, never crash and never
-    silently truncate the count to something that fits.
+    def test_the_scenario_really_has_that_many_pages(self, panel) -> None:
+        book_id = panel.book(BEYOND_TABLE_CORPUS, gutter="1.27")
 
-    This is CARD-198's own flagged consequence (not a hypothetical): the
-    card's own "What to implement" names
-    ``tests/helpers/book_corpus.py``'s 150-puzzle corpus as crossing from
-    182 to roughly 305 pages, which stays inside 590 and still finalises —
-    so this class's job is to name a book that genuinely crosses even the
-    *new*, wider ceiling, which that corpus does not.
-    """
-
-    def test_the_old_packed_key_would_have_fit_comfortably(self, panel) -> None:
-        """The premise: before CARD-198, this book was never a problem.
-
-        Measured through the still-present, still-unedited packing
-        machinery (``book_answer_key.pack_answer_pages``, G-5) over this
-        book's own puzzle-page plan — not re-derived from the docstring's
-        arithmetic alone.
-        """
-        from nonogram.admin.book_answer_key import (
-            FOUR_UP,
-            Answer,
-            pack_answer_pages,
-            qualifies_for_packing,
-        )
-        from nonogram.admin.book_pdf_generator import _answer_extent, _pairable_tier
-
-        book_id = panel.book(AC8_CORPUS)
-        book = panel.books.get_book(book_id)
-        rows = [panel.store.get_puzzle(pid) for pid in book.puzzle_ids]
-        generator = BookPDFGenerator(book)
-        payloads = [generator._payload(row) for row in rows]
-
-        plan = generator.puzzle_pages(payloads, first_page=2)
-        answers = [
-            Answer(
-                number=i + 1,
-                width=_answer_extent(p, i + 1)[0],
-                height=_answer_extent(p, i + 1)[1],
-                level=_pairable_tier(p),
-            )
-            for i, p in enumerate(payloads)
-        ]
-        key = pack_answer_pages(answers)
-        old_total = 1 + 1 + len(plan) + 1 + len(key)
-
-        assert len(plan) < len(payloads), "the puzzle pages are expected to pair"
-        # 2026-11-09: no longer "all six-up" — no puzzle can be six-up under
-        # the old key and still over the owner's new packing limit, so the
-        # premise is the four-up old key and answers that do not pack today.
-        assert all(page.capacity == FOUR_UP for page in key)
-        assert not any(qualifies_for_packing(answer) for answer in answers)
-        assert old_total == AC8_OLD_PACKED_PAGES
-        assert old_total <= 300, "the premise: this book fit before CARD-198"
-        assert gutter_refusal(old_total, 1.27) is None, (
-            "CON-018's own gutter was always enough for the old packed book"
-        )
-
-    def test_the_real_book_now_exceeds_the_modelled_ceiling(self, panel) -> None:
-        """CARD-198's real page plan, measured — not assumed from the corpus note."""
-        book_id = panel.book(AC8_CORPUS, gutter="1.27")
-
-        counts = panel.counts(book_id)
-
-        assert counts.page_count == AC8_PAGES
-        assert counts.answer_page_count == AC8_PUZZLES, "one answer page per puzzle"
-        assert AC8_PAGES > MAX_MODELLED_PAGE_COUNT
+        assert panel.counts(book_id).page_count == BEYOND_TABLE_PAGES
+        assert BEYOND_TABLE_PAGES > MAX_MODELLED_PAGE_COUNT
 
     def test_finalise_refuses_cleanly_with_the_not_modelled_wording(
         self, panel
     ) -> None:
         """Not a crash, not a silent truncation — the named, worded refusal."""
-        book_id = panel.book(AC8_CORPUS, gutter="1.27")
+        book_id = panel.book(BEYOND_TABLE_CORPUS, gutter="1.27")
 
         response = panel.finalise(book_id)
         shown = refusal_of(response)
 
         assert f"not modelled above {MAX_MODELLED_PAGE_COUNT} pages" in shown
-        assert f"runs to {AC8_PAGES}" in shown
+        assert f"runs to {BEYOND_TABLE_PAGES}" in shown
         assert panel.status(book_id) == DRAFT
         assert panel.gutter(book_id) == "1.27", "G-1: never silently widened"
 
@@ -1200,7 +951,7 @@ class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
         self, panel
     ) -> None:
         """The negative half: no band is named, because none applies."""
-        book_id = panel.book(AC8_CORPUS, gutter="1.27")
+        book_id = panel.book(BEYOND_TABLE_CORPUS, gutter="1.27")
 
         shown = refusal_of(panel.finalise(book_id))
 
@@ -1211,32 +962,14 @@ class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
             )
 
 
-class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
-    """AC-10 (CARD-198) — "Answer pages" and "Before pairing", read off the screen.
+class TestBookFinalise_BeforePairingShowsWhatPairingSaved:
+    """AC-10 — "Before pairing" and its "− N shared", read off the screen.
 
-    Both figures are read straight off ``InteriorStream``/``InteriorCounts``
-    through the template — neither is edited by this card (point 6 of "What
-    to implement") — so what is pinned here is what those numbers *mean*
-    now that there is no packing: "Answer pages" is the drawable-puzzle
-    count exactly, and "Before pairing" differs from the paired count only
-    by the two-up pairing term, never by a packing saving that no longer
-    exists to bundle in.
-
-    :data:`AC271_CORPUS` is reused for its already-measured shape: 150
-    puzzles, 29 of which pair two-up, 150 pages for the answer section.
+    :data:`AC271_CORPUS`: 150 puzzles, 29 page-sharings on the puzzle pages;
+    packing saves its own pages, which are not shown as "shared".
     """
 
-    def test_answer_pages_equals_the_drawable_puzzle_count(self, panel) -> None:
-        book_id = panel.book(AC271_CORPUS)
-
-        shown = panel.shown(book_id)
-
-        assert f'data-answer-page-count="{AC271_PUZZLES}"' in shown
-        assert AC271_ANSWER_PAGES == AC271_PUZZLES, (
-            "no packing: one answer page per puzzle is the drawable count"
-        )
-
-    def test_before_pairing_differs_from_the_paired_count_by_pairing_alone(
+    def test_before_pairing_differs_from_the_paired_count_by_pairing_and_packing(
         self, panel
     ) -> None:
         book_id = panel.book(AC271_CORPUS)
@@ -1244,37 +977,25 @@ class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
 
         shown = panel.shown(book_id)
 
-        # The screen's own figures.
         assert f'data-interior-page-count="{AC271_PAGES}"' in shown
         assert f'data-unpaired-page-count="{counts.unpaired_page_count}"' in shown
         assert "− 29 shared" in html.unescape(shown)
 
-        # What that 29 *is*: the answer-page term is identical on both sides
-        # of the subtraction (CARD-198 — no packing saving left in it), so
-        # the whole difference is the puzzle section's own two-up pairing.
-        saved = counts.unpaired_page_count - counts.page_count
-        assert saved == 29
-        unpaired_answer_pages_if_still_packed = AC271_ANSWER_PAGES  # i.e. 150, not 30
+        assert counts.pages_saved_by_pairing == 29
+        assert counts.pages_saved_by_packing == AC271_PUZZLES - AC271_ANSWER_PAGES
         assert (
             counts.unpaired_page_count
-            == 1  # CARD-206: the blank title page, unaffected by pairing
-            + 2
-            + AC271_TOC_PAGES  # CARD-200: the TOC's own term, unaffected by pairing
-            + 2
-            + AC271_PUZZLES
-            + 1
-            + unpaired_answer_pages_if_still_packed
-        ), "the answer term is the same 150 on both sides of the subtraction"
+            == 1 + 2 + AC271_TOC_PAGES + 2 + AC271_PUZZLES + 1 + AC271_PUZZLES
+        ), "before pairing, every puzzle and every answer has a page of its own"
 
     def test_a_book_with_no_pairing_at_all_shows_no_saving(self, panel) -> None:
-        """The control: nothing to subtract, nothing shown as saved."""
-        book_id = panel.book(((alone_unpackable, "easy", 5),))
+        """The control: nothing pairs, so nothing is shown as shared."""
+        book_id = panel.book(((alone, "easy", 5),))
 
         shown = panel.shown(book_id)
 
         assert "shared" not in shown
-        counts = panel.counts(book_id)
-        assert counts.unpaired_page_count == counts.page_count
+        assert panel.counts(book_id).pages_saved_by_pairing == 0
 
 
 # --------------------------------------------------------------------------
@@ -1291,16 +1012,12 @@ class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
 #: A three-puzzle book of :func:`alone` easy 22x22s, which never pair.
 SMALL_CORPUS = ((alone, "easy", 3),)
 
-#: Its interior, counted by hand rather than by the code under test: 1 blank
-#: title page (CARD-206) + 2 guide
-#: pages (CARD-201) + 1 easy divider + 3 single puzzle pages + the SOLUTIONS
-#: divider + 3
-#: full solved answer pages (CARD-198: one per puzzle, where this book took
-#: one packed four-up page before this card) + a 1-page table of contents
-#: (CARD-200: 3 entries, far under one TOC page's own capacity). Pairing
-#: nothing, this is both its exact count on a legal sheet and its sheet-free
-#: bound on an illegal one.
-SMALL_PAGES = 12
+#: Its interior, counted by hand rather than by the code under test: 1 title
+#: page + 2 guide pages + 1 TOC + 1 easy divider + 3 puzzle pages + the
+#: SOLUTIONS divider + 2 packed answer pages (2 + 1) = 11 on a legal sheet.
+#: Its sheet-free bound on an illegal one leaves the answers unpacked: 12.
+SMALL_PAGES = 11
+SMALL_SHEET_FREE_PAGES = 12
 
 #: The sheet builder's reason for refusing AC-179's 0.60 cm, written out here.
 REASON_060 = "book gutter_margin_cm is 0.6 cm, below the 0.635 cm minimum side margin"
@@ -1625,7 +1342,7 @@ class TestFinaliseCounts_ShowsWhyTheCountIsApproximate:
 
         shown = panel.shown(book_id)
 
-        assert f"About {SMALL_PAGES} interior pages" in shown
+        assert f"About {SMALL_SHEET_FREE_PAGES} interior pages" in shown
         assert 'data-interior-page-count-exact="false"' in shown
         assert "data-page-count-approximate" in shown
         assert reason in html.unescape(shown)
@@ -1638,7 +1355,7 @@ class TestFinaliseCounts_ShowsWhyTheCountIsApproximate:
         counts = _counts_of(panel, book_id)
 
         assert counts.exact is False
-        assert counts.page_count == SMALL_PAGES
+        assert counts.page_count == SMALL_SHEET_FREE_PAGES
         assert counts.unreadable == REASON_060
 
     def test_an_exact_count_carries_no_such_note(self, panel) -> None:
@@ -1715,9 +1432,9 @@ class TestFinaliseGutter_InexactRefusalSaysAbout:
 
         shown = refusal_of(panel.finalise(book_id))
 
-        assert f"runs to about {SMALL_PAGES} pages" in shown
-        assert f"runs to {SMALL_PAGES} pages" not in shown
-        assert f"About {SMALL_PAGES} interior pages" in shown
+        assert f"runs to about {SMALL_SHEET_FREE_PAGES} pages" in shown
+        assert f"runs to {SMALL_SHEET_FREE_PAGES} pages" not in shown
+        assert f"About {SMALL_SHEET_FREE_PAGES} interior pages" in shown
         assert panel.status(book_id) == DRAFT
 
     def test_an_exact_count_is_refused_without_about(self, panel) -> None:
@@ -2319,9 +2036,3 @@ class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
             "must never lower the shown approximate page count"
         )
 
-
-# The owner's 2026-11-09 polish took the frame off and lets every answer pack;
-# this module measures what it measured before (tests/helpers/legacy_book_layout.py).
-from tests.helpers.legacy_book_layout import module_fixture as _legacy_module_fixture  # noqa: E402
-
-_legacy_book_layout = _legacy_module_fixture()

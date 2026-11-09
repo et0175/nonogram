@@ -22,14 +22,7 @@ import pytest
 import nonogram.admin.book_manager as book_manager_module
 from nonogram import clues, errors
 from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
-from nonogram.admin.book_pdf_generator import (
-    _RASTER_DECLARATIONS,
-    BookPDFGenerator,
-    PageKind,
-    PageMedium,
-    RasterDeclaration,
-    page_medium,
-)
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
 
 #: The logger the panel logs through (``Flask(__name__)``'s own name).
 PANEL_LOGGER = "nonogram.admin.app"
@@ -306,29 +299,6 @@ def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
 GREEK = "Χιονονιφάδα"
 
 
-def _declare_answer(monkeypatch) -> None:
-    """The answer page's bitmap declaration, PRESENT (CARD-379's pattern)."""
-    monkeypatch.setitem(
-        _RASTER_DECLARATIONS,
-        PageKind.ANSWER,
-        _RASTER_DECLARATIONS.get(
-            PageKind.ANSWER,
-            RasterDeclaration(
-                reason="put back by this test: the tree has lifted it",
-                authority="CARD-383",
-                expires_with=("CARD-322",),
-            ),
-        ),
-    )
-    assert page_medium(PageKind.ANSWER) is PageMedium.RASTER
-
-
-def _lift_answer(monkeypatch) -> None:
-    _declare_answer(monkeypatch)
-    monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.ANSWER)
-    assert page_medium(PageKind.ANSWER) is PageMedium.VECTOR
-
-
 def _retitle_first(app, book_id, title) -> None:
     first = app.book_manager.get_book(book_id).puzzle_ids[0]
     assert app.book_manager.set_puzzle_title(book_id, first, title)
@@ -342,10 +312,9 @@ class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
     """CARD-383 AC-6, cell (vii): three routes, one branch each, nothing broader."""
 
     @pytest.mark.parametrize("route", ROUTES)
-    def test_a_lifted_greek_title_flashes_the_refusal_and_not_the_generic_text(
+    def test_a_greek_title_flashes_the_refusal_and_not_the_generic_text(
         self, admin_app, monkeypatch, route
     ) -> None:
-        _lift_answer(monkeypatch)
         client = admin_app.test_client()
         book_id = _make_book(admin_app)
         _retitle_first(admin_app, book_id, GREEK)
@@ -362,12 +331,11 @@ class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
     def test_the_control_every_other_failure_still_flashes_the_generic_text(
         self, admin_app, monkeypatch, caplog, route
     ) -> None:
-        # Same lift, same book, a Latin title (so the refusal does not apply)
+        # Same book, a Latin title (so the refusal does not apply)
         # and a failure injected at the interior export: it is NOT the
         # refusal, and says what it always said. Injected rather than left to
         # happen (a writer-less generator), so the cell is the same in a tree
         # whose generator is assembled.
-        _lift_answer(monkeypatch)
         client = admin_app.test_client()
         book_id = _make_book(admin_app)
         _retitle_first(admin_app, book_id, "Winter Star")
@@ -384,22 +352,6 @@ class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
         assert response.status_code == 302
         assert _error_flashes(client) == [PDF_EXPORT_FAILED]
         assert len(_panel_errors(caplog)) == 1
-
-    @pytest.mark.parametrize("route", ROUTES)
-    def test_today_a_greek_title_exports_and_nothing_is_refused(
-        self, admin_app, monkeypatch, route
-    ) -> None:
-        _declare_answer(monkeypatch)
-        client = admin_app.test_client()
-        book_id = _make_book(admin_app)
-        _retitle_first(admin_app, book_id, GREEK)
-
-        response = _request_export(client, route, book_id)
-
-        assert not any(GREEK in m for m in _error_flashes(client))
-        assert PDF_EXPORT_FAILED not in _error_flashes(client)
-        assert response.status_code == 200
-        assert response.data.startswith(b"%PDF")
 
     @pytest.mark.parametrize("route", ROUTES)
     @pytest.mark.parametrize(
