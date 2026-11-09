@@ -117,17 +117,25 @@ def _play_export() -> bytes:
 
 
 def _full_answer_kept():
-    """The baseline's 30 x 30 answer on a page of its own, as when this file was written.
+    """The baseline's 30 x 30 answer on a page of its own.
 
-    Since the owner's 2026-11-09 polish every answer up to 30 x 30 packs, so
-    the baseline would print no full-page answer and the ``answer`` writer
-    would go ungoldened. The old 20 x 25 threshold is put back for the export
-    this file pins (packing only: the frame and the dividers are the shipped
-    ones), so both answer writers keep a golden.
+    Since the owner's 2026-11-09 polish every answer up to 30 x 30 packs; a
+    full answer page is now only what a packed page too tight for its trim
+    degrades to. So that the ``answer`` writer keeps a golden on this corpus,
+    the packing threshold is held at 20 x 25 for the export this file pins.
     """
-    from tests.helpers.legacy_book_layout import legacy_book_layout
+    from contextlib import contextmanager
 
-    return legacy_book_layout(frame=False, dividers=False, packing=True)
+    from nonogram.admin import book_answer_key
+
+    @contextmanager
+    def kept():
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(book_answer_key, "PACKED_MAX_WIDTH", 20)
+            patch.setattr(book_answer_key, "PACKED_MAX_HEIGHT", 25)
+            yield
+
+    return kept()
 
 
 def _export() -> tuple[list[str], bytes]:

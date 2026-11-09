@@ -849,9 +849,7 @@ GUIDE_TITLE = "How to Solve Nonograms"
 #: Solutions opener's style -- rule, "PUZZLES a–b", the level's name large,
 #: its dots (:meth:`BookPDFGenerator.create_level_divider`, owner decision
 #: 2026-11-09) -- rather than as the one centred word
-#: (:meth:`BookPDFGenerator.create_divider_page`, AC-254). The test tree's
-#: page readers that recognise a divider by its one word switch it off
-#: (``tests/helpers/legacy_book_layout.py``).
+#: (:meth:`BookPDFGenerator.create_divider_page`, AC-254).
 LEVEL_DIVIDER_OPENER = True
 
 #: How many interior pages the book's title / copyright page occupies

@@ -1,8 +1,6 @@
 """The owner's layout polish of 2026-11-09, pinned on the shipped defaults.
 
-Several older modules measure the book with the previous layout switched back
-on (``tests/helpers/legacy_book_layout.py``); this module is where the new
-defaults themselves are asserted, so none of them is only ever tested off:
+The new defaults, each asserted directly:
 
 * no frame around the clues on a book page (``BOOK_PUZZLE_FRAME``);
 * every answer up to ``limits.MAX_SIZE`` packs (``PACKED_MAX_WIDTH/HEIGHT``);
