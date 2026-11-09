@@ -1348,9 +1348,12 @@ function start() {
   let drawnAt = sizeKey();
   // And whenever what stands above the stage changes height without a
   // window resize — the toolbar wrapping, the probe bar's note appearing, the
-  // hint line — the stage's top moves, so it is measured again. Observing
-  // the toolbar and the header covers every such element (all live in one
-  // of the two).
+  // hint line — the stage's top moves, so it is measured again, and the
+  // clue bands' verdict with it (the doubled-gutter layout is NOT redrawn
+  // here; that waits for the next real resize). Observing the toolbar and
+  // the header covers the player's own elements; a panel flash message above
+  // them is not observed, and a stale top only errs safe — the stage a
+  // little shorter than it could be (review cycle 2, F-103).
   if (typeof ResizeObserver === "function") {
     // keepCluesInView measures the top first, then the bands (review cycle
     // 1: a cap that changed under the bands left their verdict stale).

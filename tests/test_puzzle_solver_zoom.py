@@ -1182,7 +1182,8 @@ class TestSolverZoom_StageEndsAboveTheFold:
                     # and nav wrap tall on a small window).
                     floored = (abs(edge["height"] - edge["floor"]) <= 1
                                and (width, height) not in ((390, 844), (844, 390)))  # AC-4's own: no exemption
-                    if edge["bottom"] > edge["innerHeight"] + 0.5 and not floored:
+                    # --space-4 (16 px) of air below the stage (review cycle 2, F-101).
+                    if edge["bottom"] > edge["innerHeight"] - 16 + 0.5 and not floored:
                         late.append((width, height, percent, edge))
                 _zoom_to(page, 100)
         finally:
