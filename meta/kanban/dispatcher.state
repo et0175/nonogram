@@ -480,6 +480,13 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
+  # CARD-405 DISPATCHED 2026-11-09T13:25Z (player-phone thread); serial after 404.
+  - card: CARD-405
+    branch: card/405-phone-clues-left-top
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-405
+    started: 2026-11-09T13:25Z
+    estimate: 3c (1d)
+    cut_from: 32cb7673
 # CARD-404 CLEARED 2026-11-09T13:25Z: merged e1c2575a, done, review 9.0 on cycle 2 (5.0 on cycle 1), estimate 4c -> 0.5. Player-set gate 1385 passed. Entry dropped.
 # CARD-403 CLEARED 2026-11-09T11:54Z: merged 589c2a4f, done, review 8.5 on cycle 2 (5.0 on cycle 1), estimate 3c -> 0.67. Player-set gate 1384 passed. Entry dropped.
 # CARD-401 CLEARED 2026-11-09T10:08Z at its merge gate: merged 071e4698, done, review 9.5 on cycle 1, estimate 3c -> ratio 0.33. Entry dropped.
@@ -785,7 +792,6 @@ queued:
 - id: CARD-416   # P2 6c  (387b) TAIL OF CARD-387, runs LAST: convert the ~62 'convert after' ids (pdf, pdf_band, type_floor, page_frame, page_numbers, toc), delete the 21 remaining raster writers + bitmap arms, restate docs/ADRs/censuses. Depends on CARD-387, 392, 207, 229, 230, 232, 233. Unstamped.
 - id: CARD-417   # P2 2c  TOC LISTS THE PLAY ONLINE PAGE: one row after the last level, before Solutions, against SectionPlan.play_page; three-place count agreement (section_plan, interior_page_count default, unpaired_interior_page_count) + KDP band measured on 18 cases. Owner ruling 2026-11-08: the TOC stays after How to Solve (guide facing spread on 2-3). Depends 390, 205, 322; queued after 207 and 416. Unstamped.
 - id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
-- id: CARD-405   # P2 3c PHONE: retire the right-hand mirror, clues left and top. Depends 404. Owner findings 2026-11-07. Unstamped.
 - id: CARD-406   # P2 4c FIT zoom step. Depends 403, 404. Owner findings 2026-11-07. Unstamped.
 - id: CARD-407   # P2 2c BIG puzzles open at Fit (phones). Depends 406. Owner findings 2026-11-07. Unstamped.
 - id: CARD-408   # P1 3c HINT/Check scroll the target into view. Depends 403, 404. Owner findings 2026-11-07. Unstamped.

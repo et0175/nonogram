@@ -1,6 +1,6 @@
 # CARD-405: On phones the row clues stay on the left and the column clues on top — the right-hand mirror is retired, because the clues are pinned
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/405-phone-clues-left-top
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-405
 **Source:** owner player findings 2026-11-07, item 4: "Mobile mode - clues - to put them to the right and bottom was the idea that it's not convenient to go without them on screen if the puzzle needs scrolling ... For now I think that sticky clues and crosshair solve that problem ... so we can have clues always at left and top (mobile mode) and check that clues are sticky."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-404
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_fifth_rule.py, tests/test_puzzle_solver_zoom.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-09T13:25Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
