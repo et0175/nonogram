@@ -1,6 +1,6 @@
 # CARD-289: `interior_stream` decides two page positions and carries neither, so the tests re-spell them — and a re-spelling cannot witness the thing it re-spells
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-219
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_toc.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 tech-debt triage; no review of its own.
+**Started:** 2026-11-09
+**Closed:** 2026-11-09
+**Actual:** under an hour
 **Merge commit:** —
 **Blocked by:** —
 
@@ -209,3 +209,7 @@ three cards and none existed. -->
 ## Triage 2026-11-09
 
 Still open as written: `InteriorStream` carries neither `first_answer_page` nor the TOC rows, and tests/test_book_toc.py still re-spells `_solutions_divider_page`. Line numbers in this card are stale after the 2026-11-09 deletion.
+
+## Closed 2026-11-09 — owner's tech-debt triage
+
+Done in the cut-down shape the triage agreed. `InteriorStream` now carries `first_answer_page` and `toc_entries`, set from the values `interior_stream` already computes; nothing new is derived and reading them draws no page. `tests/test_book_toc.py` reads its rows off `toc_entries`, and the solutions row is also checked against `first_answer_page - 1`. The test-side `_solutions_divider_page` re-spelling is deleted. An off-by-one injected into `first_answer_page` now fails 4 tests in that file (AC-3's bar). The other ~104 `TITLE_PAGE_COUNT` re-spellings (G-6), AC-2's property test and AC-6's empty-book test were not built: the owner's rule keeps a test only when it guards a live product decision.

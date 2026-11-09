@@ -2607,6 +2607,14 @@ class InteriorStream:
     #: (the page) or 2 (a blank before it), so a refusal made at that count can
     #: say the block is part of it.
     play_block_pages: int = 0
+    #: The interior page number of the first answer page (CARD-289), as the
+    #: walk decided it. The SOLUTIONS divider, when the book prints one, is
+    #: the page before it. Reading it draws nothing.
+    first_answer_page: int = 0
+    #: The table of contents' rows exactly as the walk built them and the TOC
+    #: pages draw them (CARD-289), so a caller reads the page each row points
+    #: at instead of working it out again. Reading them draws nothing.
+    toc_entries: Tuple["TocEntry", ...] = ()
 
     @property
     def pages_saved(self) -> int:
@@ -6192,6 +6200,8 @@ class BookPDFGenerator:
             page_kinds=tuple(page_kinds),
             play_page=decided.play_page,
             play_block_pages=decided.play_page_count,
+            first_answer_page=first_answer_page,
+            toc_entries=tuple(toc_entries),
         )
 
     def _write_pdf(

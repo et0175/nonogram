@@ -291,73 +291,17 @@ def test_the_drawn_tie_is_still_carried_here() -> None:
     )
 
 
-def _solutions_divider_page(decided) -> int:
-    """The SOLUTIONS divider's own interior position, from the plan's own terms.
-
-    **This is a test-side re-spelling of a production term, and that has a
-    measured cost.** Production computes the same number as
-    ``first_answer_page - 1`` at ``book_pdf_generator.py:6718`` and builds its
-    own TOC rows with it at ``:6786``; the five terms below are that
-    arithmetic written out again here. So a row read through
-    :func:`_planned_rows` carries a **test-authored** page number, and an
-    off-by-one injected into ``first_answer_page`` cannot red a comparison
-    against it: measured, that mutant reds **4 cells on the pre-card tree and
-    3 on this one** (CARD-219 fix pre-gate Q6, cycle 1 F-006). The lost cell is
-    ``test_each_row_points_at_the_page_the_walk_planned``; the three that
-    survive are :data:`DRAWN_TIE_CARRIERS`.
-
-    It is re-spelled rather than read because ``first_answer_page`` is carried
-    on no returned value -- ``interior_stream`` computes it locally and
-    ``InteriorStream`` does not expose it -- so there is no pure surface to ask.
-    Exposing it (and ``toc_entries``) would make the claim direct and is a
-    ``src/`` change CARD-219 may not make (G-5); it is raised as a successor
-    card, with those two line numbers.
-
-    The terms, for the record: the front matter (page 1 plus
-    :data:`TITLE_PAGE_COUNT` and :data:`GUIDE_PAGE_COUNT`), the table of
-    contents' measured length, and the puzzle section's length.
-    :attr:`SectionPlan.toc_page_count` exists for exactly this reading -- its
-    own docstring says it is carried "so a caller that needs the interior's own
-    ``first_answer_page`` arithmetic does not re-derive it from the entry count
-    a second time".
-
-    CARD-219 wrote it here once. Three tests in this file spelled the same five
-    terms out inline, which is three chances for one of them to drift away from
-    the production term it mirrors.
-    """
-    return (
-        1
-        + TITLE_PAGE_COUNT
-        + GUIDE_PAGE_COUNT
-        + decided.toc_page_count
-        + len(decided.pages)
-    )
-
-
 def _planned_rows(generator: BookPDFGenerator, puzzles: List[dict]) -> List[TocEntry]:
-    """Every TOC row of a book, in order, **with no page drawn** (CARD-219).
+    """Every TOC row of a book, in order, **with no page drawn**.
 
-    The same rows :func:`_rows_of` reads off the drawing calls, read instead
-    off the seam that decides them. ``structural_toc_entries`` is the
-    production builder ``interior_stream`` hands to the ``toc`` writer: pure,
-    sheet-free, and settled before a pixel exists. Asking it directly costs a
-    plan walk instead of a whole rendered book — measured at 1.6-1.8 s per test
-    for the seven this card converted.
-
-    **What a plan reading gives up, stated as what it no longer witnesses.**
-    Two things: the tie between *what the builder produced* and *what the
-    drawing was handed*, and the tie between the plan's page counts and the
-    pages the walk actually yields. Neither is given up in this file --
-    :func:`_rows_of` still reads the first from eleven cheaper tests, and
-    :data:`DRAWN_TIE_CARRIERS` names the three node ids that carry the second,
-    with the mutant cell counts that establish it -- but neither is witnessed
-    by a test that calls this function, including the one it carries the
-    solutions page for (:func:`_solutions_divider_page`).
+    Read off :attr:`InteriorStream.toc_entries` (CARD-289): the rows
+    ``interior_stream`` built and the TOC pages draw, settled before a pixel
+    exists. Nothing here computes a page number, so an off-by-one in
+    production's own ``first_answer_page`` shows up in the rows these tests
+    read. The tie between these rows and the drawn pages is carried by
+    :data:`DRAWN_TIE_CARRIERS`.
     """
-    decided = generator.section_plan(list(puzzles))
-    return structural_toc_entries(
-        decided.pages, decided.payloads, _solutions_divider_page(decided)
-    )
+    return list(generator.interior_stream(list(puzzles)).toc_entries)
 
 
 def _divider_pages(generator: BookPDFGenerator, puzzles: List[dict]) -> List[Tuple[str, int]]:
@@ -545,39 +489,12 @@ class TestBookToc_PageNumbersMatchTheWalk:
     """Every row's number is the interior position of the page it names."""
 
     def test_each_row_points_at_the_page_the_walk_planned(self) -> None:
-        """Converted by CARD-219, and the solutions row **re-aimed** with it.
+        """The rows come off the stream's own plan (CARD-219, CARD-289).
 
-        The book used to be rendered to read its rows, which were then compared
-        against the plan the render came from. The rows come off that plan now.
-
-        That conversion cannot be made naively, and this is the one test in
-        this file where it could have gone wrong silently. A plan reading has
-        to *supply* the solutions page to ``structural_toc_entries``
-        (:func:`_planned_rows` passes :func:`_solutions_divider_page`), so
-        comparing the row back against that same term would assert nothing at
-        all — the exact tautology AC-6 is about, arrived at from the positional
-        side. The solutions row is therefore compared against a derivation that
-        shares no term with it: ``page_count - answer_page_count`` off the
-        stream's own counts, which is the position of the last page that is not
-        an answer page, i.e. the divider that opens the section.
-
-        **What that covers, and what it does not.** Both derivations are pure
-        and neither draws, and an off-by-one in either of *those two terms* --
-        ``page_count`` or ``answer_page_count`` -- reds this. This docstring
-        used to say "an off-by-one in either reds this" without naming the
-        terms, and read as a general claim it is **false**: the third term the
-        pre-conversion test covered, ``interior_stream``'s own
-        ``first_answer_page`` (``src:6718``), is not read by either side, so an
-        off-by-one in it leaves this test green (measured: 4 cells red before
-        the conversion, 3 after, this one being the cell that was lost --
-        CARD-219 fix pre-gate Q6, cycle 1 F-006). The reason is mechanical and
-        is written up in :func:`_solutions_divider_page`: the row this test
-        reads carries a page number *this file* computed, so comparing the row
-        against production's term was never on offer here.
-
-        That term, and the plan-to-pixel tie generally, is carried by
-        :data:`DRAWN_TIE_CARRIERS` — three rendering node ids in this file,
-        named there with the cell counts that prove it.
+        The solutions row is checked two ways: against the stream's own
+        ``first_answer_page`` (the divider is the page before it), and against
+        ``page_count - answer_page_count``, a derivation that shares no term
+        with it, i.e. the last page that is not an answer page.
         """
         puzzles = _puzzles(easy=60, medium=60, hard=30)
         generator = BookPDFGenerator(_book("card-205-ac2"))
@@ -600,11 +517,10 @@ class TestBookToc_PageNumbersMatchTheWalk:
         assert [row.page for row in ranges] == [page for _, page in dividers]
         assert [label for label, _ in dividers] == ["Easy", "Medium", "Hard"]
 
-        # The solutions row against the SOLUTIONS divider, derived from the two
-        # counts the stream settles for itself: the last page that is not an
-        # answer page is the divider that opens the answer section. No term of
-        # this is a term of `_solutions_divider_page`, which is what keeps it
-        # from being a restatement of the number the rows were built with.
+        assert by_label[TOC_SOLUTIONS_LABEL] == counted.first_answer_page - 1
+        # And against the two counts the stream settles for itself: the last
+        # page that is not an answer page is the divider that opens the
+        # answer section.
         assert by_label[TOC_SOLUTIONS_LABEL] == (
             counted.page_count - counted.answer_page_count
         ), (
@@ -1985,17 +1901,7 @@ class TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts:
         """
         generator = BookPDFGenerator(_book(book_id))
         decided = generator.section_plan(list(puzzles))
-        # `interior_stream`'s own arithmetic for the SOLUTIONS divider:
-        # `first_answer_page - 1`, where `first_answer_page` is
-        # `1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count +
-        # len(section) + 1`.
-        solutions_page = (
-            1
-            + TITLE_PAGE_COUNT
-            + GUIDE_PAGE_COUNT
-            + decided.toc_page_count
-            + len(decided.pages)
-        )
+        solutions_page = generator.interior_stream(list(puzzles)).first_answer_page - 1
         entries = structural_toc_entries(
             decided.pages, decided.payloads, solutions_page
         )
