@@ -745,7 +745,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         _open(page, live, live.store(_GRID_30x25))
         plain = page.evaluate(_GUTTER_SHAPE)
         assert (plain["rowBoxes"], plain["colBoxes"], plain["duplicates"]) == (25, 30, 0)
-        assert _cell_widths(page)[0] == pytest.approx(19.55, abs=0.05)  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
+        assert _cell_widths(page)[0] == pytest.approx(19.55, abs=0.05)  # CARD-403/404: measured top, then the board margin (was 19.75, then 20.02)
 
         _zoom_to(page, 150)
         # 150% of the doubled layout's 16 px cells is exactly the 24 px the
@@ -1263,8 +1263,9 @@ class TestSolverZoom_ClueStripsStopGrowing:
     30 x 30 at 1280 x 720 the numerals never exceed 14 px, the row strip's
     width and the column strip's height are the same at 200% and 300% as
     where the cap first binds, and at 100/200/300% every clue box spans
-    exactly its own row or column. AC-4 (small cells keep today's 12 px
-    numerals) is TestPlayerNumerals_* unchanged. Plant: removing the cap
+    exactly its own row or column. AC-4: the 12 px phone floor is
+    TestPlayerNumerals_* unchanged; its desktop pin was re-pinned 16.8 -> 14
+    by the owner's ruling of 2026-11-09 (the cap applies at 100% too). Plant: removing the cap
     (--player-clue-cell back to --player-cell) reds it at 200% (17.28 px
     numerals, run 2026-11-09)."""
 

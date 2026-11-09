@@ -552,7 +552,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      The height also leaves out the board's own --space-4 margin-bottom,
      which sits INSIDE the stage: the one-row estimate this term read before
      CARD-403 carried --space-8 of air and hid it; against the measured top
-     (--space-4 of air) a height-bound board overflowed its stage by 1 px. */
+     (--space-4 of air) a height-bound board overflowed its stage by 2-5 px. */
   --player-cell: calc(clamp(max(var(--player-cell-min), var(--player-col-floor)),
     min(max(min(calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major) + var(--player-row-ch) * 0.6 * var(--player-numeral-min))) / var(--player-cols)),
                 calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major))) / (var(--player-cols) + var(--player-row-gutters) * var(--player-row-ch) * 0.36))),
