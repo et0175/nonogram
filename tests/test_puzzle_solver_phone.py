@@ -965,13 +965,16 @@ class TestSolverPhone_CompactToolbar:
     as narrow ones"). admin.css's "Compact toolbar" condition is narrow OR
     short: at 390 x 844 (phone) and 844 x 390 (landscape phone) every
     labelled button shows its icon and no visible word, keeps its accessible
-    name, and is at least 44 px wide; at 1280 x 720 the words are back.
+    name, and is at least 44 px wide.
 
     One control that can fail, per the owner's test budget: dropping the
     ``(max-height: 500px)`` arm reds the 844 x 390 cell alone; dropping the
     clip rule reds both compact cells."""
 
-    @pytest.mark.parametrize("width,height,compact", [(390, 844, True), (844, 390, True), (1280, 720, False)])
+    # No desktop cell: the existing 1280/1440 layout cells (brush-menu slot,
+    # percent, maybe) already hold the labelled toolbar there (review cycle 1,
+    # finding 5, owner test budget).
+    @pytest.mark.parametrize("width,height,compact", [(390, 844, True), (844, 390, True)])
     def test_icons_only_when_compact(self, browser_page, live, width, height, compact) -> None:
         from playwright.sync_api import expect
 
