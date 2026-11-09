@@ -1,6 +1,6 @@
 # CARD-406: A Fit zoom step below 100% shows the whole board — the zoom model learns a floor that is the board's own fit
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -86,4 +86,9 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+[Env] forge from /Users/omelnikova/MyProjects/forge_1; orchestrated from the player-phone thread.
+[Impl 2026-11-09] 0670f7eb + 9fa36c56. Q10 answered by the owner's option A of 2026-11-07 (no separate button: Fit is the bottom step of - / +, the readout says "Fit" and, as a role=button with a 44 px target on compact screens, toggles between Fit and the last zoom). solver_state.js fitZoom + a floor argument on clampZoom/stepZoom/pinchZoom (default ZOOM_MIN: the 100..300 cells unchanged). solver.js measureFit after draws, resizes, stage-top changes and zooms at or below 100% (the 100% size read with the table laid out at --player-zoom 1 when zoomed above 100, inside one task); an overshoot loop while at Fit; FIT_MIN 10%. admin.css: the 12 px floor of the clue numerals and of the "?" mark scales with the zoom below 100%.
+[Measure] Shared-UI preview, 30 x 29: 390 x 844 Fit cells 9.64 px, no scroll; 844 x 390 Fit 42%, cells 6.05 px, no scroll. Admin page (taller chrome): 390 x 844 Fit 50%, 7 px cells; 844 x 390 ~15%, 2.2 px cells (CARD-402 gives landscape the height). Desktop 1280 x 720 30 x 30: Fit 78%.
+[Owner questions, asked 2026-11-09] Q9 (numerals shrink at Fit; recommended keep) and Fit on desktop (recommended: everywhere the board does not fit; only CARD-407's open-at-Fit is phones-only). Awaiting the answer before the merge.
+[Tests] New TestSolverZoom_Fit: the pure floor and steps; Fit at 390 x 844 and 844 x 390 with a Maybe mark, no scroll, +1% scrolls, the readout toggle. The no-Fit case folded into test_zoom_out_at_100_percent_is_a_no_op_and_stays_disabled. Re-pinned: 600 x 844 overflow/port by 5 px (the 44 px Fit control). Net node ids +3. Plant: no overshoot loop -> 844 x 390 red.
+[Review 1/3] Score: 5.0 — F critical "?" floor: fixed; Fit control 44 px: fixed; the shrink loop to 1%: FIT_MIN 10; +1% assertion added; owner questions raised (above); comments/aria-label/pinch-to-Fit fixed; no-Fit test folded. Report meta/review/20261109T150525Z-CARD-406-cycle1.yml.
