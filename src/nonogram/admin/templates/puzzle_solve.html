@@ -286,6 +286,11 @@
         </div>
         <button type="button" class="btn btn-outline-secondary" data-player-action="hint" aria-disabled="true" title="Hint"><span class="player-compact-icon">{{ icons.icon('bulb') }}</span><span class="player-btn-label">Hint</span></button>
         <button type="button" class="btn btn-outline-secondary" data-player-action="check" aria-disabled="true" title="Check"><span class="player-compact-icon">{{ icons.icon('check') }}</span><span class="player-btn-label">Check</span></button>
+        <span class="player-probe-slot">
+        <button type="button" class="btn btn-outline-secondary" id="puzzle-player-probe" data-player-probe aria-pressed="false" aria-disabled="false" title="Probe" hidden><span class="player-compact-icon">{{ icons.icon('probe') }}</span><span class="player-btn-label">Probe</span></button>
+        <button type="button" class="btn btn-outline-secondary" data-player-probe-action="keep" title="Keep" hidden><span class="player-probe-glyph" aria-hidden="true">&#10003;</span><span class="player-btn-label">Keep</span></button>
+        <button type="button" class="btn btn-outline-secondary" data-player-probe-action="abandon" title="Wrong guess" hidden><span class="player-probe-glyph" aria-hidden="true">&#10007;</span><span class="player-btn-label">Wrong guess</span></button>
+        </span>
     </div>
     <div class="player-zoom" role="group" aria-label="Zoom">
         <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="out" aria-label="Zoom out" aria-disabled="true">&minus;</button>
@@ -299,11 +304,13 @@
     </div>
     <p class="player-progress" id="puzzle-player-progress">Progress: <span class="player-progress-count" data-player-progress>0%</span></p>
     </div>
+    {# CARD-411 (owner finding 2026-11-07, item 8: "'✓ Keep' and '✗ Wrong
+       guess' at full toolbar size"): the Probe toggle and its pair live in the
+       History group above, at the toolbar's size; Probe BECOMES the pair while
+       a probe is open, so opening one moves nothing. This line keeps only the
+       leaving note, at a fixed height that the toolbar's pull pays for. #}
     <div class="player-probe" id="puzzle-player-probe-bar" role="group" aria-label="Probe" hidden>
-        <button type="button" class="btn btn-outline-secondary" id="puzzle-player-probe" data-player-probe aria-pressed="false" aria-disabled="false" title="Probe"><span class="player-compact-icon">{{ icons.icon('probe') }}</span><span class="player-btn-label">Probe</span></button>
-        <button type="button" class="btn btn-outline-secondary" data-player-probe-action="keep" hidden>Keep</button>
-        <button type="button" class="btn btn-outline-secondary" data-player-probe-action="abandon" hidden>Contradiction</button>
-        <p class="player-probe-note" id="puzzle-player-probe-note" hidden>Leaving this page abandons the open probe &mdash; press Keep or Contradiction first.</p>
+        <p class="player-probe-note" id="puzzle-player-probe-note" hidden>Leaving this page abandons the open probe &mdash; press Keep or Wrong guess first.</p>
     </div>
 </div>
 

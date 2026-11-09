@@ -819,6 +819,9 @@ class TestSolverResume_AReloadAbandonsTheOpenProbe:
         note = browser_page.locator("#puzzle-player-probe-note")
         assert note.is_visible()
         assert "abandon" in note.text_content().lower()
+        # CARD-411 AC-5 (owner Q14, 2026-11-07): the note names the buttons
+        # by their new names.
+        assert "press Keep or Wrong guess first" in note.text_content()
 
         _reload(browser_page)
 

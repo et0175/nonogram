@@ -1450,14 +1450,15 @@ class TestSolverProbe_OnlyOneProbeAtATime:
         assert _probe_disabled(browser_page) == "true"
         assert _probe_pressed(browser_page) == "true"
 
-        # A REAL press that the page refuses, not a press the test skipped.
-        # Playwright reads aria-disabled as "not enabled" and would wait for
-        # the attribute to go away, so the click is forced — it still goes to
-        # the element's centre as a browser click, which is exactly what a
-        # player clicking the control gets (aria-disabled, unlike `disabled`,
-        # does not stop the browser dispatching one). The same `force=True`
-        # tests/test_puzzle_solver_zoom.py uses on a clamped zoom button.
-        _probe_toggle(browser_page).click(force=True)
+        # RETIRED CLAIM, 2026-11-07 (CARD-411, owner finding: "'✓ Keep' and
+        # '✗ Wrong guess' at full toolbar size"): a forced press on the open
+        # probe's toggle, refused. Probe now BECOMES the pair while a probe is
+        # open, so there is no toggle to press a second time: it is not
+        # drawn and not in the accessibility tree, and its place is the
+        # pair's. A press there is a press of Keep, which is not a second
+        # probe either. What is asserted is that nothing offers one.
+        assert not _probe_toggle(browser_page).is_visible()
+        assert browser_page.get_by_role("button", name="Probe").count() == 0
 
         assert _probe_pressed(browser_page) == "true"
         assert _probe_disabled(browser_page) == "true"
@@ -1792,12 +1793,10 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
     the two must be the same number. That is sharp at one pixel.
 
     Probe CLOSED at all three viewports, which is the standing layout every
-    sibling test sees. An OPEN probe deliberately makes the bar taller (Keep,
-    Contradiction and the leaving note appear) and at 390 px wraps it onto
-    further lines, so the board does move down while a probe is open — the
-    player asked for it, it lasts as long as the probe does, and no test in
-    the family opens one. The companion class above is what holds the air in
-    that state.
+    sibling test sees — and, since CARD-411, OPEN too: the board's top is the
+    same with no probe, one open and after closing it (the cell's body says
+    how). The paragraph that stood here said an open probe moved the board
+    down; that claim is retired with the owner's 2026-11-07 finding.
     """
 
     @pytest.mark.parametrize(
@@ -1819,6 +1818,35 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             f"no line to pay for, or nothing paying for it, so the "
             f"comparison below is between a page and itself"
         )
+
+        # CARD-411 (owner finding 2026-11-07, item 8: "'✓ Keep' and '✗ Wrong
+        # guess' at full toolbar size"; AC-1..AC-3). RETIRED CLAIM: "an OPEN
+        # probe deliberately makes the bar taller ... so the board does move
+        # down while a probe is open". Probe now becomes the pair in a slot
+        # that reserves the pair's width, so the board's top is the same
+        # with no probe, with one open and after closing it; and the pair is
+        # the toolbar's size (the height of Hint; 44 px or wider compact),
+        # named 'Keep' and 'Wrong guess', with 'Contradiction' gone. At
+        # 390 x 844 the landscape phone is measured too (no new node id).
+        sizes = [viewport] + ([(844, 390)] if viewport == (390, 844) else [])
+        for width, height in sizes:
+            browser_page.set_viewport_size({"width": width, "height": height})
+            browser_page.wait_for_timeout(100)
+            closed = browser_page.evaluate(_BOARD_TOP)
+            _probe(browser_page)
+            opened = browser_page.evaluate(_BOARD_TOP)
+            hint = _button(browser_page, "Hint").bounding_box()
+            keep = browser_page.get_by_role("button", name="Keep", exact=True)
+            wrong = browser_page.get_by_role("button", name="Wrong guess", exact=True)
+            assert keep.is_visible() and wrong.is_visible(), (width, height)
+            assert browser_page.get_by_text("Contradiction").count() == 0
+            for box in (keep.bounding_box(), wrong.bounding_box()):
+                assert abs(box["height"] - hint["height"]) < 0.5, (width, height, box, hint)
+                if width <= 844:
+                    assert box["width"] >= 44, (width, height, box)
+            _keep(browser_page)
+            after = browser_page.evaluate(_BOARD_TOP)
+            assert closed == opened == after, (width, height, closed, opened, after)
 
         with_bar = browser_page.evaluate(_BOARD_TOP)
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)

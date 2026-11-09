@@ -2140,9 +2140,11 @@ function wireMarking(container, player) {
   // which loads this same file and is not offered a probe; the null
   // discipline is Hint's and Check's.
   const probeBar = document.getElementById("puzzle-player-probe-bar");
-  const probeToggle = probeBar?.querySelector("[data-player-probe]") ?? null;
-  const probeKeep = probeBar?.querySelector('[data-player-probe-action="keep"]') ?? null;
-  const probeAbandon = probeBar?.querySelector('[data-player-probe-action="abandon"]') ?? null;
+  // CARD-411: the toggle and its pair sit in the History group, at the
+  // toolbar's size; the bar keeps the leaving note only.
+  const probeToggle = probeBar && controls.querySelector("[data-player-probe]");
+  const probeKeep = probeBar && controls.querySelector('[data-player-probe-action="keep"]');
+  const probeAbandon = probeBar && controls.querySelector('[data-player-probe-action="abandon"]');
   const probeNote = probeBar?.querySelector(".player-probe-note") ?? null;
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
@@ -2418,6 +2420,10 @@ function wireMarking(container, player) {
     const open = probe !== null;
     probeToggle.setAttribute("aria-pressed", String(open));
     probeToggle.setAttribute("aria-disabled", String(open || player.locked()));
+    // CARD-411: Probe BECOMES the pair while one is open (the owner's
+    // "at full toolbar size"), so the row holds the same number of slots
+    // closed and nearly so open, and the board does not move.
+    probeToggle.hidden = open;
     probeKeep.hidden = !open;
     probeAbandon.hidden = !open;
     probeNote.hidden = !open;
