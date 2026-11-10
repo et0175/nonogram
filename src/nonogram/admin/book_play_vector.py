@@ -283,10 +283,14 @@ def play_steps(puzzle_count: int) -> tuple[tuple[str, str], ...]:
 
 
 def play_callout_body(solutions_page: int) -> str:
-    """The callout's text after its bold lead, naming the solutions' real page."""
+    """The callout's text after its bold lead, naming the solutions' real page.
+
+    Owner, 2026-11-10: it points a stuck reader at the online Hint, which
+    shows the line to work on and why, before the solutions.
+    """
     return (
-        f"Try it online before checking the solutions on page {solutions_page}. "
-        "The game tells you as soon as the hidden picture is complete."
+        "Press Hint in the online game: it points to a line you can work on "
+        f"and explains why. The solutions are on page {solutions_page}."
     )
 
 
