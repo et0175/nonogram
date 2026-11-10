@@ -1110,6 +1110,9 @@ function start() {
     }
     solved = now;
     banner.hidden = !solved;
+    // CARD-402 review cycle 1, F-004: on a landscape phone the banner sits at
+    // the top of a strip that scrolls itself; bring it into the strip's view.
+    if (solved) toolbar.scrollTop = 0;
     toolbar.classList.toggle("is-solved", solved);
     table.classList.toggle("is-solved", solved);
     paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
@@ -1504,7 +1507,18 @@ function start() {
   if (typeof ResizeObserver === "function") {
     // keepCluesInView measures the top first, then the bands (review cycle
     // 1: a cap that changed under the bands left their verdict stale).
+    // CARD-402 review cycle 1, F-001: on a landscape phone the toolbar is a
+    // strip BESIDE the stage whose height follows the stage, so a re-fit
+    // that changes the stage resized the strip and fired this again — at
+    // some sizes for ever (932 x 430, a 30 x 29 at Fit flipped every frame).
+    // What this observer answers to is what stands ABOVE the stage, so it
+    // re-measures only when that moved: the stage's top or the toolbar's
+    // width (a re-wrap), not a height change of a strip at the side.
+    let aboveKey = "";
     const above = new ResizeObserver(() => {
+      const key = `${Math.round(stage.getBoundingClientRect().top + window.scrollY)}|${Math.round(toolbar.getBoundingClientRect().width)}`;
+      if (key === aboveKey) return;
+      aboveKey = key;
       keepCluesInView();
       measureFit();
       replaceExplain();

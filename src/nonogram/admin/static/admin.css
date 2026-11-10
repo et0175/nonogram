@@ -1791,7 +1791,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-head h1 { font-size: var(--text-base); line-height: var(--leading-tight); margin: 0; }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-head .badge { font-size: var(--text-xs); padding: 0 var(--space-1); }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-stage-wrap { grid-row: 1 / 3; }
-  :has(> .player-toolbar ~ .player-stage-wrap) > .player-toolbar { grid-column: 1; grid-row: 2; }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-toolbar { grid-column: 1; grid-row: 2 / 4; }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-hint { grid-row: 3; }
   .player-toolbar:not([hidden]):has(~ .player-stage-wrap) {
     display: grid; grid-template-columns: repeat(2, 44px); grid-auto-rows: min-content; gap: var(--space-2);
@@ -1809,5 +1809,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters-pair { flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters p { min-height: 0; font-size: var(--text-xs); }
   .player-toolbar:has(~ .player-stage-wrap) .player-probe-note { grid-column: 1 / -1; order: 1; }
-  .player-toolbar:has(~ .player-stage-wrap) .player-confirm { position: fixed; top: var(--space-4); left: calc(2 * 44px + 3 * var(--space-4)); }
+  /* The two popovers leave the strip's scroll box (it would clip them):
+     fixed, the brush menu at its own place beside the trigger (its static
+     position, pushed below it), the reset dialog at the window's top right,
+     over the board and clear of any sidebar (review cycle 1, F-003, F-007). */
+  .player-toolbar:has(~ .player-stage-wrap) .player-tool-menu { position: fixed; top: auto; left: auto; margin-top: calc(44px + var(--space-2)); }
+  .player-toolbar:has(~ .player-stage-wrap) .player-confirm { position: fixed; top: var(--space-4); right: var(--space-4); left: auto; }
 }

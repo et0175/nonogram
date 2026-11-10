@@ -1914,9 +1914,12 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             # (the tool strip beside the board) and settles over a few frames;
             # read once the board's top has stopped moving, not after a guess.
             closed, settled = None, browser_page.evaluate(_BOARD_TOP)
-            while closed != settled:
+            for _ in range(30):  # bounded (review cycle 1, F-006)
+                if closed == settled:
+                    break
                 browser_page.wait_for_timeout(100)
                 closed, settled = settled, browser_page.evaluate(_BOARD_TOP)
+            assert closed == settled, (width, height, "the board never settled")
             _probe(browser_page)
             opened = browser_page.evaluate(_BOARD_TOP)
             hint = _button(browser_page, "Hint").bounding_box()
@@ -1948,9 +1951,12 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
         # there is no line to pay for.
         browser_page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
         settled, with_bar = None, browser_page.evaluate(_BOARD_TOP)
-        while settled != with_bar:
+        for _ in range(30):
+            if settled == with_bar:
+                break
             browser_page.wait_for_timeout(100)
             settled, with_bar = with_bar, browser_page.evaluate(_BOARD_TOP)
+        assert settled == with_bar, "the board never settled"
         # What the pull pays for: the small-button row CARD-268 measured.
         old_line = browser_page.evaluate("""() => { const e = document.createElement('i');
           e.style.cssText = 'display:block;height:calc(var(--control-h) - var(--space-3))'; document.body.append(e);
