@@ -113,33 +113,33 @@ written here rather than discovered: the player is being reopened, not won.
 
 - **AC-1** *Given* a board that becomes solved, *then* the worksheet chrome named in step 1 is no longer
   visible on the board while the solved state holds, and the success frame **is** still visible.
-  (test: `TestSolvedReveal_TheChromeGoesAndTheFrameStays`)
+  (test: `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`)
 - **AC-2** *Given* a solved board, *then* every filled cell is still exactly the picture's shape — the
   reveal removes chrome and **moves no cell**: the filled set and each cell's position and extent are
   unchanged from before the solve, compared against the pre-solve rendering rather than asserted.
-  (test: `TestSolvedReveal_TheRevealMovesNoCell`)
+  (test: `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`)
 - **AC-3** *Given* a solved board that is then **redrawn** (a breakpoint crossing and a zoom change),
   *then* the picture state persists and the **transition does not re-run** — demonstrated in both
   directions: it runs on the genuine solve, and it does not run on the redraw.
-  (test: `TestSolvedReveal_ARedrawDoesNotReplayTheCelebration`)
+  (test: `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`)
 - **AC-4** *Given* a page load of a **saved** solved board, *then* the picture state is present and the
-  transition does not run. (test: `TestSolvedReveal_AReloadDoesNotReplayTheCelebration`)
+  transition does not run. (test: `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`)
 - **AC-5** *Given* an undo that un-solves and a redo that re-solves, *then* the chrome returns on the
   undo and the picture state returns on the redo, and the card states whether the transition re-runs on
   the redo — **either answer is acceptable, an undeclared one is not**.
-  (test: `TestSolvedReveal_UndoRestoresTheWorksheet`)
+  (test: `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`)
 - **AC-6** *Given* `prefers-reduced-motion: reduce`, *then* the full **reveal** is present — the picture
   without its worksheet, the frame, the banner, the earned wording — with **no** animation or transition
   anywhere in the player, extending the existing block at `admin.css:887-889` rather than adding a second
   one. The reduced-motion path must not be a degraded reveal; only the motion is dropped.
-  (test: `TestSolvedReveal_ReducedMotionKeepsTheRevealAndDropsTheMotion`)
+  (test: `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`)
 - **AC-7** *Given* the wave values for a solved board, *then* they are produced by a **pure function in
   `solver_state.js`** of the board alone, every filled cell has a defined finite value, and a board whose
   picture is in two disconnected parts gives each part its own run of values — asserted on the function,
   not on pixels. (test: `TestSolvedReveal_TheWaveIsAPureFunctionOfTheFilledRegion`)
 - **AC-8** *Given* a solve with no errors and no hints and a solve with hints, *then* the banner's words
   differ and each is true of its own solve — the counts are read from the live state, never restated.
-  (test: `TestSolvedReveal_TheWordsMatchTheSolve`)
+  (test: `TestSolverProgress_SolvedWhenBlacksMatch`, `TestSolverHint_CanSolveAndThenLocks`)
 
 ## Guardrails
 
@@ -223,3 +223,6 @@ written here rather than discovered: the player is being reopened, not won.
   redraw is forced, which AC-3 needs.
 
 [OWNER RULING 2026-11-10] "do as you propose" (player-phone thread): the owner saw the public banner read "Solved: Puzzle b68815…" (the key — a puzzle's name is never published, ADR-0041/R2) and asked for a more festive solve. Taken in this card: (1) the banner reads "Solved!" with a celebration mark and the solve's own honest stats (hints, errors where the page has them) instead of the key; the admin page keeps the picture's name; (2) the picture reveal (layer 1) and the sweep through the picture (layer 2) as the card proposes, the transition only on a genuine solve. Test budget applies (fewer tests: one cell per behaviour, re-point before adding).
+
+- **[Implementation, 2026-11-10]** One browser cell walks AC-1..AC-6 on a real, saved solve (owner's test budget: fewer tests), so the six AC class names collapse into `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`; AC-7 is the pure cell; AC-8 re-points the two existing solve cells (no-hint in progress, hinted in hint). **Choices declared:** the wave is a **4-neighbour** BFS per connected part from its first filled cell in reading order (`pictureWave`); its step is `waveStep` — 20 ms, shrunk so the deepest cell starts within 2 s (a 30x30 serpentine is 289 steps deep). **AC-5 declared:** a solved board is LOCKED (undo/redo do nothing on it — CARD-269's lock), so the undo/redo arm cannot occur; a confirmed Reset un-solves it and the worksheet returns, and the celebration does not re-run on anything but a genuine commit. **Banner:** "Solved!" + the picture's name on the admin page; the public page removes the name element (ADR-0041/R2), so it reads "Solved!" — the count ("no hints", "N hints") is spoken in the announce and shown in the explain strip for the beat, not in the banner (a banner that wrapped moved the board). The mark is 🎉 drawn by `admin.css` `::before` because the panel templates carry no emoji (test_admin_design_tokens). **Show grid** (a toggle in the probe line, visible only while solved) puts the worksheet back; it is a new public control, added to the public-mode census. Fifth-rule and glyph geometry on an unsolved board are untouched: the reveal's transitions are scoped to `.is-solved`. Base-css FROZEN re-recorded (sample 24 -> 25 for Show grid), fidelity plant red.
+- **[Plants]** pure wave seeded from the first part's start -> red; picture rules keyed on `.is-celebrating` -> reload arm red; `waveStep` uncapped -> red; base-css fidelity with a padding change -> red. All restored.
