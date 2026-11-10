@@ -308,7 +308,10 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     url, report, keys, slug = pages_host
     page = browser_page
     # The assembler's reduction (AC-1): only a theme the site draws is served.
-    for stored, served in (("christmas", "christmas"), ("halloween", ""), (None, ""), (7, "")):
+    for stored, served in (
+        ("christmas", "christmas"), ("Christmas", "christmas"), (" CHRISTMAS ", "christmas"),
+        ("halloween", ""), (None, ""), (7, ""),
+    ):
         payload = {"slug": slug, "title": "T", "puzzle_keys": [], "theme": stored}
         assert assembler.served_book(payload, slug, {})[0]["theme"] == served, stored
 
