@@ -163,8 +163,10 @@ BOOKS = {"book1": corpus_book, "min-trim": min_trim_book}
 #: How many interior pages each book's export of the baseline puzzles draws,
 #: asserted so the walk cannot silently shrink. Book 1 is the baseline book's
 #: own count (``BASELINE_PAGE_COUNT``); the 10x10 cm trim's tighter sheet
-#: changes what the puzzle section's pairing walk can fit, one page longer.
-PAGE_COUNTS = {"book1": BASELINE_PAGE_COUNT, "min-trim": BASELINE_PAGE_COUNT + 1}
+#: changes what the puzzle section's pairing walk can fit, one page longer,
+#: and its contents run onto a second page since the Solutions rows gained
+#: one row per level (owner, 2026-11-10): two pages longer in all.
+PAGE_COUNTS = {"book1": BASELINE_PAGE_COUNT, "min-trim": BASELINE_PAGE_COUNT + 2}
 
 
 @pytest.fixture(params=sorted(BOOKS))

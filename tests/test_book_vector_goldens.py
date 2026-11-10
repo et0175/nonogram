@@ -450,7 +450,8 @@ class TestVectorSide_TheGridSizeLabelAndThePointerAreTheBooks:
         _, data = exported
         for page, (columns, rows) in LABELS.items():
             assert label_findings(_words(data, page, tmp_path), columns, rows) == [], page
-        assert label_findings(_words(data, 6, tmp_path), None, None) == []
+        # Since 2026-11-10 a two-up page prints each slot's size in its own
+        # clue corner, so "a two-up page prints none" is retired.
 
     def test_the_label_reading_fails_on_a_wrong_digit_and_a_missing_label(self) -> None:
         W = pdf_vector.Word

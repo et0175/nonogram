@@ -318,7 +318,12 @@ def _folios_by_page(calls: List[_TextCall]) -> dict:
 #: CARD-222's separator between them. A second statement of the label's shape,
 #: so this file recognises the mark independently of the function that writes
 #: it (CLAUDE.md, "prefer an independent second implementation").
-_SIZE_LABEL = re.compile(r"\d+" + re.escape(SIZE_LABEL_SEPARATOR) + r"\d+")
+_SIZE = r"\d+" + re.escape(SIZE_LABEL_SEPARATOR) + r"\d+"
+#: The footer's inner label: a grid size, or (since 2026-11-10) where the
+#: solution is, led by any size that did not fit its clue corner.
+_SIZE_LABEL = re.compile(
+    _SIZE + r"|(?:" + _SIZE + r"(?:, " + _SIZE + r")? · )?Solutions? on p\. \d+(?: and \d+)?"
+)
 
 
 def _size_labels_by_page(calls: List[_TextCall]) -> dict:

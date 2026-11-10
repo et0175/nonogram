@@ -1928,9 +1928,10 @@ class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
         corpora with their own floor).
         """
         worst_case_rows = structural_toc_entry_count(len(TIERS), 150)
-        assert worst_case_rows == 8, (
+        assert worst_case_rows == 11, (
             "a three-level book's structural TOC is one guide row, three "
-            "headings with their ranges, and one solutions row"
+            "headings with their ranges, one solutions row and one solutions "
+            "row per level"
         )
 
         measured = 0
@@ -1943,8 +1944,12 @@ class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
                 # says nothing about this height's own capacity.
                 continue
             measured += 1
-            assert measured_toc_page_count(worst_case_rows, frame, DPI) == 1, (
-                f"a {height} cm book's structural TOC must still be one page"
+            # Since the Solutions rows per level (owner, 2026-11-10) the
+            # shortest trims, under 11.4 cm, run the list onto a second page;
+            # the estimate measures that page like any other.
+            expected = 2 if tenths < 114 else 1
+            assert measured_toc_page_count(worst_case_rows, frame, DPI) == expected, (
+                f"a {height} cm book's structural TOC must be {expected} page(s)"
             )
         # 381 heights lay out today — every tenth of a centimetre from
         # 10.00 to 48.00 cm, which is KDP's own admitted band end to end.
