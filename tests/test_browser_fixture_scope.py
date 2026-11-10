@@ -748,6 +748,9 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_player_public_mode.py::TestPublicMode_LandscapeToolStrip::test_the_tools_stand_in_a_strip_left_of_the_board": (
+        "CARD-402", "AC-1/AC-3/AC-5 (owner finding 2026-11-07, ruling B): the landscape tool strip left of the board, every button on screen, the board unmoved, the strip scrolls itself",
+    ),
     "tests/test_puzzle_solver_probe.py::TestSolverProbe_StateIsPureAndStatesAreFour::test_the_wrong_guess_verdict_matches_its_table": (
         "CARD-412", "AC-1 (owner ruling 2026-11-07): probeVerdict offers the other colour only for a single dark/white first stroke, against an independent table",
     ),

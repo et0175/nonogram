@@ -1680,3 +1680,65 @@ class TestPublicMode_EveryWayOfLosingItIsCaught:
         text = (_STATIC / who).read_text()
         assert network_calls(text) == []
         assert network_calls(text + '\nfetch("/ping", { method: "POST" });\n') == ["fetch"]
+
+
+#: CARD-402: the strip's buttons that must be on screen, not the brush menu's
+#: items or the reset dialog's (popovers), and not a hidden probe button.
+_STRIP = """() => {
+  const strip = document.getElementById('puzzle-player-controls');
+  const shown = (b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden'
+    && !b.closest('[role=menu]') && !b.closest('.player-confirm');
+  const boxes = [...strip.querySelectorAll('button, [data-player-zoom-readout]')].filter(shown).map((b) => b.getBoundingClientRect());
+  const s = strip.getBoundingClientRect(), board = document.querySelector('.player-board').getBoundingClientRect();
+  return { left: s.left, right: s.right, width: s.width, scrollable: strip.scrollHeight > strip.clientHeight,
+           overflowY: getComputedStyle(strip).overflowY, boardLeft: board.left, boardTop: board.top,
+           lowest: Math.max(...boxes.map((b) => b.bottom)), shortest: Math.min(...boxes.map((b) => b.height)),
+           count: boxes.length, page: document.documentElement.scrollHeight - innerHeight, inner: innerHeight };
+}"""
+
+
+class TestPublicMode_LandscapeToolStrip:
+    """CARD-402 (owner finding 2026-11-07, item 5: "Toolbar as a vertical icon
+    column at the side ... the board then gets nearly the full height"; owner
+    ruling 2026-11-10, "B": two buttons wide). Measured on the public page —
+    the phone's page; the admin page keeps its desktop sidebar and topbar at
+    844 px and its strip scrolls there (Worktree notes). One cell:
+
+    * AC-1: at 844 x 390, 852 x 393 and 874 x 402 the strip is LEFT of the
+      board, at most two 44 px buttons and a gap wide, every button inside
+      the window with no page scroll, each 44 px tall or more;
+    * AC-3: the board's box is the same idle, with a probe open and at hint
+      rung 2;
+    * AC-5: at 568 x 320 the strip scrolls ITSELF (overflow auto) and its
+      last button can be scrolled into the window.
+    Portrait and desktop (AC-4) are the existing layout cells, unchanged.
+    """
+
+    def test_the_tools_stand_in_a_strip_left_of_the_board(self, browser_page, serve) -> None:
+        page = browser_page
+        served = serve(public_payload(SWEEP_GRID))
+        for width, height in ((844, 390), (852, 393), (874, 402)):
+            page.set_viewport_size({"width": width, "height": height})
+            open_page(page, served)
+            page.wait_for_timeout(200)
+            idle = page.evaluate(_STRIP)
+            assert idle["right"] <= idle["boardLeft"] and idle["width"] <= 2 * 44 + 8 + 1, (width, idle)
+            assert idle["lowest"] <= idle["inner"] and idle["page"] <= 0, (width, idle)
+            assert idle["shortest"] >= 44 and idle["count"] >= 8, (width, idle)
+            page.locator("[data-player-probe]").click()
+            probing = page.evaluate(_STRIP)
+            assert probing["lowest"] <= probing["inner"], (width, probing)
+            page.locator('[data-player-probe-action="keep"]').click()
+            action(page, "hint").click()
+            action(page, "hint").click()
+            rung2 = page.evaluate(_STRIP)
+            page.keyboard.press("Escape")
+            assert (idle["boardLeft"], idle["boardTop"]) == (probing["boardLeft"], probing["boardTop"]) \
+                == (rung2["boardLeft"], rung2["boardTop"]), (width, idle, probing, rung2)
+        page.set_viewport_size({"width": 568, "height": 320})
+        open_page(page, served)
+        page.wait_for_timeout(200)
+        small = page.evaluate(_STRIP)
+        assert small["overflowY"] == "auto" and small["page"] <= 0, small
+        page.evaluate("() => { const s = document.getElementById('puzzle-player-controls'); s.scrollTop = s.scrollHeight; }")
+        assert page.evaluate(_STRIP)["lowest"] <= 320, page.evaluate(_STRIP)

@@ -1199,6 +1199,11 @@ function start() {
     if (stage.style.getPropertyValue("--player-stage-top") !== value) {
       stage.style.setProperty("--player-stage-top", value);
     }
+    // CARD-402: the landscape layout's grid (admin.css) reads it too, from
+    // the stage's parent, to reach the bottom of the window.
+    if (stage.parentElement?.parentElement?.style.getPropertyValue("--player-stage-top") !== value) {
+      stage.parentElement?.parentElement?.style.setProperty("--player-stage-top", value);
+    }
   }
 
   // FIT (CARD-406). The board's size at 100% is its drawn size divided by
