@@ -211,43 +211,40 @@ def step_hint_on_a_bigger_board(page, ctx):
 STEPS = {**CONTROL_STEPS, "data-player-action=hint": step_hint_on_a_bigger_board}
 
 
-def usage_line_problems(page) -> list[str]:
-    """Where the usage paragraph says the answer line is, against where it is.
+#: CARD-413 (owner finding 2026-11-07, item 9): each control the "How to play"
+#: text names, by the bold word that starts its bullet, and where it is.
+HOWTO_CONTROLS = {
+    "Tap": "td.player-cell",
+    "Brush": ".player-tool-trigger",
+    "Region": "[data-player-region]",
+    "Hint": '[data-player-action="hint"]',
+    "Check": '[data-player-action="check"]',
+    "Probe": "[data-player-probe]",
+    # "− / + or Fit": all three (review cycle 1, F-602). Fit is the readout,
+    # a control only while there is a Fit to go to, so it is the readout.
+    "Zoom": ('[data-player-zoom-action="out"]', '[data-player-zoom-action="in"]', "[data-player-zoom-readout]"),
+}
 
-    Read from the DOM: the paragraph's claim is parsed from its own text, and
-    each claim is held to the rectangles of the header, the answer line and the
-    toolbar. A paragraph that makes neither claim is a problem too.
-    """
-    text = page.locator("#puzzle-player-hint").inner_text()
-    box = page.evaluate(
-        """() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect();
-          return {top: b.top, bottom: b.bottom, width: b.width}; };
-          return {h1: r('.player-head h1'), line: r('#puzzle-player-explain'), tools: r('#puzzle-player-controls'),
-                  stage: r('.player-stage')}; }"""
-    )
-    line, h1, tools = box["line"], box["h1"], box["tools"]
+
+def howto_problems(page) -> list[str]:
+    """CARD-413 AC-3 (it replaces CARD-386 F-2's usage-line check): every
+    sentence of the "How to play" text is true on this page — each control
+    its bullets name (the bold word) is on the page and visible, and the text
+    names no control the page lacks. Read from the DOM, opened first."""
+    page.evaluate("document.getElementById('puzzle-player-hint').open = true")
+    names = page.evaluate(
+        "[...document.querySelectorAll('#puzzle-player-hint li > strong:first-child')].map((s) => s.textContent.trim())")
     problems = []
-    if line["width"] <= 0:
-        problems.append("the answer line is not on the page")
-    claimed = False
-    if "beside the puzzle's title" in text:
-        claimed = True
-        middle = (line["top"] + line["bottom"]) / 2
-        if not h1["top"] <= middle <= h1["bottom"]:
-            problems.append("says beside the title, but the line is not on the title's row")
-    if "at the top of the page" in text:
-        claimed = True
-        if line["bottom"] > tools["top"] + 1:
-            problems.append("says at the top of the page, but the line is below the toolbar")
-    # CARD-409 (owner finding 2026-11-07): the answer is a strip over the
-    # bottom of the board — inside the stage's box, in its lower half.
-    if "a strip over the board" in text:
-        claimed = True
-        stage = box["stage"]
-        if not (stage["top"] + (stage["bottom"] - stage["top"]) / 2 <= line["top"] and line["bottom"] <= stage["bottom"] + 1):
-            problems.append("says the strip is over the board, but the line is not there")
-    if not claimed:
-        problems.append("the paragraph does not say where the answer line is")
+    if not names:
+        problems.append("the text names no control")
+    for name in names:
+        selectors = HOWTO_CONTROLS.get(name)
+        if selectors is None:
+            problems.append(f"names {name!r}, which no control here is")
+            continue
+        for selector in (selectors,) if isinstance(selectors, str) else selectors:
+            if not page.locator(selector).first.is_visible():
+                problems.append(f"names {name}, but the page has no visible {selector}")
     return problems
 
 
@@ -328,15 +325,17 @@ class TestSharedUi_ThePageRuns:
             assert _leaky_title(grid) not in browser_page.content()
 
     def test_the_usage_line_is_true_for_the_public_player(self, browser_page, preview_host) -> None:
-        """F-2: the admin's paragraph ends with a sentence about Check, which does not exist here."""
+        """F-2: the admin's text describes Check, which does not exist here.
+        Since CARD-413 (owner item 9) the text is "How to play" and its Check
+        bullet is removed here with the button (no assembly-time edit any
+        more): every control it names is on this page (AC-3)."""
         url, report, keys, _ = preview_host
         open_play(browser_page, url, keys["sweep"])
         hint = browser_page.locator("#puzzle-player-hint")
         assert hint.is_visible()
+        assert howto_problems(browser_page) == []
         text = hint.inner_text()
         assert "Check" not in text and "wrong mark" not in text, text
-        assert text.endswith("the third reveals it, and each press writes its answer in a strip over the board."), text  # CARD-409
-        assert "beside the puzzle" not in text, text
         assert browser_page.locator('[data-player-action="check"]').count() == 0
         # And the admin-only counters are gone from the toolbar.
         assert not browser_page.locator("#puzzle-player-errors").is_visible()
@@ -346,33 +345,32 @@ class TestSharedUi_ThePageRuns:
     def test_the_line_the_usage_text_names_is_where_it_says_at_both_widths(
         self, browser_page, preview_host, width, height
     ) -> None:
-        """F-1, measured from the DOM: after a Hint press the answer line is above the toolbar."""
+        """RETIRED CLAIM, 2026-11-07 (CARD-413, owner item 9): F-1's "the line
+        the usage text names is where it says". The "How to play" text names
+        no place; what it must be at both widths is one closed line
+        (AC-1) whose bullets, opened, name only controls this page shows
+        (AC-3). The name is kept (a rename moves a recorded node id)."""
         url, report, keys, _ = preview_host
         browser_page.set_viewport_size({"width": width, "height": height})
         open_play(browser_page, url, keys["sweep"])
-        action(browser_page, "hint").click()
-        assert browser_page.locator("#puzzle-player-explain").is_visible()
-        assert usage_line_problems(browser_page) == []
+        hint = browser_page.locator("#puzzle-player-hint")
+        assert hint.get_attribute("open") is None and " ".join(hint.inner_text().split()) == "How to play"
+        assert howto_problems(browser_page) == []
 
     def test_the_old_wording_is_false_on_a_phone_and_the_check_sees_it(self, browser_page, preview_host) -> None:
-        """The plant: the previous sentence, put back, must red. Since CARD-409
-        (the answer is a strip over the board) the sentence before it, "at the
-        top of the page", is false at BOTH widths, so both must red; the name
-        is kept (a rename moves a recorded node id)."""
+        """The plant (CARD-413 AC-3's control; the retired claim was CARD-386
+        F-1's old sentence): put the Check bullet back on the public page and
+        the text check must red, at both widths. The name is kept (a rename
+        moves a recorded node id)."""
         url, report, keys, _ = preview_host
-        old = "its answer in the line at the top of the page."
         problems = {}
         for width, height in ((390, 844), (1280, 900)):
             browser_page.set_viewport_size({"width": width, "height": height})
             open_play(browser_page, url, keys["sweep"])
-            action(browser_page, "hint").click()
             browser_page.evaluate(
-                "(old) => { const p = document.querySelector('#puzzle-player-hint');"
-                " p.textContent = p.textContent.replace(/its answer in a strip over the board\\./, old); }",
-                old,
-            )
-            assert old in browser_page.locator("#puzzle-player-hint").inner_text()
-            problems[width] = usage_line_problems(browser_page)
+                "() => { const li = document.createElement('li'); li.innerHTML = '<strong>Check</strong>: highlights the row.';"
+                " document.querySelector('#puzzle-player-hint ul').append(li); }")
+            problems[width] = howto_problems(browser_page)
         assert problems[390] != [] and problems[1280] != [], problems
 
     def test_a_bad_address_shows_no_placeholder_header_chip_or_false_fallback(
@@ -709,11 +707,12 @@ class TestSharedUi_TheShellRefusesAFragmentItCannotTrust:
         page = assembler.shared_ui_play_page(fragment)
         # The admin's payload element (it carries the admin's solution) is gone; the loader builds its own.
         assert '<script type="application/json"' not in page and "puzzle-player-data" in page
-        assert "Check highlights" not in page
+        # CARD-413: no assembly-time text edit any more — the Check bullet is in
+        # the shell and removed when the page runs (the live check is
+        # test_the_usage_line_is_true_for_the_public_player).
+        assert page.count("data-player-howto-check") == 1
 
     @pytest.mark.parametrize("damage, why", [
-        (lambda f: f.replace(assembler.SHARED_UI_HINT_CLAUSE, "."), "the usage clause is gone"),
-        (lambda f: f + assembler.SHARED_UI_HINT_CLAUSE, "the usage clause twice"),
         (lambda f: f.replace('id="puzzle-player-data"', 'id="other"'), "no payload element"),
         (lambda f: f.replace("data-player-solved-name", "data-x"), "no banner name hook"),
         (lambda f: f.replace('class="player-tier"', 'class="x"'), "no tier hook"),
@@ -729,7 +728,7 @@ class TestSharedUi_TheShellRefusesAFragmentItCannotTrust:
         preview_of(root, out, fragment, tmp_path)
         before = tree_bytes(out)
         with pytest.raises(ValueError):
-            preview_of(root, out, fragment.replace(assembler.SHARED_UI_HINT_CLAUSE, "."), tmp_path)
+            preview_of(root, out, fragment.replace('id="puzzle-player"', 'id="x"'), tmp_path)  # the clause damage until CARD-413 retired the clause
         assert tree_bytes(out) == before
 
 # ==========================================================================

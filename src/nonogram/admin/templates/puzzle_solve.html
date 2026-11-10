@@ -14,7 +14,7 @@
   The marking controls (CARD-161) are rendered here and start hidden;
   solver.js wires them and shows them once the board is drawn, so a page whose
   script never ran, or whose payload solver.js refused, shows no dead buttons
-  (nor the usage hint below the board). Undo, redo and reset stay focusable
+  (nor the "How to play" line below the board, CARD-413). Undo, redo and reset stay focusable
   and say aria-disabled="true" when they have nothing to do.
 
   The brush dropdown (CARD-194, narrowed by CARD-211): the four marking
@@ -144,7 +144,7 @@
   shown to its right in the same row. Hint comes after Reset in the DOM, so
   the Tab order of the CARD-161 controls is unchanged (AC-310's order test).
   The counter's names are .player-hints / data-player-hints: "player-hint"
-  is the usage paragraph below the board.
+  is the "How to play" disclosure below the board (CARD-413).
 
   One press no longer reveals a cell. Hint is a ladder of three rungs, and
   pressing it climbs one: rung 1 highlights the line to look at and says so,
@@ -337,7 +337,26 @@
 <div class="player-explain player-offer" id="puzzle-player-offer" role="group" aria-label="Wrong guess" hidden><span class="player-offer-text"></span><button type="button" class="btn btn-outline-secondary" data-player-offer="mark">Mark it</button><button type="button" class="btn btn-outline-secondary" data-player-offer="dismiss">No thanks</button></div>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it. Hint answers in three presses: the first highlights the row or column to look at, the second says why it decides a cell, the third reveals it; Check highlights the row of the first wrong mark, and each press writes its answer in a strip over the board.</p>
+{# CARD-413 (owner finding 2026-11-07, item 9: "a single line, 'How to
+   play ▸', that opens to this"): the usage text is one collapsed line that
+   opens to one bullet per control, in toolbar order, each named by what it
+   looks like (the owner's words; Region's icon is two squares since
+   CARD-401, and Contradiction is Wrong guess since CARD-411). The Check
+   bullet is admin-only: public mode removes it with the Check button
+   (solver.js PUBLIC_ABSENT), so the page never names a control it lacks.
+   The open state is the browser's <details> state only — never saved. #}
+<details class="player-hint player-howto" id="puzzle-player-hint" hidden>
+  <summary>How to play</summary>
+  <ul>
+    <li><strong>Tap</strong> a cell to fill it. Tap again to cycle: black, white (dot), empty.</li>
+    <li><strong>Brush</strong> (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.</li>
+    <li><strong>Region</strong> (the two squares): turn it on, then drag along a row or column to mark many cells at once. With it off, dragging scrolls.</li>
+    <li><strong>Hint</strong>: press up to three times. First it shows where to look, then why, then it fills the cell.</li>
+    <li data-player-howto-check><strong>Check</strong>: highlights the row of the first wrong mark.</li>
+    <li><strong>Probe</strong>: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.</li>
+    <li><strong>Zoom</strong>: &minus; / + or Fit to see the whole puzzle.</li>
+  </ul>
+</details>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

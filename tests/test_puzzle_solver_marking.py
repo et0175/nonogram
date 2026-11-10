@@ -620,7 +620,12 @@ class TestSolverClickFollowsTheBrush:
         assert _marked(_states(browser_page)) == {(3, 8): F}
 
     def test_the_page_copy_describes_the_new_click(self, browser_page, live) -> None:
-        """AC-11 — the tool group is "Marking tool"; the hint names each colour
+        """Since CARD-413 (owner finding 2026-11-07, item 9) the usage text is
+        the "How to play" disclosure; the paragraph this docstring goes on to
+        describe is retired (see the comment in the body), the tool group's
+        claims below are unchanged.
+
+        AC-11 — the tool group is "Marking tool"; the hint names each colour
         brush's sequence and keeps the drag and Maybe sentences. CARD-194: the
         group now holds one trigger plus a menu of its four brushes and,
         beside it, Region's own toggle (CARD-211 — the menu's fifth item
@@ -645,23 +650,32 @@ class TestSolverClickFollowsTheBrush:
         expect(group).to_have_accessible_name("Marking tool")
         assert group.locator("[data-player-tool]").count() == 4  # CARD-211: Region left the menu
         assert group.locator("[data-player-region]").count() == 1
-        hint = browser_page.locator("p.player-hint#puzzle-player-hint")
-        assert hint.is_visible()
-        text = " ".join(hint.text_content().split())
-        assert "Click a cell to cycle" not in text and "for drags" not in text
-        assert text == (
-            "Click a cell to give it the selected brush's mark; click it again to go on "
-            "(Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). "
-            "Open the brush menu to choose Black, White, Maybe or Clear. "
-            "Press Region, beside the brush, to make the next drag along a row or column "
-            "mark with the brush; "
-            "with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. "
-            "With Maybe, a click marks ? and a second click clears it. "
-            "Hint answers in three presses: the first highlights the row or column to look at, "
-            "the second says why it decides a cell, the third reveals it; "
-            "Check highlights the row of the first wrong mark, "
-            "and each press writes its answer in a strip over the board."
-        )
+        # RETIRED CLAIM, 2026-11-07 (CARD-413, owner finding item 9: "a single
+        # line, 'How to play ▸', that opens to this"): the usage paragraph's
+        # exact text. The usage text is now one collapsed line (AC-1) that
+        # opens, by keyboard as by pointer (AC-2), to one bullet per control
+        # in toolbar order, in the owner's words (Region's two squares since
+        # CARD-401; Wrong guess since CARD-411; Check admin-only).
+        howto = browser_page.locator("details.player-hint#puzzle-player-hint")
+        assert howto.is_visible() and howto.get_attribute("open") is None
+        assert " ".join(howto.inner_text().split()) == "How to play"  # one line, closed
+        line = howto.locator("summary").bounding_box()
+        board_top = browser_page.evaluate("document.querySelector('.player-board').getBoundingClientRect().top")
+        howto.locator("summary").focus()
+        browser_page.keyboard.press("Enter")
+        assert howto.get_attribute("open") is not None
+        assert browser_page.evaluate("document.querySelector('.player-board').getBoundingClientRect().top") == board_top
+        bullets = [" ".join(li.split()) for li in howto.locator("li").all_inner_texts()]
+        assert bullets == [
+            "Tap a cell to fill it. Tap again to cycle: black, white (dot), empty.",
+            "Brush (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.",
+            "Region (the two squares): turn it on, then drag along a row or column to mark many cells at once. With it off, dragging scrolls.",
+            "Hint: press up to three times. First it shows where to look, then why, then it fills the cell.",
+            "Check: highlights the row of the first wrong mark.",
+            "Probe: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.",
+            "Zoom: \u2212 / + or Fit to see the whole puzzle.",
+        ], bullets
+        assert line["height"] < 40, line  # the closed line is one line
 
 
 # ==========================================================================
