@@ -480,6 +480,13 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
+  # CARD-412 DISPATCHED 2026-11-10T03:48Z (player-phone thread); serial after 411.
+  - card: CARD-412
+    branch: card/412-wrong-guess-offer
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-412
+    started: 2026-11-10T03:48Z
+    estimate: 3c (1d)
+    cut_from: ca0f5836
 # CARD-411 CLEARED 2026-11-10T03:47Z: merged f2c82bac, done, review 9.0 on cycle 3 (7.5, 8.5), owner ruling A mid-card, estimate 2c -> 1.5. Player-set gate 1394 passed. Entry dropped.
 # CARD-410 CLEARED 2026-11-09T23:18Z: merged e1e1144b, done, review 9.0 on cycle 1, estimate 3c -> 0.33. Player-set gate 1394 passed. Entry dropped.
 # CARD-409 CLEARED 2026-11-09T22:31Z: merged e8d2540c, done, review 9.0 on cycle 3 (7.0, 7.5), estimate 3c -> 1.0. Player-set gate 1392 passed. Entry dropped.

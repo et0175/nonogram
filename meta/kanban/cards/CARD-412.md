@@ -1,6 +1,6 @@
 # CARD-412: A wrong guess becomes progress — after it, the player is offered to mark the guessed cell the other way
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/412-wrong-guess-offer
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-412
 **Source:** owner player findings 2026-11-07, item 8, first bullet: "Turn a contradiction into progress. After pressing 'Contradiction', say something like 'Your first guess was wrong, so that cell must be white. Mark it?'". Whether it marks automatically or asks is the owner's wording 'Mark it?'; owner Q15 confirms asking.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-411
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_probe.py, tests/test_puzzle_solver_resume.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-10T03:48Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
