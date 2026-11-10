@@ -1,6 +1,6 @@
 # CARD-369: The upstream cycle counter double-counts a threshold-reached cycle — measured, 50 apparent disagreements collapse to 2 with zero regressions
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-363
 **Touches:** meta/kanban/retro.md, meta/architecture/decisions/open.yml
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-10 enabler triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -69,3 +69,7 @@ own worked examples are consistent with it: CARD-091's 63 prefix lines / 20 Scor
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-10 — enabler triage
+
+The counter it fixes lives in forge_1, outside this repo; bookkeeping only.

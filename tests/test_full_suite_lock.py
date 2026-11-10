@@ -46,6 +46,8 @@ from __future__ import annotations
 
 import ast
 import os
+import re
+import socket
 import subprocess
 import sys
 import time
@@ -1174,3 +1176,241 @@ def test_a_tree_with_no_lock_runs_exactly_as_it_did_before(tmp_path):
         assert verdict_said not in combined, (
             f"a run with no lock in sight reports a verdict: {verdict_said!r}"
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-370 / CARD-377 — a full suite takes the lock; a dead holder's lock
+# does not wait six hours; a second run in one worktree is announced
+# --------------------------------------------------------------------------
+#
+# The real-process cases run in a *throwaway tree*: this module copied to
+# ``<tmp>/tests/``, beside a two-file suite. ``this_worktree()`` is then the
+# tmp tree and the lock is ``<tmp>/meta/kanban/.full-suite.lock`` — the
+# module's own production path, reached without setting OVERRIDE or
+# redirecting LOCK_PATH_VAR (CARD-370 G-1, CARD-377 AC-5), and without ever
+# touching this board's real lock.
+
+_FAKE_CONFTEST = (
+    "from full_suite_lock import pytest_configure, pytest_terminal_summary  # noqa: F401\n"
+)
+
+#: Each test writes what it saw of the lock, so the outer test can read the
+#: holder from *inside* the run rather than inferring it from the output.
+_FAKE_TEST = '''
+import os
+from pathlib import Path
+
+LOCK = Path(__file__).resolve().parent.parent / "meta" / "kanban" / ".full-suite.lock"
+
+
+def test_{name}():
+    seen = LOCK.read_text() if LOCK.exists() else "(no lock)"
+    (LOCK.parent.parent / "seen-{name}.txt").write_text(f"pid: {{os.getpid()}}\\n---\\n{{seen}}")
+'''
+
+
+@pytest.fixture
+def fake_tree(tmp_path):
+    tree = tmp_path / "tree"
+    (tree / "tests").mkdir(parents=True)
+    (tree / "meta" / "kanban").mkdir(parents=True)
+    (tree / "tests" / "full_suite_lock.py").write_bytes(Path(guard.__file__).read_bytes())
+    (tree / "tests" / "conftest.py").write_text(_FAKE_CONFTEST)
+    for name in ("one", "two"):
+        (tree / "tests" / f"test_{name}.py").write_text(_FAKE_TEST.format(name=name))
+    (tree / "pytest.ini").write_text("[pytest]\ntestpaths = tests\naddopts = -q -p no:cacheprovider\n")
+    return tree
+
+
+def _fake_lock(tree: Path) -> Path:
+    return tree / "meta" / "kanban" / ".full-suite.lock"
+
+
+def _run_fake(tree: Path, *args: str, token: str | None = None):
+    env = dict(os.environ)
+    for name in (guard.OVERRIDE, guard.LOCK_PATH_VAR, guard.OWNER_VAR):
+        env.pop(name, None)
+    if token is not None:
+        env[guard.OWNER_VAR] = token
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", *args],
+        cwd=tree,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+
+
+def _token_lock(worktree: Path, *, pid: int, host: str, token: str = "feedc0de") -> str:
+    return guard.lock_text_for(
+        worktree=str(worktree), token=token, pid=pid, host=host, now=time.time()
+    )
+
+
+def _dead_pid() -> int:
+    """A pid that answered to a process a moment ago and answers to none now."""
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    return child.pid
+
+
+def test_a_full_suite_holds_the_lock_while_it_runs_and_removes_it_after(fake_tree):
+    """370 AC-1/AC-2: the run that collected everything is the holder, and says so."""
+    result = _run_fake(fake_tree)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "this run is a full suite and holds the lock" in out, "acquisition is silent"
+    for name in ("one", "two"):
+        seen = (fake_tree / "meta" / f"seen-{name}.txt").read_text()
+        test_pid = seen.split("\n", 1)[0].removeprefix("pid: ")
+        fields = guard.parse_fields(seen.split("---\n", 1)[1])
+        assert fields.get("pid") == test_pid, f"test_{name} ran without its run holding the lock"
+        assert guard._same_tree(fields["worktree"], str(fake_tree))
+    assert not _fake_lock(fake_tree).exists(), "the lock outlived the run that took it"
+
+
+@pytest.mark.parametrize(
+    "narrowing",
+    [
+        ("tests/test_one.py",),
+        ("-k", "one"),
+        ("tests/test_one.py::test_one", "tests/test_two.py"),
+        ("--deselect", "tests/test_two.py::test_two"),
+        ("--ignore", "tests/test_two.py"),
+    ],
+    ids=["one-file", "-k", "node-id", "--deselect", "--ignore"],
+)
+def test_a_narrower_run_takes_no_lock_however_it_is_spelled(fake_tree, narrowing):
+    """370 AC-1 control: narrower than the suite, by any spelling, holds nothing."""
+    result = _run_fake(fake_tree, *narrowing)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "holds the lock" not in out
+    for seen in (fake_tree / "meta").glob("seen-*.txt"):
+        assert "(no lock)" in seen.read_text(), f"{narrowing} took the lock"
+
+
+@pytest.mark.parametrize("spelling", [(), ("tests",), (".",), ("tests/test_one.py", "tests/test_two.py")])
+def test_every_spelling_of_the_whole_suite_takes_the_lock(fake_tree, spelling):
+    """370 AC-1: the decision is the collection, so the command line cannot evade it."""
+    out = _run_fake(fake_tree, *spelling)
+    assert "this run is a full suite and holds the lock" in out.stdout + out.stderr, spelling
+
+
+def test_a_full_suite_refused_by_a_live_foreign_lock_still_refuses(fake_tree):
+    """377 AC-4: the refusal path is unchanged — a live holder elsewhere stops the run."""
+    lock = _fake_lock(fake_tree)
+    lock.write_text(_token_lock(Path(ANOTHER_WORKTREE), pid=os.getpid(), host=socket.gethostname()))
+
+    result = _run_fake(fake_tree)
+
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "Refusing to start" in result.stdout + result.stderr
+    assert lock.read_text().count("feedc0de") == 1, "a refused run touched the holder's lock"
+
+
+def test_a_dead_holders_lock_is_walked_past_and_taken_over(fake_tree):
+    """377 AC-3: a lock whose pid is gone does not wait six hours."""
+    lock = _fake_lock(fake_tree)
+    lock.write_text(_token_lock(Path(ANOTHER_WORKTREE), pid=_dead_pid(), host=socket.gethostname()))
+
+    result = _run_fake(fake_tree)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "is no longer running" in out
+    assert "this run is a full suite and holds the lock" in out
+    assert not lock.exists()
+
+
+def test_a_second_run_in_the_same_worktree_is_announced_not_refused(fake_tree):
+    """377 AC-1/AC-2: another live run's lock in this tree says so, and lets it through."""
+    lock = _fake_lock(fake_tree)
+    lock.write_text(_token_lock(fake_tree, pid=os.getpid(), host=socket.gethostname()))
+
+    result = _run_fake(fake_tree, "tests/test_one.py")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "another run in this worktree holds the lock" in out
+    assert lock.read_text().count("feedc0de") == 1, "the second run disturbed the first's lock"
+
+
+def test_a_child_of_the_holding_run_stays_silent(fake_tree):
+    """377 AC-2 control: the holder's own children inherit its token and say nothing."""
+    lock = _fake_lock(fake_tree)
+    lock.write_text(_token_lock(fake_tree, pid=os.getpid(), host=socket.gethostname()))
+
+    result = _run_fake(fake_tree, "tests/test_one.py", token="feedc0de")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "full-suite lock" not in out, "a channel that always speaks is no signal"
+
+
+def test_a_gate_scripts_lock_in_its_own_worktree_stays_silent(fake_tree):
+    """The gate's lock (no token) in its own tree: unchanged, silent, and not taken over."""
+    lock = _fake_lock(fake_tree)
+    lock.write_text(gate_lock(str(fake_tree)))
+
+    result = _run_fake(fake_tree)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "full-suite lock" not in out
+    assert "fake-gate-for-the-test" in lock.read_text(), "the run replaced its gate's lock"
+
+
+def test_a_heartbeat_silent_past_its_threshold_is_stale_only_when_the_pid_cannot_answer():
+    """377 AC-3, pure: the heartbeat speaks for a holder on another host only."""
+    lock = _token_lock(Path(ANOTHER_WORKTREE), pid=1, host="another-host")
+    late = guard.HEARTBEAT_STALE_SECONDS + 1
+
+    allowed, said = guard.verdict(
+        lock, worktree=str(REPO), age_seconds=late, overridden=False, alive=None, heartbeat_age=late
+    )
+    assert allowed is True and "stopped its heartbeat" in said
+
+    allowed, _ = guard.verdict(
+        lock, worktree=str(REPO), age_seconds=late, overridden=False, alive=None, heartbeat_age=late - 2
+    )
+    assert allowed is False, "a fresh heartbeat was read as a dead holder"
+
+    allowed, _ = guard.verdict(
+        lock, worktree=str(REPO), age_seconds=late, overridden=False, alive=True, heartbeat_age=late
+    )
+    assert allowed is False, "a live pid was overruled by a starved heartbeat thread"
+
+
+def test_holder_alive_answers_only_on_the_host_that_wrote_the_lock():
+    here = socket.gethostname()
+    assert guard.holder_alive({"host": here, "pid": str(os.getpid())}) is True
+    assert guard.holder_alive({"host": here, "pid": str(_dead_pid())}) is False
+    assert guard.holder_alive({"host": "another-host", "pid": str(os.getpid())}) is None
+    assert guard.holder_alive(guard.parse_fields(gate_lock())) is None, "a gate lock has no pid"
+
+
+def test_the_stale_threshold_for_gate_locks_is_unchanged():
+    """377 AC-3: the heartbeat is added beside the six hours, not instead of them."""
+    assert guard.STALE_SECONDS == 21600.0
+
+
+def test_a_failure_under_a_foreign_lock_says_so_where_it_failed(fake_tree):
+    """370 AC-3: the failing test's own report carries the lock, not a grep of the log."""
+    (fake_tree / "tests" / "test_two.py").write_text(
+        "from pathlib import Path\n"
+        "LOCK = Path(__file__).resolve().parent.parent / 'meta' / 'kanban' / '.full-suite.lock'\n"
+        f"TEXT = {gate_lock()!r}\n"
+        "def test_two():\n"
+        "    LOCK.write_text(TEXT)\n"
+        "    assert False, 'a child pytest was refused'\n"
+    )
+    result = _run_fake(fake_tree, "tests/test_two.py")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert len(re.findall(r"^-+ full-suite lock -+$", out, re.M)) == 1, out
+    assert "1 failure(s) happened while another worktree held the lock" in out

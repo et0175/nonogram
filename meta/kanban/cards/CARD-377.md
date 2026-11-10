@@ -1,6 +1,6 @@
 # CARD-377: A second actor in one worktree is waved through SILENTLY, and a hard-stopped holder strands the lock for six hours
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1c (0.5d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/full_suite_lock.py, tests/test_full_suite_lock.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** n/a — closed on the owner's 2026-11-10 enabler triage; no review of its own.
+**Started:** 2026-11-10
+**Closed:** 2026-11-10
+**Actual:** about two hours, with CARD-377
 **Merge commit:** —
 **Blocked by:** —
 
@@ -104,3 +104,10 @@ them. Keeping them here would have made this card a theme rather than a change.
 ## Worktree notes
 
 (none yet)
+
+## Closed 2026-11-10 — owner's enabler triage, done together with CARD-370
+
+- **AC-1/AC-2.** A lock in this worktree that carries a token this process did not inherit is announced ("another run in this worktree holds the lock") and the run is still allowed. The control is the holder's own child, which inherits the token through `NONOGRAM_FULL_SUITE_LOCK_OWNER` and stays silent. A gate script's lock (no token) in its own tree stays silent as before.
+- **AC-3.** A lock written by a full suite carries `pid` and `host`, and is touched every 60 s. On the writing host a pid that answers to no process makes it stale at once. From another host a heartbeat silent for 900 s does. A live pid outranks a starved heartbeat. A full suite that walks past a stale lock takes it over. `STALE_SECONDS` is unchanged and still governs the gate scripts' locks, which carry neither field.
+- **AC-4.** The refusal and the six-hour walk-past keep their existing tests. There is a new real-run refusal by a live foreign holder too.
+- **AC-5.** Neither variable is set or redirected by the new code or tests.
