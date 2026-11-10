@@ -239,3 +239,5 @@ written here rather than discovered: the player is being reopened, not won.
 
 [Review 3/3] Score: 9.0 (7.5 → 9.0, Δ+1.5) — PASS: no Critical or Important; F-201 measured 0/10 red beside main 0/10 under gate load; 3 Minor accepted (F-301 the banner check proves the rule applies, not that it ran — motion is still proven by the per-cell CSSAnimation count; F-203; F-005). Report meta/review/CARD-280-review-3.yml.
 
+- **[Post-merge follow-up, 2026-11-10]** The screenshot check for the owner showed the crosshair band (CARD-267) left by the pointer on the solving stroke's last cell, drawn across the finished picture. Two token-only rules paint a crossed cell back to its paper/ink while `.is-solved:not(.is-showing-grid)`; the reveal cell hovers after the solve and compares the crossed cells against cells outside the band (plants: either rule removed -> red); the CARD-267 crosshair-rule census re-pointed to include them.
+

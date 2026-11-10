@@ -1307,6 +1307,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-stage { --player-cross: var(--color-surface-hover); --player-cross-ink: color-mix(in srgb, var(--color-surface-hover) 16%, var(--grid-ink)); }
 .player-cell.is-crossed { background: var(--player-cross); }
 .player-cell.is-crossed[data-state="filled"] { background: var(--player-cross-ink); }
+/* CARD-280 follow-up: the solved PICTURE carries no crosshair band (a mouse
+   left on the board after the solving stroke drew a grey row and column
+   across it); "Show grid" brings the worksheet, and the band, back. */
+.player-board.is-solved:not(.is-showing-grid) .player-cell.is-crossed { background: var(--grid-paper); }
+.player-board.is-solved:not(.is-showing-grid) .player-cell.is-crossed[data-state="filled"] { background: var(--grid-ink); }
 .player-clue.is-crossed { background: var(--player-cross); }
 
 /* The hint ladder's line (CARD-269): rung 1 and rung 2 highlight the line

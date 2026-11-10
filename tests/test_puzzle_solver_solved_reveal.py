@@ -24,7 +24,7 @@ from collections import deque
 
 import pytest
 
-from tests.test_puzzle_solver_marking import GRID, _button, _drag, _states, _tool
+from tests.test_puzzle_solver_marking import GRID, _button, _centre, _drag, _states, _tool
 from tests.test_puzzle_solver_page import _open, browser_page, browser_type, live  # noqa: F401
 
 #: A 5 x 5 the cell solves with real, saved strokes (so a reload restores it):
@@ -169,6 +169,13 @@ class TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce:
         changed = [(a, b) for a, b in zip(before["boxes"], solved["boxes"]) if a[1:] != b[1:]]
         assert changed == [], changed[:3]  # no cell moved
         assert [b[0] for b in solved["boxes"]] == _states(page)
+        # The pointer is still on the solving stroke's last cell: the picture
+        # shows no crosshair band there (owner screenshot check 2026-11-10).
+        ink, paper = (page.evaluate(f"getComputedStyle(document.querySelector('td.player-cell[data-row=\"{r}\"][data-col=\"{c}\"]')).backgroundColor")
+                      for r, c in ((0, 0), (0, 4)))  # outside row 4 and column 3
+        page.mouse.move(*_centre(page, 4, 3))
+        crossed = page.evaluate("[...document.querySelectorAll('td.player-cell.is-crossed')].map((td) => [td.dataset.state, getComputedStyle(td).backgroundColor])")
+        assert crossed and all(bg == (ink if state == "filled" else paper) for state, bg in crossed), (crossed, ink, paper)
 
         page.set_viewport_size({"width": 700, "height": 900})  # a redraw across the breakpoint
         page.wait_for_timeout(200)
