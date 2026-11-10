@@ -114,6 +114,9 @@ _BOARD = """() => {
 }"""
 
 
+_RUNNING = "document.querySelector('.player-stage').getAnimations({ subtree: true }).length"
+
+
 def _settle(page):
     page.evaluate("Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null)))")
 
@@ -128,14 +131,17 @@ class TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce:
     * the celebration class is on after the genuine solve, and off again;
     * AC-3: a redraw (a resize across the phone breakpoint and back) keeps the
       picture and does not put the celebration back;
-    * AC-4: a reload of the saved solved board shows the picture, no
-      celebration;
+    * AC-3/AC-4: a redraw and a reload of the saved solved board show the
+      picture with NOTHING running on the stage (no sweep, no fade);
     * "Show grid" puts the worksheet back, and again takes it away;
     * AC-5: a solved board is LOCKED (undo and redo do nothing on it), so a
-      confirmed Reset is what un-solves it, and the worksheet returns (the
-      card's undo/redo arm cannot occur; declared here);
+      confirmed Reset un-solves it and the worksheet returns; Reset is one
+      undoable step, so Undo then re-solves it — the picture returns and the
+      celebration does NOT re-run (declared: an undo or redo is not a
+      genuine solve);
     * AC-6: under prefers-reduced-motion the same picture state, and nothing
-      running on the board.
+      running on the board (a genuine solve under reduced motion running
+      nothing is TestSolverProgress_ReducedMotion's cell).
     Plant: the picture rules keyed on .is-celebrating (gone after the beat)
     instead of .is-solved -> the reload arm red.
     """
@@ -170,11 +176,13 @@ class TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce:
         page.wait_for_timeout(200)
         redrawn = page.evaluate(_BOARD)
         assert redrawn["solved"] and not redrawn["celebrating"] and redrawn["clue"] == "0", redrawn
+        assert page.evaluate(_RUNNING) == 0  # nothing replays on a redraw
 
         page.reload()
         page.wait_for_function("window.puzzlePlayer !== undefined")
         reloaded = page.evaluate(_BOARD)
         assert reloaded["solved"] and not reloaded["celebrating"] and reloaded["dot"] == "hidden", reloaded
+        assert page.evaluate(_RUNNING) == 0  # nor on a reload: no fade, no sweep
 
         page.get_by_role("button", name="Show grid").click()
         _settle(page)
@@ -191,7 +199,7 @@ class TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce:
         page.wait_for_function("window.puzzlePlayer !== undefined")
         calm = page.evaluate(_BOARD)
         assert calm["solved"] and calm["clue"] == "0" and calm["dot"] == "hidden", calm
-        assert page.evaluate("document.querySelector('.player-stage').getAnimations({ subtree: true }).length") == 0
+        assert page.evaluate(_RUNNING) == 0
         page.emulate_media(reduced_motion="no-preference")
 
         # AC-5: a solved board is LOCKED (Undo and Redo do nothing on it), so
@@ -202,3 +210,11 @@ class TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce:
         reset = page.evaluate(_BOARD)
         assert not reset["solved"] and reset["clue"] == "1" and not reset["celebrating"], reset
         assert page.get_by_role("button", name="Show grid").count() == 0  # gone with the solve
+        # AC-5, declared: Reset is one undoable step, so Undo re-solves the
+        # board — the picture returns, and the celebration does not re-run
+        # (an undo replays a board already seen; only a stroke or a hint is a
+        # genuine solve).
+        _button(page, "Undo").click()
+        undone = page.evaluate(_BOARD)
+        assert undone["solved"] and not undone["celebrating"] and undone["clue"] == "0", undone
+        assert page.evaluate(_RUNNING) == 0

@@ -1144,11 +1144,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    is the PICTURE — the per-cell hairlines, the fifth rules, the white dots
    and the clue gutters fade out (colour and opacity only, no geometry), the
    success frame stays — until "Show grid" puts the worksheet back. A
-   transition, not an animation, so a reload or a redraw of a solved board
-   (built already solved) shows the picture without playing anything. The
-   sweep above runs only under .is-celebrating, a one-shot class solver.js
-   adds on a genuine solve and takes off again. */
-.player-board.is-solved .player-cell, .player-board.is-solved .player-clue, .player-board.is-solved .player-corner { transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
+   fade is keyed on .is-celebrating, the one-shot class solver.js adds on a
+   genuine solve only, so a reload, a redraw, an undo/redo or Show grid
+   switches the picture with nothing playing (review cycle 1, F-001: keyed on
+   .is-solved, a reload faded 131 properties). */
+.player-board.is-celebrating .player-cell, .player-board.is-celebrating .player-clue, .player-board.is-celebrating .player-corner { transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
 .player-board.is-solved:not(.is-showing-grid) .player-cell { border-color: transparent; box-shadow: none; }
 .player-board.is-solved:not(.is-showing-grid) .player-cell[data-state="empty"]::after { visibility: hidden; }
 .player-board.is-solved:not(.is-showing-grid) .player-clue,

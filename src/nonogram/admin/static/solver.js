@@ -585,12 +585,14 @@
 
 import {
   EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
-  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, pictureWave, record, waveStep,
+  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, pictureWave, record, SWEEP_SPAN_MS, waveStep,
   redo, resetStroke, solvedStats, undo,
 } from "./solver_state.js";
 // CARD-280: how long the one-shot celebration class stays on the table —
 // the sweep's longest delay plus its flash, declared rather than measured.
-const CELEBRATION_MS = 4000;
+// The beat: the whole sweep (at most SWEEP_SPAN_MS to the last cell's start),
+// its 440 ms flash, and room to read the strip's sentence.
+const CELEBRATION_MS = SWEEP_SPAN_MS + 2000;
 // Public mode (CARD-385): see PUBLIC MODE above. The mode's one spelling and
 // its solution-free "solved" come from the pure module.
 import { PUBLIC_MODE, isClueSolved } from "./solver_state.js";
@@ -1455,8 +1457,11 @@ function start() {
       paintProbe();
       if (marking.getProbe() === null) save.write(serializeState(history, payload));
     },
-    commit(next, hint) {
-      celebrate = true; // CARD-280: a solve reached by THIS change is genuine
+    commit(next, hint, replay = false) {
+      // CARD-280: a solve reached by THIS change is genuine — a stroke, a
+      // hint. An undo or a redo only steps back to a board already seen, so
+      // it shows the picture without celebrating (review cycle 1, F-002).
+      celebrate = !replay;
       history = next;
       board = history.board;
       paint(cellElements, board);
@@ -2567,7 +2572,7 @@ function wireMarking(container, player) {
     syncProbe(); // CARD-268
   }
 
-  function commit(next, hint = null) {
+  function commit(next, hint = null, replay = false) {
     lastClick = null; // anything recorded ends a run of repeat clicks
     // CARD-269: and anything recorded puts the ladder back on rung 1 with
     // nothing highlighted. THIS is the one choke point every recorded change
@@ -2596,7 +2601,7 @@ function wireMarking(container, player) {
     // through showProgress's hint branch inside that call — writes its answer
     // over an empty line rather than racing the clear.
     showExplain("");
-    player.commit(next, hint);
+    player.commit(next, hint, replay);
     if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
   }
@@ -2922,7 +2927,7 @@ function wireMarking(container, player) {
   };
   for (const name of ["undo", "redo"]) {
     actions[name].addEventListener("click", () => {
-      if (!gesture) commit(step[name]());
+      if (!gesture) commit(step[name](), null, true);
     });
   }
 
@@ -3031,7 +3036,7 @@ function wireMarking(container, player) {
   document.addEventListener("keydown", (event) => {
     if (gesture || !(event.ctrlKey || event.metaKey) || event.altKey || !isZ(event)) return;
     event.preventDefault();
-    commit(event.shiftKey ? step.redo() : step.undo());
+    commit(event.shiftKey ? step.redo() : step.undo(), null, true);
   });
 
   syncTrigger();
