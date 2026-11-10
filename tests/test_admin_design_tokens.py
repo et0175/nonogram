@@ -516,6 +516,10 @@ def test_the_crosshair_tint_comes_from_tokens() -> None:
         ".player-stage",
         ".player-cell.is-crossed",
         '.player-cell.is-crossed[data-state="filled"]',
+        # CARD-280 follow-up (2026-11-10): the solved picture paints the band
+        # back to its own paper and ink, so it carries no crosshair.
+        ".player-board.is-solved:not(.is-showing-grid) .player-cell.is-crossed",
+        '.player-board.is-solved:not(.is-showing-grid) .player-cell.is-crossed[data-state="filled"]',
         ".player-clue.is-crossed",
     ], rules
     assert any(
