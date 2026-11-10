@@ -823,8 +823,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 75], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control
-            assert seen["scroll"] == [136 if col else 0, 75 if row else 0], (corner, seen["scroll"])
+            assert seen["overflow"] == [136, 87], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
+            assert seen["scroll"] == [136 if col else 0, 87 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411 (the line above)
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
@@ -930,7 +930,7 @@ class TestSolverPhone_MirroredGutterSticks:
         room = _room(page)
         assert room["keeping"] == [False, True], room
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
-        assert room["port"] == [358, 436] and room["overflow"] == [346, 147], room  # 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap
+        assert room["port"] == [358, 424] and room["overflow"] == [346, 159], room  # 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap
         # Past the share the rule allows, re-derived here from solver.js's
         # own constant rather than from the class it set — off the RAW cover
         # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs

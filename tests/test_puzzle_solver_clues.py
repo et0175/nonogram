@@ -3139,10 +3139,10 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         # The mirror, and the one case at 100 % zoom where an axis gives up:
         # 272.2 px of band over a 358 px stage is three quarters of it, so a
         # stuck band would leave six columns of thirty visible.
-        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 147], [358, 436]),  # 185/398 until CARD-409 took the answer line out of the head
+        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 159], [358, 424]),  # 185/398 until CARD-409 took the answer line out of the head; 147/436 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
         # The same board and the same mirror, 210 px wider: the row axis now
         # scrolls by 136 px, so that is all the band can hide, and it keeps.
-        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 75], [568, 508]),  # 108/475 until CARD-406's 44 px Fit control; 113/470 until CARD-409 took the answer line out of the head
+        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 87], [568, 496]),  # 108/475 until CARD-406's 44 px Fit control; 113/470 until CARD-409 took the answer line out of the head; 75/508 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
     ]
 
     @pytest.mark.parametrize("name, viewport, keeping, overflow, port", ROOMS,

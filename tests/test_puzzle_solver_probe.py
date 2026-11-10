@@ -1800,8 +1800,9 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
     same with no probe, one open and after closing it, because the line's
     height is fixed. The paragraph that stood here said an open probe moved
     the board down; that claim is retired with the owner's 2026-11-07
-    finding, and so is "the board sits exactly where it sat": the line is
-    now a full control row and costs exactly --space-3, asserted below.
+    finding, and on a COMPACT screen so is "the board sits exactly where it
+    sat": there the line is a full control row and costs exactly --space-3,
+    asserted below (on a mouse screen it still costs nothing).
     """
 
     @pytest.mark.parametrize(
@@ -1845,30 +1846,35 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             wrong = browser_page.get_by_role("button", name="Wrong guess", exact=True)
             assert keep.is_visible() and wrong.is_visible(), (width, height)
             assert browser_page.get_by_text("Contradiction").count() == 0
+            compact = width <= 600 or height <= 500  # admin.css's compact condition
+            line = browser_page.locator(".player-probe").bounding_box()
             for box in (keep.bounding_box(), wrong.bounding_box()):
-                assert abs(box["height"] - hint["height"]) < 0.5, (width, height, box, hint)
-                if width <= 844:
+                # Option C (put to the owner 2026-11-10): the toolbar's size
+                # where it is tapped; the line's own size on a mouse screen.
+                want = hint["height"] if compact else line["height"]
+                assert abs(box["height"] - want) < 0.5, (width, height, box, hint, line)
+                if compact:
                     assert box["width"] >= 44, (width, height, box)
             _keep(browser_page)
             after = browser_page.evaluate(_BOARD_TOP)
             assert closed == opened == after, (width, height, closed, opened, after)
 
-        # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "at full toolbar
-        # size"): the line cost the board nothing. A full-size line is a
-        # control row where it was a small-button row, and the pull pays for
-        # the small one only, so the line now costs the board EXACTLY
-        # --space-3 (the difference) — still sharp at one pixel, and paid
-        # once: the board does not move again when a probe opens (above).
+        # CARD-411 (owner finding "at full toolbar size", option C): on a
+        # mouse screen the line is the small-button row it was and costs the
+        # board nothing (CARD-268's claim, unchanged); on a compact screen it
+        # is a full control row and costs EXACTLY --space-3 (the difference),
+        # once — the board does not move again when a probe opens (above).
         with_bar = browser_page.evaluate(_BOARD_TOP)
         space3 = browser_page.evaluate("""() => { const e = document.createElement('i');
           e.style.cssText = 'display:block;width:var(--space-3)'; document.body.append(e);
           const w = e.getBoundingClientRect().width; e.remove(); return w; }""")
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
         without = browser_page.evaluate(_BOARD_TOP)
-        assert with_bar - without == space3, (
+        cost = space3 if viewport[0] <= 600 or viewport[1] <= 500 else 0
+        assert with_bar - without == cost, (
             f"the board's top is {with_bar} with the probe line and "
-            f"{without} without it: the full-size line moves the board by "
-            f"{with_bar - without} px, not --space-3 ({space3} px)"
+            f"{without} without it: the line moves the board by "
+            f"{with_bar - without} px, not {cost} px"
         )
 
 
