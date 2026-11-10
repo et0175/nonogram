@@ -93,11 +93,8 @@ class GuideCard(HTMLParser):
         pipeline_steps: one ``{"label": text, "icon": the ``data-icon``
             value}`` per ``data-guide-pipeline-step`` (CARD-201).
         difficulty: one ``{"name": text, "text": text}`` per
-            ``data-guide-difficulty`` (CARD-201). ``text`` has been ``None``
-            since CARD-221 fix 1 — the screen stopped previewing the three
-            sentences when the printed page stopped setting them — and the
-            key is kept so that a template reaching for ``label.text``
-            again is caught by an assertion rather than by nobody.
+            ``data-guide-difficulty`` (CARD-201); ``text`` is the tier's
+            sentence, which the printed legend sets again since 2026-11-10.
         text: every text node inside the guide preview, joined.
 
     **How a strip/cell/note is routed to the right container.** Unlike the
@@ -131,7 +128,6 @@ class GuideCard(HTMLParser):
         "data-guide-assume-text": "assume_text",
         "data-guide-assume-closing": "assume_closing",
         "data-guide-difficulty-heading": "difficulty_heading",
-        "data-guide-difficulty-line": "difficulty_line",
         "data-guide-example-heading": "example_heading",
         "data-guide-closing-heading": "closing_heading",
         "data-guide-closing": "closing",
@@ -620,6 +616,7 @@ class TestFinaliseGuidePreview_ShowsBothPages:
                     expected = (
                         "filled" if square in row.filled
                         else "crossed" if square in row.crossed
+                        else "maybe" if square in row.maybe
                         else "blank"
                     )
                     assert state == expected, (technique.heading, square)
@@ -645,54 +642,16 @@ class TestFinaliseGuidePreview_ShowsBothPages:
             assert shown["icon"] == step.icon
 
     def test_the_difficulty_legend_carries_the_three_labels_the_page_prints(self, card):
-        """The preview shows what the page shows: three names, no sentences.
+        """The preview shows what the page shows: three names, each over its sentence.
 
-        **It asserted the three sentences verbatim until CARD-221 fix 1.**
-        The owner ruled on 2026-10-14 that the printed guide page stops
-        setting them (234 px bought back for the worked example's own
-        explanations, which the page had been dropping whole), and this
-        screen is a preview of that page — so a green test asserting the
-        sentences were here was certifying that the panel described a book
-        the export does not produce. The sentences are still carried by
-        ``GUIDE_DIFFICULTY_LABELS`` as data for CARD-229's key strip, which
-        is exactly why "the preview does not show them" has to be asserted
-        rather than assumed: nothing stops a template from reaching for
-        ``label.text`` again.
+        Owner, 2026-11-10: the printed legend is three columns, each tier's
+        dots and name over its own sentence, so this screen shows the same.
         """
         assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING == "Difficulty"
-        # The one line the owner approved (2026-11-08), as a literal: the same
-        # line the printed legend sets, from the one constant.
-        assert card.difficulty_line == (
-            "Easy puzzles need only direct deductions; Hard ones need "
-            "contradiction through much of the grid."
-        )
         assert len(card.difficulty) == len(generator.GUIDE_DIFFICULTY_LABELS) == 3
         for shown, label in zip(card.difficulty, generator.GUIDE_DIFFICULTY_LABELS):
             assert shown["name"] == label.name
-            assert shown["text"] is None, (
-                f"the preview prints {shown['text']!r} under {label.name}: the "
-                "printed page carries no such sentence since CARD-221 fix 1"
-            )
-
-    def test_the_difficulty_sentences_appear_nowhere_on_the_screen(self, card):
-        """No description of the tiers that the printed page does not carry.
-
-        This test's claim is unchanged in intent and stronger in fact. It
-        existed because the stats block elsewhere on this screen shows
-        Easy/Medium/Hard puzzle *counts* (a number) and never a sentence,
-        so there was no second, independently-worded description for the
-        box's own to disagree with: each sentence appeared exactly once.
-        Since CARD-221 fix 1 the page prints none of them, so the preview
-        must show none of them — the count it asserts is 0, anywhere in the
-        rendered screen, not only inside the legend's own block. That also
-        covers the one route the test above cannot see: a sentence rendered
-        somewhere this file's parser does not tag.
-        """
-        for label in generator.GUIDE_DIFFICULTY_LABELS:
-            assert card.text.count(label.text) == 0, (
-                f"the Finalise screen still carries {label.text!r}, which the "
-                "printed guide page has not set since CARD-221 fix 1"
-            )
+            assert shown["text"] == label.text
 
     def test_sentinels_on_the_new_constants_render_live(self, panel, monkeypatch):
         """Each constant is read at render time, not baked into the template.

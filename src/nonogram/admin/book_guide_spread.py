@@ -114,6 +114,8 @@ _INK = 0.0
 _GREY = 0.37
 _SHADE = 0.945
 _HAIRLINE = 0.77
+#: The grey panels' border, points: the Play online card's own rule.
+_FRAME_PT = 0.8
 
 # Type sizes, points (mockup's, every one at or over CON-020's 10 pt).
 _TITLE_PT = 26.0
@@ -204,9 +206,22 @@ class _Pen:
         self.stream.stroke_width(width_pt)
         self.stream.line(self.left, y, self.right, y)
 
-    def box(self, left: float, top: float, right: float, bottom: float, grey: float) -> None:
+    def box(self, left: float, top: float, right: float, bottom: float, grey: float,
+            framed: bool = False) -> None:
+        """A filled panel; ``framed`` adds the Play online card's black border.
+
+        Owner, 2026-11-10: the guide's grey panels framed as the Play online
+        card is -- the same 0.8 pt rule, inset by its width so the stroke's
+        outer half stays inside the text block.
+        """
         self.stream.fill_grey(grey)
-        self.stream.rectangle(left, top, right, bottom, paint="fill")
+        if not framed:
+            self.stream.rectangle(left, top, right, bottom, paint="fill")
+            return
+        edge = self.px(_FRAME_PT)
+        self.stream.stroke_grey(_INK)
+        self.stream.stroke_width(_FRAME_PT)
+        self.stream.rectangle(left + edge, top, right - edge, bottom, paint="both")
 
 
 @dataclass(frozen=True)
@@ -227,8 +242,8 @@ def _diagram(pen: _Pen, layout: Layout, step: ExampleStep, x: float, top: float)
     return right + dx, bottom + dy
 
 
-def _step(filled=frozenset(), crossed=frozenset()) -> ExampleStep:
-    return ExampleStep("", "", frozenset(filled), frozenset(crossed))
+def _step(filled=frozenset(), crossed=frozenset(), maybe=frozenset()) -> ExampleStep:
+    return ExampleStep("", "", frozenset(filled), frozenset(crossed), frozenset(maybe))
 
 
 def _unnumbered(heading: str) -> Tuple[str, str]:
@@ -289,7 +304,7 @@ def _rows_draw(pen: _Pen, lines: _Lines, entry: GuideTechnique) -> Tuple[Callabl
     def draw(x: float, y: float) -> float:
         cur = y
         for row in entry.rows:
-            r, b = _diagram(pen, layout, _step(row.filled, row.crossed), x, cur)
+            r, b = _diagram(pen, layout, _step(row.filled, row.crossed, row.maybe), x, cur)
             if row.note and len(row.note) < 16:
                 pen.put(row.note, r + pen.px(8), (cur + b) / 2 + pen.px(3.5), _SMALL_PT, grey=_GREY)
             elif row.note:
@@ -361,7 +376,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     note_h = sum(pen.para_height(note, inner, _BODY_PT) for note in notes)
     box_top = top + px(14)
     box_bottom = box_top + px(26) + note_h - lead + pen.type_px(_BODY_PT) * 0.3
-    pen.box(pen.left, box_top, pen.right, box_bottom, _SHADE)
+    pen.box(pen.left, box_top, pen.right, box_bottom, _SHADE, framed=True)
     ny = box_top + px(13) + pen.type_px(_BODY_PT) * 0.75
     for note in notes:
         ny = pen.para(note, pen.left + px(14), ny, inner, _BODY_PT)
@@ -372,7 +387,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     # The key strip: the three cell states.
     strip_top = y + px(4)
     strip_h = px(60)
-    pen.box(pen.left, strip_top, pen.right, strip_top + strip_h, _SHADE)
+    pen.box(pen.left, strip_top, pen.right, strip_top + strip_h, _SHADE, framed=True)
     pen.put(GUIDE_CELL_STATES_HEADING.upper(), pen.left + px(14), strip_top + px(19), _SMALL_PT, grey=_GREY, bold=True)
     icon = guide_icon_layout(lines.spec)
     col = (pen.right - pen.left - px(28)) / len(GUIDE_CELL_STATES)
@@ -422,10 +437,10 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
 
     for entry in GUIDE_TECHNIQUES_2:
         draw, width = _rows_draw(pen, lines, entry)
-        y = _technique(pen, y, entry.heading, entry.caption, draw, width, gap_pt=14.0)
+        y = _technique(pen, y, entry.heading, entry.caption, draw, width, gap_pt=11.0)
     draw, width = _pipeline(pen)
     y = _technique(pen, y, GUIDE_ASSUME_HEADING, GUIDE_ASSUME_TEXT, draw, width,
-                   extra=GUIDE_ASSUME_CLOSING, gap_pt=14.0)
+                   extra=GUIDE_ASSUME_CLOSING, gap_pt=11.0)
 
     # The worked example, 2 x 2.
     pen.put(GUIDE_EXAMPLE_HEADING.rstrip("."), pen.left, y, 14.0, bold=True)
@@ -436,7 +451,7 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
     row_bottom = y_end = y
     for k, step in enumerate(WORKED_EXAMPLE_STEPS):
         bx = pen.left + (k % 2) * col
-        by = y if k < 2 else row_bottom + px(16)
+        by = y if k < 2 else row_bottom + px(12)
         number, _, label = step.label.partition(". ")
         note = step.caption.partition(". ")[2]
         if ": " in note:
@@ -448,15 +463,31 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
         if k < 2:
             row_bottom = max(row_bottom, end)
         else:
-            y_end = end
+            y_end = max(y_end, end)
     y = max(row_bottom, y_end)
 
-    # The difficulty box, anchored to the foot of the body.
-    names = [label.name for label in GUIDE_DIFFICULTY_LABELS]
+    # The difficulty box, anchored to the foot of the body: three columns, each
+    # tier's dots and name over its own sentence (owner, 2026-11-10), where the
+    # page has the room; otherwise the one approved line (2026-11-08).
     inner = pen.right - pen.left - px(28)
+    col = inner / len(GUIDE_DIFFICULTY_LABELS)
+    text_w = col - px(14)
+    cols_h = px(50) + max(pen.para_height(label.text, text_w, _SMALL_PT) for label in GUIDE_DIFFICULTY_LABELS)
+    if bottom - cols_h >= y + px(4):
+        bt = bottom - cols_h
+        pen.box(pen.left, bt, pen.right, bt + cols_h, _SHADE, framed=True)
+        pen.put(GUIDE_DIFFICULTY_HEADING.upper(), pen.left + px(14), bt + px(17), _SMALL_PT, grey=_GREY, bold=True)
+        end = bt
+        for k, label in enumerate(GUIDE_DIFFICULTY_LABELS):
+            x = pen.left + px(14) + k * col
+            dots_end = _dots(pen, x, bt + px(33), _tier_rank(label.name))
+            pen.put(label.name, dots_end + px(6), bt + px(37), _SMALL_PT, bold=True, kind=LEGEND_NAME)
+            end = max(end, pen.para(label.text, x, bt + px(54), text_w, _SMALL_PT, grey=_GREY))
+        return max(bt + cols_h, end)
+    names = [label.name for label in GUIDE_DIFFICULTY_LABELS]
     box_h = px(44) + pen.para_height(GUIDE_DIFFICULTY_LINE, inner, _BODY_PT)
     bt = max(y + px(4), bottom - box_h)
-    pen.box(pen.left, bt, pen.right, bt + box_h, _SHADE)
+    pen.box(pen.left, bt, pen.right, bt + box_h, _SHADE, framed=True)
     pen.put(GUIDE_DIFFICULTY_HEADING, pen.left + px(14), bt + px(22), 13.0, bold=True)
     x = pen.left + px(14) + pen.width(GUIDE_DIFFICULTY_HEADING, 13.0) + px(28)
     for name in names:

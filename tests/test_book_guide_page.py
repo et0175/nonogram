@@ -127,7 +127,7 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
         technique = next(t for t in GUIDE_TECHNIQUES_2 if t.heading.startswith("2."))
         assert technique.clue == (3,)
         assert technique.length == line_length
-        shown = [row.filled for row in technique.rows[:-1]]
+        shown = [row.maybe for row in technique.rows[:-1]]
         assert set(shown) == set(placements)
         assert technique.rows[-1].filled == agreed_filled
 
