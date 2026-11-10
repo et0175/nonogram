@@ -1,6 +1,6 @@
 # CARD-411: Probe's buttons are clear and full size — '✓ Keep' and '✗ Wrong guess' — and the bar still costs the board no ground
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/411-probe-buttons-full-size
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-411
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 8, third bullet: "Clearer, larger buttons. Use '✓ Keep' and '✗ Wrong guess' at full toolbar size" (text cut off in the document after 'tool'; read as 'full toolbar size'; owner Q14 confirms the wording 'Wrong guess' replacing 'Contradiction').
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-404
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_probe.py, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_page.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. The accessible names 'Keep' and 'Contradiction' are used by tests that find buttons by role and name and by the `data-player-probe-action` attributes (the attributes are the stable handle and do not change). Serialize after CARD-410 (same bar) if both are in flight. -->
-**Review score:** —
+**Review score:** 9.0 (cycle 3)
 **Started:** 2026-11-09T23:18Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-10T03:47Z
+**Actual:** 3 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** f2c82bac
 **Blocked by:** —
 
 ## Why this card exists
