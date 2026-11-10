@@ -1,6 +1,6 @@
 # CARD-413: 'How to play' — the usage text becomes one collapsible line that opens to the owner's six tools
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/413-how-to-play
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-413
 **Source:** owner player findings 2026-11-07, item 9: "The text below the puzzle: a single line, 'How to play ▸', that opens to this (approximately): Tap ... Brush ... Region ... Hint ... Probe ... Zoom: - / + or Fit."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-406, CARD-409, CARD-411
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, player/assemble.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_brush_menu.py, tests/test_player_shared_ui_site.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Depends on 406 (the text names Fit), 409 (where hint answers appear) and 411 (the probe button names) because the sentences must be true when it lands. It also edits `player/assemble.py` and `tests/test_player_shared_ui_site.py`, which CARD-394 edits: serialize with it, no dependency. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-10T05:48Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

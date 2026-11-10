@@ -480,6 +480,13 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
+  # CARD-413 DISPATCHED 2026-11-10T05:48Z (player-phone thread); serial after 412.
+  - card: CARD-413
+    branch: card/413-how-to-play
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-413
+    started: 2026-11-10T05:48Z
+    estimate: 2c (0.5d)
+    cut_from: cf1fdfb1
 # CARD-412 CLEARED 2026-11-10T05:47Z: merged 40aee791, done, reviews 7.5 / 8.5 / 7.0 (cycle 3 failed on a fix that was reverted), merged on the owner's ok, estimate 3c -> 1.0. Player-set gate 1397 passed. Entry dropped.
 # CARD-411 CLEARED 2026-11-10T03:47Z: merged f2c82bac, done, review 9.0 on cycle 3 (7.5, 8.5), owner ruling A mid-card, estimate 2c -> 1.5. Player-set gate 1394 passed. Entry dropped.
 # CARD-410 CLEARED 2026-11-09T23:18Z: merged e1e1144b, done, review 9.0 on cycle 1, estimate 3c -> 0.33. Player-set gate 1394 passed. Entry dropped.
