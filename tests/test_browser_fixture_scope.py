@@ -748,6 +748,12 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_probe.py::TestSolverProbe_StateIsPureAndStatesAreFour::test_the_wrong_guess_verdict_matches_its_table": (
+        "CARD-412", "AC-1 (owner ruling 2026-11-07): probeVerdict offers the other colour only for a single dark/white first stroke, against an independent table",
+    ),
+    "tests/test_puzzle_solver_probe.py::TestSolverProbe_AWrongGuessOffersTheOtherColour::test_the_offer_names_the_other_colour_and_marks_it_once": (
+        "CARD-412", "AC-2..AC-5, AC-7: the Wrong-guess offer names the cell and the other colour, Mark it is one undoable stroke, No thanks and Keep change nothing",
+    ),
     "tests/test_puzzle_solver_probe.py::TestSolverProbe_StateIsPureAndStatesAreFour::test_broken_lines_match_a_brute_force_line_oracle": (
         "CARD-410", "AC-1 (owner finding 2026-11-07): brokenLines against the brute-force line oracle, the checkpoint subtraction included",
     ),

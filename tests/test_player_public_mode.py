@@ -245,7 +245,7 @@ def solution_leaks(root: Path, grid) -> list[str]:
 #: (counters, readouts, the picture name) are not controls and are not here.
 _CONTROL_ATTRIBUTES = (
     "data-player-action", "data-player-confirm", "data-player-tool",
-    "data-player-zoom-action", "data-player-probe-action",
+    "data-player-zoom-action", "data-player-probe-action", "data-player-offer",
 )
 #: Boolean-attribute controls: the attribute alone names the control.
 _BARE_CONTROLS = ("data-player-region", "data-player-probe")
@@ -518,6 +518,29 @@ def step_probe(page, ctx):
     assert toggle.get_attribute("aria-pressed") == "false"
 
 
+def step_offer(page, ctx):
+    """CARD-412: the Wrong-guess offer in public mode — it reads the history
+    only, so it is offered here too; No thanks changes nothing, Mark it
+    records the other colour as one undoable stroke."""
+    toggle = page.locator("[data-player-probe]")
+    abandon = page.locator('[data-player-probe-action="abandon"]')
+    offer = page.locator("#puzzle-player-offer")
+    before = states(page)
+    toggle.click()
+    cell(page, 3, 9).click()
+    abandon.click()
+    assert offer.is_visible() and "must be white" in offer.inner_text()
+    page.locator('[data-player-offer="dismiss"]').click()
+    assert not offer.is_visible() and states(page) == before
+    toggle.click()
+    cell(page, 3, 9).click()
+    abandon.click()
+    page.locator('[data-player-offer="mark"]').click()
+    assert not offer.is_visible() and states(page)[3 * 10 + 9] == EMPTY
+    action(page, "undo").click()
+    assert states(page) == before
+
+
 def step_crosshair(page, ctx):
     page.mouse.move(*centre(page, 3, 4))
     assert page.locator(".is-crossed").count() > 0
@@ -577,6 +600,8 @@ CONTROL_STEPS = {
     "data-player-probe": step_probe,
     "data-player-probe-action=keep": step_probe,
     "data-player-probe-action=abandon": step_probe,
+    "data-player-offer=mark": step_offer,
+    "data-player-offer=dismiss": step_offer,
     # LAST: Hint taken to the end may solve this board, and a solved board is
     # locked. run_sweep wipes the save afterwards.
     "data-player-action=hint": step_hint,
@@ -1063,6 +1088,7 @@ class TestPublicMode_TheCensus:
             "data-player-tool=filled", "data-player-tool=empty", "data-player-tool=maybe", "data-player-tool=unknown",
             "data-player-zoom-action=in", "data-player-zoom-action=out",
             "data-player-probe-action=keep", "data-player-probe-action=abandon",
+            "data-player-offer=mark", "data-player-offer=dismiss",
             "data-player-region", "data-player-probe",
         }
 

@@ -328,6 +328,13 @@
     </p>
 </div>
 <p class="player-explain" id="puzzle-player-explain" aria-hidden="true" hidden></p>
+{# CARD-412 (owner ruling 2026-11-07: "Your first guess was wrong, so that
+   cell must be white. Mark it?"): after Wrong guess on a probe whose first
+   stroke was one dark or white cell, the offer — in the same strip over the
+   board as the hint's sentence, so one place talks to the player. It asks and
+   never marks by itself; the next pointer-down elsewhere or Escape closes it.
+   The sentence is also written to the live region. #}
+<div class="player-explain player-offer" id="puzzle-player-offer" role="group" aria-label="Wrong guess" hidden><span class="player-offer-text"></span><button type="button" class="btn btn-outline-secondary" data-player-offer="mark">Mark it</button><button type="button" class="btn btn-outline-secondary" data-player-offer="dismiss">No thanks</button></div>
 </div>
 
 <p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it. Hint answers in three presses: the first highlights the row or column to look at, the second says why it decides a cell, the third reveals it; Check highlights the row of the first wrong mark, and each press writes its answer in a strip over the board.</p>

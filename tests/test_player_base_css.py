@@ -71,7 +71,7 @@ RECT_TOLERANCE = 0.05
 PROVENANCE = {
     "file": "bootstrap.min.css (Bootstrap 5.3)",
     "sha256": "7f1d37f0d90b6385354c2ac10e2bb91563c46bd7a266ed351222ebcac8496c2a",
-    "recorded": "2026-11-10",  # re-recorded by CARD-401 (compact toolbar, two-cell Region), CARD-403, CARD-404, CARD-409 (stage cap, capped clues, the answer line moved over the board) and CARD-411 (Keep and Wrong guess; the probe line a full control row); same real file, same browser
+    "recorded": "2026-11-10",  # re-recorded by CARD-401 (compact toolbar, two-cell Region), CARD-403, CARD-404, CARD-409 (stage cap, capped clues, the answer line moved over the board) , CARD-411 (Keep and Wrong guess; the probe line a full control row) and CARD-412 (the Wrong-guess offer); same real file, same browser
     "browser": "Chromium 151.0.7922.34 (Playwright)",
     "platform": "macOS 26.7.1 arm64",
 }
@@ -113,7 +113,9 @@ def measure(page, url: str, key: str, width: int) -> dict[str, str]:
     page.emulate_media(reduced_motion="no-preference")  # html's scroll-behavior is a fact of this setting
     open_play(page, url, key)
     _settle(page)
-    assert len(page.query_selector_all(REVIEWER_SAMPLE)) == 22, "the page is not the one the reviewer sampled"
+    # 22 when the CARD-386 reviewer sampled it; CARD-412 added the Wrong-guess
+    # offer's two buttons (Mark it, No thanks), so the same sample is 24.
+    assert len(page.query_selector_all(REVIEWER_SAMPLE)) == 24, "the page is not the one the reviewer sampled"
     rows: dict[str, str] = {"html": _row(page.locator("html").evaluate(_READ, list(PROPS)))}
     for n, element in enumerate(page.query_selector_all(SAMPLE)):
         read = element.evaluate(_READ, list(PROPS))
@@ -210,7 +212,7 @@ def test_the_project_stylesheet_matches_the_real_bootstrap(
         if hashlib.sha256(real_file.read_bytes()).hexdigest() == PROVENANCE["sha256"]:
             assert differences(FROZEN[width], live) == [], "FROZEN no longer equals the real file's measurement"
         expected = live
-    assert len(expected) >= 1 + 22 + 9 + 1
+    assert len(expected) >= 1 + 24 + 9 + 1
     if real is not None and os.environ.get("NONOGRAM_PRINT_FROZEN"):
         print(f"\n# {PROVENANCE['file']} sha256 {hashlib.sha256(real_file.read_bytes()).hexdigest()}, "
               f"Chromium {browser_page.context.browser.version}\n" + frozen_literal(width, expected))
@@ -272,6 +274,9 @@ FROZEN: dict[int, dict[str, str]] = {
         "23 p puzzle-player-probe-note": "0|0|0|0|none|border-box|0px|0px|0px|none|0px|12.48px|400|12.48px|1 1 0px|normal|normal|normal|0px|start|baseline|normal|static|rgb(92, 96, 112)|rgba(0, 0, 0, 0)|rgb(92, 96, 112)|1|none|none|auto|auto|none|none|auto",
         "24 div puzzle-player": "16|183.28|358|362.08|block|border-box|0px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
         "25 td player-cell": "105.83|260.92|26.84|26.84|table-cell|border-box|0px|0px|0px 1px 1px 0px|solid|0px|14px|400|14px|0 1 auto|normal|normal|normal|0px|start|middle|normal|static|rgb(28, 35, 51)|rgb(255, 253, 248)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "26 div puzzle-player-offer": "0|0|0|0|none|border-box|0px|8px 12px|1px 0px 0px|solid none none|0px|14.4px|400|22.32px|0 1 auto|center|normal|8px|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|color(srgb 0.984314 0.972549 0.945098 / 0.94)|rgb(31, 95, 91)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none|auto",
+        "27 button btn": "0|0|0|0|inline-flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "28 button btn": "0|0|0|0|inline-flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
         "hover plain": "281|63.48|44|36|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|center|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
         "focus plain": "281|63.48|44|36|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|center|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none|auto",
         "active plain": "281|63.48|44|36|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|center|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|rgba(108, 117, 125, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none|auto",
@@ -311,6 +316,9 @@ FROZEN: dict[int, dict[str, str]] = {
         "23 p puzzle-player-probe-note": "0|0|0|0|none|border-box|0px|0px|0px|none|0px|12.48px|400|12.48px|1 1 0px|normal|normal|normal|0px|start|baseline|normal|static|rgb(92, 96, 112)|rgba(0, 0, 0, 0)|rgb(92, 96, 112)|1|none|none|auto|auto|none|none|auto",
         "24 div puzzle-player": "40|165.58|1200|373.64|block|border-box|0px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
         "25 td player-cell": "129.83|243.22|28|28|table-cell|border-box|0px|0px|0px 1px 1px 0px|solid|0px|14px|400|14px|0 1 auto|normal|normal|normal|0px|start|middle|normal|static|rgb(28, 35, 51)|rgb(255, 253, 248)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "26 div puzzle-player-offer": "0|0|0|0|none|border-box|0px|8px 12px|1px 0px 0px|solid none none|0px|14.4px|400|22.32px|0 1 auto|center|normal|8px|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|color(srgb 0.984314 0.972549 0.945098 / 0.94)|rgb(31, 95, 91)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none|auto",
+        "27 button btn": "0|0|0|0|inline-flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "28 button btn": "0|0|0|0|inline-flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
         "hover plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
         "focus plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none|auto",
         "active plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|rgba(108, 117, 125, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none|auto",
