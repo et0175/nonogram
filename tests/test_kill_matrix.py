@@ -2799,10 +2799,15 @@ def test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached():
     and by a ``sys.monitoring`` LINE tracer: **130** assertion nodes, 130 PASS
     and reached, zero NOT-REACHED. And ``41`` is the *collected test* count, not
     an assertion count -- the confusion that was gating finding #1.
+
+    Re-derived at CARD-370/377 (2026-11-10), which added the lock's
+    acquisition and liveness tests: **165** by the ``ast`` count and 165 PASS
+    and reached by the tracer, over **60** collected tests. The name keeps the
+    first anchor's figure because the cards that cite this test name it so.
     """
     counted = _independent_assert_count(LOCK_GUARD_TEST)
-    assert counted == 130, (
-        f"{LOCK_GUARD_TEST.name} now has {counted} assertion nodes, not 130. "
+    assert counted == 165, (
+        f"{LOCK_GUARD_TEST.name} now has {counted} assertion nodes, not 165. "
         "This anchor pins a live file that keeps gaining census-moving asserts: "
         "re-derive the bound rather than the expectation -- confirm the new "
         "count independently, then update it here and in the card's AC-7 record."
@@ -2811,12 +2816,12 @@ def test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached():
     runner = Runner(selection=[str(LOCK_GUARD_TEST)], repo_root=REPO)
     matrix = runner.run(Pass.RECORDING).shipped
 
-    assert matrix.denominator == 130, matrix.figure()
-    assert len(matrix.passed) == 130, matrix.table()
+    assert matrix.denominator == 165, matrix.figure()
+    assert len(matrix.passed) == 165, matrix.table()
     assert matrix.not_reached == (), matrix.table()
     assert matrix.failed == (), matrix.table()
-    assert matrix.collected_tests == 41, (
-        "41 is the collected test count and must never be the denominator: "
+    assert matrix.collected_tests == 60, (
+        "60 is the collected test count and must never be the denominator: "
         + matrix.figure()
     )
 

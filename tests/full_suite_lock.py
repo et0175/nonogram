@@ -113,7 +113,7 @@ __all__ = [
     "is_full_suite",
     "lock_text_for",
     "release",
-    "test_modules_on_disk",
+    "modules_on_disk",
     "current_verdict",
     "default_lock_path",
     "lock_age_seconds",
@@ -591,7 +591,7 @@ def redirect_note() -> str | None:
     )
 
 
-def test_modules_on_disk(tests_dir: Path, patterns: list[str] | tuple[str, ...]) -> set[Path]:
+def modules_on_disk(tests_dir: Path, patterns: list[str] | tuple[str, ...]) -> set[Path]:
     """Every file under ``tests_dir`` that pytest would collect as a test module.
 
     ``patterns`` is the run's own ``python_files``, so the rule follows the
@@ -731,7 +731,7 @@ class _Session:
     def pytest_collection_finish(self, session) -> None:
         tests_dir = this_worktree() / "tests"
         full = is_full_suite(
-            on_disk=test_modules_on_disk(tests_dir, self.config.getini("python_files")),
+            on_disk=modules_on_disk(tests_dir, self.config.getini("python_files")),
             collected=self.collected,
             deselected=self.deselected,
             args=self.config.args,
