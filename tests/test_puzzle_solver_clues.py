@@ -1389,8 +1389,8 @@ class TestSolverClues_SingleDigitRowRingsMayTouch:
             # CARD-193: below the 24 px phone floor this pair is no longer
             # tight — it keeps the ordinary full _RING_GAP, measured here at
             # about 5.4 px (well clear of the floor). CARD-411 (owner ruling
-            # 2026-11-10, option "A": the probe line is a full control row, 12
-            # px less stage) put the 1100 x 700 "floor" viewport's numeral on
+            # 2026-11-10, option "A": the probe line is a full control row,
+            # 14.78 px less stage) put the 1100 x 700 "floor" viewport's numeral on
             # its 12 px floor too, and the pair parts there (0.78 px measured).
             assert gap >= _RING_GAP - 1 / 64, gap
         else:

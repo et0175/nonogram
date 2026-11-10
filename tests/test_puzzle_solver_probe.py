@@ -1446,6 +1446,12 @@ class TestSolverProbe_OnlyOneProbeAtATime:
         # CARD-411 review cycle 1, F-002: the press that hid Probe hands focus
         # to the button now in its place, not to <body>.
         assert browser_page.evaluate("document.activeElement.dataset.playerProbeAction") == "keep"
+        # ...and Keep, focused, hands it back to Probe (review cycle 3,
+        # F-203); the probe is opened again for the arms below.
+        browser_page.locator('[data-player-probe-action="keep"]').focus()
+        _keep(browser_page)
+        assert browser_page.evaluate("document.activeElement.id") == "puzzle-player-probe"
+        _probe(browser_page)
         _cell(browser_page, 5, 5).click()
         _cell(browser_page, 6, 6).click()
         members = _members(browser_page)
@@ -1770,8 +1776,9 @@ _TOOLBAR_PULL = """() => parseFloat(
 
 @pytest.mark.browser
 class TestSolverProbe_TheBarCostsTheBoardNoGround:
-    """The probe bar's line is paid for ABOVE the toolbar, so the board sits
-    exactly where it sat before this card.
+    """The probe bar's line is paid for ABOVE the toolbar — the small-button
+    row CARD-268 measured; since CARD-411 (owner ruling 2026-11-10, "A") the
+    line is a full control row and the board pays exactly the difference.
 
     The card's own first constraint is that the board may not move down —
     ``#puzzle-player`` is a scroll container, Chromium puts it in the Tab

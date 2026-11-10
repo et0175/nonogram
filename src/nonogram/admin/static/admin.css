@@ -1513,8 +1513,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    flex` and .player-toolbar .btn's `display: inline-flex` both beat the
    hidden attribute's UA `display: none`. The bar starts hidden (solver.js
    shows it with the toolbar, so a page whose script never ran shows no dead
-   buttons) and so do the two actions and the note, which only exist while a
-   probe is open. The line's own SIZE does not change when the board is solved
+   buttons; .player-probe[hidden] is its rule) and so do the two actions and
+   the note, which only exist while a probe is open — since CARD-411 they rest
+   on the base stylesheet's global `[hidden] { display: none !important }`
+   (Bootstrap's, and shared-ui-base.css's on the public page), which is what
+   tests/test_player_base_css.py's "no [hidden] rule" plant measures. The line's own SIZE does not change when the board is solved
    — a solved board commits the probe (rule 7), so the actions and the note
    are hidden and the toggle only says aria-disabled, which is what keeps the
    board from moving on the solving stroke
@@ -1641,8 +1644,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-probe[hidden] { display: none; }
 /* CARD-411 (owner finding 2026-11-07: "'✓ Keep' and '✗ Wrong guess' at
    full toolbar size"): Probe BECOMES the pair while a probe is open, with
-   the leaving note beside it, and the line's height is FIXED, so opening a
-   probe moves nothing at any width. The pair is the toolbar's size on every
+   the leaving note beside it; the line is as tall as its buttons (the note,
+   clamped to two lines, is shorter), so opening a probe moves nothing. The pair is the toolbar's size on every
    screen and the line a full control row, which costs the board the
    difference from the small-button row it was, once, desktop included (owner ruling 2026-11-10, option "A"; the pull
    above pays for the small-button row CARD-268 measured, not for this). */
@@ -1652,7 +1655,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    labelled button (38.78 px on desktop) would overhang onto the board. */
 .player-probe { min-height: var(--control-h); }
 .player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); }
-.player-probe-note { flex: 1 1 0; min-width: 0; }
+/* Review cycles 2-3 (F-103, F-201): two lines at most on every screen — a
+   narrow phone or a large default font would otherwise make the line taller
+   than its buttons when a probe opens; the full sentence is in its title. */
+.player-probe-note { flex: 1 1 0; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 /* The glyphs carry the pair's meaning in colour too, so the phone's
    icon-only Keep (✓) does not read as Check's tick. */
 [data-player-probe-action="keep"] .player-probe-glyph { color: var(--color-success); }
@@ -1746,10 +1752,6 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   }
   .player-zoom-readout[role="button"] { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; }
   .player-probe-glyph { line-height: 1; }
-  /* Review cycle 2, F-103: at 360 px and below the note would take three
-     lines and make the line taller than its buttons; two lines, the rest in
-     its title. */
-  .player-probe-note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .player-history > .btn, .player-zoom .btn, .player-probe > .btn { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
   .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

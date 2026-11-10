@@ -2419,7 +2419,8 @@ function wireMarking(container, player) {
     probeToggle.setAttribute("aria-pressed", String(open));
     probeToggle.setAttribute("aria-disabled", String(open || player.locked()));
     // CARD-411: Probe BECOMES the pair while one is open (the owner's
-    // "at full toolbar size"); the line's height is fixed, so nothing moves.
+    // "at full toolbar size"); the line is as tall as its buttons either
+    // way, so nothing moves.
     probeToggle.hidden = open;
     probeKeep.hidden = !open;
     probeAbandon.hidden = !open;
