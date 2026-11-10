@@ -1666,7 +1666,10 @@ functional:
     source: [US-006]
     _meta:
       source: authored
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
+      decided: 2026-09-12
+      decided_by: DEC-029, resolved by ADR-0024 (random-mode recovery repairs, then redraws)
+      chosen_alternative: redraw_then_repair
       dec_question: "Random-mode recovery of a non-unique candidate: pure redraw (today) / pure repair / redraw-then-repair — which, and does the repair use the undecided mask or the witness-disagreement set?"
       dec_alternatives: [pure_redraw, pure_repair, redraw_then_repair]
       evidence: ["docs/GENERATION_ALGORITHM.md#8.1", "docs/GENERATION_ALGORITHM.md#10", "ADR-0002", "src/nonogram/orchestrator.py run_bounded"]
@@ -1758,7 +1761,10 @@ functional:
     source: [US-008]
     _meta:
       source: authored
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
+      decided: 2026-09-18
+      decided_by: "DEC-030 (ADR-0025 chose a fourth tier on 2026-09-12; ADR-0031 retired that tier on 2026-09-18 and keeps 'needs a guess' as a strategy beside the tier) and DEC-031 (ADR-0029, the strategy ladder, replaces ADR-0013's formula and ADR-0005's cut-offs)"
+      chosen_alternative: guessing_flag_beside_tiers
       dec_question: "Is 'requires guessing' a flag next to the Easy/Medium/Hard tier, or a fourth tier; and what replaces ADR-0013's effort*relief formula and ADR-0005's 33/66 cutoffs so that line-solvable puzzles span the scale?"
       dec_alternatives: [guessing_flag_beside_tiers, guessing_as_separate_tier]
       supersedes_pending: ["ADR-0013 formula", "ADR-0005 bands (touched)", "AC-023"]
@@ -1829,7 +1835,7 @@ functional:
     source: [US-003]
     _meta:
       source: authored
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
       dec_question: "Silhouette binarisation after the LANCZOS resize: 50% ink-coverage threshold or keep Floyd-Steinberg dithering — and how is 'genuinely greyscale' input told apart so it keeps the dither path?"
       dec_alternatives: [ink_coverage_threshold_50pct, floyd_steinberg_dither]
       gate: "Owner visual validation of the converted picture corpus before the change lands — not dischargeable by tests alone."
@@ -1911,7 +1917,10 @@ functional:
     source: [US-001]
     _meta:
       source: authored
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
+      decided: 2026-09-12
+      decided_by: DEC-034, resolved by ADR-0027
+      chosen_alternative: refuse_degenerate_density
       dec_question: "Density 0 and 100: refuse as InvalidDensity (valid range 1..99, the review's recommendation) or explicitly allow the degenerate all-empty / all-filled grid as a puzzle?"
       dec_alternatives: [refuse_degenerate_density, allow_degenerate_grids]
       evidence: ["docs/GENERATION_ALGORITHM.md#10.2 finding 2", "src/nonogram/sourcing/random_grid.py validate_density"]
@@ -1947,13 +1956,9 @@ functional:
       # defect being repaired. The criteria, their ids, their given/when/then
       # and this tag all stay: they are the record of what the DEC chose
       # against. Writing either test would assert rejected behaviour.
-      # NB FR-028's `_meta.dec_expected` above still reads `true` although
-      # DEC-034 is in resolved.yml. Not touched here, and not two: derived from
-      # the authority (every `_meta.dec_expected: true` in this file, checked
-      # against decisions/resolved.yml and open.yml) the family is SEVEN --
-      # FR-025, FR-026, FR-027, FR-028, FR-030, FR-035, FR-044 -- each with a
-      # resolved DEC behind it and none open. The orchestrator is cutting one
-      # card for all seven; CARD-316 only records the finding.
+      # NB the seven `_meta.dec_expected` flags CARD-316 found still set
+      # (FR-025, FR-026, FR-027, FR-028, FR-030, FR-035, FR-044) were cleared
+      # by CARD-334 on 2026-11-10, each naming the resolved DEC behind it.
       # alternative: allow_degenerate_grids
       # NB CARD-032 uses AC-129 for a different criterion of its own (CARD-106)
       - id: AC-129
@@ -2252,7 +2257,10 @@ functional:
     source: [US-023]
     _meta:
       source: authored
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
+      decided: 2026-09-22
+      decided_by: DEC-035, resolved by ADR-0036 (the book's geometry is a PageSpec passed to COMP-007's compute_layout)
+      chosen_alternative: extend_compute_layout_with_page_and_margins
       dec_question: "Where does the book's page geometry live: extend COMP-007's export/layout.py compute_layout to take a page size + margins (today its G-1 says 'no second paper size'; ADR-0007 layering), or a book-owned geometry in the admin panel (COMP-009) that reuses only COMP-007's drawing primitives? CLI PNG/SVG/PDF must stay byte-for-byte unchanged either way (CON-019)."
       dec_alternatives: [extend_compute_layout_with_page_and_margins, book_owned_geometry_reusing_drawing_primitives]
       criteria_by_alternative:
@@ -3201,7 +3209,10 @@ functional:
     source: [US-025]
     _meta:
       source: authored
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
+      decided: 2026-09-22
+      decided_by: DEC-036, resolved by ADR-0034
+      chosen_alternative: fixed_150_at_40_40_20
       dec_question: "Default difficulty split for a new book: 150 puzzles at 40/40/20 (owner's UI request, 'beginner') vs 30/45/25 (research matrix, 'mixed') vs derived from the book's audience field (beginner -> 40/40/20, enthusiast -> 30/45/25)?"
       dec_alternatives: [fixed_150_at_40_40_20, fixed_research_mix_30_45_25, derived_from_audience]
       criteria_by_alternative:
@@ -3244,9 +3255,8 @@ functional:
       # chose AGAINST, and neither named test was ever written (zero
       # `def`/`class` under src/ or tests/, by an `ast` index). Both criteria
       # stay as the record of the alternatives; AC-205 is untouched.
-      # NB FR-035's `_meta.dec_expected` above still reads `true` although
-      # DEC-036 is in resolved.yml — one of the SEVEN enumerated in the NB
-      # above AC-129, not touched here.
+      # NB FR-035's `_meta.dec_expected` was cleared by CARD-334 (DEC-036,
+      # ADR-0034).
       # alternative: fixed_research_mix_30_45_25
       - id: AC-206
         status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
@@ -4883,7 +4893,10 @@ functional:
       decided_by: "owner, 2026-10-03 — 'make cards for the solver'; OWNER ANSWER lines (click semantics, error count, approach), raw-requirements.md Delta 2026-10-03 (a)"
       priority: should
       relates_to: [CON-021, CON-015, CON-016, CON-017, FR-005, FR-041, ADR-0006, ADR-0037, ADR-0038]
-      dec_expected: true
+      dec_expected: false   # cleared 2026-11-10, CARD-334: the decision is made; see decided_by
+      decided: 2026-10-03
+      resolved_by: DEC-040 and DEC-041, both resolved by ADR-0038
+      chosen_alternative: plain_js_in_flask_with_playwright_dev_extra
       dec_question: "Client approach for the puzzle player and its browser-level tests: plain JavaScript and CSS served as static files by the Flask admin panel (no framework, no build step, no new runtime dependency) with pytest-playwright + Chromium declared as a dev-only extra — or a separate front end, or plain JS with no browser tests? The owner's stated preference is the first (OWNER ANSWER (approach), 2026-10-03); not decided here."
       dec_alternatives: [plain_js_in_flask_with_playwright_dev_extra, separate_react_nextjs_front_end, plain_js_without_browser_tests]
       amended: "2026-10-03 (b) — AC-322 / AC-323 added: no picture name in the visible header or document title before solve (AC-322); header shows size and tier instead (AC-323). Source: owner decision 2026-10-03 on CARD-162 review finding F-007 (raw-requirements.md Delta 2026-10-03 (b)); the online parallel of ADR-0037/R1 (book puzzle page never prints the title). Supersedes the 'header (title and tier)' reading in assumptions below."
@@ -5926,7 +5939,7 @@ functional:
       - id: AC-414
         given: a book with a Play online page at interior page 167
         when: the first guide page is read
-        then: its text layer holds "You can also play them all online: scan the code on page 167." with 167 exactly, below the guide's intro and above its first technique heading
+        then: 'its text layer holds "You can also play them all online: scan the code on page 167." with 167 exactly, below the guide''s intro and above its first technique heading'
         kind: happy
         test: TestGuidePage_NamesThePlayPage
       - id: AC-415

@@ -1,6 +1,6 @@
 # CARD-362: Retire the 396 tracked review YAMLs — the owner action CARD-335 bounded but could not take
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-335
 **Touches:** meta/review/, .gitignore
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** n/a — done on the owner's 2026-11-10 tech-debt and enabler triage; no review of its own.
+**Started:** 2026-11-10
+**Closed:** 2026-11-10
+**Actual:** under an hour
 **Merge commit:** —
 **Blocked by:** —
 
@@ -117,3 +117,9 @@ validator:
 - ADR-0039/R4 — a figure recomputed and refuted is retracted everywhere it was written
   (check: review-lens)
 - ADR-0038/R8 — findings are reported loudly (check: review-lens)
+
+## Closed 2026-11-10 — owner's tech-debt and enabler triage
+
+- **Untracked** the 396 `meta/review/*.yml` with `git rm -r --cached`; the two `.md` records stay tracked, and `.gitignore` is unchanged (G-3). The files stay on disk.
+- **Delivery (G-2).** A merge of this commit into main would delete the files from main's working tree, so on the owner's Mac `meta/review/` is copied outside the repository first, verified, the branch merged, and the copy put back; the count on disk is checked before and after.
+- **The re-derived classes** in `tests/test_check_ref_resolution.py`, each moved only by the untracking: bookkeeping-only 10 → 2, falsely-alive 152 → 144, falsely-dead 13 → 18 (the five warnings the validator now prints, as CARD-335 predicted), honest-dead 9 → 17, the force-added census 488 → 92 with the `meta/review` row gone. The node-id class "resolved by review reports alone" goes from two to none and now asserts none; the search-domain cell now asserts no review YAML is in the domain. The departure check (`_refuse_unexplained_departures`) passed: no ref left a class while still reading alive.

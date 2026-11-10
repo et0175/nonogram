@@ -1,6 +1,6 @@
 # CARD-334: Seven requirements say a decision is expected — one has provably been made, and nobody knows about the other six
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/resolved.yml, meta/architecture/decisions/open.yml
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** n/a — done on the owner's 2026-11-10 tech-debt and enabler triage; no review of its own.
+**Started:** 2026-11-10
+**Closed:** 2026-11-10
+**Actual:** under an hour
 **Merge commit:** —
 **Blocked by:** —
 
@@ -126,3 +126,23 @@ DEC records' own structure, not from a text search.**
 - **FR-027 is the worked example of the destination**, not of the defect: it carries
   `decided`, `decided_by`, `chosen_alternative`, `gate_discharged` and an empty `gaps` —
   everything except a cleared flag.
+
+## Closed 2026-11-10 — owner's tech-debt and enabler triage
+
+**All seven are decided, so all seven flags are cleared.** The orchestrator's reading at the decompose station, that four looked open, does not hold: every one has a resolved DEC in `decisions/resolved.yml`. The link is structural, not a text search for the requirement's id: each DEC's `resolution_label` is one of the requirement's own `dec_alternatives` (FR-030's and FR-044's spell the same choice slightly differently, and their ADRs name the requirement in their Context).
+
+| requirement | DEC | ADR | chosen |
+|---|---|---|---|
+| FR-025 | DEC-029 | ADR-0024 | redraw_then_repair |
+| FR-026 | DEC-030, DEC-031 | ADR-0025 → superseded by ADR-0031; ADR-0029 | guessing_flag_beside_tiers ("needs a guess" is a strategy beside the tier; the ladder replaces ADR-0013's formula) |
+| FR-027 | DEC-032, DEC-033 | ADR-0026, ADR-0028 | ink_coverage_threshold_50pct (already recorded in `_meta`) |
+| FR-028 | DEC-034 | ADR-0027 | refuse_degenerate_density |
+| FR-030 | DEC-035 | ADR-0036 | extend_compute_layout_with_page_and_margins (a `PageSpec` into `compute_layout`) |
+| FR-035 | DEC-036 | ADR-0034 | fixed_150_at_40_40_20 |
+| FR-044 | DEC-040, DEC-041 | ADR-0038 | plain_js_in_flask_with_playwright_dev_extra |
+
+Each flag now reads `false` with `decided`, `decided_by` (or `resolved_by`) and `chosen_alternative`. The two NB comments that said the flags were still set are updated. AC-4's premise (members expecting a decision no DEC record mentions) is empty. No DEC was opened or closed, and no criterion was touched (G-1, G-2, G-4).
+
+**Found on the way: `requirements.yml` did not parse.** AC-414's `then:` held an unquoted `online: scan` (since commit 7c7714de), which is a YAML error. It is now quoted and the file loads.
+
+**AC-5 not built.** No test was added for the flags, under the owner's rule that a test stays only when its claim is a live product decision. G-3 holds: no tool in the repo reads `dec_expected`.
