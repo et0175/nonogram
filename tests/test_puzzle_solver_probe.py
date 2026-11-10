@@ -631,6 +631,9 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             "a hint first": [["p"], ["hint", 1, 1, "f"]],
             "an empty probe": [["p"]],
             "undone past it": [["p"], ["click", 2, 3, "f"], ["undo"]],
+            # Review cycle 1, F-305: the guess recoloured (0, 0), which the
+            # player had marked dark before the probe — nothing to offer.
+            "a recoloured mark": [["p"], ["click", 0, 0, "e"]],
         }
         got = browser_page.evaluate("""async (cases) => {
           const S = await import('/static/solver_state.js');
@@ -659,11 +662,14 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             if not strokes or strokes[0][0] != "click" or strokes[0][3] not in ("f", "e"):
                 return None
             _, row, col, tool = strokes[0]
-            return [row, col, "empty" if tool == "f" else "filled", True]
+            offered = "empty" if tool == "f" else "filled"
+            if (row, col) == (0, 0) and offered == "filled":  # the pre-probe mark is (0, 0) dark
+                return None
+            return [row, col, offered, True]
 
         want = {name: expected(ops) for name, ops in cases.items()}
         assert got == want, (got, want)
-        assert sum(v is not None for v in want.values()) == 2 and sum(v is None for v in want.values()) == 5
+        assert sum(v is not None for v in want.values()) == 2 and sum(v is None for v in want.values()) == 6
 
     def test_the_checkpoint_prefix_is_a_savable_history(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -2182,6 +2188,22 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
         assert "row 6, column 2 must be black" in page.evaluate(_OFFER)["text"]
         page.get_by_role("button", name="No thanks", exact=True).click()
         assert not page.evaluate(_OFFER)["shown"] and _states(page) == checkpoint
+        # Review cycle 1, F-304: Escape, a press outside the offer and a
+        # recorded change (a keyboard Undo) each close it as well.
+        for close in ("Escape", "outside", "undo"):
+            _probe(page)
+            _cell(page, 5, 1).click()
+            _contradiction(page)
+            assert page.evaluate(_OFFER)["shown"], close
+            if close == "Escape":
+                page.keyboard.press("Escape")
+            elif close == "outside":
+                page.locator(".page-head h1").click()
+            else:
+                page.keyboard.press("Control+z")
+            assert not page.evaluate(_OFFER)["shown"], close
+        _button(page, "Redo").click()       # the keyboard Undo took back (0, 0)
+        assert _states(page) == checkpoint
 
         _tool(page, "Black")
         _probe(page)

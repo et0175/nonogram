@@ -1405,7 +1405,12 @@ export function probeVerdict(history, probe) {
   if (stroke.hint || stroke.cells.length !== 1) return null;
   if (stroke.state !== FILLED && stroke.state !== EMPTY) return null;
   const [row, col] = stroke.cells[0];
-  return Object.freeze({ row, col, state: stroke.state === FILLED ? EMPTY : FILLED });
+  const state = stroke.state === FILLED ? EMPTY : FILLED;
+  // CARD-412 review cycle 1, F-305: a guess that recoloured a cell the player
+  // had already marked the other way has nothing to offer — the cell is
+  // back to that colour once Wrong guess undoes the probe.
+  if (cellAt(first.before, row, col) === state) return null;
+  return Object.freeze({ row, col, state });
 }
 
 // The stroke that marks one cell `state` (CARD-412's "Mark it"): an ordinary

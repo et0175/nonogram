@@ -1341,6 +1341,7 @@ function start() {
     [stage.scrollLeft, stage.scrollTop] = scrolled;
     measureFit();
     replaceExplain();
+    marking.offerRedrawn();
   }
 
   // Pointer, tool, history and keyboard input is wired once, to `stage`
@@ -1498,6 +1499,7 @@ function start() {
       keepCluesInView();
       measureFit();
       replaceExplain();
+      marking.offerRedrawn();
     });
     for (const element of [toolbar, document.querySelector(".player-head")]) {
       if (element) above.observe(element);
@@ -1511,6 +1513,7 @@ function start() {
       keepCluesInView();
       measureFit();
       replaceExplain();
+      marking.offerRedrawn();
     }
     drawnAt = key;
   };
@@ -2357,6 +2360,7 @@ function wireMarking(container, player) {
   // review F-9's measurement of what a repeated assignment does is in the
   // LADDER block.
   function say(text) {
+    closeOffer(); // CARD-412 review cycle 1, F-303: one strip at a time
     announce.textContent = text;
     showExplain(text);
   }
@@ -2793,13 +2797,27 @@ function wireMarking(container, player) {
     offeredCell()?.classList.add("is-offered");
     requestAnimationFrame(() => placeExplain(offer));
   }
+  // Review cycle 1, F-306: a keyboard press of either button hands focus to
+  // Probe, where the next probe starts, instead of dropping it to <body>.
   offer?.querySelector('[data-player-offer="mark"]')?.addEventListener("click", () => {
     if (offered === null || player.locked()) return closeOffer();
     const { row, col, state } = offered;
     closeOffer();
     commit(record(player.getHistory(), markStroke(row, col, state)));
+    handOn(document.body, probeToggle);
   });
-  offer?.querySelector('[data-player-offer="dismiss"]')?.addEventListener("click", closeOffer);
+  offer?.querySelector('[data-player-offer="dismiss"]')?.addEventListener("click", () => {
+    closeOffer();
+    handOn(document.body, probeToggle);
+  });
+  // Review cycle 1, F-303: the offer follows the board like the hint strip
+  // (a redraw replaces the cells, a resize moves them) — the named cell's
+  // outline is put back and the strip re-placed.
+  function offerRedrawn() {
+    if (offered === null) return;
+    offeredCell()?.classList.add("is-offered");
+    requestAnimationFrame(() => placeExplain(offer));
+  }
   document.addEventListener("pointerdown", (event) => {
     if (event.target instanceof Element && event.target.closest("#puzzle-player-offer")) return;
     closeOffer();
@@ -2943,7 +2961,7 @@ function wireMarking(container, player) {
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
   // Check and the explain line.
   if (probeBar !== null) probeBar.hidden = false;
-  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt };
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt, offerRedrawn };
 }
 
 start();
