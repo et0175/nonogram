@@ -3,7 +3,7 @@
 **Status:** in_progress
 **Priority:** P3
 **Category:** feature
-**Estimate:** 0.75d
+**Estimate:** 3c (0.75d)
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
@@ -12,7 +12,7 @@
 **Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-280
 **Source:** Owner's request 2026-10-23: *"I'd like to make an animation after the user solves the puzzle in player more festive. What would you propose?"* — then "make a card for it". The proposal below is the orchestrator's, built after reading what the player already does on solve rather than from a blank page, which is what moved it away from the obvious answer (see **Why**).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_solved_reveal.py
 **Review score:** —
