@@ -217,6 +217,13 @@ BOOK_TITLE = "Winter  Pictures\n— Volume Two"
 #: spaces. Written out rather than derived with the function under test.
 BOOK_TITLE_SERVED = "Winter Pictures — Volume Two"
 
+#: The fixture book's title-page lines (CARD-418), served on the landing's
+#: header. Editorial, like :data:`BOOK_TITLE`; the series carries a double
+#: space so the same collapsing is exercised on it.
+BOOK_SERIES = "The  Winter Shelf"
+BOOK_SERIES_SERVED = "The Winter Shelf"
+BOOK_AUTHORS = "Ada and Bo"
+
 
 def write_pages_bundle(
     root: Path, names=None, *, order=None, leaky: bool = True, book_title=None
@@ -266,6 +273,8 @@ def write_pages_bundle(
     book = {
         "slug": slug,
         "title": BOOK_TITLE if book_title is None else book_title,
+        "series": BOOK_SERIES,
+        "authors": BOOK_AUTHORS,
         "puzzle_keys": ordered,
     }
     assert set(book) == set(player_bundle.BOOK_FILE_FIELDS), sorted(book)
@@ -1102,7 +1111,7 @@ def test_the_book_title_exemption_is_scoped_and_its_cost_is_measured(tmp_path) -
     assert _js_constant("TITLE_MAX_CHARS") == assembler.SERVED_TITLE_MAX_CHARS
 
     # 2 — the scope, both directions. The exemption is for ONE schema.
-    assert assembler.EXEMPT_LISTING_FIELDS == ("title",)
+    assert assembler.EXEMPT_LISTING_FIELDS == ("title", "series", "authors")
     assert assembler.check_listing_capacity() is None
     for schema in ("SERVED_ENTRY_SCHEMA", "SERVED_INDEX_SCHEMA", "SERVED_SCHEMA"):
         original = getattr(assembler, schema)
@@ -1549,7 +1558,13 @@ def test_a_book_with_no_resolvable_puzzle_is_still_served_empty(tmp_path) -> Non
     book = json.loads((report.site_dir / "book" / f"{slug}.json").read_text(encoding="utf-8"))
     # Served with its title and an empty list: the slug is printed on paper,
     # so the page exists and says whose book it is even with nothing in it.
-    assert book == {"slug": slug, "title": BOOK_TITLE_SERVED, "puzzles": []}
+    assert book == {
+        "slug": slug,
+        "title": BOOK_TITLE_SERVED,
+        "series": BOOK_SERIES_SERVED,
+        "authors": BOOK_AUTHORS,
+        "puzzles": [],
+    }
     assert sorted(key for _, key in report.unresolved) == sorted(
         [keys[name] for name in BOOK_ORDER] + sorted(keys.values())
     )
@@ -3409,9 +3424,11 @@ def test_the_qr_url_shapes_here_are_the_shipped_routes() -> None:
     ``TODO(owner)`` beside it, and no claim that it was observed.
     """
     shapes = driver.qr_shapes(REPO_ROOT)
-    assert sorted(shapes) == ["base", "book", "library", "play"], sorted(shapes)
+    # CARD-419 added "lesson" (/how-to-solve): not a QR target, but a route
+    # the host serves, so it is held to vercel.json here like the other three.
+    assert sorted(shapes) == ["base", "book", "lesson", "library", "play"], sorted(shapes)
     assert shapes["base"].startswith("https://") and shapes["base"].count("/") == 2
-    for name in ("book", "play", "library"):
+    for name in ("book", "play", "library", "lesson"):
         assert shapes[name].startswith("{base}/"), shapes[name]
 
     config = json.loads((PLAYER_DIR / "vercel.json").read_text(encoding="utf-8"))
@@ -3420,7 +3437,7 @@ def test_the_qr_url_shapes_here_are_the_shipped_routes() -> None:
     # becomes vercel's `:name` and the base falls away.
     documented = sorted(
         re.sub(r"\{(\w+)\}", r":\1", shapes[name].removeprefix("{base}"))
-        for name in ("book", "play", "library")
+        for name in ("book", "play", "library", "lesson")
     )
     assert documented == sources, (documented, sources)
 

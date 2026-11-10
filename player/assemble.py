@@ -28,6 +28,8 @@ What it produces
     play/index.html     the /play/<key> page            (generated, see "The /play/<key> page")
     library/index.html  the /library page               (from player/library.html)
     b/index.html        the /b/<slug> landing           (from player/book.html)
+    how-to-solve/index.html  the /how-to-solve lesson   (from player/how-to-solve.html)
+    how-to-solve.js     the lesson's script             (from player/how-to-solve.js)
     pages.js            the two listing pages' glue     (from player/pages.js)
     player.css          the listing pages' styling      (from player/player.css)
     base.css            the page's Bootstrap stand-in   (from player/shared-ui-base.css)
@@ -318,6 +320,7 @@ __all__ = [
     "TITLE_CODE_POINTS",
     "AssembleReport",
     "assemble",
+    "book_exempt_residual_bits",
     "book_title_residual_bits",
     "check_capacity",
     "check_listing_capacity",
@@ -381,10 +384,16 @@ MIN_SIZE, MAX_SIZE = _limits()
 #: for ``/library/``; the extensionless ``/library`` needs the rewrite, and
 #: the loopback fixture's ``^/library/?$`` is the same rule read from the
 #: same file.
+#:
+#: ``how-to-solve.html`` is the site-wide lesson page (CARD-419): one page for
+#: every book, published at ``/how-to-solve/index.html`` behind a
+#: ``/how-to-solve`` rewrite, the same arrangement as ``/library``.
 PLAYER_FILES: dict[str, str] = {
     "library.html": "library/index.html",
     "book.html": "b/index.html",
+    "how-to-solve.html": "how-to-solve/index.html",
     "pages.js": "pages.js",
+    "how-to-solve.js": "how-to-solve.js",
     "player.css": "player.css",
     "shared-ui-base.css": "base.css",
     "vercel.json": "vercel.json",
@@ -1117,7 +1126,14 @@ SERVED_INDEX_SCHEMA: tuple[str, ...] = ("puzzles",)
 #: schema in this module that carries a title, and
 #: :func:`check_listing_capacity` refuses to assemble if the name appears in
 #: any of the others.
-SERVED_BOOK_SCHEMA: tuple[str, ...] = ("puzzles", "slug", "title")
+#:
+#: ``series`` and ``authors`` (CARD-418) are the book's title-page lines, the
+#: landing page's header above and below the title: the same class of
+#: owner-authored editorial text about a BOOK as ``title``, served under the
+#: same exemption and the same processing (:func:`_book_title`). The owner
+#: asked for them on the landing on 2026-11-10 (mockup A, project thread
+#: "Design the book QR landing page"). Each is ``""`` for a book without one.
+SERVED_BOOK_SCHEMA: tuple[str, ...] = ("authors", "puzzles", "series", "slug", "title")
 
 #: How many characters of a book's display title are served.
 #:
@@ -1181,7 +1197,14 @@ TITLE_CODE_POINTS = sys.maxunicode + 1 - 2048
 #: page" trade the order and the membership are declared under. What makes
 #: it an exemption rather than a leak is that it is bounded in SCOPE: a
 #: book file, and nothing else.
-EXEMPT_LISTING_FIELDS: tuple[str, ...] = ("title",)
+#:
+#: CARD-418 extends it from one field to three: the book's ``series`` and
+#: ``authors`` lines are the same editorial text about the same book, scoped to
+#: the same file, and each costs what the title costs
+#: (:func:`book_title_residual_bits` per field,
+#: :func:`book_exempt_residual_bits` for all of them). The owner asked for
+#: them on the landing page on 2026-11-10; the PUZZLE title stays forbidden.
+EXEMPT_LISTING_FIELDS: tuple[str, ...] = ("title", "series", "authors")
 
 #: Listing fields whose served value is, by construction, a value already
 #: served on that key's ``puzzle/<key>.json``. They are therefore worth zero
@@ -1238,6 +1261,16 @@ def book_title_residual_bits() -> float:
     owner can see what was granted.
     """
     return SERVED_TITLE_MAX_CHARS * math.log2(TITLE_CODE_POINTS)
+
+
+def book_exempt_residual_bits() -> float:
+    """What ALL the exempt book fields could carry together, in bits.
+
+    Each exempt field is served by :func:`_book_title`'s processing and so has
+    the same width; three fields are three times one. Printed by
+    ``--capacity`` beside the per-field figure (CARD-418).
+    """
+    return len(EXEMPT_LISTING_FIELDS) * book_title_residual_bits()
 
 
 def check_listing_capacity() -> None:
@@ -1467,6 +1500,10 @@ def served_book(
     served: dict[str, object] = {
         "slug": slug,
         "title": _book_title(payload.get("title")),
+        # CARD-418: the title page's two other lines, processed exactly as the
+        # title is. A bundle written before them has neither and serves "".
+        "series": _book_title(payload.get("series")),
+        "authors": _book_title(payload.get("authors")),
         "puzzles": [entries[key] for key in order if key in entries],
     }
     assert sorted(served) == sorted(SERVED_BOOK_SCHEMA)
@@ -1793,8 +1830,9 @@ def assemble(
                 refused.append((path.stem, str(unservable)))
                 continue
             dropped.extend((path.stem, name) for name in names)
-            if title_narrowed(payload.get("title")):
-                narrowed.append((path.stem, "title"))
+            for field in EXEMPT_LISTING_FIELDS:
+                if title_narrowed(payload.get(field)):
+                    narrowed.append((path.stem, field))
             unresolved.extend((relative, key) for key in missing)
             _dump(site / SITE_BOOK_DIR / f"{book['slug']}.json", book)
             books += 1
@@ -1891,9 +1929,10 @@ def main(argv: list[str] | None = None) -> int:
             f"  exempt, by the owner's 2026-10-28 decision: "
             f"{', '.join(sorted(EXEMPT_LISTING_FIELDS))} on "
             f"{SITE_BOOK_DIR}/<slug>.json only, "
-            f"{book_title_residual_bits():.2f} bits "
+            f"{book_title_residual_bits():.2f} bits each, "
+            f"{book_exempt_residual_bits():.2f} together "
             f"({SERVED_TITLE_MAX_CHARS} chars x {TITLE_CODE_POINTS} code "
-            f"points) — above this ceiling and above {MAX_SIZE}x{MAX_SIZE} "
+            f"points a field) — above this ceiling and above {MAX_SIZE}x{MAX_SIZE} "
             f"= {MAX_SIZE * MAX_SIZE} cells, so an exemption and not a bound"
         )
         print(
