@@ -162,11 +162,16 @@ class TestBookLanding_PrintedSlugIsTheBundlesSlug:
         assert address.url == f"{DOMAIN}/b/{address.slug}"
         assert address.slug == slug_by_hand(key_by_hand(r["grid"]) for r in GROUPED_ROWS)
 
-    def test_the_book_file_still_carries_only_its_three_fields(self, tmp_path):
-        """AC-7: nothing new reaches a public asset."""
+    def test_the_book_file_carries_only_its_declared_fields(self, tmp_path):
+        """AC-7: nothing new reaches a public asset.
+
+        Was "only its three fields"; CARD-418 added the title page's
+        ``series`` and ``authors`` lines for the landing page's header (owner,
+        2026-11-10). Still editorial text about the book and nothing else.
+        """
         _, root = exported(GROUPED_ROWS, tmp_path)
         payload = json.loads(book_files(root)[0].read_text())
-        assert set(payload) == {"puzzle_keys", "slug", "title"}
+        assert set(payload) == {"authors", "puzzle_keys", "series", "slug", "title"}
 
 
 class TestBookLanding_NumbersMatchPrintNumbers:

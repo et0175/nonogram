@@ -131,7 +131,9 @@ CRITERIA_FIELDS = {
     "index file": {"puzzles"},
     "puzzle file": {"key", "width", "height", "tier", "title", "clues"},
     "puzzle clues": {"rows", "columns"},
-    "book file": {"slug", "title", "puzzle_keys"},
+    # CARD-418 (owner, 2026-11-10): the title page's series and author lines,
+    # for the landing page's header.
+    "book file": {"slug", "title", "series", "authors", "puzzle_keys"},
 }
 
 #: Every field name any bundle file may carry, derived from the exporter's own
@@ -429,9 +431,16 @@ def bundle_sources(records, books) -> dict:
             grids[key] = grid
             rows_by_key.setdefault(key, []).append(record)
         slug = independent_slug(keys)
-        settled = book_sources.setdefault(slug, {"keys": keys, "titles": set()})
-        stored = (getattr(getattr(book, "metadata", None), "title", None) or "").strip()
+        settled = book_sources.setdefault(
+            slug, {"keys": keys, "titles": set(), "series": set(), "authors": set()}
+        )
+        metadata = getattr(book, "metadata", None)
+        stored = (getattr(metadata, "title", None) or "").strip()
         settled["titles"].add(stored or "Untitled book")
+        # CARD-418: the title page's two other lines, "" when not set.
+        for field, store in (("series_name", "series"), ("authors", "authors")):
+            line = getattr(metadata, field, None)
+            settled[store].add(line.strip() if isinstance(line, str) else "")
 
     titles: dict[str, set] = {}
     tiers: dict[str, set] = {}
@@ -558,6 +567,24 @@ def _source_title(value, ctx):
     return None
 
 
+def _book_line_source(store: str):
+    """A book file's ``series`` / ``authors`` (CARD-418): a stored line of a book with this slug."""
+
+    def rule(value, ctx):
+        if ctx["kind"] != "book file":
+            return f"{store!r} is a book file's field and this is a {ctx['kind']}"
+        if not isinstance(value, str):
+            return f"is {type(value).__name__}, not a string"
+        book = ctx["sources"]["books"].get(ctx["slug"])
+        if book is None:
+            return f"no finalized book hashes to the slug {ctx['slug']!r}"
+        if not any(value == line for line in book[store]):
+            return f"{value!r} is no stored {store} line of a book with this slug"
+        return None
+
+    return rule
+
+
 def _source_slug(value, ctx):
     if not isinstance(value, str):
         return f"is {type(value).__name__}, not a slug"
@@ -580,6 +607,8 @@ _PLAIN_SOURCES.update(
     tier=_source_tier,
     title=_source_title,
     slug=_source_slug,
+    series=_book_line_source("series"),
+    authors=_book_line_source("authors"),
 )
 
 

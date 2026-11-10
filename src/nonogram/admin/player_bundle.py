@@ -165,8 +165,11 @@ PUZZLE_FILE_FIELDS: tuple[str, ...] = (
 #: Fields of a puzzle file's ``clues`` object.
 PUZZLE_CLUES_FIELDS: tuple[str, ...] = ("columns", "rows")
 
-#: Top-level fields of ``book/<slug>.json``.
-BOOK_FILE_FIELDS: tuple[str, ...] = ("puzzle_keys", "slug", "title")
+#: Top-level fields of ``book/<slug>.json``. ``series`` and ``authors`` are
+#: the title page's own lines (migration 020), carried for the landing page's
+#: header (CARD-418): editorial text about the BOOK, the same class as its
+#: ``title``, and never a puzzle's name. ``""`` when the book has none.
+BOOK_FILE_FIELDS: tuple[str, ...] = ("authors", "puzzle_keys", "series", "slug", "title")
 
 #: The only bundle fields computed from a solution grid, and therefore the
 #: whole of EC-048's declared exemption (ADR-0039/R3). ``clues`` is the lossy
@@ -557,7 +560,7 @@ def export_bundle(
     # *content* too: two finalized books holding the same puzzles in the same
     # order are one public book file, and :func:`_book_file` settles the one
     # thing they can still disagree about.
-    book_keys: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
+    book_keys: dict[str, list[tuple[str, tuple[str, ...], str, str]]] = {}
     for book in books:
         records = puzzle_store.get_puzzles(book.puzzle_ids)
         members: list[Mapping[str, Any]] = []
@@ -590,7 +593,7 @@ def export_bundle(
             continue
         keys = print_ordered_keys(members)
         book_keys.setdefault(book_slug(keys), []).append(
-            (_book_title(book), tuple(keys))
+            (_book_title(book), tuple(keys), _book_line(book, "series_name"), _book_line(book, "authors"))
         )
 
     entries = [_index_entry(key, candidates[key]) for key in sorted(candidates)]
@@ -655,7 +658,9 @@ def _puzzle_file(
     }
 
 
-def _book_file(slug: str, books: Sequence[tuple[str, tuple[str, ...]]]) -> dict[str, Any]:
+def _book_file(
+    slug: str, books: Sequence[tuple[str, tuple[str, ...], str, str]]
+) -> dict[str, Any]:
     """One ``book/<slug>.json`` payload, carrying exactly :data:`BOOK_FILE_FIELDS`.
 
     ``books`` is every finalized book whose puzzle keys hash to ``slug``.
@@ -668,11 +673,14 @@ def _book_file(slug: str, books: Sequence[tuple[str, tuple[str, ...]]]) -> dict[
     titles. That matters for EC-049 rather than for editorial reasons: writing
     "whichever book was read last" would make the bundle's bytes depend on the
     store's row order, which is exactly the determinism the byte diff at deploy
-    time rests on.
+    time rests on. ``series`` and ``authors`` (CARD-418) are settled the same
+    way, each on its own.
     """
     return {
         "slug": slug,
-        "title": _settled(title for title, _ in books),
+        "title": _settled(book[0] for book in books),
+        "series": _settled(book[2] for book in books),
+        "authors": _settled(book[3] for book in books),
         "puzzle_keys": list(min(books)[1]),
     }
 
@@ -699,6 +707,17 @@ def _book_title(book: Any) -> str:
     if isinstance(title, str) and title.strip():
         return title.strip()
     return "Untitled book"
+
+
+def _book_line(book: Any, field: str) -> str:
+    """One of a book's title-page lines (``series_name``, ``authors``), or ``""``.
+
+    Stored already cleaned (migration 020's ``title_page_text``); ``None``,
+    blank or a non-string is "not set" and is served as ``""``, so the landing
+    page leaves that line out (CARD-418).
+    """
+    value = getattr(getattr(book, "metadata", None), field, None)
+    return value.strip() if isinstance(value, str) and value.strip() else ""
 
 
 def _settle_key(value: Any) -> tuple[bool, str, str]:

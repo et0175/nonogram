@@ -593,3 +593,246 @@ body {
 
 .hts-promise { font-size: var(--text-lg); }
 .hts-home-end { min-height: 52px; }
+
+/* -------------------------------------------------- the book landing (CARD-418)
+ *
+ * /b/<slug> after the owner's 2026-11-10 redesign (mockup A): the series line
+ * and authors around the title, the "Which puzzle are you on?" box, the
+ * Continue card, and the puzzles in level sections of squares. A square is
+ * still a `.tile` (a link sized for a thumb) and wears its progress:
+ *   new      a blank mini grid with the print number in the middle;
+ *   started  the same with an accent edge and the reader's own black cells,
+ *            faint, behind the number;
+ *   solved   the picture the reader uncovered, from their own saved board,
+ *            with the number in a corner badge.
+ */
+
+.pages-book {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.book-head { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.book-series {
+  margin: 0;
+  font-family: var(--font-num);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.book-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: var(--weight-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.book-byline { margin: 0; color: var(--color-text-secondary); }
+.book-byline .pages-count { font-family: inherit; font-size: inherit; }
+
+.book-jump {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: var(--player-rule) solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+
+.book-jump[hidden] { display: none; }
+.book-jump label { font-weight: 600; font-size: var(--text-lg); }
+.book-jump-row { display: flex; gap: var(--space-2); }
+
+.book-jump input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 var(--space-3);
+  font-family: var(--font-num);
+  font-size: var(--text-lg);
+  color: var(--color-text);
+  background: var(--color-input);
+  border: var(--player-rule) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-inset-input);
+}
+
+.book-jump input:focus-visible { outline: var(--player-rule-major) solid var(--color-focus); outline-offset: 2px; }
+
+.book-jump-go {
+  min-height: 48px;
+  padding: 0 var(--space-5);
+  font-weight: 600;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.book-jump-go:hover { background: var(--color-accent-hover); }
+.book-jump-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
+
+.book-continue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text);
+  text-decoration: none;
+  background: var(--color-accent-tint);
+  border: var(--player-rule) solid var(--color-accent);
+  border-radius: var(--radius-container);
+}
+
+.book-continue[hidden] { display: none; }
+.book-continue:focus-visible { outline: var(--player-rule-major) solid var(--color-focus); outline-offset: 2px; }
+.book-continue-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+.book-continue-label {
+  font-family: var(--font-num);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.book-continue-name { font-size: var(--text-lg); font-weight: 600; }
+
+.pages-sections { display: flex; flex-direction: column; gap: var(--space-4); }
+.pages-sections[hidden] { display: none; }
+
+.book-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--player-rule) solid var(--color-border);
+}
+
+.book-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0;
+  font: inherit;
+  color: var(--color-text);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.book-section-head:focus-visible { outline: var(--player-rule-major) solid var(--color-focus); outline-offset: 2px; }
+
+.book-section-dot {
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--player-tier-hue, var(--color-tier-none));
+}
+
+.book-section[data-tier="easy"] { --player-tier-hue: var(--color-tier-easy); }
+.book-section[data-tier="medium"] { --player-tier-hue: var(--color-tier-medium); }
+.book-section[data-tier="hard"] { --player-tier-hue: var(--color-tier-hard); }
+
+.book-section-text { flex: 1; display: flex; flex-direction: column; }
+.book-section-name { font-size: var(--text-lg); font-weight: 600; }
+
+.book-section-count,
+.book-section-sign {
+  font-family: var(--font-num);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.book-section-sign { font-size: var(--text-lg); }
+
+.book-squares {
+  --player-tile-min: 3.25rem;
+  gap: var(--space-2);
+}
+
+.book-squares[hidden] { display: none; }
+
+.square {
+  position: relative;
+  min-height: 48px;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: var(--grid-paper);
+  background-image:
+    linear-gradient(var(--color-surface-sunken) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-surface-sunken) 1px, transparent 1px);
+  background-size: 20% 20%;
+  background-position: -1px -1px;
+  border-color: var(--color-border);
+}
+
+.square .tile-number {
+  position: relative;
+  padding: 2px 4px;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--grid-paper);
+  border-radius: var(--radius-badge);
+}
+
+.square-picture {
+  position: absolute;
+  inset: 16%;
+  width: 68%;
+  height: 68%;
+}
+
+.square[data-progress="started"] { border: var(--player-rule-major) solid var(--color-accent); }
+.square[data-progress="started"] .square-picture { fill: var(--color-accent); opacity: 0.4; }
+.square[data-progress="started"] .tile-number { font-weight: 600; }
+
+.square[data-progress="solved"] {
+  background-image: none;
+  border-color: var(--color-accent);
+}
+
+.square[data-progress="solved"] .square-picture { fill: var(--grid-ink); }
+
+.square[data-progress="solved"] .tile-number {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 2px 4px;
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-radius: var(--radius-badge) 0 0 0;
+}
+
+.book-legend { margin: 0; }
+.book-legend[hidden] { display: none; }
+
+.book-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: var(--player-rule) solid var(--color-border);
+}
+
+.book-foot a { color: var(--color-accent); min-height: 32px; }
