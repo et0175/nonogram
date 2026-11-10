@@ -50,7 +50,7 @@ of them → cross it out.
 This technique contains the first one; it is the same idea taken to its limit. It is also
 the one that produces most of the crosses, which is why crossing out is worth the effort.
 
-### Technique 3 — Assume, and watch it break
+### Technique 3 — Proof by contradiction
 
 Pick a square you cannot settle. Pencil it in as filled and follow the consequences through
 the rows and columns it touches. If you reach something impossible — a line whose clue can
@@ -61,9 +61,9 @@ carry on.
 > `5` has only four spaces left for it. Impossible. So that square is empty, and the board
 > moves again.
 
-**This is not guessing.** You are not choosing a branch and hoping; you are proving one
-option impossible so the other is forced. The trial always gets rubbed out. Nothing is ever
-left resting on a coin-flip.
+You test one possibility and reject it only when it leads to an impossibility, so the other
+is forced. The trial always gets rubbed out. Nothing
+is ever left resting on a coin-flip.
 
 ### What the difficulty labels mean
 
@@ -185,12 +185,12 @@ THREE TECHNIQUES, IN THE ORDER YOU NEED THEM
    are empty. One crossed-out square rules out whole arrangements,
    which is why crossing out pays.
 
-3. Assume, and watch it break.
+3. Proof by contradiction.
    Stuck? Pencil in one square as filled and follow it through the
    rows and columns it touches. If you reach a line whose clue can
    no longer fit, that square must be empty. Rub out the trial and
-   write the answer instead. You are not guessing - you are
-   proving one option impossible.
+   write the answer instead. A possibility is rejected only when
+   it leads to an impossibility.
 
 EVERY PUZZLE HAS EXACTLY ONE SOLUTION
 
