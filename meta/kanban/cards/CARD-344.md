@@ -1,6 +1,6 @@
 # CARD-344: `_EDGE_OVERHANG = 3` is a hard-coded half-rule already medium-dependent inside the existing ink reader
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c (0.25d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-336
 **Touches:** tests/helpers/page_ink.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** n/a — closed on the owner's 2026-11-09 tech-debt triage; no review of its own.
+**Started:** 2026-11-09
+**Closed:** 2026-11-09
+**Actual:** under an hour
 **Merge commit:** —
 **Blocked by:** —
 
@@ -122,3 +122,7 @@ would mean inventing the mechanism twice.
 ## Triage 2026-11-09
 
 Still open, small. The 3 px overhang now only matters on poppler renders of vector pages; the frame reasoning in its comment no longer applies (`BOOK_PUZZLE_FRAME = False`). Fold in: delete the now-dead `framed` / `frame_centre_of` / `FrameCentre` / `_outer_rule_is_a_frames` helpers from tests/helpers/page_ink.py (CARD-351 and CARD-353 retired).
+
+## Closed 2026-11-09 — owner's tech-debt triage
+
+The dead half is removed: `FrameCentre`, `frame_centre_of` and `_refuse_unless_a_frames_rule` had no caller left in `tests/` or `src/` and are deleted from `tests/helpers/page_ink.py`. `_EDGE_OVERHANG` and `drawing_of`'s frame detection stay, because `tests/test_book_puzzle_frame.py` and `tests/property/test_book_pdf_geometry.py` still measure framed pages (the frame remains a `PageSpec` option, off in the book). Re-deriving the constant was not done: it buys nothing with the book's frame off.

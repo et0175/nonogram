@@ -11,7 +11,7 @@ interior, the recorded PIXEL baselines in ``tests/fixtures/book_baseline_*.json`
 (which already skip the digest check for vector pages, and which this module
 does not touch: D7). It does NOT replace an independent bitmap reference for
 vector geometry; that is held now by the poppler-based
-``tests/property/test_book_pdf_geometry.py`` and ``frame_centre_of``.
+``tests/property/test_book_pdf_geometry.py``.
 
 **Determinism, measured before it was relied on.** The 14-page baseline
 interior was exported in two separate interpreters with different

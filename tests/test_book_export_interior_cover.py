@@ -3730,7 +3730,9 @@ class Generator:
     #: The raster interior writers' deletion (owner, 2026-11-09): 38 -- **-2**,
     #: the ``page_number`` defaults of the deleted ``create_guide_page`` and
     #: ``create_title_page``. Nothing added.
-    POSITION_SITE_COUNT = 38
+    #: CARD-289 (2026-11-09): 39 -- **+1**, ``InteriorStream.first_answer_page``
+    #: (default 0), the walk's own Solutions position carried on the stream.
+    POSITION_SITE_COUNT = 39
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -4369,7 +4371,10 @@ class Generator:
         # 656 -> 441, 245 -> 160, 242 -> 159, last two still 0): the 19
         # deleted writers and the bitmap arms of ``produce`` took their PIL
         # calls and helpers with them. Read off this test's own measurement.
-        ((), 680),
+        #
+        # **CARD-289 (2026-11-09): +1** (680 -> 681), the
+        # ``first_answer_page`` default on ``InteriorStream``.
+        ((), 681),
         (("builtins",), 441),
         (("builtins", "definitions and imports"), 160),
         (("builtins", "definitions and imports", "parameters"), 159),
