@@ -47,7 +47,8 @@ import jinja2
 import pytest
 
 from nonogram.solver import solve
-from tests.test_puzzle_solver_page import _unique_grid, browser_page, browser_type  # noqa: F401 - fixtures are used by name
+from tests.test_puzzle_solver_page import _unique_grid, browser_page, browser_type, live  # noqa: F401 - fixtures are used by name
+from tests.test_puzzle_solver_page import _open as admin_open
 
 _ROOT = Path(__file__).resolve().parent.parent
 _ADMIN = _ROOT / "src" / "nonogram" / "admin"
@@ -1738,7 +1739,7 @@ class TestPublicMode_LandscapeToolStrip:
     Portrait and desktop (AC-4) are the existing layout cells, unchanged.
     """
 
-    def test_the_tools_stand_in_a_strip_left_of_the_board(self, browser_page, serve) -> None:
+    def test_the_tools_stand_in_a_strip_left_of_the_board(self, browser_page, serve, live) -> None:
         page = browser_page
         served = serve(public_payload(SWEEP_GRID))
         for width, height in ((844, 390), (852, 393), (874, 402)):
@@ -1776,6 +1777,23 @@ class TestPublicMode_LandscapeToolStrip:
         page.evaluate("() => { const s = document.getElementById('puzzle-player-controls'); s.scrollTop = s.scrollHeight; }")
         scrolled = page.evaluate(_STRIP)
         assert scrolled["lowest"] <= scrolled["clip"], scrolled
+        # Review cycle 2, F-010: a board solved with the strip scrolled down
+        # brings the banner (the strip's top) back into the strip's view.
+        open_page(page, serve(public_payload(SWEEP_GRID, puzzle_id="strip-568")))
+        _settled(page)
+        page.evaluate("() => { const s = document.getElementById('puzzle-player-controls'); s.scrollTop = s.scrollHeight; }")
+        solve_to_the_end(page, SWEEP_GRID)
+        banner = page.evaluate("""() => { const s = document.getElementById('puzzle-player-controls').getBoundingClientRect();
+          const b = document.getElementById("puzzle-player-solved").getBoundingClientRect(); return [b.top >= s.top - 1.5, b.bottom <= s.bottom + 1.5, b.height > 0]; }""")  # its 1 px border
+        assert banner == [True, True, True], banner
+
+        # Review cycle 2, F-009: the ADMIN page in a small landscape window
+        # (its strip starts low, under the title) keeps every brush tappable.
+        page.set_viewport_size({"width": 667, "height": 375})
+        admin_open(page, live, live.store(SWEEP_GRID))
+        page.locator(".player-tool-trigger").click()
+        assert page.evaluate(_MENU_TAPPABLE)
+        page.keyboard.press("Escape")
 
         page.set_viewport_size({"width": 932, "height": 430})
         open_page(page, serve(public_payload(_unique_grid(30, 29, seed=19330))))
