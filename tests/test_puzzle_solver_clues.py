@@ -796,7 +796,12 @@ def _rule_c_lines(rng, size):
 
 @pytest.mark.browser
 def test_PropertyTest_SolverClues_RuleCOnlyAddsToRulesAAndB(browser_page, live) -> None:
-    """CARD-213 G-4 — on a seeded corpus, circledNumbers equals the Python
+    """Since CARD-400 (owner ruling 2026-11-10, "circle a number when the
+    marks pin it down") the reference with rule C on also carries rule D,
+    so the module is held to rules A-D here — a stronger claim; "rule C only
+    ever adds" still holds against the A-and-B reference.
+
+    CARD-213 G-4 — on a seeded corpus, circledNumbers equals the Python
     reference with rule C on, and every circle the reference gives with rule
     C OFF is still there: rule C only ever adds. The counts below keep the
     claim from being vacuous — the corpus has to contain lines rule C
@@ -3395,7 +3400,7 @@ class TestSolverClues_PinnedNumbersCircle:
     it down" — "it would be nice to fix all 3").
 
     The owner's line (AC-1): column 7 of the owner's 23 x 30 board, clue
-    "6 3 2", its last 2 dark at rows 22-23 with a white dot below and the
+    "6 3 2", its last 2 dark at rows 25-26 with white dots below and the
     cell above BLANK — an open run (H1), uncircled before this card, and
     pinned: no placement of "6 3" can reach those cells.
 
@@ -3413,10 +3418,10 @@ class TestSolverClues_PinnedNumbersCircle:
         from itertools import product
 
         _blank_page(browser_page, live)
-        owner = "." * 21 + "DD" + "W" * 7
+        owner = "." * 24 + "DD" + "W" * 4
         assert _numbers(browser_page, [((6, 3, 2), owner)]) == [[False, False, True]]
         # (Not brute-forced: 2**30 lines. Pinned by hand: the "3" cannot reach
-        # rows 22-23 — it would leave the "2" no room in the white tail — so
+        # rows 25-26 — it would leave the "2" no room in the white tail — so
         # the dark pair can only be the "2".)
 
         lines, want = [], []
