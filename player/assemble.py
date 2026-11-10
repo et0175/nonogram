@@ -453,25 +453,12 @@ COPIED_FROM_ADMIN: dict[str, str] = {
 SHARED_UI_BASE_SOURCE = "shared-ui-base.css"
 SHARED_UI_BASE = "base.css"
 
-#: The page's usage paragraph is the admin's, and its last sentence describes
-#: Check, which the public player does not have (public mode removes it,
-#: CARD-385; review finding F-2), and says the answer is written "beside the
-#: puzzle's title", which is false on a phone, where the line sits UNDER the
-#: title (admin.css, <= 820 px; owner ruling 2026-11-07, review F-1). The tail
-#: is replaced, and the replacement is a REFUSAL when the clause is not found
-#: exactly once, so an edit to the admin template cannot quietly bring a false
-#: sentence back. "At the top of the page" is true at every width, and the
-#: tests measure it from the DOM at 390 and 1280 px.
-#: CARD-409 moved the answer line onto a strip over the bottom of the board,
-#: so the admin's clause now says so, and the public replacement drops only
-#: the Check half (owner finding 2026-11-07: the text right by the board).
-SHARED_UI_HINT_CLAUSE = (
-    "; Check highlights the row of the first wrong mark, and each press writes"
-    " its answer in a strip over the board."
-)
-SHARED_UI_HINT_REPLACEMENT = (
-    ", and each press writes its answer in a strip over the board."
-)
+#: CARD-413 (owner finding 2026-11-07, item 9) retired the usage-clause edit
+#: (CARD-386 F-2's SHARED_UI_HINT_CLAUSE / _REPLACEMENT): the "How to play"
+#: text names no location and its Check bullet is removed in public mode by
+#: solver.js with the Check button, so there is no sentence left to rewrite.
+#: tests/test_player_shared_ui_site.py holds the purpose instead: the public
+#: page's text names no control the page lacks.
 
 #: Other exact edits to the admin markup, each refused unless found once.
 #: ``(old, new)``. The fallback paragraph names ``static/solver.js``, the
@@ -650,20 +637,18 @@ def shared_ui_play_page(fragment: str) -> str:
     """The ``play/index.html`` shell, from the rendered admin markup.
 
     Raises :class:`ValueError` unless the fragment has the payload element
-    the shell replaces, the usage clause :data:`SHARED_UI_HINT_CLAUSE`, and
-    each hook the loader writes into, exactly once: a template that moved
+    the shell replaces and each hook the loader writes into, exactly once: a template that moved
     one of them must fail the assembly, not produce a page the loader
     half-fills or one that tells a visitor about a button that is not there.
     """
     if len(_SHARED_UI_DATA.findall(fragment)) != 1:
         raise ValueError("the admin markup must hold exactly one payload element")
     body = _SHARED_UI_DATA.sub("", fragment)
-    for hook in (*_SHARED_UI_HOOKS, SHARED_UI_HINT_CLAUSE):
+    for hook in _SHARED_UI_HOOKS:
         if body.count(hook) != 1:
             raise ValueError(
                 f"the admin markup must hold exactly one {hook!r}; found {body.count(hook)}"
             )
-    body = body.replace(SHARED_UI_HINT_CLAUSE, SHARED_UI_HINT_REPLACEMENT)
     for before, after in SHARED_UI_TEXT_EDITS:
         if body.count(before) != 1:
             raise ValueError(

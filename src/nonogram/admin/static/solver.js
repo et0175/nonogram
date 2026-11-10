@@ -634,6 +634,9 @@ const PUBLIC_EXHAUSTED =
 
 // What public mode takes off the page (CARD-385; see PUBLIC MODE above).
 const PUBLIC_ABSENT = '#puzzle-player-errors, #puzzle-player-progress, [data-player-action="check"]';
+// CARD-413: and the "How to play" bullet that describes Check, outside the
+// toolbar, removed by the same rule so the text never names a missing control.
+const PUBLIC_ABSENT_TEXT = "[data-player-howto-check]";
 
 // "The recorded board changed" — dispatched on `document` in edit mode only
 // (see BOARD CHANGE above). Exported, and imported by static/puzzle_edit.js,
@@ -952,6 +955,7 @@ function start() {
   // is already optional, and the two counters are not read in public mode).
   if (publicMode) {
     for (const element of toolbar.querySelectorAll(PUBLIC_ABSENT)) element.remove();
+    for (const element of document.querySelectorAll(PUBLIC_ABSENT_TEXT)) element.remove();
   }
   const errorsOut = toolbar.querySelector("[data-player-errors]");
   const hintsOut = toolbar.querySelector("[data-player-hints]");

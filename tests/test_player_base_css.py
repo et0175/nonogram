@@ -71,7 +71,7 @@ RECT_TOLERANCE = 0.05
 PROVENANCE = {
     "file": "bootstrap.min.css (Bootstrap 5.3)",
     "sha256": "7f1d37f0d90b6385354c2ac10e2bb91563c46bd7a266ed351222ebcac8496c2a",
-    "recorded": "2026-11-10",  # re-recorded by CARD-401 (compact toolbar, two-cell Region), CARD-403, CARD-404, CARD-409 (stage cap, capped clues, the answer line moved over the board) , CARD-411 (Keep and Wrong guess; the probe line a full control row) and CARD-412 (the Wrong-guess offer); same real file, same browser
+    "recorded": "2026-11-10",  # re-recorded by CARD-401 (compact toolbar, two-cell Region), CARD-403, CARD-404, CARD-409 (stage cap, capped clues, the answer line moved over the board) , CARD-411 (Keep and Wrong guess; the probe line a full control row), CARD-412 (the Wrong-guess offer) and CARD-413 (How to play, one closed line); same real file, same browser
     "browser": "Chromium 151.0.7922.34 (Playwright)",
     "platform": "macOS 26.7.1 arm64",
 }
@@ -247,7 +247,7 @@ def test_a_changed_stylesheet_reds_the_fidelity_check(browser_page, bundle, frag
 # fmt: off
 FROZEN: dict[int, dict[str, str]] = {
     390: {
-        "html": "0|0|390|851.63|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
+        "html": "0|0|390|583.69|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
         "00 h1 ": "16|16|178.28|36.48|block|border-box|0px 0px 4px|0px|0px|none|0px|30.4px|500|36.48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
         "01 span badge": "210.28|23|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none|auto",
         "02 div puzzle-player-controls": "16|63.48|358|103.8|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
@@ -289,7 +289,7 @@ FROZEN: dict[int, dict[str, str]] = {
         "error alert": "16|72.48|358|108.39|block|border-box|0px 0px 16px|16px|1px 1px 1px 4px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|relative|rgb(28, 35, 51)|rgb(245, 230, 224)|rgb(155, 59, 38)|1|none|none|auto|auto|none|none|auto",
     },
     1280: {
-        "html": "0|0|1280|684.53|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
+        "html": "0|0|1280|617.55|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
         "00 h1 ": "40|28|234.58|48|block|border-box|0px 0px 4px|0px|0px|none|0px|40px|500|48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
         "01 span badge": "290.58|40.77|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none|auto",
         "02 div puzzle-player-controls": "40|87|1200|62.58|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px 16px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",

@@ -275,7 +275,7 @@ class TestSolverBrushMenu_FourthBrushIsCalledClear:
     ) -> None:
         _open(browser_page, live, live.store(GRID))
         hint = " ".join(
-            browser_page.locator("p.player-hint#puzzle-player-hint").text_content().split())
+            browser_page.locator("#puzzle-player-hint").text_content().split())
         confirm = browser_page.locator("#puzzle-player-confirm-text").text_content().strip()
 
         _trigger(browser_page).click()
@@ -286,8 +286,10 @@ class TestSolverBrushMenu_FourthBrushIsCalledClear:
 
         assert _trigger_text(browser_page) == "Clear"
         assert _trigger(browser_page).get_attribute("aria-label") == "Brush: Clear"
-        assert "Clear: blank, black, white" in hint, hint
-        assert "choose Black, White, Maybe or Clear" in hint, hint
+        # RETIRED CLAIM, 2026-11-07 (CARD-413, owner item 9): the usage text
+        # spelled out each brush's cycle ("Clear: blank, black, white"); the
+        # owner's "How to play" drops the cycles and names the brush list.
+        assert "Black, White, Maybe (?) or Clear" in hint, hint
         assert confirm == "Every mark is cleared. Undo brings them back.", confirm
 
     def test_no_user_facing_string_in_the_player_says_undecided(

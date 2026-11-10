@@ -911,6 +911,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-brush-run .player-swatch + .player-swatch { margin-left: calc(-1 * var(--border-width)); border-left-color: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
 .player-mirror { display: inline-flex; transform: scaleX(-1); }
 .player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
+/* CARD-413: "How to play" — one line closed, the bullets below it open. */
+.player-howto summary { cursor: pointer; width: fit-content; color: var(--color-text); }
+.player-howto ul { margin: var(--space-2) 0 0; padding-left: var(--space-4); }
+.player-howto li { margin: 0 0 var(--space-1); }
 /* Progress (CARD-162, FR-044): the counters close the toolbar row; the
    solved banner takes the tools' place in that row while the board is solved
    (see .player-slot below for how, and the widths at which the board is
