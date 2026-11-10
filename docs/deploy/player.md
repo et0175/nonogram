@@ -327,6 +327,20 @@ Not observed: a real phone (the fourteen findings cards are mostly about phones,
 
 Not observed: a real phone — CARD-402's landscape column is the one change here most about phones, and it was exercised only at 1280x900 — the wizard on a touch screen, any counting, and Auto-Deploy's dashboard state. CARD-400 was `in_progress` and is not in this build; CARD-401 and CARD-403..413 are still `ready`, so the known gaps remain live.
 
+**The festive-solve publish, 2026-11-10 (the day's second).** Published from `main` at `8ffa7194`, same curated bundle. One card: **CARD-280**, the solved board becoming the picture — plus its post-merge follow-up, which is the interesting half.
+
+| Step | What was observed |
+| --- | --- |
+| What changed against production | `solver.js` `dfde50312a45` to `77a022299425`, `solver_state.js` `68762fc3c389` to `1ea4d93d17c2`, `admin.css` `5053cc6dfced` to `3c137f6e16d2`. Everything else — `tokens.css`, `base.css`, `pages.js`, `player.css`, `how-to-solve.js`, the puzzle files, the index and the book landing — byte-identical to the publish three hours earlier. `COPIED_FROM_ADMIN` is still the same four files: the reveal added no served file. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261110b`, no `--analytics`. 160 puzzles, one book landing, `dropped (not in the served schema): title`. Eight copied files byte-identical to their sources, five served fields on every puzzle file, no JSON holding the string `solution`, no external URL in any served page or script, `.player-site` present, no `.vercel/`, no goatcounter. |
+| Preview | `vercel deploy --yes`: `nonogram-studio-127s6860i`. Five doors 200, unknown path 404, eight hashes matched. |
+| Behaviour: the reveal fires once, and only on the last cell | Headless Chromium, 10x10 `33fa80994c`. `--player-wave` resolves on a cell (the sweep's per-cell delay). **One cell short of solved: `is-celebrating` false, `is-solved` false** — nothing fires early. On the last click: `is-celebrating` **true**, `is-solved` true, cells computing `animation-name: player-solved-flash`, banner `Solved!`. **After a reload the board is still `is-solved` but `is-celebrating` is false** — the celebration is one-shot and a reload does not replay it. |
+| Behaviour: the follow-up, measured by colour rather than by class | `8605a5e9` ("no crosshair band across the solved picture") does **not** remove `.is-crossed` — it repaints it, so the class count is the wrong instrument. Hovering the solved picture leaves **21 `.is-crossed` elements** and the band is nonetheless invisible: a crossed cell's computed background **equals** a plain cell's, `rgb(28, 35, 51)` for filled and `rgb(255, 253, 248)` for unknown. Pressing **Show grid** brings the worksheet and the band back — crossed `rgb(241, 235, 221)` against plain `rgb(255, 253, 248)`. That is the rule's own `:not(.is-showing-grid)` condition, exercised both ways. |
+| Production | `vercel promote <the preview URL> --scope <team> --yes` created `nonogram-studio-k4z5mb8sh`. On `https://nonogram.adverax.io`: five doors 200, `/nope` 404, the eight hashes as built, and **both runs repeated against the live domain gave identical figures** — one-cell-short quiet, celebration on the last cell, no replay after reload, 21 crossed and both colour equalities true, band back with the grid shown. Zero page errors, zero non-GET requests, no other host, on every run. |
+| Rollback target | `nonogram-studio-hwokhvuou` (the how-to-solve publish of the same day) still Ready. A rollback was not tried. |
+
+Not observed: a real phone, the sweep's timing by eye (it is proven by the computed `animation-name` and the one-shot class, not by watching), any counting, and Auto-Deploy's dashboard state. CARD-400 was still `in_progress` — its test set held the full-suite lock during this publish — and CARD-401 and CARD-403..413 remain `ready`.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
