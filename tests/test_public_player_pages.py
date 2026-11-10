@@ -224,9 +224,14 @@ BOOK_SERIES = "The  Winter Shelf"
 BOOK_SERIES_SERVED = "The Winter Shelf"
 BOOK_AUTHORS = "Ada and Bo"
 
+#: The fixture book's stored theme (CARD-420): "generic", one the site has no
+#: look for, so every landing test sees the default look unless it asks.
+BOOK_THEME = "generic"
+
 
 def write_pages_bundle(
-    root: Path, names=None, *, order=None, leaky: bool = True, book_title=None
+    root: Path, names=None, *, order=None, leaky: bool = True, book_title=None,
+    book_theme: str = BOOK_THEME,
 ) -> tuple[dict[str, str], str]:
     """A bundle at ``root`` holding one book. Returns ``({name: key}, slug)``.
 
@@ -275,6 +280,7 @@ def write_pages_bundle(
         "title": BOOK_TITLE if book_title is None else book_title,
         "series": BOOK_SERIES,
         "authors": BOOK_AUTHORS,
+        "theme": book_theme,
         "puzzle_keys": ordered,
     }
     assert set(book) == set(player_bundle.BOOK_FILE_FIELDS), sorted(book)
@@ -420,7 +426,8 @@ def test_book_landing_lists_and_links(browser_page, pages_host) -> None:
     # Tap the second tile and arrive at that puzzle's board.
     browser_page.locator(".tile").nth(1).click()
     browser_page.wait_for_function("() => window.puzzlePlayer !== undefined")
-    assert browser_page.url.endswith(f"/play/{expected[1]}")
+    # CARD-420: a puzzle opened from a book names the book, for its theme.
+    assert browser_page.url.endswith(f"/play/{expected[1]}?book={slug}")
     assert browser_page.evaluate("() => window.puzzlePlayer.payload.id") == expected[1]
 
 
@@ -1563,6 +1570,8 @@ def test_a_book_with_no_resolvable_puzzle_is_still_served_empty(tmp_path) -> Non
         "title": BOOK_TITLE_SERVED,
         "series": BOOK_SERIES_SERVED,
         "authors": BOOK_AUTHORS,
+        # CARD-420: the fixture's "generic" is no theme the site draws.
+        "theme": "",
         "puzzles": [],
     }
     assert sorted(key for _, key in report.unresolved) == sorted(
@@ -2868,7 +2877,7 @@ def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_sit
     assert _tiles(page) == [keys[name] for name in BOOK_ORDER]
     page.click(f'.tile[data-key="{keys["h24"]}"]')
     page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
-    assert page.url.endswith(f"/play/{keys['h24']}")
+    assert page.url.endswith(f"/play/{keys['h24']}?book={slug}")  # CARD-420
     _tap(page, 0, 0)
     _tap(page, 1, 2)
     assert [_state(page, 0, 0), _state(page, 1, 2)] == ["filled", "filled"]

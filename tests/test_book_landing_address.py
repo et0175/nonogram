@@ -167,11 +167,12 @@ class TestBookLanding_PrintedSlugIsTheBundlesSlug:
 
         Was "only its three fields"; CARD-418 added the title page's
         ``series`` and ``authors`` lines for the landing page's header (owner,
-        2026-11-10). Still editorial text about the book and nothing else.
+        2026-11-10), and CARD-420 the book's stored ``theme`` for its look.
+        Still facts about the book and nothing else.
         """
         _, root = exported(GROUPED_ROWS, tmp_path)
         payload = json.loads(book_files(root)[0].read_text())
-        assert set(payload) == {"authors", "puzzle_keys", "series", "slug", "title"}
+        assert set(payload) == {"authors", "puzzle_keys", "series", "slug", "theme", "title"}
 
 
 class TestBookLanding_NumbersMatchPrintNumbers:
