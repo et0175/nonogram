@@ -929,19 +929,6 @@ class TestBookPageFrame_TwoUpCarriesTheWholeFrame:
                 assert folio[0].anchor == "mb", "a two-up folio is now centred on the footer line"
                 assert folio[0].xy == (frame.folio_x, frame.baseline)
 
-    def test_the_one_exemption_left_is_the_grid_size_label(self, interior) -> None:
-        """Narrowed, not dropped: a two-up page carries two grid sizes and so
-        prints neither (``size_label=None``; CARD-226 gives each slot its
-        own). Asserted as the residue of the exemption this card removed, so
-        it cannot drift into "the footer is optional on a pair"."""
-        for number in interior.two_up:
-            labels = [
-                call
-                for call in _text_calls(interior)
-                if call.page == number and " x " in call.text
-            ]
-            assert labels == [], (number, labels)
-
 
 class TestBookPageFrame_TheReadingsCanFail:
     """CARD-382 — a matched control for every reading added to make this

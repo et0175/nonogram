@@ -1,6 +1,6 @@
 # CARD-321: The hint ladder's answer line is truncated on a phone and pushes the board off a small laptop — the two widths CARD-269 never claimed
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_hint.py
 **Review score:** —
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-10T08:56Z
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -131,3 +131,5 @@ rather than buy the room from that margin.** That note was written for this card
   "18-file set / 750 collected" (never named its files; the reviewer's derivations collect 845 and
   911), and its "6 of 73,500 px at 1 level" toolbar reading (the reviewer got 16 at 2). Derive your
   own set and name it.
+
+[Skipped 2026-11-10, moot — owner agreed in the player-phone thread: "ok let's do it this way" to re-checking and closing it] Both findings were about CARD-269's answer LINE: F-12, ellipsised on a phone; F-13, its own +38 px row below 820 px pushing the board off a small laptop. CARD-409 (merged e8d2540c, owner finding 2026-11-07 "the hint text right by the board") replaced that line with a strip absolutely positioned over the board: it wraps (no ellipsis or nowrap in .player-explain) and takes no row, so neither failure can occur. Held by TestSolverHintLadder_EveryPressChangesSomethingSeen::test_the_line_moves_neither_the_toolbar_nor_the_board (the strip inside the stage, not clipped, >= 12 px, nothing moves) at 390x844, 844x390, 1280x900 and 1440x900. No code change.

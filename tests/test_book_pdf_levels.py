@@ -230,8 +230,14 @@ def expected_in_the_medium_of(
 ) -> Page:
     """The operators ``vector_puzzle_page`` draws for ``puzzle`` at the position,
     number and tier this module states (CARD-360)."""
+    # The footer's "Solution on p. N" is the answer plan's (owner, 2026-11-10),
+    # not this module's subject: it is read off the page and drawn the same.
+    found = re.search(r"Solution on p\. (\d+)", " ".join(getattr(page, "operators", ())))
     return BookPDFGenerator(_book()).vector_puzzle_page(
-        _banded_payload(puzzle, tier), number, page_number
+        _banded_payload(puzzle, tier),
+        number,
+        page_number,
+        solution_pages=None if found is None else {number: int(found.group(1))},
     )
 
 
@@ -339,13 +345,16 @@ def footer_floor(words: Sequence) -> float:
     off such a page would mistake a clue digit for one and report a correct page
     as wrong, so this raises with the reason instead of returning something.
     """
-    labels = [word for word in words if word.text == "x"]
+    # Since 2026-11-10 the grid size sits in the clue corner and the footer
+    # says where the solution is: its "Solution(s)" word marks the row.
+    labels = [word for word in words if word.text in ("Solution", "Solutions")]
+    labels = labels or [word for word in words if word.text == "x"]
     assert labels, (
         "this page carries no grid-size label, so no footer and no folio to "
         "read (a 20x30 or 10x30 vector page has none); refusing to take a "
         "clue digit for a folio"
     )
-    return min(word.top for word in labels)
+    return max(word.top for word in labels)
 
 
 def footer_digits(
@@ -361,7 +370,12 @@ def footer_digits(
     words = _words_of(page)
     if floor is None:
         floor = footer_floor(words)
-    digits = [w.text for w in words if w.top >= floor - 0.05 and w.text.isdigit()]
+    row = [w.text for w in words if w.top >= floor - 0.05]
+    # A page number the footer points at ("Solution on p. 13") is not the folio.
+    digits = [
+        text for index, text in enumerate(row)
+        if text.isdigit() and not (index and row[index - 1] in ("p.", "and"))
+    ]
     for number in label:
         if str(number) in digits:
             digits.remove(str(number))

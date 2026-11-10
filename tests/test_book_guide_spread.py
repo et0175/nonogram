@@ -98,8 +98,10 @@ class TestGuideSpread_SitsOnPagesTwoAndThree:
             assert not page_is_right_hand(2) and page_is_right_hand(3)
             for number in (2, 3):
                 assert _guide_text(streams[number - 1])[-1] == str(number)
-            # The band carries the running head; the page's own title follows it.
-            assert _guide_text(streams[1])[:2] == ["How to Solve", "How to Solve Nonograms"]
+            # The band carries the running head; the page's own title follows
+            # the grey promise box above it (2026-11-10).
+            page_two = _guide_text(streams[1])
+            assert page_two[0] == "How to Solve" and "How to Solve Nonograms" in page_two[1:5]
             assert _guide_text(streams[2])[:2] == ["How to Solve", "When the Puzzle Gets Harder"]
             assert not any(
                 "How to Use This Book" in text for n in (2, 3) for text in _guide_text(streams[n - 1])
@@ -483,7 +485,9 @@ class TestGuidePage_TheLineFitsEveryTrim:
         ):
             x, y = float(rect["x"]), float(rect["y"])
             right, top = x + float(rect["w"]), y + float(rect["h"])
-            assert right <= sx0 or x >= sx1 or top <= sy0 or y >= sy1, rect.group(0)
+            # The grey box the sentence is set in (2026-11-10) holds it whole.
+            holds_it = x <= sx0 and right >= sx1 and y <= sy0 and top >= sy1
+            assert holds_it or right <= sx0 or x >= sx1 or top <= sy0 or y >= sy1, rect.group(0)
 
 
 class TestGuidePage_CarriesNoQr:

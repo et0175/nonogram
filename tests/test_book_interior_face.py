@@ -489,7 +489,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
 
         frame = _toc_frame_for(SimpleNamespace(trim_height_cm="10.00"))
         rows = structural_toc_entry_count(self.SPILLING_LEVELS, self.SPILLING_PUZZLES)
-        assert rows == 10, rows
+        assert rows == 14, rows  # 2 + 3 per level since 2026-11-10
 
         def measure():
             capacity = _toc_entries_per_page(frame, BOOK_DPI)

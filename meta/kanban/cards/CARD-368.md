@@ -1,6 +1,6 @@
 # CARD-368: Nothing guards the agreement of a card's estimate across its three copies — the board claimed CARD-363 did, and CARD-363 declines the surface
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-363
 **Touches:** tests/test_kanban_review_record.py, meta/kanban/board.md
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-10 enabler triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -62,3 +62,7 @@ So the position is: the drift is **real and has happened once**, the detection w
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-10 — enabler triage
+
+A guard over the board's own copies of an estimate; nothing outside the board is affected.

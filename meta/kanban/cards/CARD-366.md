@@ -1,6 +1,6 @@
 # CARD-366: The metrics capture has refused on three consecutive waves for a missing registry, so no trend series exists for any signal
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 2c (1d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/metrics/signal-definitions.yml
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-10 enabler triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -122,3 +122,7 @@ decision the owner already made.**
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate
   (check: review-lens)
 - forge_1's ADR-0055 (upstream, not this board's — see CARD-367) — review cycles are the estimate unit (check: review-lens)
+
+## RETIRED 2026-11-10 — enabler triage
+
+Retro metrics bookkeeping; no wave, book or player work depends on it.

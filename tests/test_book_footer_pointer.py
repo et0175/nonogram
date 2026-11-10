@@ -230,8 +230,8 @@ class TestFooterPointer_NamesThePuzzleAndThePlayPage:
             found = _sequence_at(words, expected)
             assert found is not None, (entry.page_number, [w.text for w in words])
             assert _on_outer_side(found, width, entry.page_number), entry.page_number
-            columns, height = rows[number - 1]["width"], rows[number - 1]["height"]
-            label = _sequence_at(words, [str(columns), "x", str(height)])
+            # The inner side carries where the solution is (2026-11-10).
+            label = _sequence_at(words, ["Solution", "on", "p."])
             assert label is not None, (entry.page_number, [w.text for w in words])
             # the inner side is the other half of the trim
             assert (_centre(label) > width / 2) is not page_is_right_hand(entry.page_number)
@@ -281,7 +281,9 @@ class TestFooterPointer_AbsentWithoutADomain:
                 texts = [word.text for word in export.footer_words(entry.page_number)]
                 assert "Play" not in texts and "online" not in texts, texts
                 assert str(entry.page_number) in texts
-                assert ("x" in texts) is (entry.pair is None), texts
+                # The grid size moved to the clue corner (2026-11-10); the
+                # footer names where the solution is instead.
+                assert ("Solution" if entry.pair is None else "Solutions") in texts, texts
 
 
 def _hard_domain_free_with_invalid_domain():

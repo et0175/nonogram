@@ -299,7 +299,7 @@ def toc_page_stream(
             )
             # A section's own row is emboldened; a level's range under its
             # heading is set in the secondary grey.
-            under_level = index > 0 and rows[index - 1].page is None
+            under_level = row.secondary or (index > 0 and rows[index - 1].page is None)
             set_from_top(
                 stream, clipped, frame.left, y, size_px, face,
                 grey=TOC_RANGE_GREY if under_level else grey,

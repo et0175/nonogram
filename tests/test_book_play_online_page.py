@@ -178,6 +178,10 @@ def _text_free_codes(page: np.ndarray, words, dpi: int) -> np.ndarray:
             outside = np.ones_like(cleaned, dtype=bool)
             outside[top : bottom + 1, left : right + 1] = False
             cleaned[outside] = 255
+            # The card's own border (Anna's design, 2026-11-10): its sides are
+            # columns that are ink down most of the card.
+            sides = (cleaned[top : bottom + 1] <= pdf_vector.INK_LEVEL).mean(axis=0) > 0.5
+            cleaned[:, sides] = 255
     return cleaned
 
 

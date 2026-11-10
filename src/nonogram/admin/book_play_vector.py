@@ -232,38 +232,74 @@ def play_page(
 
 
 # --------------------------------------------------------------------------
-# The approved version B mockup (owner, 2026-11-07)
+# Anna's design (owner, 2026-11-10), replacing version B of 2026-11-07
 # --------------------------------------------------------------------------
 
-#: The mockup's words, as requirements/one-qr-book-delta-2026-11-07.md states them.
+#: The page's words. Every number on it (puzzle count, the solutions' page)
+#: is passed in from the plan, never written here.
 PLAY_EYEBROW = "BONUS"
-PLAY_TITLE = "Play every puzzle online"
+PLAY_BADGE = "FREE ONLINE ACCESS INCLUDED"
+PLAY_TITLE = "Play Every Puzzle Online"
 PLAY_INTRO = (
-    "Scan the code to open this book's puzzle list. Tap a puzzle's number and "
-    "solve it in your browser, on a phone, a tablet or a computer. Nothing to install."
+    "Prefer solving on a screen, on the go, or without an eraser? Scan the QR "
+    "code below to open every puzzle on your phone, tablet or computer. "
+    "No app to install."
 )
-PLAY_CARD_TITLE = "This book's puzzles"
-PLAY_ADDRESS_LEAD = "Or type the address:"
-PLAY_STEPS = (
-    ("Scan", "Point your phone's camera at the code."),
-    ("Pick", "Tap the number of the puzzle you're on."),
-    ("Play", "Fill squares with a tap. Undo, zoom and finished-clue marks help along the way."),
-)
-PLAY_CALLOUT_TITLE = "Stuck? Try it online before you turn the page."
-PLAY_CALLOUT_BODY = (
-    "The solutions start overleaf. Online, the game tells you when the picture is complete."
-)
+PLAY_ADDRESS_LEAD = "OR TYPE THE ADDRESS:"
+PLAY_STEP_HEADS = ("Scan", "Select", "Solve")
+PLAY_CALLOUT_LEAD = "Stuck on a tricky deduction?"
 
-#: The code's printed side in the mockup, and the least it may shrink to.
-_PLAY_QR_MM = 50.0
-_PLAY_QR_MIN_MM = 40.0
+#: The code's printed side, and the least it may shrink to.
+_PLAY_QR_MM = 32.0
+_PLAY_QR_MIN_MM = 25.0
+#: The card's and the code box's border, in points, and its grey.
+_RULE_PT = 0.8
+_RULE_GREY = 0.55
+_PANEL = 0.97
+#: The card's own shade, the guide's panel grey.
+_CARD = 0.945
+
+
+def play_card_title(puzzle_count: int) -> str:
+    """The card's heading: "Online Access to All 160 Puzzles"."""
+    if puzzle_count <= 0:
+        return "Online Access to Every Puzzle"
+    return f"Online Access to All {puzzle_count} Puzzles"
 
 
 def play_card_count_line(puzzle_count: int) -> str:
-    """The card's second line: "All 158, in the same order and with the same numbers as the book." """
-    if puzzle_count <= 0:
-        return "In the same order and with the same numbers as the book."
-    return f"All {puzzle_count}, in the same order and with the same numbers as the book."
+    """The line under the card's heading."""
+    return "Every puzzle from the book, in the same order and with the same numbers."
+
+
+def play_steps(puzzle_count: int) -> tuple[tuple[str, str], ...]:
+    """The three numbered steps; the second names the book's own puzzle range."""
+    numbers = f" (1–{puzzle_count})" if puzzle_count > 0 else ""
+    return (
+        ("Scan", "Open your phone's camera and point it at the code."),
+        ("Select", f"Tap the number{numbers} of the puzzle you are solving."),
+        ("Solve", "Tap to fill, check your marks, zoom and undo as you go."),
+    )
+
+
+def play_callout_body(solutions_page: int) -> str:
+    """The callout's text after its bold lead, naming the solutions' real page."""
+    return (
+        f"Try it online before checking the solutions on page {solutions_page}. "
+        "The game tells you as soon as the hidden picture is complete."
+    )
+
+
+def _tracked(pen, text: str, x: float, baseline: float, size_pt: float, tracking_pt: float,
+             *, grey: float, bold: bool = True) -> float:
+    """Set ``text`` letter-spaced by ``tracking_pt``; returns its right edge."""
+    for char in text:
+        x = pen.put(char, x, baseline, size_pt, grey=grey, bold=bold) + pen.px(tracking_pt)
+    return x - pen.px(tracking_pt)
+
+
+def _tracked_width(pen, text: str, size_pt: float, tracking_pt: float) -> float:
+    return sum(pen.width(char, size_pt) for char in text) + pen.px(tracking_pt) * (len(text) - 1)
 
 
 def _mockup_play_page(
@@ -276,15 +312,17 @@ def _mockup_play_page(
     puzzle_count: int,
     metrics: FontMetrics,
 ) -> ContentStream | None:
-    """The Play online page as the approved mockup sets it, or ``None`` when the
-    sheet is too small for it (the plain centred page is drawn instead).
+    """The Play online page as Anna designed it, or ``None`` when the sheet is
+    too small for it (the plain centred page is drawn instead).
 
-    Top to bottom: a short rule and the "BONUS" eyebrow; the heading; one grey
-    paragraph; a shaded card holding the code (50 mm, never under 40 mm) with
-    the book's puzzle count and the typed address beside it; three numbered
-    steps; and a callout at the foot saying the solutions start overleaf.
+    Top to bottom: the "BONUS" eyebrow and a bordered badge; the heading; a
+    grey paragraph; a bordered card holding the code in its own white box,
+    with the puzzle count and the typed address beside it; three numbered
+    steps under hairlines; and a shaded callout naming the page the solutions
+    start on, which is the page after this one (the plan puts the solutions
+    straight after the Play page).
     """
-    from nonogram.admin.book_guide_spread import _BOLD_RATIO, _GREY, _SHADE, _Pen, _badge
+    from nonogram.admin.book_guide_spread import _GREY, _Pen, _badge
     from nonogram.export.layout import interior_frame
 
     frame = interior_frame(spec)
@@ -299,66 +337,105 @@ def _mockup_play_page(
     modules = encode_text(url)
     mm = dpi / 25.4
 
-    y = frame.header_rule.y + pen.px(40)
+    # Eyebrow, underlined, and the bordered badge beside it.
+    y = frame.header_rule.y + pen.px(34)
+    eyebrow_pt, badge_pt = FOLIO_PT, FOLIO_PT
+    eyebrow_right = _tracked(pen, PLAY_EYEBROW, left, y, eyebrow_pt, 2.2, grey=_INK_TEXT)
     stream.fill_grey(0.0)
-    stream.rectangle(left, y, left + pen.px(60), y + pen.px(2.4), paint="fill")
-    y += pen.px(18)
-    pen.put(PLAY_EYEBROW, left, y, FOLIO_PT, grey=_GREY, bold=True)
-    y += pen.px(38)
+    stream.rectangle(left, y + pen.px(5), eyebrow_right, y + pen.px(6.6), paint="fill")
+    badge_left = eyebrow_right + pen.px(14)
+    badge_w = _tracked_width(pen, PLAY_BADGE, badge_pt, 1.0) + pen.px(16)
+    if badge_left + badge_w <= right:
+        stream.fill_grey(_PANEL)
+        stream.stroke_grey(0.0)
+        stream.stroke_width(_RULE_PT)
+        stream.rectangle(badge_left, y - pen.px(12), badge_left + badge_w, y + pen.px(6), paint="both")
+        _tracked(pen, PLAY_BADGE, badge_left + pen.px(8), y + pen.px(1), badge_pt, 1.0, grey=_INK_TEXT)
+
+    # Heading and intro.
+    y += pen.px(48)
     title_pt = 30.0
-    title_lines = wrap(PLAY_TITLE, pen.type_px(title_pt), width * 0.62, metrics)
-    for line in title_lines:
+    for line in wrap(PLAY_TITLE, pen.type_px(title_pt), width, metrics):
         pen.put(line, left, y, title_pt, bold=True)
         y += pen.px(title_pt * 1.15)
-    y += pen.px(4)
-    y = pen.para(PLAY_INTRO, left, y, width * 0.9, 12.0, grey=_GREY)
+    y = pen.para(PLAY_INTRO, left, y + pen.px(2), width * 0.92, 11.0, grey=_GREY)
 
-    # The card: code on the left, words beside it.
+    # The card: the code in a white box on the left, words beside it.
     qr_side = _PLAY_QR_MM * mm
     floor = max(_PLAY_QR_MIN_MM * mm, qr_min_side_px(len(modules), dpi))
-    card_top = y + pen.px(8)
-    pad = pen.px(22)
-    text_left = left + pad + qr_side + pen.px(26)
+    if qr_side < floor:
+        qr_side = floor
+    pad = pen.px(16)
+    quiet = pen.px(8)
+    card_top = y + pen.px(18)
+    box = qr_side + 2 * quiet
+    text_left = left + pad + box + pen.px(22)
     text_width = right - pad - text_left
-    if text_width < pen.px(150) or qr_side < floor:
+    if text_width < pen.px(150):
         return None
-    card_bottom = card_top + qr_side + 2 * pad
-    pen.box(left, card_top, right, card_bottom, _SHADE)
-    draw_qr(stream, modules, QrBox(left + pad, card_top + pad, qr_side))
-    ty = card_top + pad + pen.px(22)
-    pen.put(PLAY_CARD_TITLE, text_left, ty, 15.0, bold=True)
-    ty = pen.para(play_card_count_line(puzzle_count), text_left, ty + pen.px(20), text_width, 11.0, grey=_GREY)
-    ty += pen.px(12)
-    pen.put(PLAY_ADDRESS_LEAD, text_left, ty, FOLIO_PT, grey=_GREY)
+    card_bottom = card_top + box + 2 * pad
+    stream.fill_grey(_CARD)
+    stream.stroke_grey(0.0)
+    stream.stroke_width(_RULE_PT)
+    edge = pen.px(_RULE_PT)  # the stroke is centred: keep its outer half inside the margin
+    stream.rectangle(left + edge, card_top, right - edge, card_bottom, paint="both")
+    stream.fill_grey(1.0)
+    stream.stroke_grey(_RULE_GREY)
+    stream.stroke_width(_RULE_PT)
+    stream.rectangle(left + pad, card_top + pad, left + pad + box, card_top + pad + box, paint="both")
+    draw_qr(stream, modules, QrBox(left + pad + quiet, card_top + pad + quiet, qr_side))
+    ty = card_top + pad + pen.px(26)
+    ty = pen.para(play_card_title(puzzle_count), text_left, ty, text_width, 14.0, bold=True)
+    ty = pen.para(play_card_count_line(puzzle_count), text_left, ty - pen.px(4), text_width, FOLIO_PT, grey=_GREY)
+    ty += pen.px(8)
+    _tracked(pen, PLAY_ADDRESS_LEAD, text_left, ty, FOLIO_PT, 0.6, grey=_GREY, bold=False)
     address, address_px = address_lines(
         short, [type_px(size, dpi) for size in PLAY_ADDRESS_SIZES_PT], text_width, metrics
     )
-    ty += pen.px(17)
+    ty += pen.px(16)
     for line in address:
         pen.put(line, text_left, ty, address_px / pt, bold=True)
         ty += line_height_px(address_px, metrics)
     if ty > card_bottom:
         return None
 
-    # The three steps, side by side.
-    y = card_bottom + pen.px(42)
-    column = width / len(PLAY_STEPS)
+    # The three steps, side by side, each under a hairline.
+    steps = play_steps(puzzle_count)
+    y = card_bottom + pen.px(34)
+    gap = pen.px(18)
+    column = (width - gap * (len(steps) - 1)) / len(steps)
     steps_bottom = y
-    for index, (head, body) in enumerate(PLAY_STEPS):
-        x = left + index * column
-        _badge(pen, x + pen.px(9), y, str(index + 1))
-        pen.put(head, x + pen.px(26), y, 13.0, bold=True)
-        steps_bottom = max(steps_bottom, pen.para(body, x, y + pen.px(22), column - pen.px(20), FOLIO_PT, grey=_GREY))
+    for index, (head, body) in enumerate(steps):
+        x = left + index * (column + gap)
+        stream.stroke_grey(0.82)
+        stream.stroke_width(1.2)
+        stream.line(x, y, x + column, y)
+        by = y + pen.px(22)
+        _badge(pen, x + pen.px(9), by, str(index + 1))
+        pen.put(head, x + pen.px(26), by, 12.5, bold=True)
+        steps_bottom = max(steps_bottom, pen.para(body, x, by + pen.px(22), column, FOLIO_PT, grey=_GREY))
 
-    # The callout, at the foot of the area.
-    callout_h = pen.px(40)
-    callout_top = frame.footer_rule.y - pen.px(16) - callout_h
-    if callout_top < steps_bottom + pen.px(10):
+    # The callout: a dark bar and a shaded panel, naming the solutions' page.
+    lead_w = pen.width(PLAY_CALLOUT_LEAD + " ", FOLIO_PT)
+    body = play_callout_body(page_number + 1)
+    inner = width - pen.px(30)
+    lead_px = pen.type_px(FOLIO_PT * 1.4)
+    # The lead sits on the first line; the body wraps after it.
+    first, rest = _first_line(pen, body, inner - lead_w, inner, metrics)
+    callout_h = pen.px(20) + lead_px * (1 + len(rest))
+    callout_top = steps_bottom + pen.px(18)
+    if callout_top + callout_h > frame.footer_rule.y - pen.px(10):
         return None
+    stream.fill_grey(_PANEL)
+    stream.rectangle(left, callout_top, right, callout_top + callout_h, paint="fill")
     stream.fill_grey(0.0)
     stream.rectangle(left, callout_top, left + pen.px(3), callout_top + callout_h, paint="fill")
-    pen.put(PLAY_CALLOUT_TITLE, left + pen.px(14), callout_top + pen.px(15), 11.5, bold=True)
-    pen.para(PLAY_CALLOUT_BODY, left + pen.px(14), callout_top + pen.px(32), width - pen.px(14), FOLIO_PT, grey=_GREY)
+    cy = callout_top + pen.px(10) + pen.type_px(FOLIO_PT) * 0.8
+    x = pen.put(PLAY_CALLOUT_LEAD, left + pen.px(16), cy, FOLIO_PT, bold=True)
+    pen.put(" " + first, x, cy, FOLIO_PT, grey=_GREY)
+    for line in rest:
+        cy += lead_px
+        pen.put(line, left + pen.px(16), cy, FOLIO_PT, grey=_GREY)
 
     draw_sheet_furniture(
         stream,
@@ -371,3 +448,17 @@ def _mockup_play_page(
         metrics,
     )
     return stream
+
+
+#: The eyebrow's and badge's ink.
+_INK_TEXT = 0.0
+
+
+def _first_line(pen, text: str, first_width: float, width: float, metrics: FontMetrics) -> tuple[str, List[str]]:
+    """``text`` split into a first line of ``first_width`` and the rest wrapped at ``width``."""
+    words = text.split()
+    first: List[str] = []
+    while words and pen.width(" ".join(first + [words[0]]), FOLIO_PT) <= first_width:
+        first.append(words.pop(0))
+    rest = wrap(" ".join(words), pen.type_px(FOLIO_PT), width, metrics) if words else []
+    return " ".join(first), rest

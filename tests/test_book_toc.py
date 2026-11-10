@@ -347,8 +347,11 @@ class TestBookToc_ListsSectionsNotPuzzles:
             "Hard",
             "Puzzles 121–150",
             TOC_SOLUTIONS_LABEL,
+            "Easy",
+            "Medium",
+            "Hard",
         ]
-        assert len(rows) == 2 + 2 * 3, (
+        assert len(rows) == 2 + 3 * 3, (
             "a three-level book lists eight rows however many puzzles it holds"
         )
 
@@ -393,7 +396,7 @@ class TestBookToc_ListsSectionsNotPuzzles:
         labels = [row.label for row in _rows_of(generator, puzzles, monkeypatch)]
 
         assert "Owner's Custom Title" not in "\n".join(labels)
-        assert labels == [GUIDE_TITLE, "Easy", "Puzzles 1–2", TOC_SOLUTIONS_LABEL]
+        assert labels == [GUIDE_TITLE, "Easy", "Puzzles 1–2", TOC_SOLUTIONS_LABEL, "Easy"]
 
     def test_only_the_level_headings_carry_no_page_number(self, monkeypatch) -> None:
         """A heading groups the row under it; the range row carries the page."""
@@ -437,6 +440,9 @@ class TestBookToc_RowsDeclareTheGroupsTheyOpen:
             "Puzzles 1–3",
             "Puzzles 4–6",
             "Puzzles 7–9",
+            "Easy",
+            "Medium",
+            "Hard",
         ], (
             "and nothing else does — the guide opens the list rather than a "
             "group within it, and a range row belongs to the heading above it"
@@ -569,6 +575,11 @@ class TestBookToc_PageNumbersMatchTheWalk:
         kind_of[solutions] = "divider:SOLUTIONS"
 
         assert kind_of[rows[0].page] == "guide"
+        # The rows after Solutions point into the answer section, in order.
+        cut = [row.label for row in rows].index(TOC_SOLUTIONS_LABEL) + 1
+        rows, answer_rows = rows[:cut], rows[cut:]
+        answer_pages = [row.page for row in answer_rows]
+        assert answer_pages == sorted(answer_pages) and answer_pages[0] > rows[-1].page
         for heading, range_row in zip(rows[1:-1:2], rows[2:-1:2]):
             assert kind_of[range_row.page] == f"divider:{heading.label}", (
                 f"the {heading.label} range row points at page "
@@ -678,6 +689,9 @@ class TestBookToc_RangeRowsFollowTheLevelRuns:
             "Hard",
             "Puzzles 4–6",
             TOC_SOLUTIONS_LABEL,
+            "Easy",
+            "Medium",
+            "Hard",
         ]
 
 
@@ -700,6 +714,7 @@ class TestBookToc_SkipsEmptyLevels:
             "Easy",
             "Puzzles 1–12",
             TOC_SOLUTIONS_LABEL,
+            "Easy",
         ]
         assert "Medium" not in [row.label for row in rows]
         assert "Hard" not in [row.label for row in rows]
@@ -747,6 +762,8 @@ class TestBookToc_SkipsEmptyLevels:
             "Hard",
             "Puzzles 4–5",
             TOC_SOLUTIONS_LABEL,
+            "Easy",
+            "Hard",
         ]
         # The untiered puzzle really is in the book and really does print.
         decided = generator.section_plan(list(puzzles))
@@ -819,7 +836,7 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
             "the structural list fits one page"
         )
         assert decided.toc_page_count == 1
-        assert len(rows) == 8
+        assert len(rows) == 11
 
     def test_the_split_is_still_measured_and_not_hardcoded(self) -> None:
         """"One page" must be a verdict of the same arithmetic, not a literal.
@@ -932,7 +949,7 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
             "four pages, so the agreement above is a real check of the new "
             "rule and not an identity that holds either way"
         )
-        assert structural_toc_entry_count(len(TIERS), len(puzzles)) == 8
+        assert structural_toc_entry_count(len(TIERS), len(puzzles)) == 11
 
     def test_the_gutter_band_itself_follows_the_new_count(self) -> None:
         """One step further out: the figure KDP's band lookup is given.
@@ -1901,10 +1918,7 @@ class TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts:
         """
         generator = BookPDFGenerator(_book(book_id))
         decided = generator.section_plan(list(puzzles))
-        solutions_page = generator.interior_stream(list(puzzles)).first_answer_page - 1
-        entries = structural_toc_entries(
-            decided.pages, decided.payloads, solutions_page
-        )
+        entries = list(generator.interior_stream(list(puzzles)).toc_entries)
         levels = len(
             [page for page in decided.pages if isinstance(page, DividerPagePlan)]
         )
@@ -1939,9 +1953,10 @@ class TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts:
             "function is fed the number this test asked for"
         )
         # The hand count: one guide row, a heading and a range row per level,
-        # one solutions row. Written out rather than taken from the function
-        # under test, so a builder that lost a row fails here.
-        assert len(entries) == 1 + 2 * levels + 1
+        # one solutions row and one solutions row per level. Written out
+        # rather than taken from the function under test, so a builder that
+        # lost a row fails here.
+        assert len(entries) == 1 + 2 * levels + 1 + levels
         assert len(entries) == structural_toc_entry_count(named_levels, puzzle_count), (
             "the row count the builder produced and the one the three "
             "page-count callers are fed must be the same figure — this is "
@@ -1966,7 +1981,7 @@ class TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts:
         shared helper would make the assertion meaningless; these two read
         different inputs and agree.
         """
-        assert structural_toc_entry_count(3, 150) == 8
+        assert structural_toc_entry_count(3, 150) == 11
         assert structural_toc_entry_count(0, 150) == 2, (
             "a book whose every run is untiered lists the guide and the "
             "solutions and nothing between them"
@@ -2089,7 +2104,7 @@ class TestBookToc_TheErrorPathsRaiseAndNameTheProblem:
             generator.interior_stream(_puzzles(easy=3))
         message = str(raised.value)
 
-        assert "built 4 row(s)" in message, (
+        assert "built 5 row(s)" in message, (
             f"the rows the builder really produced must be named: {message}"
         )
         assert "1 level(s) and 3 puzzle(s) lists 3" in message, (
@@ -2121,11 +2136,11 @@ class TestBookToc_TheErrorPathsRaiseAndNameTheProblem:
             generator.interior_stream(_puzzles(easy=3))
         message = str(raised.value)
 
-        assert calls == [4, 4], (
+        assert calls == [5, 5], (
             "this test's premise: the plan and the draw each measure the "
-            f"same four rows, and only the second answer is widened: {calls}"
+            f"same five rows, and only the second answer is widened: {calls}"
         )
-        assert "4 row(s) need 2 page(s)" in message, message
+        assert "5 row(s) need 2 page(s)" in message, message
         assert "laid out on 1" in message, (
             f"the figure the book's own page numbers rest on must be named: {message}"
         )
@@ -2392,10 +2407,12 @@ class TestToc_EveryRowMatchesThePagePlan:
             for stream_text in _vector_toc_streams(self._generator(), rows)
             for text in _toc_strings(stream_text)
         ]
+        cursor = 0
         for row in rows:
+            position = shown.index(row.label, cursor)
+            cursor = position + 1
             if row.page is None:
                 continue
-            position = shown.index(row.label)
             assert shown[position + 1] == str(row.page)
             assert set(shown[position + 2]) == {"."}, shown[position : position + 3]
 
