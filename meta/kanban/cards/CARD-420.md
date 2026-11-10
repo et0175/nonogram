@@ -1,6 +1,6 @@
 # CARD-420: A book's Christmas theme dresses its landing page and the puzzles opened from it
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** card/420-book-theme
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-420
+**Branch:** —
+**Worktree:** —
 **Source:** owner request 2026-11-10 (project thread "Add a Christmas theme to the book page"): asked whether a book and its puzzles can have their own style, "e.g. Christmas for the first book"; "not needed for the printed book"; the co-author's mockup (green panels with gold edges, red buttons, cream background); solved tiles "of course not coloured", "maybe something greenish"; then "ok, do it please".
 **Idea:** —
 **Wave:** 79
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/player_bundle.py, player/assemble.py, src/nonogram/admin/static/tokens.css, player/player.css, player/pages.js, tests/test_player_bundle.py, tests/test_public_player_pages.py, tests/test_book_landing_page.py
 **Review score:** — (no review cycle; merged on the gates)
 **Started:** 2026-11-10T16:35Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-10T17:15Z
+**Actual:** one owner session (wall clock excluded, owner ruling)
+**Merge commit:** ace5a29a
 **Blocked by:** —
 
 ## Why this card exists
