@@ -1,6 +1,6 @@
 # CARD-280: The solved board stops being a worksheet and becomes the picture
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.75d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/280-solved-reveal-the-picture
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-280
 **Source:** Owner's request 2026-10-23: *"I'd like to make an animation after the user solves the puzzle in player more festive. What would you propose?"* — then "make a card for it". The proposal below is the orchestrator's, built after reading what the player already does on solve rather than from a blank page, which is what moved it away from the obvious answer (see **Why**).
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_solved_reveal.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-10T13:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -221,3 +221,5 @@ written here rather than discovered: the player is being reopened, not won.
 - **[Browser-test cost]** These are pytest-playwright/Chromium tests (ADR-0038/R7, dev-only extra). The
   sibling player files are the model for the fixtures; `tests/test_puzzle_solver_zoom.py` shows how a
   redraw is forced, which AC-3 needs.
+
+[OWNER RULING 2026-11-10] "do as you propose" (player-phone thread): the owner saw the public banner read "Solved: Puzzle b68815…" (the key — a puzzle's name is never published, ADR-0041/R2) and asked for a more festive solve. Taken in this card: (1) the banner reads "Solved!" with a celebration mark and the solve's own honest stats (hints, errors where the page has them) instead of the key; the admin page keeps the picture's name; (2) the picture reveal (layer 1) and the sweep through the picture (layer 2) as the card proposes, the transition only on a genuine solve. Test budget applies (fewer tests: one cell per behaviour, re-point before adding).

@@ -480,6 +480,13 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
+  # CARD-280 DISPATCHED 2026-11-10T13:00Z (player-phone thread; owner "do as you propose" 2026-11-10).
+  - card: CARD-280
+    branch: card/280-solved-reveal-the-picture
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-280
+    started: 2026-11-10T13:00Z
+    estimate: 3c (0.75d)
+    cut_from: ad8c56d9
 # CARD-400 CLEARED 2026-11-10T12:22Z: merged 207470ef, done, review 9.0 on cycle 1, estimate 3c -> 0.33. Player-set gate 1397 passed. Entry dropped.
 # CARD-402 CLEARED 2026-11-10T11:38Z: merged 293f336d, done, reviews 5.0 / 8.0 / 8.0, merged on the owner's request, estimate 3c -> 1.0. Player-set gate 1396 passed. Entry dropped.
 # CARD-413 CLEARED 2026-11-10T07:07Z: merged 6c4a2584, done, review 9.0 on cycle 1, estimate 2c -> 0.5. Player-set gate 1395 passed. Entry dropped.
