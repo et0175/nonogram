@@ -282,11 +282,16 @@ def play_steps(puzzle_count: int) -> tuple[tuple[str, str], ...]:
     )
 
 
-def play_callout_body(solutions_page: int) -> str:
-    """The callout's text after its bold lead, naming the solutions' real page."""
+def play_callout_body() -> str:
+    """The callout's text after its bold lead.
+
+    Owner, 2026-11-10: it points a stuck reader at the online Hint, which
+    shows the line to work on and why, and then at the solutions, which
+    start on the very next page.
+    """
     return (
-        f"Try it online before checking the solutions on page {solutions_page}. "
-        "The game tells you as soon as the hidden picture is complete."
+        "Press Hint in the online game: it points to a line you can work on "
+        "and explains why. Or turn the page for the solutions."
     )
 
 
@@ -318,9 +323,9 @@ def _mockup_play_page(
     Top to bottom: the "BONUS" eyebrow and a bordered badge; the heading; a
     grey paragraph; a bordered card holding the code in its own white box,
     with the puzzle count and the typed address beside it; three numbered
-    steps under hairlines; and a shaded callout naming the page the solutions
-    start on, which is the page after this one (the plan puts the solutions
-    straight after the Play page).
+    steps under hairlines; and a shaded callout pointing at Hint and at the
+    solutions, which start on the page after this one (the plan puts the
+    solutions straight after the Play page).
     """
     from nonogram.admin.book_guide_spread import _GREY, _Pen, _badge
     from nonogram.export.layout import interior_frame
@@ -415,9 +420,9 @@ def _mockup_play_page(
         pen.put(head, x + pen.px(26), by, 12.5, bold=True)
         steps_bottom = max(steps_bottom, pen.para(body, x, by + pen.px(22), column, FOLIO_PT, grey=_GREY))
 
-    # The callout: a dark bar and a shaded panel, naming the solutions' page.
+    # The callout: a dark bar and a shaded panel, pointing at Hint and the next page.
     lead_w = pen.width(PLAY_CALLOUT_LEAD + " ", FOLIO_PT)
-    body = play_callout_body(page_number + 1)
+    body = play_callout_body()
     inner = width - pen.px(30)
     lead_px = pen.type_px(FOLIO_PT * 1.4)
     # The lead sits on the first line; the body wraps after it.
