@@ -1291,8 +1291,17 @@ def book_theme_residual_bits() -> float:
 
 
 def _book_theme(value: object) -> str:
-    """A book's served theme: the stored one when the site draws it, else ``""``."""
-    return value if isinstance(value, str) and value in SERVED_BOOK_THEMES else ""
+    """A book's served theme: the stored one when the site draws it, else ``""``.
+
+    Matched without regard to case or surrounding spaces (owner, 2026-11-10:
+    a stored "Christmas" is the christmas theme), and served in the site's own
+    lowercase spelling, so the page's ``data-theme`` always names a block
+    ``tokens.css`` has.
+    """
+    if not isinstance(value, str):
+        return ""
+    folded = value.strip().lower()
+    return folded if folded in SERVED_BOOK_THEMES else ""
 
 
 def book_title_residual_bits() -> float:
