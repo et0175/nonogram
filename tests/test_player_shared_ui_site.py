@@ -796,7 +796,7 @@ class TestSharedUi_TheDoorsKeepTheirShapes:
         assert _tiles(browser_page) == expected
         browser_page.locator(".tile").nth(1).click()
         browser_page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
-        assert browser_page.url.endswith(f"/play/{expected[1]}")
+        assert browser_page.url.endswith(f"/play/{expected[1]}?book={slug}")  # CARD-420
         assert browser_page.locator("td.player-cell").count() > 0
         assert watch.problems() == []
 
