@@ -28,6 +28,8 @@ What it produces
     play/index.html     the /play/<key> page            (generated, see "The /play/<key> page")
     library/index.html  the /library page               (from player/library.html)
     b/index.html        the /b/<slug> landing           (from player/book.html)
+    how-to-solve/index.html  the /how-to-solve lesson   (from player/how-to-solve.html)
+    how-to-solve.js     the lesson's script             (from player/how-to-solve.js)
     pages.js            the two listing pages' glue     (from player/pages.js)
     player.css          the listing pages' styling      (from player/player.css)
     base.css            the page's Bootstrap stand-in   (from player/shared-ui-base.css)
@@ -381,10 +383,16 @@ MIN_SIZE, MAX_SIZE = _limits()
 #: for ``/library/``; the extensionless ``/library`` needs the rewrite, and
 #: the loopback fixture's ``^/library/?$`` is the same rule read from the
 #: same file.
+#:
+#: ``how-to-solve.html`` is the site-wide lesson page (CARD-419): one page for
+#: every book, published at ``/how-to-solve/index.html`` behind a
+#: ``/how-to-solve`` rewrite, the same arrangement as ``/library``.
 PLAYER_FILES: dict[str, str] = {
     "library.html": "library/index.html",
     "book.html": "b/index.html",
+    "how-to-solve.html": "how-to-solve/index.html",
     "pages.js": "pages.js",
+    "how-to-solve.js": "how-to-solve.js",
     "player.css": "player.css",
     "shared-ui-base.css": "base.css",
     "vercel.json": "vercel.json",

@@ -1,0 +1,149 @@
+<!doctype html>
+<!--
+  The public site's /how-to-solve page (COMP-011, FR-045; CARD-419).
+
+  ONE page for the whole site, not one per book: it names no book, no series
+  and no author, so every book's landing links to the same address and a
+  second book needs nothing here. "Back to your puzzles" goes to the /b/<slug>
+  the reader came from when the referrer is one on this site, and to
+  /library otherwise (how-to-solve.js, homeHref).
+
+  A wizard of five steps, one screen each. The step is the URL fragment
+  (#1..#5), so the browser's Back button walks the steps and a step can be
+  linked to. Everything the steps draw is built by how-to-solve.js from two
+  grids it declares (TRY_GRID, PROBE_GRID); every clue on the page is derived
+  from those grids and none is typed, so a grid edit cannot leave a stale
+  number behind. tests/test_how_to_solve_page.py proves both grids have
+  exactly one solution against the independent brute-force oracle, and that
+  the probe demo's chain is what line logic really forces.
+
+  The marks are the player's: Black, White (a grey dot) and Maybe ("?"), and
+  a probe's marks wear the player's dashed amber edge (CARD-268, CARD-339).
+  Static only: no fetch, no storage. The boards reset on reload.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to solve a nonogram</title>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/player.css">
+</head>
+<body>
+<main class="player-page hts-page" data-hts-page>
+  <a class="hts-home-top" href="/library" data-hts-home>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    Back to your puzzles
+  </a>
+
+  <h1 class="hts-title">How to solve a nonogram</h1>
+
+  <nav class="hts-steps" aria-label="Lesson steps">
+    <div class="hts-dots">
+      <button type="button" class="hts-dot" data-hts-goto="1" aria-label="Step 1: The rules"></button>
+      <button type="button" class="hts-dot" data-hts-goto="2" aria-label="Step 2: Squeeze from both ends"></button>
+      <button type="button" class="hts-dot" data-hts-goto="3" aria-label="Step 3: What every arrangement agrees on"></button>
+      <button type="button" class="hts-dot" data-hts-goto="4" aria-label="Step 4: Probe, and watch it break"></button>
+      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: Levels and the promise"></button>
+    </div>
+    <p class="hts-caption" data-hts-caption>Step 1 of 5 · The rules</p>
+  </nav>
+
+  <section class="hts-step" data-hts-step="1" data-hts-name="The rules">
+    <h2>The rules</h2>
+    <p>The numbers beside each row and above each column tell you the runs of
+      black squares in that line, in order, with at least one white square
+      between runs. A row marked <b class="hts-num">4 2</b> has a run of four,
+      a gap, then a run of two.</p>
+
+    <div class="hts-card">
+      <div class="hts-card-head">
+        <h3>Try one</h3>
+        <span class="hts-tag" data-hts-try-tag></span>
+      </div>
+      <p class="hts-say" data-hts-try-text aria-live="polite"></p>
+      <div class="hts-board" data-hts-try-board></div>
+      <div class="hts-brushes" role="group" aria-label="What a tap does">
+        <button type="button" class="hts-brush" data-hts-brush="filled" aria-pressed="true"><span class="hts-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
+        <button type="button" class="hts-brush" data-hts-brush="empty" aria-pressed="false"><span class="hts-swatch" data-state="empty" aria-hidden="true"></span>White</button>
+        <button type="button" class="hts-brush" data-hts-brush="maybe" aria-pressed="false"><span class="hts-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
+      </div>
+      <div class="hts-actions">
+        <button type="button" class="btn hts-quiet" data-hts-try-show>Show me</button>
+        <button type="button" class="btn hts-quiet" data-hts-try-reset>Start over</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="hts-step" data-hts-step="2" data-hts-name="Squeeze from both ends" hidden>
+    <h2>Squeeze from both ends</h2>
+    <p>Slide a run as far left as it will go, then as far right. Every square
+      it might cover is a maybe. Any square covered both times must be black.
+      A row of 10 with the clue <b class="hts-num">8</b>:</p>
+    <div class="hts-card hts-squeeze" data-hts-squeeze></div>
+    <p>Six squares solved without knowing where the run starts. Come back to
+      this after every discovery: the more you know, the tighter the
+      squeeze.</p>
+  </section>
+
+  <section class="hts-step" data-hts-step="3" data-hts-name="What every arrangement agrees on" hidden>
+    <h2>Keep what every arrangement agrees on</h2>
+    <p>Think of every way the clue could fit the line, given what you already
+      know. A square black in all of them is black. A square empty in all of
+      them is white.</p>
+    <p>Marking whites matters: most of the time it is a white square that
+      unlocks the next line. This idea contains the squeeze; it is the same
+      idea taken all the way.</p>
+  </section>
+
+  <section class="hts-step" data-hts-step="4" data-hts-name="Probe, and watch it break" hidden>
+    <h2>Probe, and watch it break</h2>
+    <p>Stuck? Press <b>Probe</b>, make one open square black, and follow what
+      it forces. Everything you mark while probing gets a dashed edge. If a
+      line can no longer fit its clue, press <b>Contradiction</b>: all the
+      dashed marks go away, and that square is certainly white. If the probe
+      solves the puzzle instead, press <b>Keep</b>.</p>
+    <p>This is not guessing: you prove one option impossible, so the other one
+      is certain.</p>
+
+    <div class="hts-card">
+      <div class="hts-card-head">
+        <h3>Try a probe</h3>
+        <span class="hts-tag" data-hts-probe-tag></span>
+      </div>
+      <p class="hts-say" data-hts-probe-text aria-live="polite"></p>
+      <div class="hts-board" data-hts-probe-board></div>
+      <div class="hts-actions">
+        <button type="button" class="btn hts-quiet" data-hts-probe-open aria-pressed="false">Probe</button>
+        <button type="button" class="btn hts-go" data-hts-probe-follow hidden>Follow it</button>
+        <button type="button" class="btn hts-quiet" data-hts-probe-keep hidden>Keep</button>
+        <button type="button" class="btn hts-stop" data-hts-probe-contradiction hidden>Contradiction</button>
+        <button type="button" class="btn hts-go" data-hts-probe-finish hidden>Finish with line logic</button>
+        <button type="button" class="btn hts-quiet" data-hts-probe-reset hidden>Start over</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="hts-step" data-hts-step="5" data-hts-name="Levels and the promise" hidden>
+    <h2>What the levels mean</h2>
+    <dl class="hts-levels">
+      <dt><span class="hts-level" data-tier="easy" aria-hidden="true"></span>Easy</dt>
+      <dd>Squeezing from both ends is enough, start to finish.</dd>
+      <dt><span class="hts-level" data-tier="medium" aria-hidden="true"></span>Medium</dt>
+      <dd>Needs what every arrangement agrees on, and may need a probe for part of the grid.</dd>
+      <dt><span class="hts-level" data-tier="hard" aria-hidden="true"></span>Hard</dt>
+      <dd>Needs probing over most of the grid.</dd>
+    </dl>
+    <p class="hts-promise"><b>Every puzzle here has exactly one solution.</b>
+      You never have to guess, and there is never a second answer.</p>
+    <a class="btn hts-go hts-home-end" href="/library" data-hts-home>Back to your puzzles</a>
+  </section>
+
+  <div class="hts-nav">
+    <button type="button" class="btn hts-quiet" data-hts-back>Back</button>
+    <button type="button" class="btn hts-go hts-next" data-hts-next>Next</button>
+  </div>
+</main>
+<script type="module" src="/how-to-solve.js"></script>
+</body>
+</html>

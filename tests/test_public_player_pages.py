@@ -3409,9 +3409,11 @@ def test_the_qr_url_shapes_here_are_the_shipped_routes() -> None:
     ``TODO(owner)`` beside it, and no claim that it was observed.
     """
     shapes = driver.qr_shapes(REPO_ROOT)
-    assert sorted(shapes) == ["base", "book", "library", "play"], sorted(shapes)
+    # CARD-419 added "lesson" (/how-to-solve): not a QR target, but a route
+    # the host serves, so it is held to vercel.json here like the other three.
+    assert sorted(shapes) == ["base", "book", "lesson", "library", "play"], sorted(shapes)
     assert shapes["base"].startswith("https://") and shapes["base"].count("/") == 2
-    for name in ("book", "play", "library"):
+    for name in ("book", "play", "library", "lesson"):
         assert shapes[name].startswith("{base}/"), shapes[name]
 
     config = json.loads((PLAYER_DIR / "vercel.json").read_text(encoding="utf-8"))
@@ -3420,7 +3422,7 @@ def test_the_qr_url_shapes_here_are_the_shipped_routes() -> None:
     # becomes vercel's `:name` and the base falls away.
     documented = sorted(
         re.sub(r"\{(\w+)\}", r":\1", shapes[name].removeprefix("{base}"))
-        for name in ("book", "play", "library")
+        for name in ("book", "play", "library", "lesson")
     )
     assert documented == sources, (documented, sources)
 

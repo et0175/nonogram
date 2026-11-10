@@ -3,6 +3,7 @@
   "rewrites": [
     { "source": "/play/:key", "destination": "/play/index.html" },
     { "source": "/b/:slug", "destination": "/b/index.html" },
-    { "source": "/library", "destination": "/library/index.html" }
+    { "source": "/library", "destination": "/library/index.html" },
+    { "source": "/how-to-solve", "destination": "/how-to-solve/index.html" }
   ]
 }
