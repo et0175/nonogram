@@ -1191,7 +1191,11 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # 2026-10-17 for a test that did not exist yet). Membership was diffed at both
 # trees: OUT exactly that one ref, IN none, and `_refuse_unexplained_departures`
 # recovers it by name from the stored digests and judges it a repair.
-BOOKKEEPING_ONLY = (10, "462250d3ff57fe34")
+#: **Re-derived 2026-11-10 at CARD-362, which untracked the 396
+#: ``meta/review/*.yml`` review reports (the owner action CARD-335 bounded).**
+#: Every move below is that untracking and nothing else: the refs those
+#: reports alone kept alive are now honestly dead, which is the point.
+BOOKKEEPING_ONLY = (2, "d48df7862ca775e1")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
 #: the above: the rest are mentioned by a comment or docstring under ``tests/``,
@@ -1245,11 +1249,11 @@ BOOKKEEPING_ONLY = (10, "462250d3ff57fe34")
 # alone, defined now) and -2 the retired AC-325/AC-326 classes, whose only live
 # text was a docstring this card rewrote and whose registry refs were re-pointed
 # at live classes.
-FALSELY_ALIVE = (152, "1b4357f825a25ec5")
+FALSELY_ALIVE = (144, "35673be200447b44")  # CARD-362: was 152 before the review reports were untracked
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
-FALSELY_DEAD = (13, "2943a2e06c8d35ff")
+FALSELY_DEAD = (18, "223d7a6c87854dfe")  # CARD-362: +5, the five warnings the validator now prints honestly
 
 #: Refs both resolvers agree are absent: an honest gap, and the only class that
 #: reads correctly today -- so a ref LEAVING this class is a validator warning
@@ -1358,7 +1362,7 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 # nor :data:`CENSUS` moves -- while the validator of record flips that criterion's warning
 # from "has no 'test'" back to a dead ref. For the four of FR-001 the only instrument that
 # sees the change in either direction is the validator, not this module.
-HONEST_DEAD = (9, "e109f654427454a9")
+HONEST_DEAD = (17, "9e24d165c56049af")  # CARD-362: +8, refs only the review reports kept alive
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -2092,8 +2096,11 @@ def test_a_node_id_ref_resolved_only_from_outside_its_own_module_is_pinned() -> 
         for verdict in members
         if verdict.loose and all(hit.startswith("meta/review/") for hit in verdict.loose)
     ]
-    assert len(review_only) == 2, (
-        f"expected exactly two node-id refs resolved by review reports alone; "
+    #
+    # Since CARD-362 (2026-11-10) the review reports are untracked, so the
+    # figure is ZERO: no ref may rest on them again.
+    assert review_only == [], (
+        f"expected no node-id ref resolved by review reports alone; "
         f"found {review_only}"
     )
 
@@ -2660,7 +2667,8 @@ def test_the_search_domain_excludes_the_model_and_every_markdown_file() -> None:
     # The two that make the pathspec narrowing insufficient, and the one the
     # fourth instance turned up: no .md extension, so it is in domain.
     assert "meta/kanban/dispatcher.state" in domain
-    assert any(name.startswith("meta/review/") for name in domain)
+    # CARD-362: the review reports are untracked, so none is in the domain.
+    assert not any(name.startswith("meta/review/") and name.endswith(".yml") for name in domain)
     assert any(name.startswith("meta/profiling/") for name in domain)
     assert any(name.startswith("tests/") for name in domain)
 
@@ -3459,7 +3467,8 @@ def test_the_resolver_batch_answers_inside_its_own_budget() -> None:
 #:   (CARD-337's G-8: "instruments are ``.py``, numbers live in the card").
 #:
 #: Had either moved, the instruments would have been untracked instead.
-IGNORED_YET_TRACKED = (488, "f36a57d4f39f3a48")
+#: **CARD-362, 2026-11-10: 488 -> 92**, the 396 ``meta/review/*.yml`` untracked.
+IGNORED_YET_TRACKED = (92, "0068802e7e381e78")
 
 #: The same census, by directory. The count is the gate; this is the reading --
 #: "which directory grew" is the only question a reader has when the gate reds.
@@ -3468,7 +3477,6 @@ IGNORED_YET_TRACKED_BY_DIRECTORY = {
     ".idea": 5,
     ".idea/inspectionProfiles": 1,
     "meta/profiling": 10,
-    "meta/review": 396,
     "scratchpad/card309": 2,
     "scratchpad/card316": 3,
     "scratchpad/card317": 3,

@@ -735,9 +735,11 @@ def test_the_exempted_prefixes_hold_nothing_a_shell_can_run():
     index = _tracked_index(REPO)
     modes = [mode for mode, _ in index]
 
-    assert len(modes) >= 500, (
+    # 546 when measured; 418 since CARD-362 untracked the 396 meta/review/*.yml
+    # (2026-11-10), with the board's own cards grown meanwhile.
+    assert len(modes) >= 300, (
         f"the exempted prefixes hold {len(modes)} tracked files; the population this "
-        "equality was measured over (546) cannot have shrunk by an order of magnitude, "
+        "equality was measured over (418) cannot have shrunk by this much, "
         "so the pathspecs no longer name what they did"
     )
 
@@ -749,7 +751,12 @@ def test_the_exempted_prefixes_hold_nothing_a_shell_can_run():
 
     shapes = {Path(path).suffix for _, path in index}
 
-    assert shapes == set(PROSE_SHAPES), (
+    # A subset since CARD-362 (2026-11-10): the review reports (the ``.yml``
+    # shape) are gitignored and untracked, so today the prefixes hold only
+    # ``.md``. ``.yml`` stays exempted for a report someone force-adds, which
+    # the resolver's force-added census reds on its own. A third shape still
+    # reds here.
+    assert shapes and shapes <= set(PROSE_SHAPES), (
         f"{sorted(shapes)} under {OVERRIDE_PROSE} against an exemption for "
         f"{sorted(PROSE_SHAPES)}: the prefixes no longer hold exactly the shapes the "
         "exemption grants, so the clause is either exempting a shape that is not there "
