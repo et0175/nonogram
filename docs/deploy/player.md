@@ -184,6 +184,7 @@ in the output directory" below; it does not survive by default).
 | `/play/<key>` | `play/index.html` | One document plays every puzzle; its loader reads the key out of the path and fetches `puzzle/<key>.json`, then hands it to the admin's `solver.js`. |
 | `/b/<slug>` | `b/index.html` | The QR landing for one book. |
 | `/library` | `library/index.html` | The extensionless path needs the rule; `/library/` would resolve by directory index. |
+| `/how-to-solve` | `how-to-solve/index.html` | The site-wide lesson page (CARD-419); same arrangement as `/library`. |
 
 ### The QR URL base and shapes
 
@@ -199,6 +200,7 @@ base    = https://nonogram.adverax.io
 book    = {base}/b/{slug}
 play    = {base}/play/{key}
 library = {base}/library
+lesson  = {base}/how-to-solve
 ```
 <!-- END qr-url-shapes -->
 

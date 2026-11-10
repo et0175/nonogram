@@ -568,7 +568,7 @@ def test_served_tree_is_clean_of_answers(bundle, tmp_path) -> None:
     # Half 2 — a BOOK title IS admitted, by R2's 2026-10-28 exemption, and
     # only in the book file. The exemption is named in the assembler as well
     # as asserted here, so this is the declared channel and not a surprise.
-    assert assembler.EXEMPT_LISTING_FIELDS == ("title",)
+    assert assembler.EXEMPT_LISTING_FIELDS == ("title", "series", "authors")
     assert "title" in assembler.SERVED_BOOK_SCHEMA
     assert "title" not in assembler.SERVED_ENTRY_SCHEMA
     assert "title" not in assembler.SERVED_INDEX_SCHEMA
@@ -644,7 +644,7 @@ def test_the_picture_name_is_dropped_and_the_books_title_is_not(site) -> None:
     assert "title" not in assembler.SERVED_ENTRY_SCHEMA
     # The book's: exempt and served, on exactly one.
     assert "title" in assembler.SERVED_BOOK_SCHEMA
-    assert assembler.EXEMPT_LISTING_FIELDS == ("title",)
+    assert assembler.EXEMPT_LISTING_FIELDS == ("title", "series", "authors")
     assert sorted(report.dropped) == sorted((key, "title") for key in keys.values())
     assert ("0123456789", "title") not in report.dropped
     book = json.loads(

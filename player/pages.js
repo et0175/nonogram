@@ -173,10 +173,18 @@ export function readListing(data) {
 // for "does this string carry a grid?", and the field is served under a
 // declared exemption rather than a bound. See the header.
 export function readTitle(data) {
+  return readLine(data, "title");
+}
+
+// One of the book file's editorial lines — "title", "series" or "authors"
+// (CARD-418) — read exactly as readTitle reads the title: a string,
+// whitespace collapsed, capped at TITLE_MAX_CHARS, else "". All three are
+// served under the same exemption (assemble.py's EXEMPT_LISTING_FIELDS).
+export function readLine(data, field) {
   if (data === null || typeof data !== "object" || Array.isArray(data)) return "";
-  const { title } = data;
-  if (typeof title !== "string") return "";
-  return title.split(/\s+/).filter((part) => part !== "").join(" ").slice(0, TITLE_MAX_CHARS);
+  const value = data[field];
+  if (typeof value !== "string") return "";
+  return value.split(/\s+/).filter((part) => part !== "").join(" ").slice(0, TITLE_MAX_CHARS);
 }
 
 // --------------------------------------------------------------------------
@@ -221,6 +229,281 @@ export function tileFor(entry, number) {
     `${label}${entry.width} by ${entry.height}${entry.tier === "" ? "" : `, ${entry.tier}`}`
   );
   return tile;
+}
+
+// --------------------------------------------------------------------------
+// The book landing (CARD-418): sections, squares, progress, jump, continue
+// --------------------------------------------------------------------------
+
+// A book this short opens every section (see renderBook).
+export const OPEN_ALL_UP_TO = 24;
+
+const TIER_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", "": "Puzzles" };
+
+// The book's puzzles cut into sections: one per run of consecutive puzzles
+// with the same tier, in print order. A printed book is grouped by level
+// (INV-009), so that is Easy, Medium, Hard; a book that is not grouped still
+// shows every puzzle once and in print order, which is the order a reader
+// matches against the page (AC-387). Each item carries its PRINT number.
+export function sectionsOf(entries) {
+  const sections = [];
+  entries.forEach((entry, index) => {
+    const last = sections.at(-1);
+    const item = { entry, number: index + 1 };
+    if (last !== undefined && last.tier === entry.tier) last.items.push(item);
+    else sections.push({ tier: entry.tier, items: [item] });
+  });
+  return sections.map((section) => ({
+    ...section,
+    name: TIER_NAMES[section.tier] ?? TIER_NAMES[""],
+    from: section.items[0].number,
+    to: section.items.at(-1).number,
+  }));
+}
+
+// The PRINT number a reader typed, as an index into `entries`, or null.
+// Digits only (spaces around them allowed): "47" is puzzle 47, "4 7" and
+// "47a" are not a number at all.
+export function jumpTarget(text, entries) {
+  const typed = String(text).trim();
+  if (!/^[0-9]{1,4}$/.test(typed)) return null;
+  const number = Number(typed);
+  return number >= 1 && number <= entries.length ? number - 1 : null;
+}
+
+// --------------------------------------------------------------------------
+// Progress, read from this device only
+// --------------------------------------------------------------------------
+//
+// The player keeps one save per puzzle in localStorage under
+// "nonogram-player:" + key (solver_state.js saveKey). A public save carries the
+// puzzle's own clues and the reader's strokes, so this page rebuilds the
+// board with the player's OWN reader (deserializeState) and decides "solved"
+// with the player's own clue check (isClueSolved, ADR-0041/R2) — nothing is
+// fetched for it, and no answer comes from the site: a solved square's
+// picture is the reader's own board. Read only; this page writes nothing.
+// Any storage or parse failure is "not started", never an error.
+
+export const SAVE_PREFIX = "nonogram-player:";
+
+// {state: "new" | "started" | "solved", board} for one entry. `board` is
+// {width, height, cells} in the player's cell states, or null for "new".
+export function progressOf(entry, text, state) {
+  const none = { state: "new", board: null };
+  if (typeof text !== "string" || state === null) return none;
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return none;
+  }
+  if (data === null || typeof data !== "object" || data.width !== entry.width
+      || data.height !== entry.height || !Array.isArray(data.rows) || !Array.isArray(data.columns)) {
+    return none;
+  }
+  const payload = {
+    id: entry.key, width: entry.width, height: entry.height,
+    rows: data.rows, columns: data.columns, mode: state.PUBLIC_MODE,
+  };
+  let history;
+  try {
+    history = state.deserializeState(text, payload);
+  } catch {
+    return none;
+  }
+  if (history === null) return none;
+  const board = history.board;
+  if (state.isClueSolved(board, data.rows, data.columns)) return { state: "solved", board };
+  if (board.cells.some((cell) => cell !== state.UNKNOWN)) return { state: "started", board };
+  return none;
+}
+
+async function readProgress(entries) {
+  const found = new Map();
+  let state = null;
+  try {
+    state = await import("/solver_state.js");
+  } catch {
+    state = null;
+  }
+  for (const entry of entries) {
+    let text = null;
+    try {
+      text = window.localStorage.getItem(SAVE_PREFIX + entry.key);
+    } catch {
+      text = null;
+    }
+    found.set(entry.key, progressOf(entry, text, state));
+  }
+  return found;
+}
+
+// The reader's black cells as one SVG path. A viewBox of the board's own
+// extent, so it scales to the square. The <svg> is made by the HTML parser
+// from a constant (a <template>), which gives it the SVG namespace without
+// this file naming any URL; nothing from the save reaches markup, only
+// numbers into attributes.
+function boardPicture(board, filled) {
+  const template = document.createElement("template");
+  template.innerHTML = '<svg class="square-picture" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path></path></svg>';
+  const svg = template.content.firstElementChild;
+  svg.setAttribute("viewBox", `0 0 ${board.width} ${board.height}`);
+  let d = "";
+  board.cells.forEach((cell, index) => {
+    if (cell !== filled) return;
+    const x = index % board.width;
+    const y = Math.floor(index / board.width);
+    d += `M${x} ${y}h1v1h-1z`;
+  });
+  svg.firstElementChild.setAttribute("d", d);
+  return svg;
+}
+
+// One square of the book landing: a link to /play/<key> showing the print
+// number and the reader's progress. Still a `.tile` with the key and tier on
+// it, so everything that reads tiles (the order, the number) reads these.
+export function squareFor(item, progress) {
+  const { entry, number } = item;
+  const tile = document.createElement("a");
+  tile.className = "tile square";
+  tile.href = `/play/${entry.key}`;
+  tile.dataset.key = entry.key;
+  tile.dataset.tier = entry.tier;
+  tile.dataset.band = bandOf(entry) ?? "";
+  tile.dataset.progress = progress.state;
+  if (progress.board !== null) tile.append(boardPicture(progress.board, "filled"));
+  const ordinal = document.createElement("span");
+  ordinal.className = "tile-number";
+  ordinal.textContent = String(number);
+  tile.append(ordinal);
+  const state = progress.state === "new" ? "" : `, ${progress.state}`;
+  tile.setAttribute(
+    "aria-label",
+    `Puzzle ${number}, ${entry.width} by ${entry.height}${entry.tier === "" ? "" : `, ${entry.tier}`}${state}`
+  );
+  return tile;
+}
+
+function sectionFor(section, progress, open) {
+  const box = document.createElement("section");
+  box.className = "book-section";
+  box.dataset.tier = section.tier;
+  const id = `book-section-${section.from}`;
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "book-section-head";
+  head.setAttribute("aria-expanded", String(open));
+  head.setAttribute("aria-controls", id);
+  const dot = document.createElement("span");
+  dot.className = "book-section-dot";
+  dot.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "book-section-text";
+  const name = document.createElement("span");
+  name.className = "book-section-name";
+  const range = section.from === section.to ? `puzzle ${section.from}` : `puzzles ${section.from}–${section.to}`;
+  name.textContent = `${section.name} · ${range}`;
+  const count = document.createElement("span");
+  count.className = "book-section-count";
+  const solved = section.items.filter((item) => progress.get(item.entry.key)?.state === "solved").length;
+  count.textContent = `${solved} of ${section.items.length} solved`;
+  text.append(name, count);
+  const sign = document.createElement("span");
+  sign.className = "book-section-sign";
+  sign.setAttribute("aria-hidden", "true");
+  sign.textContent = open ? "−" : "+";
+  head.append(dot, text, sign);
+
+  const grid = document.createElement("div");
+  grid.className = "pages-list book-squares";
+  grid.id = id;
+  grid.hidden = !open;
+  for (const item of section.items) grid.append(squareFor(item, progress.get(item.entry.key)));
+  head.addEventListener("click", () => {
+    const opening = grid.hidden;
+    grid.hidden = !opening;
+    head.setAttribute("aria-expanded", String(opening));
+    sign.textContent = opening ? "−" : "+";
+  });
+  box.append(head, grid);
+  return box;
+}
+
+// The puzzle a reader most likely wants to go back to: the started (not
+// solved) one with the HIGHEST print number. A save carries no time, so
+// "most recent" is not knowable here; the furthest one along the book is the
+// honest stand-in (CARD-418 item 3).
+export function continueTarget(entries, progress) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    if (progress.get(entries[index].key)?.state === "started") return index;
+  }
+  return null;
+}
+
+function renderBook(page, entries, progress) {
+  const list = page.querySelector("[data-pages-list]");
+  const count = page.querySelector("[data-pages-count]");
+  const empty = page.querySelector("[data-pages-empty]");
+  const sections = sectionsOf(entries);
+  const resume = continueTarget(entries, progress);
+  // Open by default: the first Easy section (the first section when there is
+  // none), and the section holding the Continue puzzle. The rest start
+  // closed, so a 160-puzzle book is three headers and one grid, not a scroll.
+  // A short book (OPEN_ALL_UP_TO puzzles or fewer) opens everything: there is
+  // no scroll to save, and a closed header would only hide a few squares.
+  const firstEasy = sections.findIndex((section) => section.tier === "easy");
+  const opened = firstEasy === -1 ? 0 : firstEasy;
+  const all = entries.length <= OPEN_ALL_UP_TO;
+  list.replaceChildren(
+    ...sections.map((section, k) =>
+      sectionFor(
+        section,
+        progress,
+        all || k === opened || (resume !== null && resume + 1 >= section.from && resume + 1 <= section.to)
+      )
+    )
+  );
+  if (count !== null) count.textContent = entries.length === 1 ? "1 puzzle" : `${entries.length} puzzles`;
+  show(empty, entries.length === 0);
+  show(page.querySelector("[data-pages-legend]"), entries.length > 0);
+
+  const card = page.querySelector("[data-pages-continue]");
+  if (card !== null) {
+    if (resume === null) show(card, false);
+    else {
+      const entry = entries[resume];
+      card.href = `/play/${entry.key}`;
+      const tier = entry.tier === "" ? "" : ` · ${TIER_NAMES[entry.tier]}`;
+      card.querySelector("[data-pages-continue-name]").textContent =
+        `Puzzle ${resume + 1} · ${entry.width}×${entry.height}${tier}`;
+      show(card, true);
+    }
+  }
+
+  const jump = page.querySelector("[data-pages-jump]");
+  if (jump !== null && entries.length > 0) {
+    const input = jump.querySelector("[data-pages-jump-number]");
+    const hint = jump.querySelector("[data-pages-jump-hint]");
+    input.placeholder = `1–${entries.length}`;
+    const say = () => {
+      const index = jumpTarget(input.value, entries);
+      if (input.value.trim() === "") hint.textContent = "Type the number printed above the grid.";
+      else if (index === null) hint.textContent = `This book has puzzles 1 to ${entries.length}.`;
+      else {
+        const tier = entries[index].tier;
+        hint.textContent = `Opens puzzle ${index + 1}${tier === "" ? "" : ` (${TIER_NAMES[tier]})`}.`;
+      }
+      return index;
+    };
+    input.addEventListener("input", say);
+    jump.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const index = say();
+      if (index !== null) window.location.assign(`/play/${entries[index].key}`);
+    });
+    show(jump, true);
+  }
+  return entries.map((entry) => entry.key);
 }
 
 // --------------------------------------------------------------------------
@@ -329,6 +612,39 @@ async function load() {
   const heading = page.querySelector("[data-pages-title]");
   const title = numbered ? readTitle(data) : "";
   if (heading !== null && title !== "") heading.textContent = title;
+
+  if (numbered) {
+    // CARD-418: the series above the title and "by <authors>" beside the
+    // count, both textContent for the reason the title is.
+    const series = readLine(data, "series");
+    const authors = readLine(data, "authors");
+    const seriesLine = page.querySelector("[data-pages-series]");
+    if (seriesLine !== null && series !== "") {
+      seriesLine.textContent = series;
+      show(seriesLine, true);
+    }
+    const byline = page.querySelector("[data-pages-byline]");
+    if (byline !== null && authors !== "") {
+      byline.textContent = `by ${authors} · `;
+      show(byline, true);
+    }
+    const progress = await readProgress(entries);
+    const shown = renderBook(page, entries, progress);
+    const announce = page.querySelector("[data-pages-announce]");
+    const count = page.querySelector("[data-pages-count]");
+    if (announce !== null && count !== null) announce.textContent = count.textContent;
+    window.playerPages = {
+      entries: Object.freeze(entries.map((entry) => Object.freeze({ ...entry }))),
+      getShown: () => shown,
+      getFilters: () => ({ tier: "", size: "" }),
+      getProgress: () => Object.fromEntries([...progress].map(([key, value]) => [key, value.state])),
+      slug,
+      title,
+      series,
+      authors,
+    };
+    return;
+  }
 
   const filters = { tier: "", size: "" };
   const controls = [...page.querySelectorAll("[data-pages-filter]")];

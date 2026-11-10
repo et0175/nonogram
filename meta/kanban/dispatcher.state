@@ -480,13 +480,6 @@ active:
     started: 2026-11-08T22:25Z
     estimate: 3c (1d)
     cut_from: 3e60d102
-  # CARD-402 DISPATCHED 2026-11-10T07:08Z (player-phone thread); serial after 413.
-  - card: CARD-402
-    branch: card/402-landscape-tool-column
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-402
-    started: 2026-11-10T07:08Z
-    estimate: 3c (1d)
-    cut_from: 0cc92f87
   # CARD-400 DISPATCHED 2026-11-10T09:51Z (player-phone thread); alongside 402 (disjoint files: solver_state.js rule vs layout).
   - card: CARD-400
     branch: card/400-settled-numbers-circle
@@ -494,6 +487,7 @@ active:
     started: 2026-11-10T09:51Z
     estimate: 3c (1d)
     cut_from: b6d3e34a
+# CARD-402 CLEARED 2026-11-10T11:38Z: merged 293f336d, done, reviews 5.0 / 8.0 / 8.0, merged on the owner's request, estimate 3c -> 1.0. Player-set gate 1396 passed. Entry dropped.
 # CARD-413 CLEARED 2026-11-10T07:07Z: merged 6c4a2584, done, review 9.0 on cycle 1, estimate 2c -> 0.5. Player-set gate 1395 passed. Entry dropped.
 # CARD-412 CLEARED 2026-11-10T05:47Z: merged 40aee791, done, reviews 7.5 / 8.5 / 7.0 (cycle 3 failed on a fix that was reverted), merged on the owner's ok, estimate 3c -> 1.0. Player-set gate 1397 passed. Entry dropped.
 # CARD-411 CLEARED 2026-11-10T03:47Z: merged f2c82bac, done, review 9.0 on cycle 3 (7.5, 8.5), owner ruling A mid-card, estimate 2c -> 1.5. Player-set gate 1394 passed. Entry dropped.

@@ -1110,6 +1110,9 @@ function start() {
     }
     solved = now;
     banner.hidden = !solved;
+    // CARD-402 review cycle 1, F-004: on a landscape phone the banner sits at
+    // the top of a strip that scrolls itself; bring it into the strip's view.
+    if (solved) toolbar.scrollTop = 0;
     toolbar.classList.toggle("is-solved", solved);
     table.classList.toggle("is-solved", solved);
     paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
@@ -1198,6 +1201,11 @@ function start() {
     const value = `${top}px`;
     if (stage.style.getPropertyValue("--player-stage-top") !== value) {
       stage.style.setProperty("--player-stage-top", value);
+    }
+    // CARD-402: the landscape layout's grid (admin.css) reads it too, from
+    // the stage's parent, to reach the bottom of the window.
+    if (stage.parentElement?.parentElement?.style.getPropertyValue("--player-stage-top") !== value) {
+      stage.parentElement?.parentElement?.style.setProperty("--player-stage-top", value);
     }
   }
 
@@ -1499,7 +1507,18 @@ function start() {
   if (typeof ResizeObserver === "function") {
     // keepCluesInView measures the top first, then the bands (review cycle
     // 1: a cap that changed under the bands left their verdict stale).
+    // CARD-402 review cycle 1, F-001: on a landscape phone the toolbar is a
+    // strip BESIDE the stage whose height follows the stage, so a re-fit
+    // that changes the stage resized the strip and fired this again — at
+    // some sizes for ever (932 x 430, a 30 x 29 at Fit flipped every frame).
+    // What this observer answers to is what stands ABOVE the stage, so it
+    // re-measures only when that moved: the stage's top or the toolbar's
+    // width (a re-wrap), not a height change of a strip at the side.
+    let aboveKey = "";
     const above = new ResizeObserver(() => {
+      const key = `${Math.round(stage.getBoundingClientRect().top + window.scrollY)}|${Math.round(toolbar.getBoundingClientRect().width)}`;
+      if (key === aboveKey) return;
+      aboveKey = key;
       keepCluesInView();
       measureFit();
       replaceExplain();
@@ -2341,6 +2360,21 @@ function wireMarking(container, player) {
 
   function openMenu() {
     menu.hidden = false;
+    // CARD-402 review cycle 2, F-009: in the landscape strip the menu is
+    // fixed (out of the strip's clip); where the strip starts low (the
+    // admin page under its sidebar break) it would run off the window's
+    // bottom, so it is lifted to end inside it. Cleared on every open.
+    // Both inline values go first (review cycle 3, F-011: a margin left from
+    // a lifted open made every second open measure a menu 52 px off).
+    menu.style.top = "";
+    menu.style.marginTop = "";
+    if (getComputedStyle(menu).position === "fixed") {
+      const box = menu.getBoundingClientRect();
+      if (box.bottom > window.innerHeight) {
+        menu.style.top = `${Math.max(8, window.innerHeight - box.height - 8)}px`;
+        menu.style.marginTop = "0";
+      }
+    }
     trigger.setAttribute("aria-expanded", "true");
     (items.find((item) => item.getAttribute("aria-checked") === "true") ?? items[0]).focus();
   }

@@ -47,7 +47,8 @@ import jinja2
 import pytest
 
 from nonogram.solver import solve
-from tests.test_puzzle_solver_page import browser_page, browser_type  # noqa: F401 - fixtures are used by name
+from tests.test_puzzle_solver_page import _unique_grid, browser_page, browser_type, live  # noqa: F401 - fixtures are used by name
+from tests.test_puzzle_solver_page import _open as admin_open
 
 _ROOT = Path(__file__).resolve().parent.parent
 _ADMIN = _ROOT / "src" / "nonogram" / "admin"
@@ -1680,3 +1681,129 @@ class TestPublicMode_EveryWayOfLosingItIsCaught:
         text = (_STATIC / who).read_text()
         assert network_calls(text) == []
         assert network_calls(text + '\nfetch("/ping", { method: "POST" });\n') == ["fetch"]
+
+
+#: CARD-402: the strip's buttons that must be on screen, not the brush menu's
+#: items or the reset dialog's (popovers), and not a hidden probe button;
+#: "lowest" against the strip's own clip as well as the window.
+_STRIP = """() => {
+  const strip = document.getElementById('puzzle-player-controls');
+  const shown = (b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden'
+    && !b.closest('[role=menu]') && !b.closest('.player-confirm');
+  const boxes = [...strip.querySelectorAll('button, [data-player-zoom-readout]')].filter(shown).map((b) => b.getBoundingClientRect());
+  const s = strip.getBoundingClientRect(), board = document.querySelector('.player-board').getBoundingClientRect();
+  return { left: s.left, right: s.right, width: s.width, clip: Math.min(s.bottom, innerHeight),
+           overflowY: getComputedStyle(strip).overflowY,
+           board: [board.left, board.top, board.width, board.height].map((v) => Math.round(v * 10) / 10),
+           lowest: Math.max(...boxes.map((b) => b.bottom)), shortest: Math.min(...boxes.map((b) => b.height)),
+           count: boxes.length, page: document.documentElement.scrollHeight - innerHeight };
+}"""
+
+#: Every brush in the open menu answers a tap where it is drawn — at its
+#: centre AND near its right edge, which is what a clipping strip hides.
+_MENU_TAPPABLE = """() => [...document.querySelectorAll('[data-player-tool]')].every((item) => {
+  const b = item.getBoundingClientRect(), y = b.top + b.height / 2;
+  return b.width > 0 && [b.left + b.width / 2, b.right - 4].every((x) =>
+    document.elementFromPoint(x, y)?.closest('[data-player-tool]') === item); })"""
+
+
+def _settled(page, read=_STRIP, tries=30):
+    """Read ``read`` once two reads 100 ms apart agree (bounded)."""
+    before = page.evaluate(read)
+    for _ in range(tries):
+        page.wait_for_timeout(100)
+        now = page.evaluate(read)
+        if now == before:
+            return now
+        before = now
+    raise AssertionError(f"never settled: {before}")
+
+
+class TestPublicMode_LandscapeToolStrip:
+    """CARD-402 (owner finding 2026-11-07, item 5: "Toolbar as a vertical icon
+    column at the side ... the board then gets nearly the full height"; owner
+    ruling 2026-11-10, "B": two buttons wide). Measured on the public page —
+    the phone's page; the admin page keeps its desktop sidebar and topbar at
+    844 px and its strip scrolls there (Worktree notes). One cell:
+
+    * AC-1: at 844 x 390, 852 x 393 and 874 x 402 the strip is LEFT of the
+      board, at most two 44 px buttons and a gap wide, all ten controls
+      inside the window and the strip's clip, each 44 px tall or more, and
+      the brush menu's items tappable where they are drawn (not clipped);
+    * AC-3: the board's box (place AND size) is the same idle, with a probe
+      open, at hint rung 2, with the reset dialog open and solved;
+    * AC-5: at 568 x 320 the strip scrolls ITSELF and its last button can be
+      scrolled into the window;
+    * review cycle 1, F-001: a 30 x 29 at Fit at 932 x 430 holds still (it
+      re-fitted every frame when the strip's height fed the toolbar observer).
+    Portrait and desktop (AC-4) are the existing layout cells, unchanged.
+    """
+
+    def test_the_tools_stand_in_a_strip_left_of_the_board(self, browser_page, serve, live) -> None:
+        page = browser_page
+        served = serve(public_payload(SWEEP_GRID))
+        for width, height in ((844, 390), (852, 393), (874, 402)):
+            page.set_viewport_size({"width": width, "height": height})
+            open_page(page, served)
+            idle = _settled(page)
+            assert idle["right"] <= idle["board"][0] and idle["width"] <= 2 * 44 + 8 + 1, (width, idle)
+            assert idle["lowest"] <= idle["clip"] and idle["page"] <= 0, (width, idle)
+            assert idle["shortest"] >= 44 and idle["count"] == 10, (width, idle)
+            page.locator(".player-tool-trigger").click()
+            assert page.evaluate(_MENU_TAPPABLE), width
+            page.keyboard.press("Escape")
+            page.locator("[data-player-probe]").click()
+            probing = _settled(page)
+            assert probing["lowest"] <= probing["clip"], (width, probing)
+            page.locator('[data-player-probe-action="keep"]').click()
+            action(page, "hint").click()
+            action(page, "hint").click()
+            rung2 = _settled(page)
+            page.keyboard.press("Escape")
+            cell(page, 0, 0).click()
+            action(page, "reset").click()
+            confirming = _settled(page)
+            assert page.locator("#puzzle-player-confirm").is_visible()
+            page.locator('[data-player-confirm="cancel"]').click()
+            assert idle["board"] == probing["board"] == rung2["board"] == confirming["board"], (width, idle, probing, rung2, confirming)
+        solve_to_the_end(page, SWEEP_GRID)
+        solved = _settled(page)
+        assert page.locator("#puzzle-player-solved").is_visible() and solved["board"] == idle["board"], (solved, idle)
+
+        page.set_viewport_size({"width": 568, "height": 320})
+        open_page(page, served)
+        small = _settled(page)
+        assert small["overflowY"] == "auto" and small["page"] <= 0, small
+        page.evaluate("() => { const s = document.getElementById('puzzle-player-controls'); s.scrollTop = s.scrollHeight; }")
+        scrolled = page.evaluate(_STRIP)
+        assert scrolled["lowest"] <= scrolled["clip"], scrolled
+        # Review cycle 2, F-010: a board solved with the strip scrolled down
+        # brings the banner (the strip's top) back into the strip's view.
+        open_page(page, serve(public_payload(SWEEP_GRID, puzzle_id="strip-568")))
+        _settled(page)
+        page.evaluate("() => { const s = document.getElementById('puzzle-player-controls'); s.scrollTop = s.scrollHeight; }")
+        solve_to_the_end(page, SWEEP_GRID)
+        banner = page.evaluate("""() => { const s = document.getElementById('puzzle-player-controls').getBoundingClientRect();
+          const b = document.getElementById("puzzle-player-solved").getBoundingClientRect(); return [b.top >= s.top - 1.5, b.bottom <= s.bottom + 1.5, b.height > 0]; }""")  # its 1 px border
+        assert banner == [True, True, True], banner
+
+        # Review cycle 2, F-009: the ADMIN page in a small landscape window
+        # (its strip starts low, under the title) keeps every brush tappable
+        # (667 x 375 until cycle 3; 740 x 360 overflows as well).
+        # Review cycle 3, F-011: and on the SECOND open too (a lifted open
+        # once left an inline margin that misplaced the next one) — at 740 x
+        # 360, where that second open ran off the window.
+        page.set_viewport_size({"width": 740, "height": 360})
+        admin_open(page, live, live.store(SWEEP_GRID))
+        for _ in range(2):
+            page.locator(".player-tool-trigger").click()
+            assert page.evaluate(_MENU_TAPPABLE)
+            page.keyboard.press("Escape")
+
+        page.set_viewport_size({"width": 932, "height": 430})
+        open_page(page, serve(public_payload(_unique_grid(30, 29, seed=19330))))
+        sizes = page.evaluate("""() => new Promise((done) => { const out = []; const tick = () => {
+          out.push(document.querySelector('.player-board').getBoundingClientRect().width);
+          if (out.length < 20) requestAnimationFrame(tick); else done(out); };
+          setTimeout(() => requestAnimationFrame(tick), 500); })""")
+        assert len(set(sizes)) == 1, sizes  # F-001: no re-fit loop

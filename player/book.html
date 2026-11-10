@@ -47,6 +47,17 @@
   fallback a book with no served title keeps; pages.js overwrites it with
   textContent, never innerHTML.
 
+  CARD-418 (owner, 2026-11-10, mockup A) reshaped the page around what a
+  reader holding the book needs: the series line and the authors around the
+  title (the book file's `series` and `authors`, served under the same
+  exemption as the title and written with textContent); a "Which puzzle are
+  you on?" box that opens a puzzle by its PRINTED number; a "Continue where
+  you stopped" card; and the puzzles in sections by level, each a square that
+  shows the reader's own progress. Progress is read from this device's own
+  player saves (localStorage, read only, never written here) and a solved
+  square draws the picture from the reader's OWN saved board: nothing about
+  an answer comes from the site (EC-048). See pages.js, "Progress".
+
   No analytics tag — see the retired play.html (CARD-399); ADR-0041/R6's half is CARD-285's.
 -->
 <html lang="en">
@@ -58,16 +69,29 @@
 <link rel="stylesheet" href="/player.css">
 </head>
 <body>
-<main class="player-page" data-pages-page="book">
-  <div class="page-head player-head">
+<main class="player-page pages-book" data-pages-page="book">
+  <header class="book-head">
+    <p class="book-series" data-pages-series hidden></p>
     <h1 data-pages-title>Your book</h1>
-    <span class="pages-count" data-pages-count></span>
-  </div>
+    <p class="book-byline"><span data-pages-byline hidden></span><span class="pages-count" data-pages-count></span></p>
+  </header>
 
-  <p class="player-hint">
-    Every puzzle in this book, in the order it is printed. Tap one to play it
-    here; your marks stay on this device.
-  </p>
+  <form class="book-jump" data-pages-jump hidden>
+    <label for="book-jump-number">Which puzzle are you on?</label>
+    <div class="book-jump-row">
+      <input id="book-jump-number" data-pages-jump-number inputmode="numeric" autocomplete="off" maxlength="4" aria-describedby="book-jump-hint">
+      <button type="submit" class="btn book-jump-go">Play</button>
+    </div>
+    <p class="book-jump-hint" id="book-jump-hint" data-pages-jump-hint aria-live="polite">Type the number printed above the grid.</p>
+  </form>
+
+  <a class="book-continue" data-pages-continue href="/library" hidden>
+    <span class="book-continue-text">
+      <span class="book-continue-label">Continue where you stopped</span>
+      <span class="book-continue-name" data-pages-continue-name></span>
+    </span>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+  </a>
 
   <p class="player-fallback" data-pages-loading>
     Loading this book&hellip; If this message stays, the page script
@@ -76,7 +100,12 @@
 
   <p class="player-announce" data-pages-announce role="status" aria-live="polite"></p>
 
-  <div class="pages-list" data-pages-list hidden></div>
+  <div class="pages-sections" data-pages-list hidden></div>
+
+  <p class="player-hint book-legend" data-pages-legend hidden>
+    Solved puzzles show the picture you uncovered; a green edge means started.
+    Your progress is saved on this device only.
+  </p>
 
   <p class="player-hint" data-pages-empty hidden>
     None of this book's puzzles are on the site yet. They are added when the
@@ -93,6 +122,11 @@
       <a class="btn pages-library-link" href="/library">Browse the library</a>
     </p>
   </div>
+
+  <footer class="book-foot">
+    <a href="/how-to-solve">New to nonograms? How to solve one</a>
+    <a href="/library">More puzzles in the library</a>
+  </footer>
 </main>
 <script type="module" src="/pages.js"></script>
 </body>
