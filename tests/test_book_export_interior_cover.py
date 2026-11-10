@@ -4410,10 +4410,14 @@ class Generator:
         # ``vector_closing_page`` and its two local helpers (``centred``,
         # ``wrapped``), their text, font and frame calls. Read off this
         # test's own measurement.
-        ((), 733),
-        (("builtins",), 472),
-        (("builtins", "definitions and imports"), 176),
-        (("builtins", "definitions and imports", "parameters"), 175),
+        #
+        # **The grid size leaves the clue corner (Anna and the owner,
+        # 2026-11-10): -9** (733 -> 724, 472 -> 464, 176 -> 171, 175 -> 170):
+        # ``draw_corner_size_label`` and its calls are gone.
+        ((), 724),
+        (("builtins",), 464),
+        (("builtins", "definitions and imports"), 171),
+        (("builtins", "definitions and imports", "parameters"), 170),
         (
             (
                 "builtins",

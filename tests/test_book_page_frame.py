@@ -489,8 +489,14 @@ class TestBookPageFrame_FooterCarriesSizeAndFolio:
                 f"page {number} set footer ink on its outer side: {outer_runs}. "
                 "The outer corner is the QR's (CARD-223), not the label's"
             )
-            # The label's own text, read off the call Pillow was given.
-            assert grid_size_label(columns, rows) in _footer_texts(interior, number)
+            # The label's own text, read off the call Pillow was given. Since
+            # 2026-11-10 it leads the footer's solution pointer
+            # ("15 x 15 · Solution on p. 172") and is never in the clue corner.
+            label = grid_size_label(columns, rows)
+            assert any(
+                text == label or text.startswith(label + " ")
+                for text in _footer_texts(interior, number)
+            ), _footer_texts(interior, number)
 
     def test_the_folio_is_centred_below_the_rule(self, interior) -> None:
         """Centred on the **trim's** own middle, read off the page's width.
