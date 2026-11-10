@@ -392,9 +392,11 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         calls, drawn = _spy_interior(generator, baseline_puzzles(), monkeypatch)
         folios = _folios(calls)
 
-        title_pages = set(range(1, TITLE_PAGE_COUNT + 1))
+        # The closing thank-you page (owner, 2026-11-10), the last page,
+        # carries none either, like the title page.
+        title_pages = set(range(1, TITLE_PAGE_COUNT + 1)) | {drawn}
         assert set(folios) == set(range(1, drawn + 1)) - title_pages, (
-            "every interior page but the title page should carry "
+            "every interior page but the title and closing pages should carry "
             "exactly one folio; missing or extra pages: "
             f"{(set(range(1, drawn + 1)) - title_pages) ^ set(folios)}"
         )
@@ -431,8 +433,10 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         calls, drawn = _spy_interior(generator, single, monkeypatch)
         folios = _folios(calls)
 
-        answer_page = drawn  # the one full solved page is always the last
-        blank_puzzle_page = drawn - 2  # divider, then this puzzle's own blank page, then SOLUTIONS, then the answer page
+        # The one full solved page is the last but one: the closing thank-you
+        # page (owner, 2026-11-10) follows it.
+        answer_page = drawn - 1
+        blank_puzzle_page = drawn - 3  # divider, this puzzle's blank page, SOLUTIONS, the answer page, the closing page
         assert answer_page not in folios, (
             "the min-trim book's answer page has no slack for a caption "
             "(CARD-197) and so none for a folio either — one must have been "
@@ -476,10 +480,13 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
             set(range(1, TITLE_PAGE_COUNT + 1))
             | {first_guide_page}
             | {blank_puzzle_page, answer_page}
+            # the closing thank-you page (owner, 2026-11-10): no folio by design
+            | {drawn}
         ), (
             "the min-trim book's folio-less pages are exactly its blank title "
-            "page, its first guide page, its page-fit-bound blank puzzle page "
-            f"and its answer page, and this book drew none on {sorted(missing)}"
+            "page, its first guide page, its page-fit-bound blank puzzle page, "
+            "its answer page and its closing page, and this book drew none on "
+            f"{sorted(missing)}"
         )
         assert set(folios) == set(range(1, drawn + 1)) - missing
         assert len(folios) == 4, (
@@ -682,7 +689,9 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         two_up = _two_up_pages(generator, baseline_puzzles())
         assert two_up, "the baseline book prints a two-up page"
         checked = _check_every_folios_side(folios, by_page, labels, two_up)
-        assert checked == len(folios) >= drawn - 1, "almost every page carried a checkable folio"
+        # Neither the title page nor the closing thank-you page (owner,
+        # 2026-11-10) carries a folio.
+        assert checked == len(folios) >= drawn - 2, "almost every page carried a checkable folio"
 
     def test_parity_holds_on_a_larger_book_across_the_toc_insertion(
         self, monkeypatch

@@ -295,7 +295,8 @@ PAGE_FACTORIES = (
 #: ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT``, so it packs ``PACKED_FOUR_UP`` to a page within its tier
 #: (CARD-202's "always 4-up, 2-up only for a leftover"): ceil(50 / 4) = 13
 #: pages for each of the three 50-puzzle tiers, 39 in all, and the interior is
-#: 1 + 2 + 1 TOC + 3 dividers + 150 puzzle pages + SOLUTIONS + 39 = 197 pages.
+#: 1 + 2 + 1 TOC + 3 dividers + 150 puzzle pages + SOLUTIONS + 39 + 1 closing
+#: thank-you page (owner, 2026-11-10) = 198 pages.
 #: Counted here, from the corpus's own sizes and the packing constants, rather
 #: than in the shared helper (outside this module's edit), and still asserted
 #: against the pages the export really draws and the file really holds.
@@ -309,6 +310,7 @@ CORPUS_ANSWER_PAGE_COUNT = sum(
 )
 CORPUS_PAGE_COUNT = (
     1 + 2 + 1 + len(_CORPUS_TIER_COUNTS) + CORPUS_PUZZLE_COUNT + 1 + CORPUS_ANSWER_PAGE_COUNT
+    + 1  # the closing thank-you page (owner, 2026-11-10)
 )
 
 #: The book title the cover file carries (AC-4).
@@ -414,10 +416,11 @@ def reference_guide_page(generator: BookPDFGenerator, page_number: int) -> Image
     )
 
 
-#: The baseline book's fourteen interior pages, by kind, written out by hand
+#: The baseline book's fifteen interior pages, by kind, written out by hand
 #: (CARD-355): the title page, the two guide pages, the TOC, "Easy", the
-#: two-up page, "Medium", the 15x15, "Hard", the 30x30, SOLUTIONS, and the
-#: three answer pages. Which medium each page is WRITTEN in is read off the
+#: two-up page, "Medium", the 15x15, "Hard", the 30x30, SOLUTIONS, the
+#: three answer pages and the closing thank-you page (owner, 2026-11-10).
+#: Which medium each page is WRITTEN in is read off the
 #: file (``pdf_vector.page_media``) and must equal what ``page_medium``
 #: declares for the kind (ADR-0039/R2).
 BASELINE_PAGE_KINDS = (
@@ -425,6 +428,7 @@ BASELINE_PAGE_KINDS = (
     PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER, PageKind.PUZZLE,
     PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER,
     PageKind.ANSWER, PageKind.ANSWER, PageKind.ANSWER,
+    PageKind.CLOSING,
 )
 
 
@@ -746,9 +750,9 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
 
         assert small.seen == BASELINE_PAGE_COUNT
         assert big.seen == CORPUS_PAGE_COUNT
-        # 14x since the packing limit was raised (197 pages against 14); it
+        # 13x since the packing limit was raised (198 pages against 15); it
         # was 16x while every corpus answer took a page of its own (308).
-        assert big.seen > 14 * small.seen, "the two books must differ in size"
+        assert big.seen > 13 * small.seen, "the two books must differ in size"
         assert big.peak == small.peak, (
             f"{big.seen} pages peaked at {big.peak_in_pages:.2f} page bitmaps, "
             f"{small.seen} pages at {small.peak_in_pages:.2f}"
@@ -2053,8 +2057,10 @@ class TestBookPdfMemory_TheBaselineBooksPages:
     def test_the_book_still_has_the_page_count_it_was_recorded_with(
         self, baseline, exported
     ):
-        assert baseline["page_count"] == BASELINE_PAGE_COUNT
-        assert len(exported) == baseline["page_count"]
+        # One page more than CARD-206 recorded: the closing thank-you page
+        # after the key (owner, 2026-11-10), and nothing else.
+        assert baseline["page_count"] + 1 == BASELINE_PAGE_COUNT
+        assert len(exported) == BASELINE_PAGE_COUNT
 
     def test_every_page_is_in_the_medium_its_kind_is_declared_in(self, exported):
         """Read off the file, against ``BASELINE_PAGE_KINDS`` read through the
@@ -2063,7 +2069,7 @@ class TestBookPdfMemory_TheBaselineBooksPages:
         assert exported.media == declared_media_of_the_baseline()
 
     def test_the_corpus_covers_every_page_kind_the_interior_has(self, exported):
-        """Fourteen pages, one of every kind, each identified positively and
+        """Fifteen pages, one of every kind, each identified positively and
         all distinct. The book prints grouped easy, medium, hard (INV-009):
 
         * page 1 is the title / copyright page, pages 2 and 3 the guide's two
@@ -2080,7 +2086,9 @@ class TestBookPdfMemory_TheBaselineBooksPages:
           because the levels print in that order;
         * pages 12-14 are the packed answer pages, one per level (Duck and
           Owl; Tree; Snowflake) — each carries solid blocks of ink a filled
-          cell wide, which no blank puzzle page has.
+          cell wide, which no blank puzzle page has;
+        * page 15 is the closing thank-you page (owner, 2026-11-10), compared
+          against the page the generator draws for it.
         """
         assert len(exported) == BASELINE_PAGE_COUNT
         generator = BookPDFGenerator(corpus_book())
@@ -2121,6 +2129,10 @@ class TestBookPdfMemory_TheBaselineBooksPages:
                 f"the {half} half of interior page 6 should carry one of the "
                 "two 10x10 puzzles the two-up page pairs"
             )
+
+        assert same_page(exported[14], page_image(generator.vector_closing_page(15, False))), (
+            "interior page 15 should be the closing thank-you page"
+        )
 
         for number in (12, 13, 14):
             assert solid_ink_blocks(exported[number - 1]), (

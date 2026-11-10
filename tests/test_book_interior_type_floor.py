@@ -411,7 +411,9 @@ def below_floor(calls: List[TextCall]) -> List[str]:
 #: what its writer draws, and the writers are exactly what this file is the
 #: independent statement of.
 LETTERING_KINDS = frozenset(
-    {"title", "guide", "toc", "divider", "puzzle", "answer", "play"}
+    # "closing": the closing thank-you page (owner, 2026-11-10) letters its
+    # thanks, the series line and the review ask, so it is held to the floor.
+    {"title", "guide", "toc", "divider", "puzzle", "answer", "play", "closing"}
 )
 
 #: The interior's remaining page kinds, each with the reason it letters
@@ -817,7 +819,9 @@ def _real_puzzle_stream():
 def _real_answer_stream():
     generator = BookPDFGenerator(corpus_book())
     payload = BookPDFGenerator._payload(baseline_puzzles()[0])
-    page_number = BASELINE_PAGE_COUNT
+    # The last answer page: the closing thank-you page (owner, 2026-11-10)
+    # follows it.
+    page_number = BASELINE_PAGE_COUNT - 1
     return book_answer_vector.answer_page(
         generator.page_spec(page_number),
         generator.dpi,

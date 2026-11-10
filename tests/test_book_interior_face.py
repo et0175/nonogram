@@ -455,8 +455,13 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
     #: ``2 * puzzles - pairs == 141`` and therefore an **odd** number of
     #: pairs: 71 puzzles on 70 pages (one pair) is 150 against 151, back on
     #: the edge, still self-consistent, same claim.
+    #:
+    #: **Re-tuned for the closing thank-you page** (owner, 2026-11-10), the
+    #: same way: one more page after the key made it 151 against 152, so one
+    #: more pair puts it back on the edge — 71 puzzles on 69 pages (two pairs)
+    #: is 150 against 151.
     SPILLING_PUZZLES = 71
-    SPILLING_PUZZLE_PAGES = 70
+    SPILLING_PUZZLE_PAGES = 69
 
     def test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees(self) -> None:
         """AC-2's witness: the one shape whose gutter band the face decides.

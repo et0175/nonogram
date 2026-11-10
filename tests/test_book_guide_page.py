@@ -90,9 +90,11 @@ class TestGuidePage_IsTwoPages:
         # The second `+ 1` is CARD-206's title page — this AC's claim
         # is the guide's own "+1", so the title page's term is written beside
         # it rather than folded into `old_style_total`.
+        # The last term is the closing thank-you page (owner, 2026-11-10),
+        # only on a book with puzzles, likewise kept beside it.
         assert interior_page_count(
             count, pages, answers, dividers, toc_pages=0
-        ) == old_style_total(count, dividers, pages, answers) + 1 + 1
+        ) == old_style_total(count, dividers, pages, answers) + 1 + 1 + (1 if count else 0)
 
 
 class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
@@ -185,8 +187,9 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         assert (
             pdf_page_count(export)
             # the guide's second page (CARD-201), the table of contents
-            # (CARD-200) and the title page (CARD-206) — one term each.
-            == old_style_total(6, dividers=3, pages=6, answers=answers) + 1 + 1 + 1
+            # (CARD-200), the title page (CARD-206) and the closing thank-you
+            # page (owner, 2026-11-10) — one term each.
+            == old_style_total(6, dividers=3, pages=6, answers=answers) + 1 + 1 + 1 + 1
         )
         assert pdf_page_count(export) == interior_page_count(6, 6, answers, 3)
 

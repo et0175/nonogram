@@ -399,9 +399,11 @@ def assert_the_interior_really_prints_that(shelf, order, context) -> None:
 
     # The blank title page (CARD-206), the 2-page guide (CARD-201), the table
     # of contents (CARD-200), the
-    # section's pages, the SOLUTIONS divider, the packed key.
+    # section's pages, the SOLUTIONS divider, the packed key, and the closing
+    # thank-you page (owner, 2026-11-10).
     expected = (
         1 + 2 + toc_pages + dividers + puzzle_pages + 1 + stream.answer_page_count
+        + 1
     )
     assert stream.page_count == expected, context
     assert len(pages) == expected, context

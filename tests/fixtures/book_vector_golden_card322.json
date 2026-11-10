@@ -4,6 +4,7 @@
     "answer_full": "c554e4aebb62af85bb908518dc81c2791488aeb83cf196c0d414a6d12ff4a86d",
     "answer_packed_one": "e6d65f36ac52d4e4170dae4b9f2f1a661478a32f44bb4e0e609a715e82cbe7f3",
     "answer_packed_two": "6527e1d7c551f182fcea47d1735e454d7327e0e454594d915122c2904e9d9821",
+    "closing": "9bb8fb46d60f245e6ad9776f9dceef155824e604453675d4555bc457a4e5fbeb",
     "guide_1": "3d315f38d41c619ddc10625939e4f18141faa6381159bace33c311d2840317e4",
     "guide_2": "6986039bc2e6686e41d01265b608134ef04f7595ebd8410f6cb86c27c2d61974",
     "play": "d32cac8bbbe2ba1047f611067f3961a56a835872da1a62f57b2ef9be5213cb76",
@@ -28,6 +29,7 @@
     "divider",
     "answer",
     "answer",
-    "answer"
+    "answer",
+    "closing"
   ]
 }

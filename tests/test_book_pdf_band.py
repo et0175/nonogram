@@ -1806,9 +1806,10 @@ ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
 #: CARD-202's own packed answer section — puzzles 1-2 (both Easy, both
 #: qualify) share packed page 12, 3-4 (both Medium, both qualify) share
 #: packed page 13, and 5 (Hard, alone in its level, still qualifies) packs
-#: alone onto page 14. ``print_plan`` above models only books that never
-#: pair, so the pages are written out here instead.
-ONCE_PAGE_COUNT = 14
+#: alone onto page 14; 15 the closing thank-you page (owner, 2026-11-10).
+#: ``print_plan`` above models only books that never pair, so the pages are
+#: written out here instead.
+ONCE_PAGE_COUNT = 15
 ONCE_BAND_PAGES = {1: 6, 2: 6, 3: 8, 4: 8, 5: 10}
 HARD_ALONE_PAGE = 10
 TWO_UP_PAGE = 6

@@ -93,12 +93,15 @@ def _book(domain: str | None = DOMAIN, *, trim_mm: tuple[float, float] | None = 
 #:   Play 7, SOLUTIONS 8, answers 9 (two small answers pack onto one page);
 #: * three Hards (a pair and a single): the section ends on page 7, so a blank
 #:   (8), Play 9, SOLUTIONS 10, answers on 11 (all three on one packed page).
+#:
+#: Every total counts one more page after the answers: the closing thank-you
+#: page (owner, 2026-11-10).
 CASES = [
-    ("four singles, ends on a recto", corpus_puzzles(4), 13, 12, 14, 17),
-    ("five singles, ends on a verso", corpus_puzzles(5), 13, None, 14, 17),
-    ("the baseline book", baseline_puzzles(), 11, None, 12, 15),
-    ("a pair ends the section", _hard_pair(2), 7, None, 8, 9),
-    ("a pair and a single", _hard_pair(3), 9, 8, 10, 11),
+    ("four singles, ends on a recto", corpus_puzzles(4), 13, 12, 14, 18),
+    ("five singles, ends on a verso", corpus_puzzles(5), 13, None, 14, 18),
+    ("the baseline book", baseline_puzzles(), 11, None, 12, 16),
+    ("a pair ends the section", _hard_pair(2), 7, None, 8, 10),
+    ("a pair and a single", _hard_pair(3), 9, 8, 10, 12),
 ]
 
 
@@ -150,7 +153,10 @@ class TestPlayPage_TocAndFoliosFollowTheInsertedPages:
 
         assert re.search(rf"Solutions\s*\.+\s*{solutions}\b", pages[3]), pages[3]
         assert pages[play - 1].split()[-1] == str(play)
-        assert pages[total - 1].split()[-1] == str(total)
+        # The book's last page is the closing thank-you page (owner,
+        # 2026-11-10), which prints no folio; the last folio is the page
+        # before it, the last answer page.
+        assert pages[total - 2].split()[-1] == str(total - 1)
         assert pages[blank - 1].strip() == ""
 
 

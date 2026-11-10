@@ -866,6 +866,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             + dividers
             + len(plan)
             + (expected_answers + 1 if n else 0)
+            # the closing thank-you page (owner, 2026-11-10), only on a book
+            # with puzzles
+            + (1 if n else 0)
         )
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
@@ -898,6 +901,8 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             # `interior_stream`'s own `interior_page_count` calls).
             assert (
                 unpaired == 1 + 2 + expected_toc + dividers + n + (n + 1 if n else 0)
+                # the closing thank-you page (owner, 2026-11-10)
+                + (1 if n else 0)
             ), label
             assert unpaired >= page_count, label
             seen["finalise count"] += 1

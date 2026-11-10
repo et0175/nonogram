@@ -76,11 +76,13 @@ RECORD_SWITCH = "NONOGRAM_RECORD_VECTOR_GOLDENS"
 
 #: The baseline interior's plan, page by page, written out (an independent
 #: statement of ``baseline_puzzles``' docstring: guide, "Easy", the two-up
-#: page, "Medium", the 15x15, "Hard", the 30x30, SOLUTIONS, three answers).
+#: page, "Medium", the 15x15, "Hard", the 30x30, SOLUTIONS, three answers,
+#: and the closing thank-you page, owner 2026-11-10).
 EXPECTED_PLAN = [
     "title", "guide", "guide", "toc",
     "divider", "puzzle", "divider", "puzzle", "divider", "puzzle", "divider",
     "answer", "answer", "answer",
+    "closing",
 ]  # fmt: skip
 
 #: Interior page number (1-based) -> the golden's page-type label. The
@@ -96,6 +98,8 @@ PAGE_TYPES = {
     12: "answer_packed_two",
     13: "answer_packed_one",
     14: "answer_full",
+    # The closing thank-you page (owner, 2026-11-10), the book's last.
+    15: "closing",
 }
 
 

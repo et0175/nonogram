@@ -433,8 +433,9 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
     #: ``PACKED_MAX_HEIGHT`` = 20 x 25, where the 20x20 used to take a full
     #: page of its own under the old 15 x 20) and the 30x30 keeps CARD-198's
     #: full solved page. The leading ``1`` is CARD-206's blank title /
-    #: copyright page.
-    PAGES = 1 + 2 + 1 + 1 + 3 + 1 + 2
+    #: copyright page, and the trailing ``1`` the closing thank-you page
+    #: (owner, 2026-11-10).
+    PAGES = 1 + 2 + 1 + 1 + 3 + 1 + 2 + 1
 
     def test_every_interior_page_of_the_pdf_is_the_stored_trim(self, export):
         pages = pdf_pages(export.interior.getvalue())
@@ -498,8 +499,8 @@ class TestBookPdf_EmptyMarginsFallBackToBook1Profile:
 
         letter_pt = (0.0, 0.0, 8.5 * 72.0, 11 * 72.0)
         # 1 title (CARD-206) + 2 guide + 1 TOC (CARD-200) + 1 divider +
-        # 1 puzzle + 1 SOLUTIONS + 1 answer = 8.
-        assert pdf_page_boxes(export.interior.getvalue()) == [letter_pt] * 8
+        # 1 puzzle + 1 SOLUTIONS + 1 answer + 1 closing (owner, 2026-11-10) = 9.
+        assert pdf_page_boxes(export.interior.getvalue()) == [letter_pt] * 9
         assert pdf_page_boxes(export.cover.getvalue()) == [letter_pt]
 
 
@@ -1089,8 +1090,9 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
         # 5, the two survivors 6 and 7, the SOLUTIONS divider 8, and the
         # answer section: both survivors are 15x15 (qualifying, width<=15 and
         # height<=20) and the same tier, so CARD-202 packs them onto one
-        # shared answer page, 9 — not two full pages.
-        assert len(pages) == 9
+        # shared answer page, 9 — not two full pages — then the closing
+        # thank-you page 10 (owner, 2026-11-10).
+        assert len(pages) == 10
         first_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
         second_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE]))
 
@@ -1224,7 +1226,7 @@ class TestBookPdf_PagePlanGuardIsLive:
         with pytest.raises(RuntimeError) as raised:
             _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        assert "interior has 8 pages, its page plan says 9" in str(raised.value)
+        assert "interior has 9 pages, its page plan says 10" in str(raised.value)
 
     def test_a_walk_that_loses_a_puzzle_aborts_before_a_page_is_drawn(self, monkeypatch):
         """The half the page-count check cannot make (CARD-127 review F-002).
@@ -1758,6 +1760,7 @@ def test_no_interior_page_carries_an_image_xobject() -> None:
         PageKind.DIVIDER,
         PageKind.PUZZLE,
         PageKind.ANSWER,
+        PageKind.CLOSING,
     }, sorted(kind.value for kind in by_kind)
 
     for index, (kind, medium) in enumerate(zip(kinds, media, strict=True), start=1):
@@ -3447,6 +3450,8 @@ def test_the_page_kinds_are_the_positions_the_plan_itself_states() -> None:
     if generator.divider_pages:
         expected += [PageKind.DIVIDER]
     expected += [PageKind.ANSWER] * stream.answer_page_count
+    # The closing thank-you page after the key (owner, 2026-11-10).
+    expected += [PageKind.CLOSING]
 
     assert list(stream.page_kinds) == expected, (
         [kind.value for kind in stream.page_kinds],
@@ -4949,10 +4954,12 @@ class TestInterior_PageCountChangeIsAttributedToTheBand:
     #: (label, trim cm or None for Book 1, gutter depth) -> the counts, before
     #: and after, as ``(toc rows per page, toc pages, puzzle pages, answer
     #: pages, interior total, KDP band)``.
+    #: Every total is one page more than CARD-392 measured since the closing
+    #: thank-you page (owner, 2026-11-10); no book changes KDP band with it.
     TABLE = {
-        "A": (None, 5, (40, 1, 120, 30, 156, (151, 300)), (40, 1, 60, 30, 96, (1, 150))),
-        "B": (("15.24", "22.86"), 1, (31, 1, 120, 30, 156, (151, 300)), (31, 1, 60, 30, 96, (1, 150))),
-        "C": (("12.70", "20.32"), 1, (27, 1, 120, 30, 156, (151, 300)), (27, 1, 120, 30, 156, (151, 300))),
+        "A": (None, 5, (40, 1, 120, 30, 157, (151, 300)), (40, 1, 60, 30, 97, (1, 150))),
+        "B": (("15.24", "22.86"), 1, (31, 1, 120, 30, 157, (151, 300)), (31, 1, 60, 30, 97, (1, 150))),
+        "C": (("12.70", "20.32"), 1, (27, 1, 120, 30, 157, (151, 300)), (27, 1, 120, 30, 157, (151, 300))),
     }
 
     @staticmethod

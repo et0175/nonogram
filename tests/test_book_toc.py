@@ -524,17 +524,18 @@ class TestBookToc_PageNumbersMatchTheWalk:
         assert [label for label, _ in dividers] == ["Easy", "Medium", "Hard"]
 
         assert by_label[TOC_SOLUTIONS_LABEL] == counted.first_answer_page - 1
-        # And against the two counts the stream settles for itself: the last
-        # page that is not an answer page is the divider that opens the
-        # answer section.
+        # And against the two counts the stream settles for itself: the book
+        # ends with its answer pages and then the closing thank-you page
+        # (owner, 2026-11-10), and the page before the answers is the divider
+        # that opens them.
         assert by_label[TOC_SOLUTIONS_LABEL] == (
-            counted.page_count - counted.answer_page_count
+            counted.page_count - counted.answer_page_count - 1
         ), (
             f"the solutions row names interior page "
             f"{by_label[TOC_SOLUTIONS_LABEL]}, but this book's "
             f"{counted.page_count} pages end with {counted.answer_page_count} "
             "answer pages, so the divider that opens them is page "
-            f"{counted.page_count - counted.answer_page_count}"
+            f"{counted.page_count - counted.answer_page_count - 1}"
         )
 
     def test_the_named_pages_really_are_those_pages(self, monkeypatch) -> None:
