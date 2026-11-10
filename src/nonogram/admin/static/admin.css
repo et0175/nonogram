@@ -1771,3 +1771,48 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
   .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 }
+
+/* CARD-402 (owner finding 2026-11-07, item 5: "Toolbar as a vertical icon
+   column at the side ... the board then gets nearly the full height"): on a
+   landscape phone (the compact condition's short arm, in landscape; owner
+   rulings 2026-11-10: "B", two buttons wide, on the left) the title and the
+   tool strip form a column on the LEFT and the board takes the whole height
+   to their right. The strip is one box whose groups become its grid cells
+   (display: contents); the brush slot, the counters and the probe note span
+   both columns. It takes no size of its own (height 0) and fills its grid
+   area (min-height 100%), so the board, not the strip, sets the height, and
+   a strip taller than that scrolls itself, never the page. Keyed on the
+   toolbar's parent, so the public page's shell gets it too. */
+@media (max-height: 500px) and (orientation: landscape) {
+  :has(> .player-toolbar ~ .player-stage-wrap) { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start; min-height: calc(100svh - var(--player-stage-top, 0px) - var(--space-4)); }
+  :has(> .player-toolbar ~ .player-stage-wrap) > * { grid-column: 2; }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-head { grid-column: 1; grid-row: 1; width: calc(2 * 44px + var(--space-2)); flex-wrap: wrap; margin-bottom: var(--space-2); }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-head { gap: var(--space-1); }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-head h1 { font-size: var(--text-base); line-height: var(--leading-tight); margin: 0; }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-head .badge { font-size: var(--text-xs); padding: 0 var(--space-1); }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-stage-wrap { grid-row: 1 / 3; }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-toolbar { grid-column: 1; grid-row: 2 / 4; }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-hint { grid-row: 3; }
+  .player-toolbar:not([hidden]):has(~ .player-stage-wrap) {
+    display: grid; grid-template-columns: repeat(2, 44px); grid-auto-rows: min-content; gap: var(--space-2);
+    align-content: start; height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain;
+    margin: 0; position: relative;
+  }
+  .player-toolbar:has(~ .player-stage-wrap) .player-history,
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom,
+  .player-toolbar:has(~ .player-stage-wrap) .player-probe { display: contents; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-slot { grid-column: 1 / -1; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-tools { flex-wrap: nowrap; }
+  .player-toolbar:has(~ .player-stage-wrap) .btn,
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom-readout { min-width: 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-counters { grid-column: 1 / -1; order: 1; flex-direction: column; align-items: flex-start; gap: 0; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-counters-pair { flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-counters p { min-height: 0; font-size: var(--text-xs); }
+  .player-toolbar:has(~ .player-stage-wrap) .player-probe-note { grid-column: 1 / -1; order: 1; }
+  /* The two popovers leave the strip's scroll box (it would clip them):
+     fixed, the brush menu at its own place beside the trigger (its static
+     position, pushed below it), the reset dialog at the window's top right,
+     over the board and clear of any sidebar (review cycle 1, F-003, F-007). */
+  .player-toolbar:has(~ .player-stage-wrap) .player-tool-menu { position: fixed; top: auto; left: auto; margin-top: calc(44px + var(--space-2)); }
+  .player-toolbar:has(~ .player-stage-wrap) .player-confirm { position: fixed; top: var(--space-4); right: var(--space-4); left: auto; }
+}

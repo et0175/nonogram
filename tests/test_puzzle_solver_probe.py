@@ -1827,7 +1827,11 @@ _WITHOUT_THE_PROBE_LINE = """() => {
   document.head.append(style);
 }"""
 
-_BOARD_TOP = """() => document.querySelector('.player-board').getBoundingClientRect().top"""
+#: In page coordinates (+ scrollY) since CARD-402: on the admin page at
+#: 844 x 390 the page scrolls (its desktop sidebar and topbar), and a click
+#: scrolls the pressed button into view — the board's place on the page is
+#: the claim, not its place in the window.
+_BOARD_TOP = """() => document.querySelector('.player-board').getBoundingClientRect().top + window.scrollY"""
 
 _TOOLBAR_PULL = """() => parseFloat(
   getComputedStyle(document.querySelector('.player-toolbar')).marginTop)"""
@@ -1906,8 +1910,16 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
         sizes = [viewport] + ([(844, 390)] if viewport == (390, 844) else [])
         for width, height in sizes:
             browser_page.set_viewport_size({"width": width, "height": height})
-            browser_page.wait_for_timeout(100)
-            closed = browser_page.evaluate(_BOARD_TOP)
+            # CARD-402: a turn to landscape re-lays the page out as a grid
+            # (the tool strip beside the board) and settles over a few frames;
+            # read once the board's top has stopped moving, not after a guess.
+            closed, settled = None, browser_page.evaluate(_BOARD_TOP)
+            for _ in range(30):  # bounded (review cycle 1, F-006)
+                if closed == settled:
+                    break
+                browser_page.wait_for_timeout(100)
+                closed, settled = settled, browser_page.evaluate(_BOARD_TOP)
+            assert closed == settled, (width, height, "the board never settled")
             _probe(browser_page)
             opened = browser_page.evaluate(_BOARD_TOP)
             hint = _button(browser_page, "Hint").bounding_box()
@@ -1934,7 +1946,17 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
         # screen (12 px compact, 14.78 px with labelled buttons) — sharp at a
         # pixel, and paid once: the board does not move again when a probe
         # opens (above).
-        with_bar = browser_page.evaluate(_BOARD_TOP)
+        # The line's arithmetic is the parametrized size's: on a landscape
+        # phone (CARD-402) the probe's buttons are cells of the tool strip and
+        # there is no line to pay for.
+        browser_page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+        settled, with_bar = None, browser_page.evaluate(_BOARD_TOP)
+        for _ in range(30):
+            if settled == with_bar:
+                break
+            browser_page.wait_for_timeout(100)
+            settled, with_bar = with_bar, browser_page.evaluate(_BOARD_TOP)
+        assert settled == with_bar, "the board never settled"
         # What the pull pays for: the small-button row CARD-268 measured.
         old_line = browser_page.evaluate("""() => { const e = document.createElement('i');
           e.style.cssText = 'display:block;height:calc(var(--control-h) - var(--space-3))'; document.body.append(e);
