@@ -309,10 +309,13 @@ class TestSolverProgress_SolvedWhenBlacksMatch:
         banner = _banner(browser_page)
         assert banner.is_visible()
         assert banner.locator("[data-player-solved-name]").inner_text() == NAME
-        assert " ".join(banner.inner_text().split()) == f"Solved: {NAME}"
+        # CARD-280 (owner ruling 2026-11-10, a festive solve): "Solved! " + the celebration mark + the name + the solve's count; was f"Solved: {NAME}".
+        # No hint was used here, and the words say so (AC-8's hint-free half;
+        # the hinted half is TestSolverHint's reveal-solves cell).
+        assert " ".join(banner.inner_text().split()) == f"\U0001F389 Solved! {NAME}"
         announce = browser_page.locator("#puzzle-player-announce")
         assert announce.get_attribute("role") == "status"
-        assert " ".join(announce.text_content().split()) == f"Solved: {NAME}"
+        assert " ".join(announce.text_content().split()) == f"Solved! {NAME} — no hints"
         assert _error_count(browser_page) == 0
 
     def test_ac316_the_completing_drag_solves_too(self, browser_page, live) -> None:

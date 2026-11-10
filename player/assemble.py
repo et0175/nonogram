@@ -587,7 +587,10 @@ async function main() {
       badge.style.setProperty("--tier", `var(--color-tier-${tier.toLowerCase()})`);
     }
   }
-  document.querySelector("[data-player-solved-name]").textContent = `Puzzle ${key}`;
+  // CARD-280 (owner ruling 2026-11-10): a puzzle's name is never published
+  // (ADR-0041/R2), and its key is no name at all, so the banner carries none:
+  // "Solved!" and the solve's count.
+  document.querySelector("[data-player-solved-name]").remove();
   const data = document.createElement("script");
   data.type = "application/json";
   data.id = "puzzle-player-data";
