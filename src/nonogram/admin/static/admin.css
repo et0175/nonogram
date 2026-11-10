@@ -1746,6 +1746,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-probe-glyph { line-height: 1; }
   .player-probe, .player-probe .btn { height: var(--control-h); }
   .player-probe .btn { font-size: var(--text-base); }
+  /* Review cycle 2, F-103: at 360 px and below the note would take three
+     lines and spill past the fixed line; two lines, the rest in its title. */
+  .player-probe-note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .player-history > .btn, .player-zoom .btn, .player-probe > .btn { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
   .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

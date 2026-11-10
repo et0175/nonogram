@@ -1470,8 +1470,11 @@ class TestSolverProbe_OnlyOneProbeAtATime:
 
         # The checkpoint is still the FIRST one: abandoning reaches the board
         # before (5, 5), not the board the second press would have kept.
+        browser_page.locator('[data-player-probe-action="abandon"]').focus()
         _contradiction(browser_page)
         assert _states(browser_page) == checkpoint
+        # And the close hands focus back to Probe (review cycle 2, F-104).
+        assert browser_page.evaluate("document.activeElement.id") == "puzzle-player-probe"
         assert problems == []
 
 
