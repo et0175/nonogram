@@ -533,7 +533,10 @@ class TestSolverProgress_ReducedMotion:
             animated_cells = page.evaluate(
                 "[...document.querySelectorAll('td.player-cell')].filter((td) => td.getAnimations().some((a) => a instanceof CSSAnimation)).length")
             assert animated_cells == sum(cell for row in GRID for cell in row)
-            assert page.locator("#puzzle-player-solved").evaluate("(el) => el.getAnimations().length") == 1
+            # The banner's own animation, read by NAME rather than counted:
+            # its 220 ms run may already be over by now (CARD-280 review
+            # cycle 2, F-201: counting it was red 5 of 13 runs under load).
+            assert page.locator("#puzzle-player-solved").evaluate("(el) => getComputedStyle(el).animationName") == "player-solved-in"
             # Short: everything has finished within two seconds.
             page.wait_for_function("document.getAnimations().every((a) => a.playState === 'finished')", timeout=2000)
         finally:
