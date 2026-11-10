@@ -220,7 +220,9 @@ HOWTO_CONTROLS = {
     "Hint": '[data-player-action="hint"]',
     "Check": '[data-player-action="check"]',
     "Probe": "[data-player-probe]",
-    "Zoom": '[data-player-zoom-action="in"]',
+    # "− / + or Fit": all three (review cycle 1, F-602). Fit is the readout,
+    # a control only while there is a Fit to go to, so it is the readout.
+    "Zoom": ('[data-player-zoom-action="out"]', '[data-player-zoom-action="in"]', "[data-player-zoom-readout]"),
 }
 
 
@@ -236,11 +238,13 @@ def howto_problems(page) -> list[str]:
     if not names:
         problems.append("the text names no control")
     for name in names:
-        selector = HOWTO_CONTROLS.get(name)
-        if selector is None:
+        selectors = HOWTO_CONTROLS.get(name)
+        if selectors is None:
             problems.append(f"names {name!r}, which no control here is")
-        elif not page.locator(selector).first.is_visible():
-            problems.append(f"names {name}, but the page has no visible {selector}")
+            continue
+        for selector in (selectors,) if isinstance(selectors, str) else selectors:
+            if not page.locator(selector).first.is_visible():
+                problems.append(f"names {name}, but the page has no visible {selector}")
     return problems
 
 
@@ -703,7 +707,10 @@ class TestSharedUi_TheShellRefusesAFragmentItCannotTrust:
         page = assembler.shared_ui_play_page(fragment)
         # The admin's payload element (it carries the admin's solution) is gone; the loader builds its own.
         assert '<script type="application/json"' not in page and "puzzle-player-data" in page
-        assert "Check highlights" not in page
+        # CARD-413: no assembly-time text edit any more — the Check bullet is in
+        # the shell and removed when the page runs (the live check is
+        # test_the_usage_line_is_true_for_the_public_player).
+        assert page.count("data-player-howto-check") == 1
 
     @pytest.mark.parametrize("damage, why", [
         (lambda f: f.replace('id="puzzle-player-data"', 'id="other"'), "no payload element"),

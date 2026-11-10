@@ -639,7 +639,7 @@ def shared_ui_play_page(fragment: str) -> str:
     Raises :class:`ValueError` unless the fragment has the payload element
     the shell replaces and each hook the loader writes into, exactly once: a template that moved
     one of them must fail the assembly, not produce a page the loader
-    half-fills or one that tells a visitor about a button that is not there.
+    half-fills.
     """
     if len(_SHARED_UI_DATA.findall(fragment)) != 1:
         raise ValueError("the admin markup must hold exactly one payload element")

@@ -620,7 +620,12 @@ class TestSolverClickFollowsTheBrush:
         assert _marked(_states(browser_page)) == {(3, 8): F}
 
     def test_the_page_copy_describes_the_new_click(self, browser_page, live) -> None:
-        """AC-11 — the tool group is "Marking tool"; the hint names each colour
+        """Since CARD-413 (owner finding 2026-11-07, item 9) the usage text is
+        the "How to play" disclosure; the paragraph this docstring goes on to
+        describe is retired (see the comment in the body), the tool group's
+        claims below are unchanged.
+
+        AC-11 — the tool group is "Marking tool"; the hint names each colour
         brush's sequence and keeps the drag and Maybe sentences. CARD-194: the
         group now holds one trigger plus a menu of its four brushes and,
         beside it, Region's own toggle (CARD-211 — the menu's fifth item
