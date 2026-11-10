@@ -2269,6 +2269,61 @@ def footer_pointer_text(numbers: Sequence[int], play_page: int) -> str:
     return f"Play {names} online{BAND_SEPARATOR}p. {play_page}"
 
 
+def footer_solution_text(pages: Sequence[int]) -> str:
+    """Where a puzzle page's answers are printed (Anna and the owner, 2026-11-10).
+
+    ``Solution on p. 172`` for one puzzle; on a two-up page ``Solutions on
+    p. 172`` when both answers share a page, else ``Solutions on p. 172 and
+    173``. The page numbers are the answer plan's, never computed here.
+    """
+    distinct = sorted(set(pages))
+    if not distinct or distinct[0] < 1:
+        raise ValueError(f"a solution pointer names pages from 1, got {tuple(pages)}")
+    if len(pages) == 1:
+        return f"Solution on p. {distinct[0]}"
+    return "Solutions on p. " + " and ".join(str(page) for page in distinct)
+
+
+#: The corner label's grey: secondary, like the TOC's level ranges.
+CORNER_LABEL_GREY = 0.37
+
+#: The gap kept between the grid-size label and the edges of the clue
+#: corner it is set in, in points.
+CORNER_LABEL_PAD_PT = 2.0
+
+
+def draw_corner_size_label(
+    stream: ContentStream, layout: Layout, label: str, size_px: float, metrics: FontMetrics
+) -> bool:
+    """Set ``label`` centred in the blank corner above the row clues (2026-11-10).
+
+    The corner is the box between the drawing's top-left edge and the grid's
+    top-left corner. Returns ``False`` and draws nothing when the label does
+    not fit there at ``size_px`` (a grid with shallow clues has a tiny
+    corner); the caller then keeps the size in the footer.
+    """
+    placement = layout.page
+    left = (
+        layout.grid_left - layout.row_gutter_cells * layout.cell
+        if placement is None else placement.drawing_left
+    )
+    top = (
+        layout.grid_top - layout.column_gutter_cells * layout.cell
+        if placement is None else placement.drawing_top
+    )
+    pad = CORNER_LABEL_PAD_PT * layout.dpi / 72.0
+    width = metrics.advance(label) * size_px
+    cap = 0.72 * size_px
+    room_w = layout.grid_left - left - 2 * pad - layout.thick_rule
+    room_h = layout.grid_top - top - 2 * pad - layout.thick_rule
+    if width > room_w or cap > room_h:
+        return False
+    x = (left + layout.grid_left) / 2 - width / 2
+    baseline = (top + layout.grid_top) / 2 + cap / 2
+    stream.text(label, x, baseline, stream.to_points(size_px), grey=CORNER_LABEL_GREY)
+    return True
+
+
 def _guide_rule_width(spec: PageSpec) -> int:
     """This page's thin rule width, in pixels (CARD-201).
 
@@ -2337,6 +2392,9 @@ class TocEntry:
     label: str
     page: Optional[int] = None
     starts_group: bool = False
+    #: Set in the secondary grey like a level's range: the per-level rows
+    #: under Solutions (owner, 2026-11-10).
+    secondary: bool = False
 
     def __post_init__(self) -> None:
         if self.page is not None and self.page < 1:
@@ -3121,8 +3179,9 @@ def structural_toc_entry_count(
     if puzzle_count == 0:
         return 0
     # The Play online row (owner, 2026-11-09), between the levels and the
-    # solutions, when the book prints that page.
-    return 2 + 2 * level_count + (1 if play_row else 0)
+    # solutions, when the book prints that page. Each named level also gets a
+    # row under Solutions pointing at its first answer page (owner, 2026-11-10).
+    return 2 + 3 * level_count + (1 if play_row else 0)
 
 
 def structural_toc_entries(
@@ -3132,6 +3191,7 @@ def structural_toc_entries(
     *,
     level_rows: bool = True,
     play_page: Optional[int] = None,
+    solution_level_pages: Optional[Sequence[int]] = None,
 ) -> List["TocEntry"]:
     """The structural TOC's own rows, read off the page plan (CARD-205).
 
@@ -3176,6 +3236,10 @@ def structural_toc_entries(
       — followed by a :func:`toc_range_label` row carrying that divider's
       own page number.
     * :data:`TOC_SOLUTIONS_LABEL` against ``solutions_page``.
+    * per named non-empty level, a row carrying the level's label against
+      that level's first answer page, from ``solution_level_pages`` (one page
+      per level, in the levels' order; owner, 2026-11-10). ``None`` leaves
+      them out, for a caller asking only for the rows above.
 
     ``payloads`` is the book's drawable puzzles in print order, parallel to
     the 1-based puzzle numbers (:attr:`SectionPlan.payloads`) — the same
@@ -3255,7 +3319,39 @@ def structural_toc_entries(
     # :attr:`TocEntry.starts_group`.
     entries.extend(_play_rows(play_page))
     entries.append(TocEntry(TOC_SOLUTIONS_LABEL, solutions_page, starts_group=True))
+    if solution_level_pages is None:
+        return entries
+    if len(solution_level_pages) != len(runs):
+        raise ValueError(
+            f"the solutions list one row per level: {len(runs)} level(s), but "
+            f"{len(solution_level_pages)} first answer page(s) were given"
+        )
+    for (level, _, _), page in zip(runs, solution_level_pages):
+        entries.append(TocEntry(level.label, page, secondary=True))
     return entries
+
+
+def _answer_page_of_each_puzzle(answer_plan: Sequence[Any], first_answer_page: int) -> Dict[int, int]:
+    """Puzzle number -> the interior page its answer is printed on.
+
+    Read off the answer plan the section is drawn from: the plan's ``i``-th
+    page is interior page ``first_answer_page + i``.
+    """
+    pages: Dict[int, int] = {}
+    for index, entry in enumerate(answer_plan):
+        numbers = entry.numbers if isinstance(entry, PackedAnswerPage) else (entry.number,)
+        for number in numbers:
+            pages[number] = first_answer_page + index
+    return pages
+
+
+def _first_answer_page_per_level(
+    pages: Mapping[int, int], payloads: Sequence[ExportPayload]
+) -> List[int]:
+    """Each named level's first answer page, in the levels' order (owner, 2026-11-10)."""
+    return [
+        pages[start + 1] for level, start, _ in _level_runs(payloads) if level is not None
+    ]
 
 
 #: The contents row naming the Play online page (owner, 2026-11-09).
@@ -4753,8 +4849,14 @@ class BookPDFGenerator:
         puzzle_page: int,
         cell_sizes: Optional[Dict[GridSize, float]] = None,
         play_page: Optional[int] = None,
+        solution_pages: Optional[Mapping[int, int]] = None,
     ) -> ContentStream:
         """:meth:`_blank_page`'s vector twin: the same page as operators (CARD-295).
+
+        With ``solution_pages`` (puzzle number -> its answer page, from the
+        answer plan) the footer says where the solution is and the grid size
+        moves into the clue corner, or stays in the footer beside the pointer
+        when the corner is too small (owner, 2026-11-10).
 
         ADR-0042/R1. The sheet, the cell and the band identity are taken
         exactly as :meth:`_blank_page` takes them — the same
@@ -4808,18 +4910,50 @@ class BookPDFGenerator:
             band_identity(puzzle_number, payload.difficulty),
         )
         placement = layout.page
+        size_label = self._footer_label(
+            stream, [layout], (puzzle_number,), solution_pages
+        )
         draw_sheet_furniture(
             stream,
             self._sheet_furniture(
                 page_spec,
                 puzzle_page,
-                size_label=grid_size_label(layout.columns, layout.rows),
+                size_label=size_label,
                 content_bottom=None if placement is None else placement.drawing_bottom,
                 pointer=self._pointer(play_page, (puzzle_number,)),
             ),
             interior_face_metrics(),
         )
         return stream
+
+    def _footer_label(
+        self,
+        stream: ContentStream,
+        layouts: Sequence[Layout],
+        numbers: Tuple[int, ...],
+        solution_pages: Optional[Mapping[int, int]],
+    ) -> Optional[str]:
+        """The footer's right-hand label for a page of ``layouts``.
+
+        Without ``solution_pages`` it is the grid size (one puzzle) or nothing
+        (two). With them, each grid's size is set in its clue corner, and the
+        label says where the solutions are, led by any size that did not fit
+        its corner.
+        """
+        sizes = [grid_size_label(layout.columns, layout.rows) for layout in layouts]
+        if solution_pages is None:
+            return sizes[0] if len(layouts) == 1 else None
+        size_px = type_px(SIZE_LABEL_PT, self.dpi)
+        face = interior_face_metrics()
+        unplaced = [
+            size
+            for layout, size in zip(layouts, sizes)
+            if not draw_corner_size_label(stream, layout, size, size_px, face)
+        ]
+        text = footer_solution_text([solution_pages[number] for number in numbers])
+        if unplaced:
+            text = ", ".join(dict.fromkeys(unplaced)) + BAND_SEPARATOR + text
+        return text
 
     def _sheet_furniture(
         self,
@@ -4877,6 +5011,7 @@ class BookPDFGenerator:
         plan: "PuzzlePagePlan",
         payloads: Sequence[ExportPayload],
         play_page: Optional[int] = None,
+        solution_pages: Optional[Mapping[int, int]] = None,
     ) -> ContentStream:
         """:meth:`_two_up_page`'s vector twin: two puzzles, one sheet (CARD-295).
 
@@ -4907,12 +5042,15 @@ class BookPDFGenerator:
             ]
         )
         footer_area = pair.lower.page
+        size_label = self._footer_label(
+            stream, [pair.upper, pair.lower], plan.numbers, solution_pages
+        )
         draw_sheet_furniture(
             stream,
             self._sheet_furniture(
                 self.page_spec(plan.page_number),
                 plan.page_number,
-                size_label=None,
+                size_label=size_label,
                 content_bottom=footer_area.drawing_bottom,
                 content_right=footer_area.drawing_right,
                 content_left=footer_area.drawing_left,
@@ -5769,12 +5907,18 @@ class BookPDFGenerator:
         # which is what the row means. The level rows disappear on their own,
         # because `structural_toc_entries` reads them off `section`'s
         # dividers and there are none.
+        solution_pages = _answer_page_of_each_puzzle(answer_plan, first_answer_page)
         toc_entries = structural_toc_entries(
             section,
             decided.payloads,
             first_answer_page - (1 if self.divider_pages else 0),
             level_rows=self.divider_pages,
             play_page=decided.play_page,
+            solution_level_pages=(
+                _first_answer_page_per_level(solution_pages, decided.payloads)
+                if self.divider_pages
+                else ()
+            ),
         )
         # The plan/draw tripwire for the TOC, in two halves — the ROWS first,
         # then the pages they take.
@@ -6048,10 +6192,14 @@ class BookPDFGenerator:
                             page_plan.page_number,
                             decided.cell_sizes,
                             decided.play_page,
+                            solution_pages,
                         )
                     else:
                         page = self.vector_two_up_page(
-                            page_plan, [p for _, p in members], decided.play_page
+                            page_plan,
+                            [p for _, p in members],
+                            decided.play_page,
+                            solution_pages,
                         )
                 except Exception as e:
                     named = _named_puzzles(ids, page_plan.numbers)

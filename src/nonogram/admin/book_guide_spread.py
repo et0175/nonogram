@@ -353,12 +353,21 @@ def _dots(pen: _Pen, x: float, cy: float, filled: int) -> float:
 def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Optional[int]) -> float:
     """Interior page 2: the basics. Returns the lowest pixel drawn."""
     px = pen.px
-    y = top + px(40)
+    # The promise and the Play online pointer in a grey box above the title
+    # (Anna and the owner, 2026-11-10).
+    notes = [GUIDE_PROMISE] + ([guide_play_sentence(play_page)] if play_page else [])
+    inner = pen.right - pen.left - px(28)
+    lead = pen.type_px(_BODY_PT * _LEAD)
+    note_h = sum(pen.para_height(note, inner, _BODY_PT) for note in notes)
+    box_top = top + px(14)
+    box_bottom = box_top + px(26) + note_h - lead + pen.type_px(_BODY_PT) * 0.3
+    pen.box(pen.left, box_top, pen.right, box_bottom, _SHADE)
+    ny = box_top + px(13) + pen.type_px(_BODY_PT) * 0.75
+    for note in notes:
+        ny = pen.para(note, pen.left + px(14), ny, inner, _BODY_PT)
+    y = box_bottom + px(40)
     pen.put(GUIDE_TITLE, pen.left, y, _TITLE_PT, bold=True, kind=TITLE)
     y = pen.para(GUIDE_INTRO, pen.left, y + px(24), pen.right - pen.left, _INTRO_PT, grey=_GREY)
-    y = pen.para(GUIDE_PROMISE, pen.left, y + px(2), pen.right - pen.left, _BODY_PT)
-    if play_page:
-        y = pen.para(guide_play_sentence(play_page), pen.left, y + px(2), pen.right - pen.left, _BODY_PT)
 
     # The key strip: the three cell states.
     strip_top = y + px(4)

@@ -1370,9 +1370,11 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         # through ``draw_tier_dots``. Stated here as well as in the limit cell
         # so the two cannot drift apart again.
         round_ops = {"B", "c", "h"}
-        for stream_text in pdf_vector.content_streams(_written(recorded.toc_streams())):
-            tokens = set(pdf_vector.operator_tokens(stream_text))
-            assert round_ops <= tokens, sorted(round_ops - tokens)
+        # The contents' first page carries the level rows; on a small trim a
+        # second page may hold only the Solutions rows, which have no dots.
+        first_toc = pdf_vector.content_streams(_written(recorded.toc_streams()))[0]
+        tokens = set(pdf_vector.operator_tokens(first_toc))
+        assert round_ops <= tokens, sorted(round_ops - tokens)
         assert "round_mark" not in _source_of(book_toc_vector)
         assert "draw_tier_dots" in _source_of(book_toc_vector)
         # CARD-314: the mark is on the answer pages and NOT on the TOC, which
@@ -2802,8 +2804,8 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
         assert answers
         for text in answers:
             assert has_curve(text), "a solution header drew no tier dots"
-        for text in pdf_vector.content_streams(_written(recorded.toc_streams())):
-            assert has_curve(text), "a contents page drew no level's tier dots"
+        tocs = pdf_vector.content_streams(_written(recorded.toc_streams()))
+        assert has_curve(tocs[0]), "the contents drew no level's tier dots"
         assert "draw_tier_dots" in _source_of(book_toc_vector)
         assert "round_mark" not in _source_of(book_answer_vector)
         assert "draw_tier_dots" in _source_of(book_answer_vector)

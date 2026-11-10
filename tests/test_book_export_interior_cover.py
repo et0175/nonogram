@@ -4374,10 +4374,14 @@ class Generator:
         #
         # **CARD-289 (2026-11-09): +1** (680 -> 681), the
         # ``first_answer_page`` default on ``InteriorStream``.
-        ((), 681),
-        (("builtins",), 441),
-        (("builtins", "definitions and imports"), 160),
-        (("builtins", "definitions and imports", "parameters"), 159),
+        #
+        # **Anna's layout (owner, 2026-11-10): +31** (681 -> 712, 441 -> 456,
+        # 160 -> 167, 159 -> 166): the footer's solution pointer, the grid
+        # size in the clue corner and the contents' per-level solution rows.
+        ((), 712),
+        (("builtins",), 456),
+        (("builtins", "definitions and imports"), 167),
+        (("builtins", "definitions and imports", "parameters"), 166),
         (
             (
                 "builtins",
