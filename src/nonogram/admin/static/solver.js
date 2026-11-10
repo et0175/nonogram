@@ -2364,13 +2364,16 @@ function wireMarking(container, player) {
     // fixed (out of the strip's clip); where the strip starts low (the
     // admin page under its sidebar break) it would run off the window's
     // bottom, so it is lifted to end inside it. Cleared on every open.
+    // Both inline values go first (review cycle 3, F-011: a margin left from
+    // a lifted open made every second open measure a menu 52 px off).
     menu.style.top = "";
+    menu.style.marginTop = "";
     if (getComputedStyle(menu).position === "fixed") {
       const box = menu.getBoundingClientRect();
       if (box.bottom > window.innerHeight) {
         menu.style.top = `${Math.max(8, window.innerHeight - box.height - 8)}px`;
         menu.style.marginTop = "0";
-      } else menu.style.marginTop = "";
+      }
     }
     trigger.setAttribute("aria-expanded", "true");
     (items.find((item) => item.getAttribute("aria-checked") === "true") ?? items[0]).focus();

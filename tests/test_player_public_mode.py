@@ -1788,12 +1788,17 @@ class TestPublicMode_LandscapeToolStrip:
         assert banner == [True, True, True], banner
 
         # Review cycle 2, F-009: the ADMIN page in a small landscape window
-        # (its strip starts low, under the title) keeps every brush tappable.
-        page.set_viewport_size({"width": 667, "height": 375})
+        # (its strip starts low, under the title) keeps every brush tappable
+        # (667 x 375 until cycle 3; 740 x 360 overflows as well).
+        # Review cycle 3, F-011: and on the SECOND open too (a lifted open
+        # once left an inline margin that misplaced the next one) — at 740 x
+        # 360, where that second open ran off the window.
+        page.set_viewport_size({"width": 740, "height": 360})
         admin_open(page, live, live.store(SWEEP_GRID))
-        page.locator(".player-tool-trigger").click()
-        assert page.evaluate(_MENU_TAPPABLE)
-        page.keyboard.press("Escape")
+        for _ in range(2):
+            page.locator(".player-tool-trigger").click()
+            assert page.evaluate(_MENU_TAPPABLE)
+            page.keyboard.press("Escape")
 
         page.set_viewport_size({"width": 932, "height": 430})
         open_page(page, serve(public_payload(_unique_grid(30, 29, seed=19330))))
