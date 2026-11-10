@@ -1362,7 +1362,7 @@ GUIDE2_INTRO = "Use stronger deductions only when the simpler ones stop producin
 
 #: Page 2's first two numbered techniques (item 2): each with one worked
 #: diagram, the same :class:`GuideTechnique` shape as page 1's (CARD-201).
-#: The third technique, "Assume, and watch it break", is not a line diagram
+#: The third technique, "Proof by contradiction", is not a line diagram
 #: (see :data:`GUIDE_ASSUME_STEPS` below) and so is not one of these.
 GUIDE_TECHNIQUES_2: Tuple[GuideTechnique, ...] = (
     GuideTechnique(
@@ -1468,11 +1468,14 @@ class GuidePipelineStep:
 #: Page 2's third technique (item 2c): not a puzzle-line diagram — a simple
 #: 4-box sequence with an arrow between each (CARD-201). Drawn by
 #: :func:`_draw_pipeline_diagram`.
-GUIDE_ASSUME_HEADING = "3. Assume, and watch it break"
+GUIDE_ASSUME_HEADING = "3. Proof by contradiction"
+#: Owner, 2026-11-10: named as the proof it is, and no "this is not guessing"
+#: (a temporary assumption can feel like guessing to a reader): the reader
+#: tests a possibility and rejects it only when it leads to an impossibility.
 GUIDE_ASSUME_TEXT = (
-    "If everything stalls, temporarily treat one unsettled cell as filled "
-    "and follow the consequences through its row and column. If a clue "
-    "becomes impossible, the assumption was wrong."
+    "If everything stalls, test one unsettled cell: suppose it is filled and "
+    "follow the consequences through its row and column. If a clue becomes "
+    "impossible, the cell cannot be filled, so it must be empty."
 )
 GUIDE_ASSUME_STEPS: Tuple[GuidePipelineStep, ...] = (
     GuidePipelineStep("ASSUME", PIPELINE_ICON_SQUARE),
@@ -1481,8 +1484,8 @@ GUIDE_ASSUME_STEPS: Tuple[GuidePipelineStep, ...] = (
     GuidePipelineStep("PROVED", PIPELINE_ICON_CROSS),
 )
 GUIDE_ASSUME_CLOSING = (
-    "This is not guessing: erase the temporary trial and keep only what the "
-    "contradiction proves."
+    "A possibility is rejected only when it leads to an impossibility. "
+    "Erase the trial marks and keep only what the contradiction proves."
 )
 
 
