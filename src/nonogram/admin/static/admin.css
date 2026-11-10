@@ -1639,41 +1639,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-toolbar:has(.player-probe) { margin-top: calc(-1 * var(--space-2) - var(--border-width)); }
 .player-probe { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); margin-bottom: calc(-1 * var(--space-4) + var(--border-width)); }
 .player-probe[hidden] { display: none; }
-/* CARD-411 (owner finding 2026-11-07): the buttons left this line for the
-   History group, at the toolbar's size (Probe becomes the Keep and Wrong
-   guess pair while a probe is open). The line keeps the leaving note at the
-   height the buttons gave it, FIXED, so the toolbar's pull above still pays
-   for it exactly and a note that wraps (two lines at 390 px) moves nothing. */
-.player-probe { height: calc(var(--control-h) - var(--space-3)); }
-/* The slot: Probe and its pair share one grid area, and the one not shown
-   keeps its box (visibility, not display), so the History row is exactly as
-   wide with a probe open as closed at every width — the reserve is the
-   pair's width, which is what stops the row (and the counters after it)
-   wrapping differently when a probe opens. */
-.player-probe-slot { display: inline-grid; grid-template-columns: auto auto; column-gap: var(--space-2); }
-.player-probe-slot > [data-player-probe] { grid-area: 1 / 1 / 2 / 3; justify-self: start; }
-.player-probe-slot > [data-player-probe-action="keep"] { grid-area: 1 / 1; }
-.player-probe-slot > [data-player-probe-action="abandon"] { grid-area: 1 / 2; }
-.player-probe-slot > .btn[hidden] { display: inline-flex !important; visibility: hidden; }
+/* CARD-411 (owner finding 2026-11-07: "'✓ Keep' and '✗ Wrong guess' at
+   full toolbar size"): the line's buttons are the toolbar's size and Probe
+   BECOMES the pair while a probe is open, with the leaving note beside it.
+   The line's height is FIXED at a control's height, so opening a probe moves
+   nothing at any width; the cost is paid once and always (the line used to
+   be a small-button row), measured in the card. */
+.player-probe { height: var(--player-probe-h, var(--control-h)); }
+.player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); }
+.player-probe-note { flex: 1 1 0; min-width: 0; }
 /* The glyphs carry the pair's meaning in colour too, so the phone's
-   icon-only Keep (✓) does not read as Check's tick beside it. */
+   icon-only Keep (✓) does not read as Check's tick. */
 [data-player-probe-action="keep"] .player-probe-glyph { color: var(--color-success); }
 [data-player-probe-action="abandon"] .player-probe-glyph { color: var(--color-danger); }
-/* Desktop too, the History row shows icons (each keeps its name, in the
-   clipped label and its title), so the slot's reserve costs no row and the
-   board stays where it was before this card at wide desktops (the card's
-   recommended option A, put to the owner 2026-11-10). The
-   probe pair keeps its words: they are what the owner asked for. */
-@media (min-width: 601px) and (min-height: 501px) {
-  .player-history > .btn .player-compact-icon { display: contents; }
-  .player-history > .btn .player-btn-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  .player-history > .btn { justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
-}
-/* display: block is stated on purpose: the note's [hidden] then rests on the
-   base stylesheet's [hidden] rule alone, as Keep and Contradiction's did
-   before they moved, which keeps tests/test_player_base_css.py's "no [hidden]
-   rule" plant able to fail. */
-.player-probe-note { display: block; margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
+.player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
 .player-stage { --player-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
 .player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
@@ -1762,7 +1741,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   }
   .player-zoom-readout[role="button"] { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; }
   .player-probe-glyph { line-height: 1; }
-  .player-history > .btn, .player-probe-slot > .btn, .player-zoom .btn { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
+  .player-history > .btn, .player-zoom .btn, .player-probe > .btn { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
   .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 }

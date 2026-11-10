@@ -3142,7 +3142,7 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         ("390x844", {"width": 390, "height": 844}, [False, True], [346, 147], [358, 436]),  # 185/398 until CARD-409 took the answer line out of the head
         # The same board and the same mirror, 210 px wider: the row axis now
         # scrolls by 136 px, so that is all the band can hide, and it keeps.
-        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 72], [568, 511]),  # 108/475 until CARD-406's 44 px Fit control; 113/470 until CARD-409 took the answer line out of the head; 75/508 until CARD-411's probe slot widened the History group (zoom moved beside the counters, toolbar 2.78 px shorter)
+        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 75], [568, 508]),  # 108/475 until CARD-406's 44 px Fit control; 113/470 until CARD-409 took the answer line out of the head
     ]
 
     @pytest.mark.parametrize("name, viewport, keeping, overflow, port", ROOMS,

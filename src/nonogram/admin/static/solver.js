@@ -2140,11 +2140,9 @@ function wireMarking(container, player) {
   // which loads this same file and is not offered a probe; the null
   // discipline is Hint's and Check's.
   const probeBar = document.getElementById("puzzle-player-probe-bar");
-  // CARD-411: the toggle and its pair sit in the History group, at the
-  // toolbar's size; the bar keeps the leaving note only.
-  const probeToggle = probeBar && controls.querySelector("[data-player-probe]");
-  const probeKeep = probeBar && controls.querySelector('[data-player-probe-action="keep"]');
-  const probeAbandon = probeBar && controls.querySelector('[data-player-probe-action="abandon"]');
+  const probeToggle = probeBar?.querySelector("[data-player-probe]") ?? null;
+  const probeKeep = probeBar?.querySelector('[data-player-probe-action="keep"]') ?? null;
+  const probeAbandon = probeBar?.querySelector('[data-player-probe-action="abandon"]') ?? null;
   const probeNote = probeBar?.querySelector(".player-probe-note") ?? null;
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
@@ -2421,8 +2419,7 @@ function wireMarking(container, player) {
     probeToggle.setAttribute("aria-pressed", String(open));
     probeToggle.setAttribute("aria-disabled", String(open || player.locked()));
     // CARD-411: Probe BECOMES the pair while one is open (the owner's
-    // "at full toolbar size"), so the row holds the same number of slots
-    // closed and nearly so open, and the board does not move.
+    // "at full toolbar size"); the line's height is fixed, so nothing moves.
     probeToggle.hidden = open;
     probeKeep.hidden = !open;
     probeAbandon.hidden = !open;
@@ -2725,23 +2722,35 @@ function wireMarking(container, player) {
   //                  redo after an abandon behave exactly as redo after an
   //                  undo always has. The probe is closed BEFORE the commit,
   //                  so the save that commit writes is the whole history.
+  // CARD-411 review cycle 1, F-002: Probe becomes the pair, so the button
+  // that had focus is hidden by its own press; focus moves to the button
+  // now in its place (Keep on open, Probe on close) instead of to <body>.
+  const handOn = (from, to) => {
+    if (document.activeElement === from || document.activeElement === document.body) to?.focus({ preventScroll: true });
+  };
   probeToggle?.addEventListener("click", () => {
     if (gesture || probeToggle.getAttribute("aria-disabled") === "true") return;
+    const had = document.activeElement === probeToggle;
     probe = nextProbe(probe, player.getHistory(), "open");
     player.probed();
     refresh();
+    if (had) handOn(document.body, probeKeep);
   });
   probeKeep?.addEventListener("click", () => {
     if (gesture || probe === null) return;
+    const had = document.activeElement === probeKeep;
     probe = nextProbe(probe, player.getHistory(), "keep");
     player.probed();
     refresh();
+    if (had) handOn(document.body, probeToggle);
   });
   probeAbandon?.addEventListener("click", () => {
     if (gesture || probe === null) return;
+    const had = document.activeElement === probeAbandon;
     const back = abandonProbe(player.getHistory(), probe);
     probe = nextProbe(probe, back, "abandon");
     commit(back);
+    if (had) handOn(document.body, probeToggle);
   });
 
   // Undo and redo change nothing while the board is locked (solved).

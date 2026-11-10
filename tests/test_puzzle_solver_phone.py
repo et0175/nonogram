@@ -823,8 +823,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 72], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411's probe slot (toolbar 2.78 px shorter at 600 px)
-            assert seen["scroll"] == [136 if col else 0, 72 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411 (see the line above)
+            assert seen["overflow"] == [136, 75], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control
+            assert seen["scroll"] == [136 if col else 0, 75 if row else 0], (corner, seen["scroll"])
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
@@ -972,10 +972,10 @@ class TestSolverPhone_MirroredGutterSticks:
 #: The labelled toolbar buttons, by accessible name. Check is admin-only.
 _LABELLED = ("Undo", "Redo", "Reset", "Hint", "Check", "Probe")
 
-#: CARD-411: the probe slot's pair is laid out but visibility: hidden while no
-#: probe is open (it reserves its width); only the buttons drawn are counted.
+#: CARD-411: Keep and Wrong guess carry labels too, and are not drawn while
+#: no probe is open; only the buttons drawn are counted.
 _LABEL_BOXES = """() => [...document.querySelectorAll('.player-btn-label')]
-  .filter((label) => getComputedStyle(label.closest('button')).visibility !== 'hidden').map((label) => {
+  .filter((label) => label.closest('button').getClientRects().length > 0).map((label) => {
   const button = label.closest('button');
   const icon = button.querySelector('svg');
   return { name: label.textContent.trim(),

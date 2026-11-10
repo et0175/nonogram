@@ -1443,6 +1443,9 @@ class TestSolverProbe_OnlyOneProbeAtATime:
         checkpoint = _states(browser_page)
 
         _probe(browser_page)
+        # CARD-411 review cycle 1, F-002: the press that hid Probe hands focus
+        # to the button now in its place, not to <body>.
+        assert browser_page.evaluate("document.activeElement.dataset.playerProbeAction") == "keep"
         _cell(browser_page, 5, 5).click()
         _cell(browser_page, 6, 6).click()
         members = _members(browser_page)
@@ -1794,9 +1797,11 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
 
     Probe CLOSED at all three viewports, which is the standing layout every
     sibling test sees — and, since CARD-411, OPEN too: the board's top is the
-    same with no probe, one open and after closing it (the cell's body says
-    how). The paragraph that stood here said an open probe moved the board
-    down; that claim is retired with the owner's 2026-11-07 finding.
+    same with no probe, one open and after closing it, because the line's
+    height is fixed. The paragraph that stood here said an open probe moved
+    the board down; that claim is retired with the owner's 2026-11-07
+    finding, and so is "the board sits exactly where it sat": the line is
+    now a full control row and costs exactly --space-3, asserted below.
     """
 
     @pytest.mark.parametrize(
@@ -1822,9 +1827,9 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
         # CARD-411 (owner finding 2026-11-07, item 8: "'✓ Keep' and '✗ Wrong
         # guess' at full toolbar size"; AC-1..AC-3). RETIRED CLAIM: "an OPEN
         # probe deliberately makes the bar taller ... so the board does move
-        # down while a probe is open". Probe now becomes the pair in a slot
-        # that reserves the pair's width, so the board's top is the same
-        # with no probe, with one open and after closing it; and the pair is
+        # down while a probe is open". Probe now becomes the pair on a line
+        # of fixed height, so the board's top is the same with no probe,
+        # with one open and after closing it; and the pair is
         # the toolbar's size (the height of Hint; 44 px or wider compact),
         # named 'Keep' and 'Wrong guess', with 'Contradiction' gone. At
         # 390 x 844 the landscape phone is measured too (no new node id).
@@ -1848,13 +1853,22 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             after = browser_page.evaluate(_BOARD_TOP)
             assert closed == opened == after, (width, height, closed, opened, after)
 
+        # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "at full toolbar
+        # size"): the line cost the board nothing. A full-size line is a
+        # control row where it was a small-button row, and the pull pays for
+        # the small one only, so the line now costs the board EXACTLY
+        # --space-3 (the difference) — still sharp at one pixel, and paid
+        # once: the board does not move again when a probe opens (above).
         with_bar = browser_page.evaluate(_BOARD_TOP)
+        space3 = browser_page.evaluate("""() => { const e = document.createElement('i');
+          e.style.cssText = 'display:block;width:var(--space-3)'; document.body.append(e);
+          const w = e.getBoundingClientRect().width; e.remove(); return w; }""")
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
         without = browser_page.evaluate(_BOARD_TOP)
-        assert with_bar == without, (
+        assert with_bar - without == space3, (
             f"the board's top is {with_bar} with the probe line and "
-            f"{without} without it, so the line this card adds to the "
-            f"toolbar moves the board by {with_bar - without} px"
+            f"{without} without it: the full-size line moves the board by "
+            f"{with_bar - without} px, not --space-3 ({space3} px)"
         )
 
 
