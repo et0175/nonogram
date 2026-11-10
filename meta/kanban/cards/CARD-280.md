@@ -1,6 +1,6 @@
 # CARD-280: The solved board stops being a worksheet and becomes the picture
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 3c (0.75d)
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/280-solved-reveal-the-picture
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-280
+**Worktree:** —
 **Source:** Owner's request 2026-10-23: *"I'd like to make an animation after the user solves the puzzle in player more festive. What would you propose?"* — then "make a card for it". The proposal below is the orchestrator's, built after reading what the player already does on solve rather than from a blank page, which is what moved it away from the obvious answer (see **Why**).
 **Idea:** —
 **Wave:** 79
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_solved_reveal.py
 **Review score:** 9.0 (cycle 3)
 **Started:** 2026-11-10T13:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-10T14:31Z
+**Actual:** 3 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** 0876cdba
 **Blocked by:** —
 
 ## Why — the celebration currently congratulates the grid, not the picture
@@ -229,13 +229,13 @@ written here rather than discovered: the player is being reopened, not won.
 
 - **[Implementation, 2026-11-10]** One browser cell walks AC-1..AC-6 on a real, saved solve (owner's test budget: fewer tests), so the six AC class names collapse into `TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce`; AC-7 is the pure cell; AC-8 re-points the two existing solve cells (no-hint in progress, hinted in hint). **Choices declared:** the wave is a **4-neighbour** BFS per connected part from its first filled cell in reading order (`pictureWave`); its step is `waveStep` — 20 ms, shrunk so the deepest cell starts within 2 s (a 30x30 serpentine is 289 steps deep). **AC-5 declared** (as amended by review 1/3, F-002): a solved board is LOCKED (undo/redo do nothing on it — CARD-269's lock); a confirmed Reset un-solves it and the worksheet returns; Reset is one undoable step, so Undo re-solves it and the picture returns WITHOUT the celebration — only a stroke or a hint is a genuine solve. **Banner:** "Solved!" + the picture's name on the admin page; the public page removes the name element (ADR-0041/R2), so it reads "Solved!" — the count ("no hints", "N hints") is spoken in the announce and shown in the explain strip for the beat, not in the banner (a banner that wrapped moved the board). The mark is 🎉 drawn by `admin.css` `::before` because the panel templates carry no emoji (test_admin_design_tokens). **Show grid** (a toggle in the probe line, visible only while solved) puts the worksheet back; it is a new public control, added to the public-mode census. Fifth-rule and glyph geometry on an unsolved board are untouched: the reveal's fade is scoped to `.is-celebrating` (review 1/3, F-001; first `.is-solved`). Base-css FROZEN re-recorded (sample 24 -> 25 for Show grid), fidelity plant red.
 - **[Plants]** pure wave seeded from the first part's start -> red; picture rules keyed on `.is-celebrating` -> reload arm red; `waveStep` uncapped -> red; base-css fidelity with a padding change -> red. All restored.
-### [Review 1/3] Score: 6.5 — FAIL: 3 Important (reload replays the fade; AC-5 undo re-celebrates; the count not in the banner), 2 Minor. Report meta/review/CARD-280-review-1.yml.
+[Review 1/3] Score: 6.5 — FAIL: 3 Important (reload replays the fade; AC-5 undo re-celebrates; the count not in the banner), 2 Minor. Report meta/review/CARD-280-review-1.yml.
 
 - **[Review 1/3 fixes]** F-001: the worksheet fade is keyed on `.is-celebrating`, not `.is-solved`, so a reload, a redraw, an undo/redo and Show grid switch with nothing running; the reveal cell asserts zero running animations after the redraw, the reload and the undo (plant: fade back on `.is-solved` -> `131 == 0` red). F-002: AC-5 declared — Reset is one undoable step, so Undo after Reset re-solves; undo/redo pass `replay` through `commit`, so the picture returns WITHOUT the celebration (plant: `celebrate = true` always -> undo arm red). F-003: AC-8 re-worded (the count is announced, shown in the strip for the beat, and stays in the toolbar's Hints counter; the banner keeps its width). F-004: `CELEBRATION_MS = SWEEP_SPAN_MS + 2000`, derived. F-005 (fifth rules never observed on the 5x5): accepted as Minor — the fifth rule is a hairline like the others and goes with the same `.is-solved:not(.is-showing-grid)` rule; no cell added (test budget).
 
-### [Review 2/3] Score: 7.5 (6.5 → 7.5, Δ+1.0) — all five cycle-1 findings verified fixed by the reviewer's own probe; 1 new Important, 2 Minor. Report meta/review/CARD-280-review-2.yml.
+[Review 2/3] Score: 7.5 (6.5 → 7.5, Δ+1.0) — all five cycle-1 findings verified fixed by the reviewer's own probe; 1 new Important, 2 Minor. Report meta/review/CARD-280-review-2.yml.
 
 - **[Review 2/3 fixes]** F-201 (Important): `test_without_reduced_motion_the_solve_is_animated` counted the banner's 220 ms animation after the board-wide checks, so it was red 5/13 under load; it now reads the banner's `animationName` (timing-free) — 0/10 red after. F-202: the `[Implementation]` note's AC-5 and transition-scope sentences amended to the current answer. F-203 (Ctrl+Z after Reset untested) and F-005: accepted as Minor (test budget; the reviewer probed Ctrl+Z correct on this head).
 
-### [Review 3/3] Score: 9.0 (7.5 → 9.0, Δ+1.5) — PASS: no Critical or Important; F-201 measured 0/10 red beside main 0/10 under gate load; 3 Minor accepted (F-301 the banner check proves the rule applies, not that it ran — motion is still proven by the per-cell CSSAnimation count; F-203; F-005). Report meta/review/CARD-280-review-3.yml.
+[Review 3/3] Score: 9.0 (7.5 → 9.0, Δ+1.5) — PASS: no Critical or Important; F-201 measured 0/10 red beside main 0/10 under gate load; 3 Minor accepted (F-301 the banner check proves the rule applies, not that it ran — motion is still proven by the per-cell CSSAnimation count; F-203; F-005). Report meta/review/CARD-280-review-3.yml.
 
