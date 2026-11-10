@@ -1,6 +1,6 @@
 # CARD-402: Landscape phones get the toolbar as a vertical icon column at the side — the board gets nearly the full height
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/402-landscape-tool-column
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-402
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 5: "Toolbar as a vertical icon column at the side. Brush, Region, Undo, Redo, Reset, Hint and zoom stack in one strip about 52 px wide. They fit in 375 px of height, and on the left they're under your thumb." ... "The board then gets nearly the full height, about 20 rows at today's cell size instead of 5."
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** CARD-401, CARD-403
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py, tests/test_puzzle_solver_percent.py, tests/test_puzzle_solver_maybe.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. The real dependencies: CARD-401 (the icons and the compact switch are what fit the strip into 52 px) and CARD-403 (the stage's height must be measured from the real layout: with the toolbar beside the board, 'what stands above the board' is a different quantity from today's `--player-chrome-h`). -->
-**Review score:** —
+**Review score:** 8.0 (cycle 3; merged on the owner's request)
 **Started:** 2026-11-10T07:08Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-10T11:38Z
+**Actual:** 3 review cycles (wall clock excluded, owner ruling)
+**Merge commit:** 293f336d
 **Blocked by:** —
 
 ## Why this card exists
