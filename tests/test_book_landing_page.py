@@ -21,6 +21,14 @@ Acceptance criteria (CARD-418, local labels; registry ids at dispatch):
         (with test_player_bundle's provenance scan over the new fields)
   AC-E  tests/test_book_landing_address.py's grouped-slug literal, unchanged
   AC-F  test_the_landing_header_and_squares_fit_a_phone
+
+CARD-420 (a book's Christmas theme, owner 2026-11-10):
+  AC-1  test_the_served_book_carries_series_and_authors_and_no_picture (a theme
+        the site does not draw is served as ""), and
+        test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it
+        (the assembler's reduction); test_player_bundle's provenance scan
+  AC-2  test_the_served_book_carries_series_and_authors_and_no_picture
+  AC-3, AC-4  test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it
 """
 
 from __future__ import annotations
@@ -101,7 +109,7 @@ def test_the_jump_box_opens_a_puzzle_by_its_printed_number(browser_page, pages_h
     box.fill("2")
     assert hint.inner_text() == "Opens puzzle 2 (Easy)."
     page.locator("[data-pages-jump] button[type=submit]").click()
-    page.wait_for_url(f"{url}/play/{expected[1]}", timeout=PAGES_SETTLE_MS)
+    page.wait_for_url(f"{url}/play/{expected[1]}?book={slug}", timeout=PAGES_SETTLE_MS)  # CARD-420
     assert expected[1] != sorted(expected)[1]
 
 
@@ -185,7 +193,7 @@ def test_progress_comes_from_this_device_and_draws_the_readers_own_picture(
     # Continue names the started puzzle by its print number.
     card = page.locator("[data-pages-continue]")
     assert card.is_visible()
-    assert card.get_attribute("href") == f"/play/{keys[second]}"
+    assert card.get_attribute("href") == f"/play/{keys[second]}?book={slug}"  # CARD-420
     grid = PAGE_GRIDS[second]
     assert page.locator("[data-pages-continue-name]").inner_text() == (
         f"Puzzle 2 · {len(grid[0])}×{len(grid)} · Easy"
@@ -233,6 +241,12 @@ def test_the_served_book_carries_series_and_authors_and_no_picture(pages_site) -
     assert sorted(served) == sorted(assembler.SERVED_BOOK_SCHEMA)
     assert served["series"] == BOOK_SERIES_SERVED
     assert served["authors"] == BOOK_AUTHORS
+    # CARD-420: the fixture's stored theme is "generic", which the site draws
+    # no look for, so the default "" is served; the theme is a closed choice
+    # whose 1-bit residual is declared as structure, not exempt.
+    assert served["theme"] == ""
+    assert "theme" in assembler.LISTING_STRUCTURE_FIELDS
+    assert assembler.book_theme_residual_bits() == 1.0
     # No served file carries an answer: the puzzle titles are base-64 of
     # their grids and the sweep over the whole site finds none of them.
     assert sweep_tree(report.site_dir, PAGE_GRIDS) == {}
@@ -268,3 +282,80 @@ def test_the_landing_header_and_squares_fit_a_phone(browser_page, pages_host) ->
         assert _leaky_title(PAGE_GRIDS[name]) not in text
     # A book with no series or authors shows neither line.
     assert PAGE_TIERS  # the fixture's tier table is the one the page labels
+
+
+#: The Christmas theme's tokens, as computed colours (tokens.css,
+#: :root[data-theme="christmas"]), written out rather than read back.
+CREAM = "rgb(243, 234, 210)"
+PINE = "rgb(29, 74, 44)"
+#: The board's own paper, which no theme touches.
+GRID_PAPER = "rgb(255, 253, 248)"
+
+_ROOT_THEME = "() => document.documentElement.dataset.theme ?? null"
+
+
+@pytest.mark.browser
+def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
+    browser_page, pages_host
+) -> None:
+    """CARD-420 AC-1/AC-3/AC-4: a christmas book's landing and the puzzles a
+    reader opens from it wear the theme; the board keeps its paper; the same
+    puzzle opened any other way keeps the default look.
+
+    Plant: the play page's loader applies the theme without checking that the
+    book holds the key -> the "a book that does not hold this key" arm red.
+    """
+    url, report, keys, slug = pages_host
+    page = browser_page
+    # The assembler's reduction (AC-1): only a theme the site draws is served.
+    for stored, served in (("christmas", "christmas"), ("halloween", ""), (None, ""), (7, "")):
+        payload = {"slug": slug, "title": "T", "puzzle_keys": [], "theme": stored}
+        assert assembler.served_book(payload, slug, {})[0]["theme"] == served, stored
+
+    # The default book: no theme on its landing.
+    _open_pages(page, url, f"/b/{slug}")
+    assert page.evaluate(_ROOT_THEME) is None
+
+    # The same book, stored as christmas (the served file, as the assembler
+    # writes it for one).
+    path = report.site_dir / "book" / f"{slug}.json"
+    book = json.loads(path.read_text(encoding="utf-8"))
+    path.write_text(json.dumps({**book, "theme": "christmas"}), encoding="utf-8")
+    first = keys[BOOK_ORDER[0]]
+    _plant(page, url, first, _black(PAGE_GRIDS[BOOK_ORDER[0]]))
+    _open_pages(page, url, f"/b/{slug}")
+    assert page.evaluate(_ROOT_THEME) == "christmas"
+    look = page.evaluate(
+        """() => ({
+          ground: getComputedStyle(document.body).backgroundColor,
+          jump: getComputedStyle(document.querySelector('[data-pages-jump]')).backgroundColor,
+          picture: getComputedStyle(document.querySelector('.square[data-progress="solved"] .square-picture')).fill,
+          links: [...document.querySelectorAll('.tile')].map((tile) => tile.getAttribute('href')),
+        })"""
+    )
+    assert look["ground"] == CREAM and look["jump"] == PINE, look
+    assert look["picture"] == PINE, look  # the solved picture, "something greenish"
+    assert look["links"] == [f"/play/{keys[name]}?book={slug}" for name in BOOK_ORDER]
+
+    # A tile opens its puzzle wearing the book's theme, on the board's own paper.
+    page.click(f'.tile[data-key="{first}"]')
+    page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
+    assert page.evaluate(_ROOT_THEME) == "christmas"
+    themed = page.evaluate(
+        """() => ({
+          ground: getComputedStyle(document.body).backgroundColor,
+          paper: getComputedStyle(document.querySelector('td.player-cell[data-state="unknown"]')
+            ?? document.querySelector('td.player-cell')).getPropertyValue('--grid-paper').trim(),
+        })"""
+    )
+    assert themed["ground"] == CREAM and themed["paper"] == "#fffdf8", themed
+
+    # Any other way in is the default look (AC-4): no book, a malformed book,
+    # and a real christmas book that does not hold this key.
+    outside = next(key for key in keys.values() if key not in {keys[n] for n in BOOK_ORDER})
+    for address in (f"/play/{first}", f"/play/{first}?book=nope", f"/play/{outside}?book={slug}"):
+        page.goto(f"{url}{address}")
+        page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
+        assert page.evaluate(_ROOT_THEME) is None, address
+        assert page.evaluate("() => getComputedStyle(document.body).backgroundColor") != CREAM, address
+

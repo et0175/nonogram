@@ -169,7 +169,9 @@ PUZZLE_CLUES_FIELDS: tuple[str, ...] = ("columns", "rows")
 #: the title page's own lines (migration 020), carried for the landing page's
 #: header (CARD-418): editorial text about the BOOK, the same class as its
 #: ``title``, and never a puzzle's name. ``""`` when the book has none.
-BOOK_FILE_FIELDS: tuple[str, ...] = ("authors", "puzzle_keys", "series", "slug", "title")
+#: ``theme`` (CARD-420) is the book's stored theme (``BOOK_THEMES``), which the
+#: assembler reduces to the themes the site draws.
+BOOK_FILE_FIELDS: tuple[str, ...] = ("authors", "puzzle_keys", "series", "slug", "theme", "title")
 
 #: The only bundle fields computed from a solution grid, and therefore the
 #: whole of EC-048's declared exemption (ADR-0039/R3). ``clues`` is the lossy
@@ -560,7 +562,7 @@ def export_bundle(
     # *content* too: two finalized books holding the same puzzles in the same
     # order are one public book file, and :func:`_book_file` settles the one
     # thing they can still disagree about.
-    book_keys: dict[str, list[tuple[str, tuple[str, ...], str, str]]] = {}
+    book_keys: dict[str, list[tuple[str, tuple[str, ...], str, str, str]]] = {}
     for book in books:
         records = puzzle_store.get_puzzles(book.puzzle_ids)
         members: list[Mapping[str, Any]] = []
@@ -593,7 +595,10 @@ def export_bundle(
             continue
         keys = print_ordered_keys(members)
         book_keys.setdefault(book_slug(keys), []).append(
-            (_book_title(book), tuple(keys), _book_line(book, "series_name"), _book_line(book, "authors"))
+            (
+                _book_title(book), tuple(keys), _book_line(book, "series_name"),
+                _book_line(book, "authors"), _book_line(book, "theme"),
+            )
         )
 
     entries = [_index_entry(key, candidates[key]) for key in sorted(candidates)]
@@ -659,7 +664,7 @@ def _puzzle_file(
 
 
 def _book_file(
-    slug: str, books: Sequence[tuple[str, tuple[str, ...], str, str]]
+    slug: str, books: Sequence[tuple[str, tuple[str, ...], str, str, str]]
 ) -> dict[str, Any]:
     """One ``book/<slug>.json`` payload, carrying exactly :data:`BOOK_FILE_FIELDS`.
 
@@ -681,6 +686,8 @@ def _book_file(
         "title": _settled(book[0] for book in books),
         "series": _settled(book[2] for book in books),
         "authors": _settled(book[3] for book in books),
+        # CARD-420: the book's stored theme, settled like the lines above.
+        "theme": _settled(book[4] for book in books),
         "puzzle_keys": list(min(books)[1]),
     }
 

@@ -133,7 +133,8 @@ CRITERIA_FIELDS = {
     "puzzle clues": {"rows", "columns"},
     # CARD-418 (owner, 2026-11-10): the title page's series and author lines,
     # for the landing page's header.
-    "book file": {"slug", "title", "series", "authors", "puzzle_keys"},
+    # CARD-420 (owner, 2026-11-10): the book's stored theme, for its look.
+    "book file": {"slug", "title", "series", "authors", "theme", "puzzle_keys"},
 }
 
 #: Every field name any bundle file may carry, derived from the exporter's own
@@ -432,13 +433,14 @@ def bundle_sources(records, books) -> dict:
             rows_by_key.setdefault(key, []).append(record)
         slug = independent_slug(keys)
         settled = book_sources.setdefault(
-            slug, {"keys": keys, "titles": set(), "series": set(), "authors": set()}
+            slug, {"keys": keys, "titles": set(), "series": set(), "authors": set(), "theme": set()}
         )
         metadata = getattr(book, "metadata", None)
         stored = (getattr(metadata, "title", None) or "").strip()
         settled["titles"].add(stored or "Untitled book")
         # CARD-418: the title page's two other lines, "" when not set.
-        for field, store in (("series_name", "series"), ("authors", "authors")):
+        # CARD-420: and its stored theme, read the same way.
+        for field, store in (("series_name", "series"), ("authors", "authors"), ("theme", "theme")):
             line = getattr(metadata, field, None)
             settled[store].add(line.strip() if isinstance(line, str) else "")
 
@@ -609,6 +611,7 @@ _PLAIN_SOURCES.update(
     slug=_source_slug,
     series=_book_line_source("series"),
     authors=_book_line_source("authors"),
+    theme=_book_line_source("theme"),
 )
 
 

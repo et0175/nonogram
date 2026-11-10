@@ -84,3 +84,34 @@
   --side-w: 220px; --topbar-h: 52px; --control-h: 36px;
   --row-h: 64px; --thumb: 52px; --measure: 68ch;
 }
+
+/* Book theme "christmas" (CARD-420, owner 2026-11-10). Set by the public
+   site's book landing (/b/<slug>) and by a puzzle opened from it, on <html>
+   as data-theme="christmas"; the admin panel never sets it. Only the chrome
+   changes: the board's --grid-* tokens are deliberately absent, so the cells
+   stay ink on paper (red/green cells would fail colour-blind readers). The
+   accent stays green, so "a green edge means started" stays true; red and
+   gold are the theme's own. Contrast checked to WCAG 2.1 AA on 2026-11-10. */
+:root[data-theme="christmas"] {
+  --color-bg: #f3ead2;               /* cream */
+  --color-surface: #fcf7ea;
+  --color-surface-hover: #f2e7cb;
+  --color-surface-sunken: #ece0c0;
+  --color-input: #fffcf3;
+  --color-text: #1f2a22;             /* 13.9:1 on surface, 12.4:1 on bg */
+  --color-text-secondary: #55604f;   /* 6.2:1 on surface, 5.5:1 on bg */
+  --color-border: #d9c58e;           /* gold hairline (decorative) */
+  --color-border-strong: #8a6a1f;    /* 4.7:1 on surface */
+  --color-topbar: #1d4a2c;
+  --color-topbar-text: #f3ead2;      /* 8.5:1 */
+  --color-accent: #1d5a34;           /* pine — 7.7:1 on surface */
+  --color-accent-hover: #154427;
+  --color-on-accent: #fcf7ea;        /* 7.7:1 */
+  --color-accent-tint: #e4eee2;      /* accent text on it: 6.9:1 */
+  --color-focus: #1d5a34;
+  --theme-pine: #1d4a2c;             /* panels; cream on it 9.5:1 */
+  --theme-on-pine-secondary: #d6e3d3; /* 7.6:1 on pine */
+  --theme-red: #a32a24;              /* cream on it 6.7:1 */
+  --theme-red-hover: #82201b;
+  --theme-gold: #c9a24a;             /* panel edges — 4.2:1 on pine */
+}

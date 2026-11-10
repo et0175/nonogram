@@ -836,3 +836,57 @@ body {
 }
 
 .book-foot a { color: var(--color-accent); min-height: 32px; }
+
+/*
+ * Book theme "christmas" (CARD-420): the co-author's mockup, in the theme's
+ * tokens (tokens.css, :root[data-theme="christmas"]). pages.js sets the
+ * attribute from the served book file. Panels are pine with a gold edge, the
+ * Play button and the Continue card are red, and a solved square's picture is
+ * drawn in pine instead of ink ("maybe something greenish", owner). The grid
+ * paper of a square is unchanged.
+ */
+:root[data-theme="christmas"] .book-head h1 { color: var(--theme-pine); }
+
+:root[data-theme="christmas"] .book-jump {
+  color: var(--color-on-accent);
+  background: var(--theme-pine);
+  border: 2px solid var(--theme-gold);
+}
+
+:root[data-theme="christmas"] .book-jump-hint { color: var(--theme-on-pine-secondary); }
+:root[data-theme="christmas"] .book-jump input { border-color: var(--theme-gold); }
+
+:root[data-theme="christmas"] .book-jump-go {
+  background: var(--theme-red);
+  border-color: var(--theme-gold);
+}
+
+:root[data-theme="christmas"] .book-jump-go:hover { background: var(--theme-red-hover); }
+
+:root[data-theme="christmas"] .book-continue {
+  color: var(--color-on-accent);
+  background: var(--theme-red);
+  border: 2px solid var(--theme-gold);
+}
+
+:root[data-theme="christmas"] .book-continue-label { color: var(--color-on-accent); }
+
+:root[data-theme="christmas"] .book-section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+:root[data-theme="christmas"] .book-section-head {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-on-accent);
+  background: var(--theme-pine);
+  border: 2px solid var(--theme-gold);
+  border-radius: var(--radius-container);
+}
+
+:root[data-theme="christmas"] .book-section-count,
+:root[data-theme="christmas"] .book-section-sign { color: var(--theme-on-pine-secondary); }
+
+:root[data-theme="christmas"] .book-section-dot { box-shadow: 0 0 0 2px var(--theme-gold); }
+
+:root[data-theme="christmas"] .square[data-progress="solved"] .square-picture { fill: var(--theme-pine); }

@@ -303,6 +303,7 @@ __all__ = [
     "PLAY_PAGE",
     "PLAYER_FILES",
     "SERVED_BOOK_SCHEMA",
+    "SERVED_BOOK_THEMES",
     "SERVED_ENTRY_SCHEMA",
     "SERVED_INDEX_SCHEMA",
     "SERVED_SCHEMA",
@@ -321,6 +322,7 @@ __all__ = [
     "AssembleReport",
     "assemble",
     "book_exempt_residual_bits",
+    "book_theme_residual_bits",
     "book_title_residual_bits",
     "check_capacity",
     "check_listing_capacity",
@@ -547,6 +549,7 @@ _SHARED_UI_PAGE = """<!doctype html>
 #: solver.js saves under its own ``nonogram-player:<id>``.
 _SHARED_UI_LOADER = """const KEY = /^[0-9a-f]{10}$/;
 const TIER_HUES = ["easy", "medium", "hard"];
+const THEMES = @@THEMES@@;
 
 function fail(message) {
   document.querySelector("[data-player-fallback]").textContent = message;
@@ -558,6 +561,16 @@ async function main() {
     fail("This address names no puzzle. A puzzle link looks like /play/ followed by ten letters and digits.");
     return;
   }
+  // CARD-420: a puzzle opened from a book (/play/<key>?book=<slug>) wears the
+  // book's theme, read from that book's own file, and only when the book
+  // really holds this key; a missing, malformed or unrelated book is the
+  // default look. Fetched beside the puzzle, so it costs no extra round trip.
+  const book = new URLSearchParams(location.search).get("book");
+  const shelf = book !== null && KEY.test(book)
+    ? fetch(`/book/${book}.json`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null)
+    : Promise.resolve(null);
   let puzzle;
   try {
     const response = await fetch(`/puzzle/${key}.json`, { cache: "no-store" });
@@ -591,6 +604,12 @@ async function main() {
   // (ADR-0041/R2), and its key is no name at all, so the banner carries none:
   // "Solved!" and the solve's count.
   document.querySelector("[data-player-solved-name]").remove();
+  const shelved = await shelf;
+  if (shelved !== null && typeof shelved === "object" && THEMES.includes(shelved.theme)
+      && Array.isArray(shelved.puzzles)
+      && shelved.puzzles.some((entry) => entry !== null && typeof entry === "object" && entry.key === key)) {
+    document.documentElement.dataset.theme = shelved.theme;
+  }
   const data = document.createElement("script");
   data.type = "application/json";
   data.id = "puzzle-player-data";
@@ -673,7 +692,7 @@ def shared_ui_play_page(fragment: str) -> str:
     return (
         _SHARED_UI_PAGE.replace("@@BASE@@", f"/{SHARED_UI_BASE}")
         .replace("@@CONTENT@@", body.strip())
-        .replace("@@LOADER@@", _SHARED_UI_LOADER)
+        .replace("@@LOADER@@", _SHARED_UI_LOADER.replace("@@THEMES@@", json.dumps(list(SERVED_BOOK_THEMES))))
     )
 
 
@@ -1136,7 +1155,17 @@ SERVED_INDEX_SCHEMA: tuple[str, ...] = ("puzzles",)
 #: same exemption and the same processing (:func:`_book_title`). The owner
 #: asked for them on the landing on 2026-11-10 (mockup A, project thread
 #: "Design the book QR landing page"). Each is ``""`` for a book without one.
-SERVED_BOOK_SCHEMA: tuple[str, ...] = ("authors", "puzzles", "series", "slug", "title")
+#:
+#: ``theme`` (CARD-420) is the look the landing page and the puzzles opened
+#: from it wear: one of :data:`SERVED_BOOK_THEMES`, or ``""`` for the default.
+#: It is a closed choice, accounted for in :data:`LISTING_STRUCTURE_FIELDS`.
+SERVED_BOOK_SCHEMA: tuple[str, ...] = ("authors", "puzzles", "series", "slug", "theme", "title")
+
+#: The book themes the site draws (CARD-420; ``tokens.css``'s
+#: ``:root[data-theme=...]`` blocks). A book stores one of the panel's
+#: ``BOOK_THEMES``; any value not named here is served as ``""``, the default
+#: look, so a theme the site has no styles for is never half-applied.
+SERVED_BOOK_THEMES: tuple[str, ...] = ("christmas",)
 
 #: How many characters of a book's display title are served.
 #:
@@ -1245,7 +1274,25 @@ MIRRORED_FROM_PUZZLE_FILE: tuple[str, ...] = SERVED_ENTRY_SCHEMA
 #: label. The book's title is a third residual and a wider one, and it is
 #: declared separately because it is an EXEMPTION rather than structure —
 #: :data:`EXEMPT_LISTING_FIELDS`.
-LISTING_STRUCTURE_FIELDS: tuple[str, ...] = ("puzzles", "slug")
+#:
+#: * the **THEME** (CARD-420): a closed choice per book, one of
+#:   :data:`SERVED_BOOK_THEMES` or ``""``, so a store that chose a book's theme
+#:   by an answer signals :func:`book_theme_residual_bits` through it — 1 bit
+#:   per book with today's one theme. The same shape as the tier label's two
+#:   bits, and served for the same reason: the owner asked for the look
+#:   (2026-11-10), and not serving it means not having it.
+LISTING_STRUCTURE_FIELDS: tuple[str, ...] = ("puzzles", "slug", "theme")
+
+
+def book_theme_residual_bits() -> float:
+    """What a served book theme could carry, in bits: one choice of
+    ``len(SERVED_BOOK_THEMES) + 1`` (the default, ``""``, is a choice too)."""
+    return math.log2(len(SERVED_BOOK_THEMES) + 1)
+
+
+def _book_theme(value: object) -> str:
+    """A book's served theme: the stored one when the site draws it, else ``""``."""
+    return value if isinstance(value, str) and value in SERVED_BOOK_THEMES else ""
 
 
 def book_title_residual_bits() -> float:
@@ -1507,6 +1554,7 @@ def served_book(
         # title is. A bundle written before them has neither and serves "".
         "series": _book_title(payload.get("series")),
         "authors": _book_title(payload.get("authors")),
+        "theme": _book_theme(payload.get("theme")),
         "puzzles": [entries[key] for key in order if key in entries],
     }
     assert sorted(served) == sorted(SERVED_BOOK_SCHEMA)
@@ -1942,7 +1990,9 @@ def main(argv: list[str] | None = None) -> int:
             f"  declared residual, structural: "
             f"{', '.join(sorted(LISTING_STRUCTURE_FIELDS))} — a book's ORDER "
             "log2(k!) bits and its MEMBERSHIP log2(C(N,k)) bits, for k "
-            "puzzles of N published"
+            "puzzles of N published, and its THEME "
+            f"{book_theme_residual_bits():.2f} bits (one of "
+            f"{', '.join(SERVED_BOOK_THEMES)} or the default)"
         )
         print(
             "  the PICTURE NAME is in none of it and is refused by name "

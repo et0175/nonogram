@@ -187,6 +187,25 @@ export function readLine(data, field) {
   return value.split(/\s+/).filter((part) => part !== "").join(" ").slice(0, TITLE_MAX_CHARS);
 }
 
+// CARD-420: the book themes the site draws (tokens.css's
+// :root[data-theme=...] blocks; assemble.py's SERVED_BOOK_THEMES). Anything
+// else the file carries is the default look, "".
+export const BOOK_THEMES = Object.freeze(["christmas"]);
+
+export function readTheme(data) {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return "";
+  return BOOK_THEMES.includes(data.theme) ? data.theme : "";
+}
+
+// The query a puzzle link carries when it is opened from a book:
+// /play/<key>?book=<slug>, so the play page can wear the book's theme
+// (CARD-420). The library has no book, and its links stay /play/<key>. Every
+// link keeps its literal /play/ prefix at the assignment, which is what the
+// site's self-containment scan reads.
+export function bookQuery(slug = null) {
+  return slug === null ? "" : `?book=${slug}`;
+}
+
 // --------------------------------------------------------------------------
 // Drawing
 // --------------------------------------------------------------------------
@@ -362,11 +381,11 @@ function boardPicture(board, filled) {
 // One square of the book landing: a link to /play/<key> showing the print
 // number and the reader's progress. Still a `.tile` with the key and tier on
 // it, so everything that reads tiles (the order, the number) reads these.
-export function squareFor(item, progress) {
+export function squareFor(item, progress, slug = null) {
   const { entry, number } = item;
   const tile = document.createElement("a");
   tile.className = "tile square";
-  tile.href = `/play/${entry.key}`;
+  tile.href = `/play/${entry.key}${bookQuery(slug)}`;
   tile.dataset.key = entry.key;
   tile.dataset.tier = entry.tier;
   tile.dataset.band = bandOf(entry) ?? "";
@@ -384,7 +403,7 @@ export function squareFor(item, progress) {
   return tile;
 }
 
-function sectionFor(section, progress, open) {
+function sectionFor(section, progress, open, slug) {
   const box = document.createElement("section");
   box.className = "book-section";
   box.dataset.tier = section.tier;
@@ -418,7 +437,7 @@ function sectionFor(section, progress, open) {
   grid.className = "pages-list book-squares";
   grid.id = id;
   grid.hidden = !open;
-  for (const item of section.items) grid.append(squareFor(item, progress.get(item.entry.key)));
+  for (const item of section.items) grid.append(squareFor(item, progress.get(item.entry.key), slug));
   head.addEventListener("click", () => {
     const opening = grid.hidden;
     grid.hidden = !opening;
@@ -440,7 +459,7 @@ export function continueTarget(entries, progress) {
   return null;
 }
 
-function renderBook(page, entries, progress) {
+function renderBook(page, entries, progress, slug) {
   const list = page.querySelector("[data-pages-list]");
   const count = page.querySelector("[data-pages-count]");
   const empty = page.querySelector("[data-pages-empty]");
@@ -459,7 +478,8 @@ function renderBook(page, entries, progress) {
       sectionFor(
         section,
         progress,
-        all || k === opened || (resume !== null && resume + 1 >= section.from && resume + 1 <= section.to)
+        all || k === opened || (resume !== null && resume + 1 >= section.from && resume + 1 <= section.to),
+        slug
       )
     )
   );
@@ -472,7 +492,7 @@ function renderBook(page, entries, progress) {
     if (resume === null) show(card, false);
     else {
       const entry = entries[resume];
-      card.href = `/play/${entry.key}`;
+      card.href = `/play/${entry.key}${bookQuery(slug)}`;
       const tier = entry.tier === "" ? "" : ` · ${TIER_NAMES[entry.tier]}`;
       card.querySelector("[data-pages-continue-name]").textContent =
         `Puzzle ${resume + 1} · ${entry.width}×${entry.height}${tier}`;
@@ -499,7 +519,7 @@ function renderBook(page, entries, progress) {
     jump.addEventListener("submit", (event) => {
       event.preventDefault();
       const index = say();
-      if (index !== null) window.location.assign(`/play/${entries[index].key}`);
+      if (index !== null) window.location.assign(`/play/${entries[index].key}${bookQuery(slug)}`);
     });
     show(jump, true);
   }
@@ -628,8 +648,11 @@ async function load() {
       byline.textContent = `by ${authors} · `;
       show(byline, true);
     }
+    // CARD-420: the book's theme on the page's root, before its squares draw.
+    const theme = readTheme(data);
+    if (theme !== "") document.documentElement.dataset.theme = theme;
     const progress = await readProgress(entries);
-    const shown = renderBook(page, entries, progress);
+    const shown = renderBook(page, entries, progress, slug);
     const announce = page.querySelector("[data-pages-announce]");
     const count = page.querySelector("[data-pages-count]");
     if (announce !== null && count !== null) announce.textContent = count.textContent;
@@ -642,6 +665,7 @@ async function load() {
       title,
       series,
       authors,
+      theme,
     };
     return;
   }
