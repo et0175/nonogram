@@ -1802,7 +1802,8 @@ function showExplain(text) {
 // column band, never over it.
 function placeExplain(line) {
   line.classList.remove("is-top");
-  if (line.textContent === "") return;
+  dropStripRoom();
+  if (line.textContent === "" || line.hidden) return;
   const stage = document.getElementById("puzzle-player");
   const table = stage?.querySelector(".player-board");
   if (!stage || !table) return;
@@ -1843,7 +1844,26 @@ function placeExplain(line) {
   // the strip stays at the bottom, and the stage scrolls just enough to
   // lift the target above it — the stage only, never the page.
   const lift = span().bottom - line.getBoundingClientRect().top;
-  if (lift > 0) stage.scrollTop += Math.ceil(lift);
+  if (lift <= 0) return;
+  // CARD-412 review cycle 2, F-402: the target is in the board's last rows
+  // and the stage is already scrolled as far as it goes (or the board fits
+  // and does not scroll at all), so there is no room to lift it. A spacer
+  // after the board, as tall as the shortfall and only while the strip is
+  // shown, makes that room; it moves nothing above the stage.
+  const room = stage.scrollHeight - stage.clientHeight - stage.scrollTop;
+  if (lift > room) {
+    const spacer = document.createElement("div");
+    spacer.className = "player-strip-room";
+    spacer.style.height = `${Math.ceil(lift - room)}px`;
+    stage.append(spacer);
+  }
+  stage.scrollTop += Math.ceil(lift);
+}
+
+// The spacer placeExplain may add (F-402), taken out whenever a strip is
+// placed again or goes away.
+function dropStripRoom() {
+  document.querySelector("#puzzle-player > .player-strip-room")?.remove();
 }
 
 // Re-place the strip after anything that moves the board under it (a
@@ -1860,7 +1880,7 @@ function replaceExplain() {
 function wireExplainDismiss() {
   const line = document.getElementById("puzzle-player-explain");
   if (line === null) return;
-  const dismiss = () => { if (line.textContent !== "") line.textContent = ""; };
+  const dismiss = () => { if (line.textContent !== "") { line.textContent = ""; dropStripRoom(); } };
   document.addEventListener("pointerdown", (event) => {
     // The hint and check buttons write the next sentence on click; a
     // pointer-down ON them must not wipe what their click is about to say.
@@ -2784,6 +2804,7 @@ function wireMarking(container, player) {
     offered = null;
     offer.hidden = true;
     offer.classList.remove("is-top");
+    dropStripRoom();
   }
   function openOffer(verdict) {
     if (offer === null) return;
@@ -2804,11 +2825,11 @@ function wireMarking(container, player) {
     const { row, col, state } = offered;
     closeOffer();
     commit(record(player.getHistory(), markStroke(row, col, state)));
-    handOn(document.body, probeToggle);
+    probeToggle?.focus({ preventScroll: true });
   });
   offer?.querySelector('[data-player-offer="dismiss"]')?.addEventListener("click", () => {
     closeOffer();
-    handOn(document.body, probeToggle);
+    probeToggle?.focus({ preventScroll: true });
   });
   // Review cycle 1, F-303: the offer follows the board like the hint strip
   // (a redraw replaces the cells, a resize moves them) — the named cell's

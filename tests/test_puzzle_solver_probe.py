@@ -2176,6 +2176,8 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
 
         page.get_by_role("button", name="Mark it", exact=True).click()
         assert not page.evaluate(_OFFER)["shown"]
+        # Review cycles 1-2, F-306/F-401: focus goes to Probe, not to <body>.
+        assert page.evaluate("document.activeElement.id") == "puzzle-player-probe"
         marked = _states(page)
         assert marked[2 * SIDE + 3] == E and [i for i, (a, b) in enumerate(zip(checkpoint, marked)) if a != b] == [2 * SIDE + 3]
         _button(page, "Undo").click()
@@ -2215,3 +2217,21 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
         _drag(page, [(6, 0), (6, 3)])     # a drag first: no single guess
         _contradiction(page)
         assert not page.evaluate(_OFFER)["shown"]
+
+        # Review cycle 2, F-402: on a landscape phone a guess in the board's
+        # last rows, with the stage at its last scroll, is still not under
+        # the offer (a spacer gives the lift its room); the page never scrolls.
+        page.set_viewport_size({"width": 844, "height": 390})
+        page.wait_for_timeout(100)
+        for row in (SIDE - 3, SIDE - 1):
+            _probe(page)
+            col = next(c for c in range(SIDE) if _states(page)[row * SIDE + c] == U)
+            _cell(page, row, col).click()
+            _contradiction(page)
+            page.wait_for_timeout(100)
+            seen = page.evaluate("""() => { const o = document.getElementById('puzzle-player-offer').getBoundingClientRect();
+              const c = document.querySelector('td.player-cell.is-offered').getBoundingClientRect();
+              return { covers: c.bottom > o.top && c.top < o.bottom, page: window.scrollY }; }""")
+            assert seen == {"covers": False, "page": 0}, (row, seen)
+            page.keyboard.press("Escape")
+            assert page.locator(".player-strip-room").count() == 0  # the spacer goes with the strip
