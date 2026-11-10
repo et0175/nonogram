@@ -299,10 +299,16 @@ def _title_in(text):
 
 
 def _folio_in(text):
-    """The folio a guide page's text layer ends with (its last word)."""
-    words = text.split()
-    assert words and words[-1].isdigit(), words[-3:]
-    return int(words[-1])
+    """The folio a guide page's text layer ends with: its last all-digit line.
+
+    Not its last word: poppler reads the difficulty legend's three columns
+    (owner, 2026-11-10) as blocks and can place the folio before the last
+    column's closing line.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    folios = [line for line in lines if line.isdigit()]
+    assert folios, lines[-3:]
+    return int(folios[-1])
 
 
 def _guide_title_of(page):
@@ -4378,7 +4384,11 @@ class Generator:
         # **Anna's layout (owner, 2026-11-10): +31** (681 -> 712, 441 -> 456,
         # 160 -> 167, 159 -> 166): the footer's solution pointer, the grid
         # size in the clue corner and the contents' per-level solution rows.
-        ((), 712),
+        #
+        # **The guide's "?" rows (owner, 2026-11-10): +2** (712 -> 714), two
+        # ``frozenset()`` builtin calls: the ``maybe`` defaults on
+        # ``ExampleStep`` and ``GuideRow``. Every later row is unchanged.
+        ((), 714),
         (("builtins",), 456),
         (("builtins", "definitions and imports"), 167),
         (("builtins", "definitions and imports", "parameters"), 166),

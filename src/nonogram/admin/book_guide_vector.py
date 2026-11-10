@@ -642,9 +642,46 @@ def draw_line_diagram(
         stream.line(x0, y0, x1, y1)
         stream.line(x0, y1, x1, y0)
 
+    marks = _write_maybe_marks(stream, layout, step, xs, ys, dx=dx, dy=dy, metrics=face)
     if layout.frame is not None:
         _outline_playable_squares(stream, layout, xs, ys, dx=dx, dy=dy)
-    return _write_clue_digits(stream, layout, dx=dx, dy=dy, metrics=face)
+    return marks + _write_clue_digits(stream, layout, dx=dx, dy=dy, metrics=face)
+
+
+def _write_maybe_marks(
+    stream: ContentStream,
+    layout: Layout,
+    step: ExampleStep,
+    xs: Sequence[float],
+    ys: Sequence[float],
+    *,
+    dx: float,
+    dy: float,
+    metrics: FontMetrics,
+) -> Tuple[DrawnFace, ...]:
+    """A "?" centred in each of ``step.maybe``'s squares.
+
+    Owner, 2026-11-10: a trial arrangement ("squeeze from both ends", "keep
+    what every arrangement agrees on") reads as the online player marks a
+    guess, not as filled squares a reader could take for certain. Set at the
+    clue digits' own size, so it holds CON-020's floor exactly where they do,
+    with the slight embolden of the player's semibold mark. Tagged
+    :data:`CLUE_DIGIT`, the kind whose size it shares.
+    """
+    if not step.maybe:
+        return ()
+    size_px = layout.clue_font_size
+    size_pt = stream.to_points(size_px)
+    half_height = cap_height_px(size_px, metrics) / 2.0
+    half_width = advance_px("?", size_px, metrics) / 2.0
+    drawn: List[DrawnFace] = []
+    for column in sorted(step.maybe):
+        cx = (xs[column] + xs[column + 1]) / 2.0 + dx
+        cy = (ys[0] + ys[1]) / 2.0 + dy
+        stream.text("?", cx - half_width, cy + half_height, size_pt, grey=_BLACK,
+                    embolden_pt=size_pt * 0.04)
+        drawn.append(DrawnFace(CLUE_DIGIT, "?", size_pt))
+    return tuple(drawn)
 
 
 def _outline_playable_squares(
@@ -1245,7 +1282,7 @@ def guide_page(
     def technique_rows(entry: GuideTechnique) -> List["_Diagram"]:
         layout = layout_for(entry.clue, entry.length)
         return [
-            _Diagram(layout, ExampleStep("", "", row.filled, row.crossed))
+            _Diagram(layout, ExampleStep("", "", row.filled, row.crossed, row.maybe))
             for row in entry.rows
         ]
 

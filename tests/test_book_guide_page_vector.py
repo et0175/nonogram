@@ -472,6 +472,11 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
             frozenset({"clue_entries", "clue_font_size"}),
             "sets the clue digits",
         ),
+        "_write_maybe_marks": (
+            frozenset({"clue_font_size"}),
+            "sets a trial row's \"?\" marks at the clue digits' own size "
+            "(owner, 2026-11-10)",
+        ),
         "diagram_left": (
             frozenset({"frame", "vertical_lines"}),
             "reads where the ink starts",

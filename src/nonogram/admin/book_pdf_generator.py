@@ -1153,12 +1153,17 @@ class ExampleStep:
         label: The short caption printed instead when it does not.
         filled: The 0-based squares drawn filled at this step.
         crossed: The 0-based squares drawn crossed out (known empty).
+        maybe: The 0-based squares marked "?": filled in one trial
+            arrangement only, not yet known (owner, 2026-11-10: the guide's
+            trial rows read as the online player's "?" marks, not as black
+            squares the reader might take for certain).
     """
 
     caption: str
     label: str
     filled: frozenset
     crossed: frozenset
+    maybe: frozenset = frozenset()
 
 
 #: The worked example, from the bare clue to the finished line. Step 2 is the
@@ -1267,11 +1272,15 @@ class GuideRow:
         crossed: The 0-based squares drawn crossed out.
         note: A short label printed beside this row alone ("certain",
             "Compare"), or ``""`` for none.
+        maybe: The 0-based squares marked "?" -- one trial arrangement's
+            squares, drawn as the online player marks a guess rather than as
+            filled ones (owner, 2026-11-10).
     """
 
     filled: frozenset
     crossed: frozenset
     note: str = ""
+    maybe: frozenset = frozenset()
 
 
 @dataclass(frozen=True)
@@ -1321,8 +1330,8 @@ GUIDE_TECHNIQUES_1: Tuple[GuideTechnique, ...] = (
         clue=(8,),
         length=10,
         rows=(
-            GuideRow(frozenset(range(8)), frozenset()),
-            GuideRow(frozenset(range(2, 10)), frozenset()),
+            GuideRow(frozenset(), frozenset(), maybe=frozenset(range(8))),
+            GuideRow(frozenset(), frozenset(), maybe=frozenset(range(2, 10))),
             GuideRow(frozenset(range(2, 8)), frozenset(), note="certain"),
         ),
     ),
@@ -1413,9 +1422,9 @@ GUIDE_TECHNIQUES_2: Tuple[GuideTechnique, ...] = (
         # of defect CARD-167 fixed by rewording its own copy. Measured while
         # building CARD-201; unrelated to the F-1 content fix above.
         rows=(
-            GuideRow(frozenset({0, 1, 2}), frozenset()),
-            GuideRow(frozenset({1, 2, 3}), frozenset()),
-            GuideRow(frozenset({2, 3, 4}), frozenset()),
+            GuideRow(frozenset(), frozenset(), maybe=frozenset({0, 1, 2})),
+            GuideRow(frozenset(), frozenset(), maybe=frozenset({1, 2, 3})),
+            GuideRow(frozenset(), frozenset(), maybe=frozenset({2, 3, 4})),
             GuideRow(frozenset({2}), frozenset(), note="Compare"),
         ),
     ),
@@ -1522,13 +1531,18 @@ class DifficultyLabel:
 #: preview to the names, and CARD-229's key strip, which moved the legend to the
 #: first guide page and drew CARD-228's dots beside each name, keeps the two
 #: agreeing. Printing the sentences is a wording question left to the owner.)
+#:
+#: **Printed again from 2026-11-10** (owner): the mockup guide's legend sets
+#: three columns, each tier's dots and name over its ``text``, wherever the
+#: page has the room; :data:`GUIDE_DIFFICULTY_LINE` below is its fallback on a
+#: trim that does not.
 GUIDE_DIFFICULTY_HEADING = "Difficulty"
 
 #: The one line under the legend's heading (owner approved 2026-11-08, the short
 #: form only): what the two ends of the ladder ask of a reader. The legend is
 #: this line, the heading and the three entries (CARD-228's dots beside each
-#: tier's name); the per-tier sentences of :class:`DifficultyLabel` are not
-#: printed.
+#: tier's name). Since 2026-11-10 it prints only where the three-column legend
+#: with the per-tier sentences does not fit.
 GUIDE_DIFFICULTY_LINE = (
     "Easy puzzles need only direct deductions; Hard ones need contradiction "
     "through much of the grid."

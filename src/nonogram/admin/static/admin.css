@@ -355,6 +355,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .guide-strip-cell[data-state="crossed"]::before, .guide-strip-cell[data-state="crossed"]::after { content: ""; position: absolute; left: 18%; right: 18%; top: 50%; height: var(--border-width); background: var(--grid-ink); }
 .guide-strip-cell[data-state="crossed"]::before { transform: rotate(45deg); }
 .guide-strip-cell[data-state="crossed"]::after { transform: rotate(-45deg); }
+.guide-strip-cell[data-state="maybe"]::before { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--strip-cell) * 0.6); font-weight: 600; line-height: 1; color: var(--grid-ink); }
 
 /* ---------- Guide page preview, page 2 (CARD-201) ---------- */
 /* A plain section label ("Page 1" / "Page 2") separating the two printed
@@ -412,17 +413,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    tones (G-5: no new grey), the same border weight `.guide-preview` already
    uses for its own outer card.
 
-   CARD-221 fix 2 dropped `.guide-difficulty-column p`: the preview stopped
-   emitting the `<p>` when the printed page stopped setting those sentences,
-   and a rule for an element the template cannot produce is dead weight that
-   reads as though the element were still expected. The other two selectors
-   are live — book_finalize.html still emits both divs — and the box's own
+   The `<p>` under each name is back (owner, 2026-11-10): the printed
+   legend sets each tier's sentence again, in columns. The box's own
    border stays on this screen deliberately: it is a flex row that hugs its
    three labels, where the print side's rule spanned the full measure around
    three words, so the reason the page dropped its rule does not transfer
    here. CARD-229 rebuilds this block for the guide's key strip. */
 .guide-difficulty-box { display: flex; flex-wrap: wrap; gap: var(--space-4); border: var(--border-width) solid var(--grid-ink); border-radius: var(--radius-control); padding: var(--space-3) var(--space-4); margin: var(--space-2) 0; }
 .guide-difficulty-column { flex: 1 1 10rem; }
+.guide-difficulty-column p { margin: var(--space-1) 0 0; }
 
 /* ---------- Puzzle detail modal ---------- */
 .puzzle-detail-modal { display: none; position: fixed; inset: 0; z-index: 1050; background: rgb(28 35 51 / 0.45); }

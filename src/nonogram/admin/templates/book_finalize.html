@@ -97,21 +97,16 @@
                     </ul>
 
                     <h4 data-guide-difficulty-heading>{{ guide_difficulty_heading }}</h4>
-                    <p data-guide-difficulty-line>{{ guide_difficulty_line }}</p>
                     <div class="guide-difficulty-box" data-guide-difficulty-box>
                         {% for label in guide_difficulty_labels %}
-                        {# CARD-221 fix 1: the names alone. The printed guide page stopped
-                           setting DifficultyLabel.text when the owner ruled on 2026-10-14
-                           (234 px bought back for the worked example's own explanations), and
-                           this block is a preview of that page -- a preview that still showed
-                           the three sentences would be describing a book the export does not
-                           produce. CARD-229's key strip prints the names with CARD-228's dots
-                           and not the per-tier sentences either (the owner's 2026-11-08 ruling:
-                           the heading "Difficulty", one line, then the names), so the
-                           preview agrees with the page; `text` is carried by the constant, unprinted. The box's own rule
-                           is the screen's styling (.guide-difficulty-box in admin.css). #}
+                        {# Owner, 2026-11-10: the printed legend is three columns again, each
+                           tier's dots and name over its own sentence (DifficultyLabel.text),
+                           so the preview shows the same. The one approved line is the page's
+                           fallback only where a trim lacks the room. The box's own rule is
+                           the screen's styling (.guide-difficulty-box in admin.css). #}
                         <div class="guide-difficulty-column" data-guide-difficulty="{{ loop.index0 }}">
                             <strong data-guide-difficulty-name>{{ label.name }}</strong>
+                            <p data-guide-difficulty-text>{{ label.text }}</p>
                         </div>
                         {% endfor %}
                     </div>
@@ -131,7 +126,7 @@
                             <p data-guide-technique-caption>{{ technique.caption }}</p>
                             {% for row in technique.rows %}
                             <div class="guide-strip" aria-hidden="true">
-                                {%- for square in range(technique.length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in row.filled else ('crossed' if square in row.crossed else 'blank') }}"></span>{% endfor -%}
+                                {%- for square in range(technique.length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in row.filled else ('crossed' if square in row.crossed else ('maybe' if square in row.maybe else 'blank')) }}"></span>{% endfor -%}
                             </div>
                             {% if row.note %}<p class="guide-diagram-caption" data-guide-row-note>{{ row.note }}</p>{% endif %}
                             {% endfor %}
@@ -154,7 +149,7 @@
                             <p data-guide-technique-caption>{{ technique.caption }}</p>
                             {% for row in technique.rows %}
                             <div class="guide-strip" aria-hidden="true">
-                                {%- for square in range(technique.length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in row.filled else ('crossed' if square in row.crossed else 'blank') }}"></span>{% endfor -%}
+                                {%- for square in range(technique.length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in row.filled else ('crossed' if square in row.crossed else ('maybe' if square in row.maybe else 'blank')) }}"></span>{% endfor -%}
                             </div>
                             {% if row.note %}<p class="guide-diagram-caption" data-guide-row-note>{{ row.note }}</p>{% endif %}
                             {% endfor %}
