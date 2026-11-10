@@ -249,7 +249,7 @@ _CONTROL_ATTRIBUTES = (
     "data-player-zoom-action", "data-player-probe-action", "data-player-offer",
 )
 #: Boolean-attribute controls: the attribute alone names the control.
-_BARE_CONTROLS = ("data-player-region", "data-player-probe")
+_BARE_CONTROLS = ("data-player-region", "data-player-probe", "data-player-show-grid")
 
 
 def template_controls(template_text: str) -> set[str]:
@@ -542,6 +542,20 @@ def step_offer(page, ctx):
     assert states(page) == before
 
 
+def step_show_grid(page, ctx):
+    """CARD-280: on a solved board the picture shows without its worksheet,
+    and "Show grid" puts the worksheet back and takes it away again."""
+    if not page.locator("#puzzle-player-solved").is_visible():
+        solve_to_the_end(page, SWEEP_GRID)
+    toggle = page.locator("[data-player-show-grid]")
+    board = page.locator(".player-board")
+    assert toggle.is_visible() and "is-showing-grid" not in board.get_attribute("class")
+    toggle.click()
+    assert "is-showing-grid" in board.get_attribute("class") and toggle.get_attribute("aria-pressed") == "true"
+    toggle.click()
+    assert "is-showing-grid" not in board.get_attribute("class")
+
+
 def step_crosshair(page, ctx):
     page.mouse.move(*centre(page, 3, 4))
     assert page.locator(".is-crossed").count() > 0
@@ -606,6 +620,8 @@ CONTROL_STEPS = {
     # LAST: Hint taken to the end may solve this board, and a solved board is
     # locked. run_sweep wipes the save afterwards.
     "data-player-action=hint": step_hint,
+    # After Hint: it needs the solved board Hint may have made (CARD-280).
+    "data-player-show-grid": step_show_grid,
 }
 
 #: Gestures that are not one control: run by the sweep in addition.
@@ -1090,7 +1106,7 @@ class TestPublicMode_TheCensus:
             "data-player-zoom-action=in", "data-player-zoom-action=out",
             "data-player-probe-action=keep", "data-player-probe-action=abandon",
             "data-player-offer=mark", "data-player-offer=dismiss",
-            "data-player-region", "data-player-probe",
+            "data-player-region", "data-player-probe", "data-player-show-grid",
         }
 
     def test_the_real_template_is_fully_swept_and_a_plant_is_not(self) -> None:

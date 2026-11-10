@@ -269,7 +269,7 @@
         </div>
         <button type="button" class="btn btn-outline-secondary player-region" id="puzzle-player-region" data-player-region aria-pressed="false" aria-label="Region"><span class="player-brush-run" aria-hidden="true"><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span></span></button>
     </div>
-    <div class="player-solved-box"><p class="player-solved" id="puzzle-player-solved" hidden>{{ icons.icon('check') }}<span><span class="player-solved-label">Solved: </span><strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p></div>
+    <div class="player-solved-box"><p class="player-solved" id="puzzle-player-solved" hidden><i class="icon player-solved-mark" aria-hidden="true"></i><span><span class="player-solved-label">Solved! </span><strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p></div>
     </div>
     <p class="player-announce" id="puzzle-player-announce" role="status" aria-atomic="true"></p>
     <div class="player-history" role="group" aria-label="History">
@@ -308,6 +308,7 @@
         <button type="button" class="btn btn-outline-secondary" id="puzzle-player-probe" data-player-probe aria-pressed="false" aria-disabled="false" title="Probe"><span class="player-compact-icon">{{ icons.icon('probe') }}</span><span class="player-btn-label">Probe</span></button>
         <button type="button" class="btn btn-outline-secondary" data-player-probe-action="keep" title="Keep" hidden><span class="player-probe-glyph" aria-hidden="true">&#10003;</span><span class="player-btn-label">Keep</span></button>
         <button type="button" class="btn btn-outline-secondary" data-player-probe-action="abandon" title="Wrong guess" hidden><span class="player-probe-glyph" aria-hidden="true">&#10007;</span><span class="player-btn-label">Wrong guess</span></button>
+        <button type="button" class="btn btn-outline-secondary player-show-grid" data-player-show-grid aria-pressed="false" title="Show grid" hidden><span class="player-compact-icon">{{ icons.icon('grid') }}</span><span class="player-btn-label">Show grid</span></button>
         <p class="player-probe-note" id="puzzle-player-probe-note" title="Leaving this page abandons the open probe — press Keep or Wrong guess first." hidden>Leaving this page abandons the open probe &mdash; press Keep or Wrong guess first.</p>
     </div>
 </div>

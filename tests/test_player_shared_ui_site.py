@@ -317,10 +317,15 @@ class TestSharedUi_ThePageRuns:
         assert browser_page.title() == "Puzzle 10×10 · MEDIUM - Nonogram"
         # The hue is the design token's, not a second copy of the hex.
         assert "--color-tier-medium" in browser_page.locator(".player-tier .badge").get_attribute("style")
-        # The banner's name: neutral, never a picture name (a title is in no served file).
-        assert browser_page.locator("[data-player-solved-name]").text_content() == f"Puzzle {key}"
+        # The banner's name: never a picture name (a title is in no served
+        # file). RETIRED CLAIM, 2026-11-10 (CARD-280, owner ruling: a festive
+        # solve): it read "Puzzle <key>"; now there is no name element at all
+        # and the banner says "Solved!" (the count is spoken and shown over
+        # the board on the solve).
+        assert browser_page.locator("[data-player-solved-name]").count() == 0
         solve_to_the_end(browser_page, SWEEP_GRID)
-        assert f"Puzzle {key}" in browser_page.locator("#puzzle-player-solved").inner_text()
+        said = " ".join(browser_page.locator("#puzzle-player-solved").inner_text().split())
+        assert said == "Solved!" and key not in said, said
         for name, grid in PAGE_GRIDS.items():
             assert _leaky_title(grid) not in browser_page.content()
 

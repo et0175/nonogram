@@ -676,6 +676,59 @@ export function circledNumbers(clue, cells) {
   return Object.freeze(circled);
 }
 
+// The solve's sweep (CARD-280 layer 2): for every cell of `board`, how many
+// steps it lies, through FILLED cells sharing an edge, from the first filled
+// cell of its own part (reading order). Each disconnected part of the
+// picture starts its own run at 0, so it lights up along itself and in its
+// own time rather than when a diagonal crosses it. Cells that are not
+// FILLED get 0 (a defined value for CSS, never undefined). Pure: a board in,
+// a frozen array of non-negative integers out (row-major).
+// The sweep's step in milliseconds: 20 ms a step, but never so long that the
+// last cell starts after SWEEP_SPAN_MS — a winding picture on a 30x30 can be
+// hundreds of steps deep, and the celebration is a beat, not a wait.
+export const SWEEP_SPAN_MS = 2000;
+export function waveStep(wave) {
+  const deepest = wave.reduce((most, step) => Math.max(most, step), 0);
+  return deepest === 0 ? 20 : Math.min(20, SWEEP_SPAN_MS / deepest);
+}
+
+export function pictureWave(board) {
+  const { width, height, cells } = board;
+  const wave = new Array(width * height).fill(0);
+  const seen = new Array(width * height).fill(false);
+  for (let start = 0; start < cells.length; start += 1) {
+    if (cells[start] !== FILLED || seen[start]) continue;
+    seen[start] = true;
+    let frontier = [start];
+    for (let step = 0; frontier.length > 0; step += 1) {
+      const next = [];
+      for (const at of frontier) {
+        wave[at] = step;
+        const row = Math.floor(at / width);
+        const col = at % width;
+        for (const [r, c] of [[row - 1, col], [row + 1, col], [row, col - 1], [row, col + 1]]) {
+          if (r < 0 || r >= height || c < 0 || c >= width) continue;
+          const near = r * width + c;
+          if (cells[near] === FILLED && !seen[near]) {
+            seen[near] = true;
+            next.push(near);
+          }
+        }
+      }
+      frontier = next;
+    }
+  }
+  return Object.freeze(wave);
+}
+
+// The words of a solve (CARD-280 layer 3, owner ruling 2026-11-10): what the
+// banner adds after "Solved!" — the one count that is true of every solve
+// (a solved board has no wrong marks): the hints it took.
+export function solvedStats(hints) {
+  if (hints === 0) return "no hints";
+  return hints === 1 ? "1 hint" : `${hints} hints`;
+}
+
 // circledNumbers of every line of `board`: { rows: one array per row, top to
 // bottom, columns: one per column, left to right }, all frozen. `rows` and
 // `columns` are the payload's clues; the solution is not an argument.

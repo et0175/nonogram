@@ -585,9 +585,14 @@
 
 import {
   EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
-  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, record,
-  redo, resetStroke, undo,
+  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, pictureWave, record, SWEEP_SPAN_MS, waveStep,
+  redo, resetStroke, solvedStats, undo,
 } from "./solver_state.js";
+// CARD-280: how long the one-shot celebration class stays on the table —
+// the sweep's longest delay plus its flash, declared rather than measured.
+// The beat: the whole sweep (at most SWEEP_SPAN_MS to the last cell's start),
+// its 440 ms flash, and room to read the strip's sentence.
+const CELEBRATION_MS = SWEEP_SPAN_MS + 2000;
 // Public mode (CARD-385): see PUBLIC MODE above. The mode's one spelling and
 // its solution-free "solved" come from the pure module.
 import { PUBLIC_MODE, isClueSolved } from "./solver_state.js";
@@ -891,8 +896,9 @@ function drawBoard(stage, payload, layout, zoomPercent) {
       cell.dataset.col = String(col);
       if (majorAfter(col, width)) cell.classList.add("major-right");
       if (majorAfter(row, height)) cell.classList.add("major-below");
-      // The solved animation's per-cell delay (a diagonal sweep, admin.css).
-      cell.style.setProperty("--player-wave", row + col);
+      // The solved sweep's per-cell delay: 0 until a genuine solve sets it
+      // from pictureWave (CARD-280; it was row + col, a diagonal).
+      cell.style.setProperty("--player-wave", 0);
       cells.push(cell);
     }
     // Mirrored, the one labelled gutter moves here; doubled, a duplicate
@@ -961,6 +967,17 @@ function start() {
   const hintsOut = toolbar.querySelector("[data-player-hints]");
   const progressOut = toolbar.querySelector("[data-player-progress]");
   const banner = document.getElementById("puzzle-player-solved");
+  // CARD-280: the solve's count, the "Show grid" toggle, and whether the
+  // next showProgress follows a recorded change (set in commit only).
+  // The toggle sits on the probe line (a fixed-height row; on a solved board
+  // Probe has nothing to do), shown only while the board is solved.
+  const showGrid = document.querySelector("[data-player-show-grid]");
+  let celebrate = false;
+  showGrid?.addEventListener("click", () => {
+    const on = !table.classList.contains("is-showing-grid");
+    table.classList.toggle("is-showing-grid", on);
+    showGrid.setAttribute("aria-pressed", String(on));
+  });
   const announce = document.getElementById("puzzle-player-announce");
 
   // Redrawn by redraw() below: the live table, its cells (row-major) and the
@@ -1097,7 +1114,14 @@ function start() {
     const now = publicMode
       ? isClueSolved(history.board, payload.rows, payload.columns)
       : isSolved(history.board, payload.solution);
-    if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
+    // CARD-280: the solve's own count ("no hints", "2 hints") is spoken with
+    // the banner, and on a genuine solve also shown for the celebration's
+    // beat in the strip over the board (the banner keeps the width it had).
+    const count = solvedStats(hintCount(history));
+    const praise = `Solved with ${count}.`;
+    // (Read without the decorative mark, which is aria-hidden.)
+    const words = (banner.querySelector(".player-solved-mark + span")?.textContent ?? banner.textContent).trim();
+    if (now !== solved) announce.textContent = now ? `${words} — ${count}` : "";
     else if (hint) {
       // Rung 3 (CARD-269 review F-2): the reveal's sentence goes to BOTH
       // channels, the same way say() writes rungs 1-2 and Check. commit()
@@ -1108,6 +1132,31 @@ function start() {
       announce.textContent = said;
       showExplain(said);
     }
+    // CARD-280 (owner ruling 2026-11-10: a festive solve): the banner says
+    // "Solved!" and the solve's one honest count; the picture shows without
+    // its worksheet (admin.css) until "Show grid"; and the sweep runs through
+    // the picture itself — only on a GENUINE solve (a commit that turned the
+    // board solved), never on a reload or a redraw of a solved board.
+    if (now && !solved) {
+      if (celebrate) {
+        const wave = pictureWave(history.board);
+        cellElements.forEach((cell, index) => cell.style.setProperty("--player-wave", wave[index]));
+        table.style.setProperty("--player-wave-step", `${waveStep(wave)}ms`);
+        table.classList.add("is-celebrating");
+        showExplain(praise);
+        setTimeout(() => {
+          table.classList.remove("is-celebrating");
+          const line = document.getElementById("puzzle-player-explain");
+          if (line?.textContent === praise) showExplain("");
+        }, CELEBRATION_MS);
+      }
+    }
+    if (!now) {
+      table.classList.remove("is-showing-grid", "is-celebrating");
+      showGrid?.setAttribute("aria-pressed", "false");
+    }
+    if (showGrid) showGrid.hidden = !now;
+    celebrate = false;
     solved = now;
     banner.hidden = !solved;
     // CARD-402 review cycle 1, F-004: on a landscape phone the banner sits at
@@ -1408,7 +1457,11 @@ function start() {
       paintProbe();
       if (marking.getProbe() === null) save.write(serializeState(history, payload));
     },
-    commit(next, hint) {
+    commit(next, hint, replay = false) {
+      // CARD-280: a solve reached by THIS change is genuine — a stroke, a
+      // hint. An undo or a redo only steps back to a board already seen, so
+      // it shows the picture without celebrating (review cycle 1, F-002).
+      celebrate = !replay;
       history = next;
       board = history.board;
       paint(cellElements, board);
@@ -2519,7 +2572,7 @@ function wireMarking(container, player) {
     syncProbe(); // CARD-268
   }
 
-  function commit(next, hint = null) {
+  function commit(next, hint = null, replay = false) {
     lastClick = null; // anything recorded ends a run of repeat clicks
     // CARD-269: and anything recorded puts the ladder back on rung 1 with
     // nothing highlighted. THIS is the one choke point every recorded change
@@ -2548,7 +2601,7 @@ function wireMarking(container, player) {
     // through showProgress's hint branch inside that call — writes its answer
     // over an empty line rather than racing the clear.
     showExplain("");
-    player.commit(next, hint);
+    player.commit(next, hint, replay);
     if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
   }
@@ -2874,7 +2927,7 @@ function wireMarking(container, player) {
   };
   for (const name of ["undo", "redo"]) {
     actions[name].addEventListener("click", () => {
-      if (!gesture) commit(step[name]());
+      if (!gesture) commit(step[name](), null, true);
     });
   }
 
@@ -2983,7 +3036,7 @@ function wireMarking(container, player) {
   document.addEventListener("keydown", (event) => {
     if (gesture || !(event.ctrlKey || event.metaKey) || event.altKey || !isZ(event)) return;
     event.preventDefault();
-    commit(event.shiftKey ? step.redo() : step.undo());
+    commit(event.shiftKey ? step.redo() : step.undo(), null, true);
   });
 
   syncTrigger();

@@ -1147,7 +1147,10 @@ class TestSolverHint_CanSolveAndThenLocks:
 
         assert _changed(before, _states(browser_page)) == {LAST: F}
         assert _is_solved_shown(browser_page)
-        assert _announced(browser_page) == f"Solved: {NAME}"
+        # CARD-280 (owner ruling 2026-11-10, a festive solve): "Solved! " + the celebration mark + the name + the solve's count; was f"Solved: {NAME}".
+        # The hinted half of AC-8: the count is the page's own.
+        assert _announced(browser_page) == f"Solved! {NAME} — {_hints_shown(browser_page)} hint" + ("" if _hints_shown(browser_page) == 1 else "s")
+        assert _hints_shown(browser_page) >= 1
         assert _is_disabled(browser_page, "Hint")
         solved = _states(browser_page)
         _hint(browser_page).click(force=True)  # a real click on the disabled control
@@ -2364,7 +2367,7 @@ class TestSolverCheck_CleanLockedAndEditMode:
 
         assert _states(browser_page) == solved
         assert _lined(browser_page) == _NO_LINE
-        assert _announced(browser_page) == f"Solved: {NAME}"  # Check wrote nothing
+        assert _announced(browser_page).startswith(f"Solved! {NAME} — ")  # Check wrote nothing (CARD-280's banner words)
 
     def test_the_editor_page_has_no_check(self, browser_page, live) -> None:
         """Edit mode ships neither control, asserted as ABSENT on the real

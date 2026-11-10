@@ -662,6 +662,11 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
         "is the resume feature's test: it writes, corrupts and restores the "
         "localStorage save eight times and reloads to prove it restores",
     ),
+    "test_puzzle_solver_solved_reveal.py": (
+        "own-page",
+        "resizes the viewport, reloads to prove the solved picture is restored "
+        "from the save, and emulates prefers-reduced-motion",
+    ),
     "test_puzzle_solver_zoom.py": (
         "own-page",
         "sets the viewport 20 times, persists the zoom level to localStorage "
