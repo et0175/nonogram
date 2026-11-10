@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_solved_reveal.py
-**Review score:** 7.5 (cycle 2)
+**Review score:** 9.0 (cycle 3)
 **Started:** 2026-11-10T13:00Z
 **Closed:** —
 **Actual:** —
@@ -236,4 +236,6 @@ written here rather than discovered: the player is being reopened, not won.
 ### [Review 2/3] Score: 7.5 (6.5 → 7.5, Δ+1.0) — all five cycle-1 findings verified fixed by the reviewer's own probe; 1 new Important, 2 Minor. Report meta/review/CARD-280-review-2.yml.
 
 - **[Review 2/3 fixes]** F-201 (Important): `test_without_reduced_motion_the_solve_is_animated` counted the banner's 220 ms animation after the board-wide checks, so it was red 5/13 under load; it now reads the banner's `animationName` (timing-free) — 0/10 red after. F-202: the `[Implementation]` note's AC-5 and transition-scope sentences amended to the current answer. F-203 (Ctrl+Z after Reset untested) and F-005: accepted as Minor (test budget; the reviewer probed Ctrl+Z correct on this head).
+
+### [Review 3/3] Score: 9.0 (7.5 → 9.0, Δ+1.5) — PASS: no Critical or Important; F-201 measured 0/10 red beside main 0/10 under gate load; 3 Minor accepted (F-301 the banner check proves the rule applies, not that it ran — motion is still proven by the per-cell CSSAnimation count; F-203; F-005). Report meta/review/CARD-280-review-3.yml.
 
