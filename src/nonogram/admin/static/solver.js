@@ -585,7 +585,7 @@
 
 import {
   EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
-  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, pictureWave, record,
+  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, pictureWave, record, waveStep,
   redo, resetStroke, solvedStats, undo,
 } from "./solver_state.js";
 // CARD-280: how long the one-shot celebration class stays on the table —
@@ -1139,6 +1139,7 @@ function start() {
       if (celebrate) {
         const wave = pictureWave(history.board);
         cellElements.forEach((cell, index) => cell.style.setProperty("--player-wave", wave[index]));
+        table.style.setProperty("--player-wave-step", `${waveStep(wave)}ms`);
         table.classList.add("is-celebrating");
         showExplain(praise);
         setTimeout(() => {

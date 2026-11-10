@@ -213,6 +213,12 @@ ALONE_PROBES = (
     "tests/test_puzzle_solver_probe.py::"
     "TestSolverProbe_MarksCarryTheTint::"
     "test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not",
+    # CARD-280's file postdates ALONE_RECORD too. This is its test that leaves
+    # the most behind: a viewport it resizes across the phone breakpoint, a
+    # localStorage save it reloads from, and an emulated reduced-motion media.
+    "tests/test_puzzle_solver_solved_reveal.py::"
+    "TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce::"
+    "test_a_real_solve_reveals_the_picture",
 )
 
 #: Wall clock each child pytest below is allowed. The dearest of them is an
@@ -748,6 +754,12 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_solved_reveal.py::TestSolvedReveal_TheWaveIsAPureFunctionOfTheFilledRegion::test_the_wave_runs_through_the_picture": (
+        "CARD-280", "AC-7 (owner ruling 2026-11-10): the solve's sweep is a pure function of the filled region, against an independent BFS",
+    ),
+    "tests/test_puzzle_solver_solved_reveal.py::TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce::test_a_real_solve_reveals_the_picture": (
+        "CARD-280", "AC-1..AC-6 (owner ruling 2026-11-10): a real solve shows the picture without its worksheet, celebrates once, survives redraw and reload, Show grid toggles it",
+    ),
     "tests/test_puzzle_solver_clues.py::TestSolverClues_PinnedNumbersCircle::test_the_owners_line_and_every_short_line_circle_what_the_marks_pin": (
         "CARD-400", "AC-1/AC-2/AC-3/AC-5 (owner finding 2026-11-07 item 10, ruling 2026-11-10): the owner's line, and every fitting marking of lines up to 7 circles exactly what a brute force calls pinned",
     ),

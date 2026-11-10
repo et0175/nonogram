@@ -83,6 +83,17 @@ class TestSolvedReveal_TheWaveIsAPureFunctionOfTheFilledRegion:
         assert all(isinstance(v, int) and v >= 0 for g in got for v in g)
         assert got[-1] == [0, 1, 0, 0, 1]  # each part from its own start
         assert sum(1 for g in got if max(g, default=0) >= 5) >= 50  # long runs exist
+        # The step keeps the deepest cell's start inside the 2 s span: a 30 x 30
+        # serpentine is one part 289 steps deep, so 20 ms a step would be 5.8 s.
+        snake = [r % 4 != 1 or (c == 29 if r % 8 == 1 else c == 0) for r in range(30) for c in range(30)]
+        snake = [on if r % 4 != 3 else (c == 0 if r % 8 == 3 else c == 29)
+                 for (r, c), on in zip(((r, c) for r in range(30) for c in range(30)), snake)]
+        deep, step, small = browser_page.evaluate("""async (cells) => {
+          const S = await import('/static/solver_state.js');
+          const wave = S.pictureWave({ width: 30, height: 30, cells: cells.map((on) => (on ? S.FILLED : S.EMPTY)) });
+          return [Math.max(...wave), S.waveStep(wave), S.waveStep(S.pictureWave({ width: 2, height: 1, cells: [S.FILLED, S.FILLED] }))];
+        }""", snake)
+        assert deep == 289 and deep * step <= 2000 and small == 20, (deep, step, small)
 
 
 _BOARD = """() => {

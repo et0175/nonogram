@@ -312,7 +312,9 @@ class TestSolverProgress_SolvedWhenBlacksMatch:
         # CARD-280 (owner ruling 2026-11-10, a festive solve): "Solved! " + the celebration mark + the name + the solve's count; was f"Solved: {NAME}".
         # No hint was used here, and the words say so (AC-8's hint-free half;
         # the hinted half is TestSolverHint's reveal-solves cell).
-        assert " ".join(banner.inner_text().split()) == f"\U0001F389 Solved! {NAME}"
+        assert " ".join(banner.inner_text().split()) == f"Solved! {NAME}"
+        mark = banner.locator(".player-solved-mark").evaluate("(e) => getComputedStyle(e, '::before').content")
+        assert mark == '"\U0001F389"', mark  # drawn by admin.css; no emoji in the template
         announce = browser_page.locator("#puzzle-player-announce")
         assert announce.get_attribute("role") == "status"
         assert " ".join(announce.text_content().split()) == f"Solved! {NAME} — no hints"
@@ -525,8 +527,11 @@ class TestSolverProgress_ReducedMotion:
             motion = page.evaluate(_MOTION)
             assert motion["animations"] > 0 and motion["named"] > 0
             # The board itself animates (the filled cells' sweep), not only the banner.
+            # CARD-280 (owner ruling 2026-11-10): entering the picture also
+            # TRANSITIONS every cell's hairline away, so the sweep is counted
+            # as what it is — a CSS animation — on the filled cells.
             animated_cells = page.evaluate(
-                "[...document.querySelectorAll('td.player-cell')].filter((td) => td.getAnimations().length > 0).length")
+                "[...document.querySelectorAll('td.player-cell')].filter((td) => td.getAnimations().some((a) => a instanceof CSSAnimation)).length")
             assert animated_cells == sum(cell for row in GRID for cell in row)
             assert page.locator("#puzzle-player-solved").evaluate("(el) => el.getAnimations().length") == 1
             # Short: everything has finished within two seconds.

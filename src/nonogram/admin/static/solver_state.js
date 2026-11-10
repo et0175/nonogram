@@ -683,6 +683,15 @@ export function circledNumbers(clue, cells) {
 // own time rather than when a diagonal crosses it. Cells that are not
 // FILLED get 0 (a defined value for CSS, never undefined). Pure: a board in,
 // a frozen array of non-negative integers out (row-major).
+// The sweep's step in milliseconds: 20 ms a step, but never so long that the
+// last cell starts after SWEEP_SPAN_MS — a winding picture on a 30x30 can be
+// hundreds of steps deep, and the celebration is a beat, not a wait.
+export const SWEEP_SPAN_MS = 2000;
+export function waveStep(wave) {
+  const deepest = wave.reduce((most, step) => Math.max(most, step), 0);
+  return deepest === 0 ? 20 : Math.min(20, SWEEP_SPAN_MS / deepest);
+}
+
 export function pictureWave(board) {
   const { width, height, cells } = board;
   const wave = new Array(width * height).fill(0);

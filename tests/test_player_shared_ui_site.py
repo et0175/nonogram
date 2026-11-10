@@ -325,7 +325,7 @@ class TestSharedUi_ThePageRuns:
         assert browser_page.locator("[data-player-solved-name]").count() == 0
         solve_to_the_end(browser_page, SWEEP_GRID)
         said = " ".join(browser_page.locator("#puzzle-player-solved").inner_text().split())
-        assert said == "\U0001F389 Solved!" and key not in said, said
+        assert said == "Solved!" and key not in said, said
         for name, grid in PAGE_GRIDS.items():
             assert _leaky_title(grid) not in browser_page.content()
 
