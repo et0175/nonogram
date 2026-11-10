@@ -85,7 +85,7 @@ rather than an exception."** It was diagnosed by arithmetic: 2550 × 3300 × 3 b
 per page times the page count, against a 512 MB instance.
 
 The fix is a generator, not a tuning knob. `interior_stream`
-(`admin/book_pdf_generator.py:6503`) draws pages one at a time and holds none, and
+(`admin/book_pdf_generator.py:5686`) draws pages one at a time and holds none, and
 its three page counts come from the plan's own arithmetic "so an export can report
 what it is about to write **without building 25.2 MB of bitmap per page to count
 them**". Pinned by `test_the_whole_book_holds_one_page_bitmap_at_a_time`. If a
@@ -148,9 +148,11 @@ Re-grade cost, measured over a **copy** of the 290-row development database
 (`CARD-086`): 290 rows, 20 skipped as not uniquely solvable, **5.5 s total,
 19 ms mean, 2 ms median.**
 
-Book PDF memory: one page bitmap at a time, 2550 × 3300 × 3 bytes ≈ **25.2 MB per
-page** on the Book 1 profile. The historical failure was holding more than one on a
-512 MB instance.
+Book PDF memory: one page at a time. Since CARD-322 (2026-11-07) an interior page
+is PDF operators, a few kilobytes; only the raster pages (uploaded divider pictures
+and the cover) are bitmaps, 2550 × 3300 × 3 bytes ≈ **25.2 MB per page** on the
+Book 1 profile. The historical failure was holding more than one on a 512 MB
+instance.
 
 Performance is **asymmetric by design**: line logic alone finishes easy and dense
 grids in milliseconds; random mid-density grids at the top of the supported range

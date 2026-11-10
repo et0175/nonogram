@@ -111,11 +111,15 @@ were re-read on that date.
 | `src/nonogram/admin/batch_generator.py` | 858 | COMP-009 | batch generation through COMP-002 |
 | `src/nonogram/admin/book_manager.py` | 2,804 | COMP-009 | AGG-002's store, the one `set_book_status`, the readiness gate |
 | `src/nonogram/admin/book_plan.py` | 596 | COMP-009 | the distribution plan as pure domain; `DEFAULT_PLAN`, buckets, largest-remainder apportionment |
-| `src/nonogram/admin/book_page_spec.py` | 766 | COMP-009 | the one door onto a book's sheet; `BOOK1_PROFILE`, `FLOOR_MM`, `InkMode` |
-| `src/nonogram/admin/book_pdf_generator.py` | 8,069 | COMP-009 | the interior/cover export; fits no cell and places no grid line (ADR-0036/R2); `interior_stream`'s one-page-at-a-time generator |
-| `src/nonogram/admin/book_answer_key.py` | 540 | COMP-009 | INV-011's answer-page capacity and order |
-| `src/nonogram/admin/book_proof.py` | 795 | COMP-009 | ADR-0037's two measurable proof pages |
-| `src/nonogram/admin/book_kdp.py` | 651 | COMP-009 | KDP's gutter table and the finalise check |
+| `src/nonogram/admin/book_page_spec.py` | 780 | COMP-009 | the one door onto a book's sheet; `BOOK1_PROFILE`, `FLOOR_MM`, `InkMode` |
+| `src/nonogram/admin/book_pdf_generator.py` | 6,602 | COMP-009 | the interior/cover export and the page walk; fits no cell and places no grid line (ADR-0036/R2); decides each page's medium (`page_medium`); `interior_stream`'s one-page-at-a-time generator |
+| `src/nonogram/admin/book_interior_vector.py` | 190 | COMP-009 | the one assembly point for a vector interior (`interior_generator`); imported only by `app.py` |
+| `src/nonogram/admin/book_puzzle_vector.py`, `book_guide_vector.py`, `book_toc_vector.py`, `book_answer_vector.py`, `book_play_vector.py` | 415 / 1,719 / 382 / 708 / 464 | COMP-009 | the page writers: each interior page kind as PDF operators (ADR-0042/R1) |
+| `src/nonogram/admin/book_sheet_vector.py`, `book_vector_draw.py`, `book_vector.py` | 382 / 730 / 1,550 | COMP-009 | shared furniture (folio, footer, band), strokes and the content-stream / PDF writer |
+| `src/nonogram/admin/book_guide_spread.py`, `book_dividers.py`, `book_qr.py` | 590 / 279 / 112 | COMP-009 | the How to Solve spread's text, the uploaded divider pictures, the one door onto the vendored QR encoder |
+| `src/nonogram/admin/book_answer_key.py` | 541 | COMP-009 | INV-011's answer-page capacity and order |
+| `src/nonogram/admin/book_proof.py` | 784 | COMP-009 | ADR-0037's two measurable proof pages |
+| `src/nonogram/admin/book_kdp.py` | 662 | COMP-009 | KDP's gutter table and the finalise check |
 | `src/nonogram/admin/print_specs.py` | 441 | COMP-009 | `PrintSpecValidator`, the form-side trim/margin check |
 | `src/nonogram/admin/image_manager.py` | 788 | COMP-009 | the uploaded-picture store, size presets, fit prediction |
 | `src/nonogram/admin/image_to_puzzle.py` | 100 | COMP-009 | picture → grid + clues for the panel |

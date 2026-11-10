@@ -1,6 +1,7 @@
 # 07 — Book assembly (CAP-006 / COMP-009, AGG-002)
 
-> Scope: `src/nonogram/admin/` — 25,181 lines, 55% of the package. The storage
+> Scope: `src/nonogram/admin/` — about 35,300 lines, 62% of the package
+> (re-counted 2026-11-10). The storage
 > guard, the Book aggregate and its lifecycle, the distribution plan, and the
 > page-at-a-time PDF export.
 >
@@ -177,10 +178,10 @@ abs(actual[cell] - planned[cell]) * 100 > READY_TOLERANCE_POINTS * plan.count
 | INV-007 per-cell plan match at exit from draft | `book_manager.py:130`, `:2228`, `ready_refusal` (`:239`) |
 | INV-008 published book's membership change needs confirmation | `AddOutcome` (`:349`) / `RemoveOutcome` (`:377`) `confirmed` flags; route → **409** (`app.py:2875`) |
 | INV-009 a booked puzzle may not be re-graded into another tier | `RegradeInsideABook` (`puzzle_review.py:105`); route → 409 `regrade_in_a_book` (`app.py:2843`) |
-| INV-010 two-up pairs equal tiers only | `book_pdf_generator.py:129`, `_pairable_tier` (`:3599`), `_level_runs` (`:3616`) — `:247` notes it is deliberately **not** reimplemented in the routes |
+| INV-010 two-up pairs equal tiers only | `book_pdf_generator.py`'s `_pairable_tier` (`:3583`) and `_level_runs` (`:3600`); deliberately **not** reimplemented in the routes |
 | INV-011 answer-page capacity and order | `book_answer_key.py:24, 94, 173, 253, 299` |
 | INV-012 membership change after draft returns to draft | `_draft_after_membership_change` (`book_manager.py:472`) |
-| INV-013 the interior PDF carries no cover page | `book_pdf_generator.py:3`, `Interior.pages` (`:2687`), `export_book` (`:4865`) |
+| INV-013 the interior PDF carries no cover page | `book_pdf_generator.py:3`, `Interior.pages` (`:2555`), `export_book` (`:4672`) |
 
 ### A concurrency bound the code states about itself
 
@@ -239,9 +240,9 @@ changes (CMD-020 → EVT-021).
 
 | Figure | Constant | Location |
 |---|---|---|
-| 4.75 mm book-cell **floor** (NFR-008, TERM-024) | `FLOOR_MM = 4.75` | `admin/book_page_spec.py:160` |
-| 7.5 mm **standard cell**, the flat cap | `cell_cap_mm=7.5` on `BOOK1_PROFILE` | `admin/book_page_spec.py:256` |
-| 7.0 mm two-up **shared cell** minimum | `TWO_UP_MIN_CELL_MM = 7.0` | **`export/layout.py:3130`** — not in `admin/` |
+| 4.75 mm book-cell **floor** (NFR-008, TERM-024) | `FLOOR_MM = 4.75` | `admin/book_page_spec.py:168` |
+| 7.5 mm **standard cell**, the flat cap | `cell_cap_mm=7.5` on `BOOK1_PROFILE` | `admin/book_page_spec.py:320` |
+| 7.0 mm two-up **shared cell** minimum | `TWO_UP_MIN_CELL_MM = 7.0` | **`export/layout.py:3554`** — not in `admin/` |
 
 The floor's *placement* is itself an architectural statement
 (`book_page_spec.py:139`): it is a module constant beside `BOOK1_PROFILE` rather
@@ -262,8 +263,10 @@ standard cell) still caps the shared cell. A named constant rather than a
 `PageSpec` field: it is the owner's rule for every book, not a property of a trim."
 
 **The footer band (FR-032, FR-040; CARD-392).** A puzzle page's footer is a
-hairline and **one line** under it: the grid size on the inner side, the folio at
-the centre, the pointer to the Play online page on the outer side. The band the
+hairline and **one line** under it: the solution pointer ("Solution on p. N") on
+the inner side, the folio at the centre, the pointer to the Play online page on the
+outer side. The grid size moved out of the footer into the white corner between
+the clues on 2026-11-10 (Anna's layout); see the puzzle page below. The band the
 hairline opens is `INTERIOR_FOOTER_MM` in `export/layout.py`, "the footer line
 plus its two gaps" -- a 10 pt line and 9 pt of white above and below it, 9.878 mm
 (117 px at 300 DPI) -- where it was 29.878 mm while a 2 cm row at its foot was
@@ -281,17 +284,17 @@ drawing height on Book 1 (219.586 mm over 7.0 mm), 24 on 6 x 9 in, 20 on 5 x 8 i
 5-deep gutters that is 156 interior pages becoming 96, which crosses KDP's
 150-page gutter band (0.5 in minimum to 0.375 in).
 
-`BOOK1_PROFILE` in full (`book_page_spec.py:248`, CON-018): trim 8.5 × 11 in,
+`BOOK1_PROFILE` in full (`book_page_spec.py:312`, CON-018): trim 8.5 × 11 in,
 gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, `band_mm=12.0`,
 `cell_cap_mm=7.5`, `min_thin_rule_mm=0.25` (ADR-0037/R2). Inches are `Decimal`
-against `_MM_PER_INCH = Decimal("25.4")` (`:122`) — **not float**. Alongside it,
-`MIN_SIDE_MARGIN_MM = 6.35` (`:167`) is KDP's 0.25 in minimum applied to both side
+against `_MM_PER_INCH = Decimal("25.4")` (`:130`) — **not float**. Alongside it,
+`MIN_SIDE_MARGIN_MM = 6.35` (`:175`) is KDP's 0.25 in minimum applied to both side
 margins.
 
-`book_page_spec.book_page_spec(book, page_number)` (`:386`) is "the one door onto
+`book_page_spec.book_page_spec(book, page_number)` (`:578`) is "the one door onto
 the book's sheet (CARD-115)", taking the page's **1-based position in the
-interior** so parity follows FR-043: interior page 1 is the blank title page and is
-right-hand/odd (`_parity`, `:380`); the "How to Solve" guide is the facing spread on
+interior** so parity follows FR-043: interior page 1 is the title and copyright
+page and is right-hand/odd; the "How to Solve" guide is the facing spread on
 pages 2 (a verso) and 3 (a recto), set in the puzzle pages' own frame (CARD-229).
 
 ### Ink mode — in the code, absent from the model
@@ -309,48 +312,119 @@ its three integer coefficients sum to 65536, "so 0 stays 0, 255 stays 255 and no
 value between them is invented." No ADR or component description mentions ink mode
 at all (CARD-147 / migration 013).
 
-## The book PDF: one page at a time
+## The book PDF: what is on each page, and how it is written
 
-`book_pdf_generator.py` is 7,114 lines and its central claim (ADR-0036/R2, `:25`)
-is a *negative* one:
+`book_pdf_generator.py` (6,602 lines) builds the interior; `export_book` is the one
+entry point every export route goes through and returns two files, the interior
+PDF and the cover file (FR-043, INV-013). Its central claim (ADR-0036/R2) is still
+a *negative* one: **this module fits no cell and places no grid line.** Every
+number it uses is read off `nonogram.export.layout.compute_layout` called with the
+book's own spec; it places only text the layout knows nothing about.
 
-> **This module fits no cell and places no grid line.** Every number it uses is
-> read off `nonogram.export.layout.compute_layout` called with the book's spec …
-> This module strokes those and places nothing … The only thing positioned here is
-> text the layout knows nothing about — the guide page's lines and the divider's
-> word — and it is positioned against the usable area the layout reported.
+Every page is the book's own trim (2550 × 3300 px at 300 DPI on Book 1, i.e.
+8.5 × 11 in; 1800 × 2700 px on a 6 × 9 in book), taken through
+`book_page_spec(book, page_number)` so a page's parity, and therefore which side
+its gutter is on, follows its position in the interior.
 
-It replaced a hard-coded 2550×3300 letter page that printed each puzzle through the
-**A4** layout — "a book puzzle was sized for A4 and then laid on a sheet it had
-never been measured against" (`:9`). Every page is now the book's own trim at 300
-DPI: 2550 × 3300 px on Book 1, 1800 × 2700 px on a 6 × 9 in book.
+### Vector pages, two raster kinds
 
-> **Since CARD-322 (2026-11-07) an interior page is PDF operators, not a bitmap.** The
-> guide, TOC, puzzle and answer pages are content streams written by the vector
-> writers and reached through `book_interior_vector.interior_generator`, the one
-> place the download route builds an interior; only the section dividers (and the
-> cover file) are still bitmaps (ADR-0042/R1-R2). **A divider is the owner's
-> uploaded picture or, for a slot with none, the drawn one-word page**
-> (CARD-311: four slots, Easy / Medium / Hard / SOLUTIONS, stored in
-> `book_divider_images`; an upload is fitted to the page and no folio is drawn
-> over it; it changes no page number). "One page at a time" is still the
-> shape (`interior_stream` yields a page, `_write_pdf` writes it), but a typical
-> interior page is now a few kilobytes of operators and the 25.2 MB bitmap figures
-> below describe the divider and cover pages and the kept raster reference writers.
-> Pixel sizes quoted below (2550 x 3300) are the page box at 300 DPI, which the
-> vector pages keep.
+Since CARD-322 (2026-11-07) an interior page is **PDF operators, not a bitmap**
+(ADR-0042/R1). `page_medium(kind)` is the one place the medium is decided: every
+`PageKind` is vector unless `_RASTER_DECLARATIONS` names it, and it names exactly
+two, each with its reason:
 
-**Band text (ADR-0037/R1, FR-033).** A puzzle page's 12 mm band reads
-`"Puzzle N · Tier"` and nothing else (`band_identity`, `:1275`). The title is
-deliberately absent: "a titled puzzle page gives the picture away before the
-solver has drawn it." It appears once, as the answer-key caption
-`"Puzzle N — Title"`. The mechanism is structural rather than conditional:
-`_puzzle_payload` (`:5027`) **clears the picture's name** in the page's
-`ExportPayload`, "so that there is no title for the page to leave off", and
-`export/pdf.header_parts` then renders whichever of `(name, difficulty)` is
-non-empty.
+- `COVER` — a photograph the owner uploaded (ADR-0042/R2);
+- `DIVIDER` — a picture the owner uploaded (owner decision 2026-11-06, CARD-311).
 
-**The cover split (FR-043, INV-013).** `export_book` (`:4865`):
+The vector writers live in their own modules (`book_puzzle_vector`,
+`book_guide_vector`, `book_toc_vector`, `book_answer_vector`, `book_play_vector`,
+with `book_sheet_vector` and `book_vector_draw` for the shared furniture and
+strokes). Three of them import the generator, so the generator cannot import them
+back; `book_interior_vector.interior_generator` is the one place that assembles a
+generator with every writer, and `admin/app.py` is the only module that imports it.
+`BookPDFGenerator(book)` on its own has no downstream writers and **refuses**,
+rather than rasterises, a vector page it cannot draw.
+
+### The page order
+
+Measured on a rendered four-puzzle book (one easy pair, one medium, one hard),
+the interior reads:
+
+| Page | Kind | What is on it |
+|---|---|---|
+| 1 | `TITLE` | series name (if any), title, subtitle or "N picture puzzles", "by {authors}", and at the foot the copyright and reproduction lines; no folio (`vector_title_contents`, owner 2026-11-09 — it replaced the blank reserved page so KDP's "Look Inside" does not open on an empty page) |
+| 2–3 | `GUIDE` | "How to Solve", a facing spread. Page 2 opens with a grey box holding the book's promise ("Each puzzle hides a picture and has just one solution, checked by computer…") and the sentence pointing at the Play online page by its real page number (`book_guide_spread._page_two`) |
+| 4… | `TOC` | Table of Contents, see below; one page on Book 1, two on the smallest trim |
+| | `DIVIDER` | one per non-empty level (Easy, Medium, Hard), when the book's divider pages option is on: the owner's uploaded picture, or the drawn one-word page for a slot with none |
+| | `PUZZLE` | the puzzles in print order, easy then medium then hard; two equal-tier puzzles share a page when they fit (FR-040, INV-010) |
+| | `BLANK` | only when needed to put the next page on a right-hand page |
+| | `PLAY` | "Play Every Puzzle Online", the book's one QR code (CARD-390) |
+| | `DIVIDER` | SOLUTIONS, when dividers are on |
+| | `ANSWER` | the answer key, see below |
+
+`interior_stream` decides every position before it draws a page: it runs the
+section walk first, because how many pages the puzzles take is what puts each
+divider, the Play page and every answer page where it goes.
+
+### The puzzle page
+
+- **Band** (ADR-0037/R1, FR-033): `"Puzzle N"` and the tier (`band_identity`),
+  nothing else. The title is deliberately absent — "a titled puzzle page gives the
+  picture away before the solver has drawn it" — and `_puzzle_payload` clears the
+  picture's name so there is no title for the page to leave off.
+- **Size** (`draw_corner_size_label`): the grid size ("15 x 15") is centred in the
+  white corner where the column clues and the row clues meet, in grey
+  (`CORNER_LABEL_GREY = 0.37`). When the corner is too small to hold it, the size
+  goes back into the footer instead, before the pointer.
+- **Footer**: a hairline and one line under it: the Play online pointer on the
+  outer side ("Play puzzle 3 online · p. 11", or "Play 1 and 2 online · p. 11" on a
+  shared page), the folio at the centre, and on the inner side the solution
+  pointer (`footer_solution_text`): "Solution on p. 14", or "Solutions on p. 13"
+  / "Solutions on p. A and B" for a shared page whose answers land on one or two
+  pages. Every page number is the real one, read off the same plan that places
+  the answer pages (`_answer_page_of_each_puzzle`).
+
+### The table of contents
+
+`structural_toc_entries` builds the rows: How to Solve Nonograms; each level's
+heading with its puzzle range ("Puzzles 1–2") and first page; Play online; then
+**Solutions** with one indented row per level (Easy, Medium, Hard) at the first
+answer page of that level (`TocEntry.secondary`). Every number is the page it
+points at in this same interior; the rows and the pages come out of one
+`interior_stream` call (`InteriorStream.toc_entries`), so they cannot disagree.
+
+### The Play online page
+
+`book_play_vector._mockup_play_page` (Anna's design, 2026-11-10): a "BONUS" eyebrow
+and a "FREE ONLINE ACCESS INCLUDED" badge, the title "Play Every Puzzle Online"
+and an intro line, then a framed card with the QR code (32 mm, in a white box),
+"Online Access to All N Puzzles", and the typed address under "OR TYPE THE
+ADDRESS:". Below it three steps (Scan, Select, Solve) and a callout pointing at
+the first solutions page. All type is 10 pt or larger (CON-020). The address is
+made by `player_bundle` from the book's stored player domain and its puzzles, and
+encoded by `book_qr` (the vendored encoder, error correction level Q); the tests
+decode the printed code back to the address.
+
+### The answer key
+
+Packed by `book_answer_key` (FR-042, INV-011): up to four answers to a page in a
+2 × 2 grid, for every grid up to 30 × 30; every level starts a new page, and the
+first page of a level carries its heading ("SOLUTIONS · EASY"). Each answer is the
+solved picture with its clues, under "Puzzle N" and captioned with the number and
+the picture's title. **The answer key is the only place the book prints a
+picture's title** (ADR-0037/R1, FR-033).
+
+### Memory: one page at a time
+
+The bound comes from CARD-145. The owner reported "render crashes when I try to
+generate pdf" with **no traceback in the logs — "the signature of an OOM kill
+rather than an exception"** — diagnosed by arithmetic: 2550 × 3300 × 3 bytes
+(25.2 MB) per bitmap page times the page count, against a 512 MB instance.
+
+`interior_stream` returns an `InteriorStream` whose `pages` is a **generator**,
+single-use, drawn one page at a time, and whose counts come from the page plan's
+own arithmetic, so an export can report what it is about to write without drawing
+anything to count it. `export_book`:
 
 ```python
 stream = self.interior_stream(puzzles)
@@ -359,53 +433,40 @@ cover = self.export_cover(book_title, cover_image)
 return BookExport(interior=..., cover=..., interior_page_count=stream.page_count, ...)
 ```
 
-`interior_stream` (`:6503`) is the memory-critical seam: its `pages` is a
-**generator**, single-use, drawn one page at a time. All three of its counts come
-from "the page plan's own arithmetic over the pairing walk and CARD-202's own
-packing walk … so an export can report what it is about to write **without
-building 25.2 MB of bitmap per page to count them**."
+With the interior in operators, a typical page is now a few kilobytes; the 25.2 MB
+figure applies only to the raster pages (dividers and the cover). What keeps the
+cover page from being alive beside an interior page is not the order of the two
+statements: `_write_pdf` keeps no page after writing it and returns a `BytesIO`.
 
-The docstring is unusually careful about what does *not* keep that bound (`:4903`):
+**Nothing is written to disk.** The export route returns the two `BytesIO`s as
+attachments named `book_{utcnow:%Y%m%dT%H%M%S}_{part}.pdf`. Uploaded **covers**,
+**divider pictures** and source **pictures** *are* stored, which is what the
+component diagram's `admin -> filesystem` arrow is. On export, any exception is
+logged with its stack **before** it is flashed and redirected (CARD-171).
 
-> **The order is not what keeps a cover page from being alive beside an interior
-> page** … What keeps them apart is that no page escapes the `export_cover` call at
-> all: `_write_pdf` retains no page after writing one and hands back a `BytesIO`,
-> and `BookExport.cover` is that `BytesIO`, not an `Image.Image`. Mutation-measured,
-> each of — swapping the two statements, folding them back into one `BookExport(...)`
-> call … and making `_cover_page` eager — still peaks at one page bitmap.
+### How to see a change
 
-`CARD-145.md`'s worktree notes record the origin and the diagnosis method: the
-owner reported "render crashes when I try to generate pdf" with **no traceback in
-the logs — "the signature of an OOM kill rather than an exception"** — and it was
-diagnosed by arithmetic, 2550 × 3300 × 3 bytes per page times the page count
-against a 512 MB instance.
-
-**Nothing is written to disk.** `_export_part` (`app.py:5463`) returns a `BytesIO`;
-`_send_export_part` (`:5487`) seeks to 0 and `send_file(..., as_attachment=True,
-download_name=f"{stem}_{part}.pdf")` with stem
-`f"book_{utcnow:%Y%m%dT%H%M%S}"`. Proof pages the same. Uploaded **covers** and
-source **pictures** *are* on disk (`_cover_file_for`, `image_manager.py`), which is
-what the component diagram's `admin -> filesystem` arrow is.
-
-On export, any exception is `app.logger.exception(...)` **before** it is flashed and
-redirected (`:5513`, CARD-171), and the proof-page path distinguishes "the one
-expected refusal (a trim that leaves no room for the proof note)" from "anything
-else is a bug worth keeping the stack of".
+`tests/test_book_vector_goldens.py` holds the operators of every page kind against
+recorded goldens; after an intended layout change they are re-recorded with
+`NONOGRAM_RECORD_VECTOR_GOLDENS=1 PYTHONPATH=src python -m tests.test_book_vector_goldens`.
+To look at a whole book, download the interior from the book's page in the admin
+panel.
 
 ### The three sibling modules
 
-- **`book_answer_key.py`** (540 lines) — which answers share a page and what each
-  says. Owns INV-011's capacity rule as "this module's, not the layout's" (`:24`),
-  with the 6-up/4-up threshold at `:94`: "Exactly 20 keeps the page six-up; 21
-  makes it four-up." `plan_small_answer_pages` is the pure, sheet-free planner, and
-  no page holds two levels.
-- **`book_proof.py`** (795 lines) — "ADR-0037's proof pages: the book's own
+- **`book_answer_key.py`** (541 lines) — which answers share a page and what each
+  says. Owns INV-011's capacity rule as "this module's, not the layout's".
+  `plan_small_answer_pages` is the pure, sheet-free planner the book uses: two or
+  four answers to a page, every grid up to 30 × 30, and no page holds two levels.
+  The older six-up walk (`pack_answer_pages`, threshold `SIX_UP_LONGEST_SIDE = 20`)
+  is still in the module.
+- **`book_proof.py`** (784 lines) — "ADR-0037's proof pages: the book's own
   geometry, printed to be measured." A 30×30 at the smallest cell the book prints
   and a 15×15 at NFR-008's cap, "for the owner to print at 100% and measure with a
   ruler. The strokes ADR-0037 fixes are final only once that has happened"
   (`app.py:5535`). A GET that reads no membership, so a draft book downloads the
   same two pages a finished one does.
-- **`book_kdp.py`** (627 lines) — Amazon KDP's gutter-margin table and the finalise
+- **`book_kdp.py`** (662 lines) — Amazon KDP's gutter-margin table and the finalise
   check against it. `gutter_refusal(page_count, stored_cm)` refuses when the page
   count needs a larger gutter than the one stored. An inexact page count is worded
   "about N" to match the screen (CARD-153 AC-4), and a count above KDP's table
