@@ -530,6 +530,14 @@ export function isClueSolved(board, rows, columns) {
 //      nothing rather than guessing one of them. Nothing else about the line
 //      matters: undecided cells and other runs elsewhere are irrelevant, the
 //      run's own two neighbours are what "closed" means.
+//   D  (CARD-400, owner ruling 2026-11-10) a number whose run the marks pin
+//      down: on the same cells, all dark, in every placement of the clue that
+//      fits the marks (pinnedNumbers below). It needs no closed run — a dark
+//      run beside a blank or a "?" circles when the clue leaves the neighbour
+//      no choice — and no unique value. Measured before it existed (lines up
+//      to 7 cells, every clue and every marking that fits): 21,316 settled
+//      numbers circled; 46,901 beside a blank, 34,643 beside a "?" and 1,124
+//      closed with a repeated value were not. Rule D circles all of them.
 // Nothing else circles a number (no matching by length alone — rule C matches
 // a length only where the clue makes that length decisive). A "0" clue ([0])
 // is circled only when every cell of the line is white; rule C does not apply
@@ -547,6 +555,63 @@ export function isClueSolved(board, rows, columns) {
 // in 941 cases before rule C existed, and rule C adds 226. Withholding the
 // circle here needs an ordering check across the closed runs, which would
 // belong to A and B as much as to C; that is a later card, not this rule.
+
+// The earliest start of every run of `runs` over the placements that fit
+// `cells` (FILLED must be dark, EMPTY must be white, anything else is free),
+// or null when no placement fits. The same reachability table lineForced
+// builds, walked greedily: each run takes the first start that leaves the
+// rest of the line placeable and skips no dark cell.
+function earliestStarts(runs, cells) {
+  const n = cells.length;
+  const k = runs.length;
+  const fits = (start, length) => start + length <= n
+    && cells.slice(start, start + length).every((state) => state !== EMPTY)
+    && (start + length === n || cells[start + length] !== FILLED);
+  const after = (start, length) => Math.min(start + length + 1, n);
+  const back = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(false));
+  back[n][k] = true;
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = k; j >= 0; j -= 1) {
+      back[i][j] = (cells[i] !== FILLED && back[i + 1][j])
+        || (j < k && fits(i, runs[j]) && back[after(i, runs[j])][j + 1]);
+    }
+  }
+  if (!back[0][0]) return null;
+  const starts = [];
+  let at = 0;
+  for (let j = 0; j < k; j += 1) {
+    // The first start from `at` that leaves the rest placeable; a dark cell
+    // may not be skipped (it would belong to no run), and back[at][j] says
+    // such a start exists before the first one.
+    let start = at;
+    while (!(fits(start, runs[j]) && back[after(start, runs[j])][j + 1])) {
+      if (cells[start] === FILLED || start >= n) return null; // unreachable when back[at][j]
+      start += 1;
+    }
+    starts.push(start);
+    at = after(start, runs[j]);
+  }
+  return starts;
+}
+
+// Rule D (CARD-400, owner ruling 2026-11-10: "circle a number when the marks
+// pin it down", for all three classes the owner was shown): a number whose
+// run sits on the SAME cells in every placement of the clue that fits the
+// marks, every one of those cells marked dark, is settled and circled — open
+// neighbours, a "?" beside it or a value repeated in the clue no longer keep
+// it uncircled. A run is pinned exactly when its earliest start equals its
+// latest (the earliest of the line read backwards). Marks that fit no
+// placement pin nothing; rules A, B and C still read them as before.
+function pinnedNumbers(clue, cells) {
+  const runs = clue.filter((value) => value > 0);
+  const early = earliestStarts(runs, cells);
+  if (early === null) return [];
+  const n = cells.length;
+  const late = earliestStarts([...runs].reverse(), [...cells].reverse())
+    .map((start, j, all) => n - start - [...runs].reverse()[j]).reverse();
+  return runs.flatMap((length, j) => (early[j] === late[j]
+    && cells.slice(early[j], early[j] + length).every((state) => state === FILLED) ? [j] : []));
+}
 
 // The indices of the clue numbers one walk of rule A circles. `at(step)` is
 // the walk's step-th cell from its edge; `numberAt(step)` is the walk's
@@ -606,6 +671,8 @@ export function circledNumbers(clue, cells) {
   for (let number = 0; number < count; number += 1) {
     if (times(clue, clue[number]) === 1 && times(closed, clue[number]) === 1) circled[number] = true;
   }
+  // Rule D: the marks pin the number's run down (see pinnedNumbers).
+  for (const number of pinnedNumbers(clue, cells)) circled[number] = true;
   return Object.freeze(circled);
 }
 
