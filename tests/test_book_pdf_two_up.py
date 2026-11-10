@@ -336,8 +336,11 @@ def _interior_pages(*, puzzle_pages: int, answer_pages: int, levels: int = 1, to
     book this module builds: all of them are 1-4 puzzles on Book 1's own
     trim, far under the roughly 40-entry-per-page capacity a table of
     contents has there.
+
+    The closing thank-you page (owner, 2026-11-10) is the last term: **1**,
+    after the answer key, on every book with puzzles.
     """
-    return 1 + 2 + toc_pages + levels + puzzle_pages + 1 + answer_pages
+    return 1 + 2 + toc_pages + levels + puzzle_pages + 1 + answer_pages + 1
 
 
 # --------------------------------------------------------------------------

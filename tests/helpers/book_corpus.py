@@ -139,8 +139,9 @@ GUIDE_INTERIOR_PAGES = (2, 3)
 #: inserts a 1-page table of contents (this book's four puzzles fit Book 1's
 #: own trim's TOC capacity with room to spare) immediately after the guide,
 #: up to **thirteen**; CARD-206 then reserves the blank title / copyright
-#: page as interior page 1, up to **fourteen**.
-BASELINE_PAGE_COUNT = 14
+#: page as interior page 1, up to **fourteen**; the closing thank-you page
+#: after the key (owner, 2026-11-10) takes it to **fifteen**.
+BASELINE_PAGE_COUNT = 15
 
 #: How many puzzles the large corpus holds, and the interior that follows:
 #: 1 blank title page (CARD-206) + 2 guide (CARD-201) + **1** TOC page +

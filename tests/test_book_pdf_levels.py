@@ -570,23 +570,24 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
 
     def test_the_interior_is_that_section_between_the_guide_and_the_key(self) -> None:
         """The whole file: the title page, the 2-page guide, the TOC, the
-        eight pages above, SOLUTIONS, the key.
+        eight pages above, SOLUTIONS, the key, and the closing thank-you page
+        (owner, 2026-11-10).
 
         The key packs up to four answers a page, one level per page
         (CARD-202), so 2 easy, 2 medium and 1 hard take three answer pages:
-        16 pages, which the generator must have reported before it drew
+        17 pages, which the generator must have reported before it drew
         anything.
         """
         puzzles, pages = self._pages()
         stream = BookPDFGenerator(_book()).interior_stream(puzzles)
 
-        assert len(pages) == 16
-        assert stream.page_count == 16
+        assert len(pages) == 17
+        assert stream.page_count == 17
         assert is_solutions_opener(pages[12], 13, len(puzzles)), (
             "interior page 13 is the SOLUTIONS divider"
         )
         assert stream.answer_page_count == 3
-        assert all(_carries_a_drawing(page) for page in pages[13:])
+        assert all(_carries_a_drawing(page) for page in pages[13:16])
 
 
 # --------------------------------------------------------------------------
@@ -701,18 +702,20 @@ class TestBookPdf_EmptyLevelHasNoDivider:
         assert is_solutions_opener(pages[11], 12, len(self.MEMBERS)), (
             "interior page 12 is the SOLUTIONS divider"
         )
-        assert all(_carries_a_drawing(page) for page in pages[12:]), "answer pages"
+        # The answer pages, before the closing thank-you page (owner, 2026-11-10).
+        assert all(_carries_a_drawing(page) for page in pages[12:-1]), "answer pages"
 
     def test_the_interior_is_one_page_shorter_than_three_levels_would_make_it(
         self,
     ) -> None:
         """Title page, guide (2 pages), TOC (1), Easy, 3 puzzles, Medium,
         2 puzzles, SOLUTIONS, 2 answer pages (easy 3, medium 2: a packed
-        page holds one level, CARD-202): fourteen pages.
+        page holds one level, CARD-202), the closing thank-you page (owner,
+        2026-11-10): fifteen pages.
         """
         pages = _interior(_book_of(*self.MEMBERS))
 
-        assert len(pages) == 14
+        assert len(pages) == 15
         assert interior_shape(pages[:11]) == [
             "divider Easy",
             "puzzle",
@@ -824,7 +827,8 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         first = _raw_interior(_book_of(*self.BOOK))
         second = _raw_interior(_book_of(*self.BOOK))
 
-        assert len(first) == len(second) == 16
+        # 16 + the closing thank-you page (owner, 2026-11-10).
+        assert len(first) == len(second) == 17
         assert [type(page) for page in first] == [type(page) for page in second]
         for number, (left, right) in enumerate(zip(first, second), start=1):
             assert same_page(left, right), f"interior page {number} differs on re-export"

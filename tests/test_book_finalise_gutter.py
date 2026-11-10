@@ -13,7 +13,7 @@ PDF's own page count, for every book — is in
 inside margin once a book passes 150 pages, and a book that goes up with too
 narrow a one is rejected *at upload*, after everything else about it looked
 finished. Every way of getting the count wrong lands within a page or two of
-that boundary: leaving the answer key out of it (AC-271) makes a 166-page
+that boundary: leaving the answer key out of it (AC-271) makes a 167-page
 book look like a 128-page one, and counting the separate cover file into it
 (AC-288) makes an exactly-150-page book look like a 151-page one. So the
 counts here are exact numbers, and each is **measured off the export's own
@@ -25,7 +25,7 @@ The books are built from puzzle records written straight into the store, as
 150-puzzle book would otherwise cost 150 uniqueness proofs, and the page plan
 reads a record's grid, clues and tier and nothing else. Nothing here draws a
 page: the interior's three counts are settled by ``interior_stream`` before a
-pixel exists, which is why a 594-page book is affordable as a test at all.
+pixel exists, which is why a 595-page book is affordable as a test at all.
 
 The answer key packs up to four answers to a page, one level per page
 (CARD-202; every size up to ``limits.MAX_SIZE`` since 2026-11-09): a level
@@ -182,32 +182,39 @@ def corpus(*runs) -> list[dict]:
 
 
 #: AC-288's book: exactly 150 interior pages. 1 title + 2 guide + 1 TOC +
-#: 2 dividers + 85 easy puzzle pages (``alone``) + 24 medium ones (48
-#: ``pairs_up``, all paired) + SOLUTIONS + 22 + 12 answer pages
-#: (:func:`answer_pages` of 85 and 48) = 150. 85 is 1 more than a multiple of
-#: 4, so one more easy puzzle adds its puzzle page and no answer page
-#: (:data:`CK1_OVER_CORPUS`). Measured off the live plan below.
-AC288_CORPUS = ((alone, "easy", 85), (pairs_up, "medium", 48))
+#: 2 dividers + 89 easy puzzle pages (``alone``) + 20 medium ones (40
+#: ``pairs_up``, all paired) + SOLUTIONS + 23 + 10 answer pages
+#: (:func:`answer_pages` of 89 and 40) + the closing thank-you page = 150.
+#: 89 is 1 more than a multiple of 4, so one more easy puzzle adds its puzzle
+#: page and no answer page (:data:`CK1_OVER_CORPUS`). Measured off the live
+#: plan below. Re-tuned 2026-11-10 for the closing thank-you page (owner):
+#: it was 85 easy and 48 medium (22 + 12 answer pages); this mix keeps the
+#: same 109 puzzle pages, so the last puzzle page is still the recto 115
+#: :class:`TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated` needs,
+#: and spends one answer page fewer to make room for the closing page.
+AC288_CORPUS = ((alone, "easy", 89), (pairs_up, "medium", 40))
 AC288_PAGES = 150
 
 #: CK-1's other side: the same book with one more easy puzzle, exactly one
-#: page longer (its puzzle page; 86 answers still take 22 answer pages).
-CK1_OVER_CORPUS = ((alone, "easy", 86), (pairs_up, "medium", 48))
+#: page longer (its puzzle page; 90 answers still take 23 answer pages).
+CK1_OVER_CORPUS = ((alone, "easy", 90), (pairs_up, "medium", 40))
 CK1_OVER_PAGES = 151
 
 #: AC-179's book: 1 title + 2 guide + 1 TOC + 2 dividers + 140 puzzle pages
-#: + SOLUTIONS + 18 + 18 answer pages = 183, inside KDP's 151-300 band. On
-#: AC-179's illegal 0.60 cm gutter the book has no sheet, so finalise counts
-#: it sheet-free -- unpaired and unpacked, one answer page per puzzle: 287,
+#: + SOLUTIONS + 18 + 18 answer pages + the closing thank-you page
+#: (owner, 2026-11-10) = 184, inside KDP's 151-300 band. On AC-179's
+#: illegal 0.60 cm gutter the book has no sheet, so finalise counts it
+#: sheet-free -- unpaired and unpacked, one answer page per puzzle: 288,
 #: the same band.
 AC179_CORPUS = ((alone, "easy", 70), (alone, "medium", 70))
-AC179_PAGES = 183
-AC179_SHEET_FREE_PAGES = 287
+AC179_PAGES = 184
+AC179_SHEET_FREE_PAGES = 288
 
 #: AC-271's book: 150 puzzles behind 128 interior pages -- 1 title + 2 guide
 #: + 1 TOC + 2 dividers + 121 puzzle pages (29 of them shared) + SOLUTIONS --
-#: and 23 + 15 answer pages (:func:`answer_pages` of 90 easy and 60 medium):
-#: 166 in all, over 150, while the 128 alone would be under it.
+#: and 23 + 15 answer pages (:func:`answer_pages` of 90 easy and 60 medium),
+#: then the closing thank-you page (owner, 2026-11-10): 167 in all, over
+#: 150, while the 128 alone would be under it.
 AC271_CORPUS = (
     (alone, "easy", 90),
     (pairs_up, "medium", 58),
@@ -217,24 +224,26 @@ AC271_PUZZLES = 150
 AC271_ANSWER_PAGES = 38
 AC271_TOC_PAGES = 1
 AC271_PAGES_BEFORE_THE_KEY = 128
-AC271_PAGES = 166
+AC271_PAGES = 167
 
 #: CARD-199 AC-5's book: inside the new 301-500 band. 280 medium ``alone``s:
 #: 1 title + 2 guide + 1 TOC + 1 divider + 280 puzzle pages + SOLUTIONS + 70
-#: answer pages = 356.
+#: answer pages + the closing thank-you page (owner, 2026-11-10) = 357.
 AC199_NEW_BAND_CORPUS = ((alone, "medium", 280),)
-AC199_NEW_BAND_PAGES = 356
+AC199_NEW_BAND_PAGES = 357
 
 #: CARD-199 AC-6's book: just over the old 300-page ceiling. 241 medium
 #: ``alone``s: 6 front/section pages + 241 puzzle pages + 61 answer pages
-#: (:func:`answer_pages` of 241) = 308.
+#: (:func:`answer_pages` of 241) + the closing thank-you page (owner,
+#: 2026-11-10) = 309.
 AC199_CARD198_CORPUS = ((alone, "medium", 241),)
-AC199_CARD198_PAGES = 308
+AC199_CARD198_PAGES = 309
 
 #: A book past KDP's modelled table (590 pages): 470 medium ``alone``s, 6
-#: front/section pages + 470 puzzle pages + 118 answer pages = 594.
+#: front/section pages + 470 puzzle pages + 118 answer pages + the closing
+#: thank-you page (owner, 2026-11-10) = 595.
 BEYOND_TABLE_CORPUS = ((alone, "medium", 470),)
-BEYOND_TABLE_PAGES = 594
+BEYOND_TABLE_PAGES = 595
 
 
 # --------------------------------------------------------------------------
@@ -571,8 +580,8 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
       certain regardless because a gutter below the sheet builder's floor is
       below *every* band of KDP's table;
     * this book pairs nothing at any gutter (see :func:`alone`); the bound
-      also leaves the answers unpacked, so it reads 287 where the real
-      interior is 183 -- the same band either way, measured below.
+      also leaves the answers unpacked, so it reads 288 where the real
+      interior is 184 -- the same band either way, measured below.
     """
 
     def test_finalise_is_refused_naming_the_band_against_the_stored_value(
@@ -602,7 +611,7 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
         assert panel.status(book_id) == DRAFT
 
     def test_the_scenario_really_has_that_many_pages(self, panel) -> None:
-        """183 interior pages on two legal gutters; 287 sheet-free.
+        """184 interior pages on two legal gutters; 288 sheet-free.
 
         The same 140 rows: the export's page plan on the 0.375 in gutter and
         on CON-018's 0.5 in one (the same count, so it is a fact about the
@@ -644,11 +653,12 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
 
 
 class TestBookFinalise_PageCountIncludesAnswerKeyPages:
-    """AC-271 (FR-042) — 128 pages before the key + 38 answer pages = 166.
+    """AC-271 (FR-042) — 128 pages before the key + 38 answer pages + the
+    closing thank-you page (owner, 2026-11-10) = 167.
 
     A count that left the answer section out would put this book at 128
     pages — inside KDP's 0.375 in band — and pass a book KDP would refuse at
-    upload for its real 166.
+    upload for its real 167.
     """
 
     def test_finalise_is_refused_naming_the_band_for_a_hundred_and_fifty_five(
@@ -674,10 +684,11 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
         assert counts.answer_page_count == AC271_ANSWER_PAGES
         assert AC271_ANSWER_PAGES == answer_pages(90) + answer_pages(60)
         assert counts.page_count == AC271_PAGES
-        assert counts.page_count - counts.answer_page_count == (
+        # The closing thank-you page (owner, 2026-11-10) follows the key.
+        assert counts.page_count - counts.answer_page_count - 1 == (
             AC271_PAGES_BEFORE_THE_KEY
         )
-        assert AC271_PAGES_BEFORE_THE_KEY + AC271_ANSWER_PAGES == AC271_PAGES
+        assert AC271_PAGES_BEFORE_THE_KEY + AC271_ANSWER_PAGES + 1 == AC271_PAGES
 
         assert gutter_refusal(AC271_PAGES_BEFORE_THE_KEY, 0.95) is None
         assert gutter_refusal(AC271_PAGES, 0.95) is not None
@@ -700,8 +711,9 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
         assert f'data-interior-page-count="{AC271_PAGES}"' in shown
         assert f'data-answer-page-count="{AC271_ANSWER_PAGES}"' in shown
         # Before pairing (and packing): 1 title + 2 guide + 1 TOC + 2 dividers
-        # + 150 puzzle pages + SOLUTIONS + 150 answer pages.
-        assert 'data-unpaired-page-count="307"' in shown
+        # + 150 puzzle pages + SOLUTIONS + 150 answer pages + the closing
+        # thank-you page (owner, 2026-11-10).
+        assert 'data-unpaired-page-count="308"' in shown
 
 
 # --------------------------------------------------------------------------
@@ -986,6 +998,8 @@ class TestBookFinalise_BeforePairingShowsWhatPairingSaved:
         assert (
             counts.unpaired_page_count
             == 1 + 2 + AC271_TOC_PAGES + 2 + AC271_PUZZLES + 1 + AC271_PUZZLES
+            # the closing thank-you page (owner, 2026-11-10)
+            + 1
         ), "before pairing, every puzzle and every answer has a page of its own"
 
     def test_a_book_with_no_pairing_at_all_shows_no_saving(self, panel) -> None:
@@ -1014,11 +1028,11 @@ SMALL_CORPUS = ((alone, "easy", 3),)
 
 #: Its interior, counted by hand rather than by the code under test: 1 title
 #: page + 2 guide pages + 1 TOC + 1 easy divider + 3 puzzle pages + the
-#: SOLUTIONS divider + 1 packed answer page (all three share it) = 10 on a
-#: legal sheet. Its sheet-free bound on an illegal one leaves the answers
-#: unpacked: 12.
-SMALL_PAGES = 10
-SMALL_SHEET_FREE_PAGES = 12
+#: SOLUTIONS divider + 1 packed answer page (all three share it) + the
+#: closing thank-you page (owner, 2026-11-10) = 11 on a legal sheet. Its
+#: sheet-free bound on an illegal one leaves the answers unpacked: 13.
+SMALL_PAGES = 11
+SMALL_SHEET_FREE_PAGES = 13
 
 #: The sheet builder's reason for refusing AC-179's 0.60 cm, written out here.
 REASON_060 = "book gutter_margin_cm is 0.6 cm, below the 0.635 cm minimum side margin"

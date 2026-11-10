@@ -309,7 +309,8 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
         )
         # Every page after it is a vector answer page; a divider is a bitmap
         # (its kind declares raster), so none hides inside the answer run.
-        answer_run = pages[start - 1 :]
+        # Up to the closing thank-you page (owner, 2026-11-10), the last page.
+        answer_run = pages[start - 1 : -1]
         assert len(answer_run) == 2, "the easy pair, then the medium one"
         assert all(isinstance(page, ContentStream) for page in answer_run)
         assert (
@@ -319,13 +320,14 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
         """1 title (CARD-206) + 2 guide (CARD-201) + 1 TOC (CARD-200) +
-        2 dividers + 3 puzzles + SOLUTIONS + 2 answer pages = 12.
+        2 dividers + 3 puzzles + SOLUTIONS + 2 answer pages + the closing
+        thank-you page (owner, 2026-11-10) = 13.
 
-        A per-level heading page inside the answer section would make it 13
-        or 14.
+        A per-level heading page inside the answer section would make it 14
+        or 15.
         """
         book, puzzles, pages = self._book_and_pages()
-        assert len(pages) == 1 + 2 + 1 + 2 + 3 + 1 + 2 == 12
+        assert len(pages) == 1 + 2 + 1 + 2 + 3 + 1 + 2 + 1 == 13
 
 
 # --------------------------------------------------------------------------
@@ -688,7 +690,8 @@ class TestBookSolvedAnswerKey_PackedCountStillMatchesTheProducedCount:
         pages = list(stream.pages)
         start = first_answer_page(book, puzzles)
 
-        answer_pages = pages[start - 1 :]
+        # The closing thank-you page (owner, 2026-11-10) follows the key.
+        answer_pages = pages[start - 1 : -1]
         assert len(answer_pages) == planned
         assert stream.page_count == len(pages)
 
@@ -838,7 +841,8 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
 
         pages = _interior(puzzles, book)
 
-        assert len(pages) == start - 1 + len(degraded)
+        # + 1: the closing thank-you page (owner, 2026-11-10).
+        assert len(pages) == start - 1 + len(degraded) + 1
         assert len(degraded) == 2, "two 2-up pages, not one 4-up and not four singles"
 
     def test_the_rendered_pages_match_the_degraded_plan_drawn_directly(self) -> None:

@@ -1021,10 +1021,12 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         # The blank title page (CARD-206), the 2-page guide (CARD-201), the
         # table of contents (CARD-200), a
         # divider per non-empty level, the puzzle pages, the SOLUTIONS
-        # divider, and the packed answer pages.
+        # divider, the packed answer pages, and the closing thank-you page
+        # (owner, 2026-11-10).
         assert len(interior) == (
             1 + 2 + toc_page_count + dividers + len(expected) + 1
             + _expected_answer_pages(printed)
+            + 1
         ), label
 
         # Which interior page each planned puzzle page landed on: page 1 is

@@ -610,9 +610,10 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         # real plan for this case rather than assumed to be any fixed number.
         toc_page_count = generator.section_plan([puzzle]).toc_page_count
         pages = _interior(generator, [puzzle])
-        assert len(pages) == 6 + toc_page_count, (
+        assert len(pages) == 7 + toc_page_count, (
             "the blank title page (CARD-206), the 2-page guide (CARD-201), "
-            "the TOC (CARD-200), puzzle, divider, answer"
+            "the TOC (CARD-200), puzzle, divider, answer, and the closing "
+            "thank-you page (owner, 2026-11-10)"
         )
 
         # Every page of the book is the trim, at 300 DPI — not only the puzzle's.
@@ -819,9 +820,10 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         generator = BookPDFGenerator(sheet.book)
         toc_page_count = generator.section_plan(book_rows).toc_page_count
         pages = _interior(generator, book_rows)
-        assert len(pages) == 12 + toc_page_count, (
+        assert len(pages) == 13 + toc_page_count, (
             "the title page, the 2-page guide, the TOC, two level "
-            "dividers, three puzzles, SOLUTIONS, three answer pages"
+            "dividers, three puzzles, SOLUTIONS, three answer pages, the "
+            "closing thank-you page (owner, 2026-11-10)"
         )
 
         medium_page = 7 + toc_page_count

@@ -1167,7 +1167,10 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         # which is exactly the distinction this pin exists to keep visible —
         # it is on the INTERIOR count, and the delta assertion above (this
         # test's actual claim) held unchanged at 1 across that shift.
-        assert (before, after) == (8, 9)
+        #
+        # The closing thank-you page (owner, 2026-11-10) moved it by one more,
+        # from (8, 9): one page after the key, the delta still 1.
+        assert (before, after) == (9, 10)
 
     def test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter(
         self, admin_app, books

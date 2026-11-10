@@ -831,7 +831,7 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             export_of(BookPDFGenerator(book_on(InkMode.BLACK_AND_WHITE)),
                       baseline_puzzles())
         )
-        assert len(declarations) == BASELINE_PAGE_COUNT == 14, (
+        assert len(declarations) == BASELINE_PAGE_COUNT == 15, (
             f"the interior is {len(declarations)} pages, not {BASELINE_PAGE_COUNT}"
         )
         raster_page_numbers = [
@@ -926,8 +926,9 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
         export_of(generator, baseline_puzzles())
 
-        # CARD-206: BASELINE_PAGE_COUNT is 14 (CARD-200's thirteen, plus the
-        # blank title / copyright page reserved as interior page 1) and the
+        # CARD-206: BASELINE_PAGE_COUNT was 14 (CARD-200's thirteen, plus the
+        # blank title / copyright page reserved as interior page 1), 15 with
+        # the closing thank-you page (owner, 2026-11-10), and the
         # literal beside it is pinned above, on the page *total*, which is
         # medium-independent. What is pinned here is that every bitmap page the
         # file holds was compared — derived from the file, because a literal

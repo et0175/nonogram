@@ -115,7 +115,9 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     """
     if puzzle_count == 0:
         return 1 + 2
-    return 1 + 2 + toc_pages + levels + puzzle_count + 1 + answer_pages
+    # The last term is the closing thank-you page (owner, 2026-11-10), after
+    # the key, on every book with puzzles.
+    return 1 + 2 + toc_pages + levels + puzzle_count + 1 + answer_pages + 1
 
 
 #: Every puzzle this module writes is this many cells wide (and 20 tall):
@@ -468,8 +470,8 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
         # The title page (CARD-206), the 2-page guide (CARD-201), the
         # 1-page TOC (CARD-200), the "Easy" divider, the puzzle, SOLUTIONS,
-        # its answer.
-        assert export.interior_page_count == 8
+        # its answer, and the closing thank-you page (owner, 2026-11-10).
+        assert export.interior_page_count == 9
 
 
 class TestBookExport_InteriorHoldsNoCoverPage:
@@ -1024,14 +1026,15 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         title page (CARD-206) + the 2-page
         guide (CARD-201) + the 1-page TOC (CARD-200, every book in this
         module is far under one TOC page's own capacity) + the one level's
-        divider + puzzle pages + SOLUTIONS + key, so what is left after the
-        **six** fixed pages and the key's own term is the puzzle-page count,
+        divider + puzzle pages + SOLUTIONS + key + the closing thank-you
+        page (owner, 2026-11-10), so what is left after the
+        **seven** fixed pages and the key's own term is the puzzle-page count,
         and it is the puzzle count. These books are one tier throughout, so
         a pairing walk that paired anything at all would be seen here — and
         so would a second divider.
         """
         written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
-        puzzle_pages = written - 6 - self._answer_pages(puzzle_count)
+        puzzle_pages = written - 7 - self._answer_pages(puzzle_count)
 
         assert puzzle_pages == puzzle_count
 
@@ -1301,8 +1304,9 @@ class TestBookExport_TitlePageCountedEverywhere:
             title_pages + 2 + 1 + 1
         ), "the puzzle section opens after the title pages, the guide and the TOC"
         expected = len(pages)
-        # 3 easy 21x20s: 2 guide + TOC + divider + 3 + SOLUTIONS + 1 answer page.
-        assert expected == 9 + title_pages
+        # 3 easy 21x20s: 2 guide + TOC + divider + 3 + SOLUTIONS + 1 answer
+        # page + the closing thank-you page (owner, 2026-11-10).
+        assert expected == 10 + title_pages
         assert (
             bpg.interior_page_count(3, 3, 1, 1, toc_pages=1) == expected
         ), "interior_page_count still counts a literal, not the constant"
@@ -3738,7 +3742,11 @@ class Generator:
     #: ``create_title_page``. Nothing added.
     #: CARD-289 (2026-11-09): 39 -- **+1**, ``InteriorStream.first_answer_page``
     #: (default 0), the walk's own Solutions position carried on the stream.
-    POSITION_SITE_COUNT = 39
+    #: The closing thank-you page (owner, 2026-11-10): 40 -- **+1**, the
+    #: ``page_number`` argument of ``vector_closing_page`` in the walk
+    #: (``first_answer_page + len(answer_plan)``). No row removed. Read off
+    #: this test's own failure listing.
+    POSITION_SITE_COUNT = 40
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -3949,7 +3957,12 @@ class Generator:
         # names this walk equally declines to follow; no new KIND of term.
         # The other new rows (the Play and blank page numbers) are made of
         # terms the walk follows and so are not exemptions.
-        assert len(exempted) == 7, exempted
+        # The closing thank-you page (owner, 2026-11-10): eight. The added
+        # site is the closing page's own position, ``first_answer_page +
+        # len(answer_plan)``: the same "Solutions plus how many answer pages"
+        # arithmetic as the answer loop's ``first_answer_page + index``, over
+        # one new name the walk declines to follow (``answer_plan``).
+        assert len(exempted) == 8, exempted
         assert terms == [
             # CARD-305, and read as a pair: the attribute and the name it
             # hangs off, which is one term of one position — a book's stored
@@ -3959,6 +3972,9 @@ class Generator:
             # (``SectionPlan.play_page_count``), a property of a plan the
             # walk cannot resolve, and the plan's name it hangs off.
             ".play_page_count",
+            # The closing thank-you page (owner, 2026-11-10): the answer
+            # plan's length, the count of answer pages before it.
+            "answer_plan",
             "decided",
             "dividers",
             "index",
@@ -4388,10 +4404,16 @@ class Generator:
         # **The guide's "?" rows (owner, 2026-11-10): +2** (712 -> 714), two
         # ``frozenset()`` builtin calls: the ``maybe`` defaults on
         # ``ExampleStep`` and ``GuideRow``. Every later row is unchanged.
-        ((), 714),
-        (("builtins",), 456),
-        (("builtins", "definitions and imports"), 167),
-        (("builtins", "definitions and imports", "parameters"), 166),
+        #
+        # **The closing thank-you page (owner, 2026-11-10): +19** (714 ->
+        # 733, 456 -> 472, 167 -> 176, 166 -> 175, last two still 0):
+        # ``vector_closing_page`` and its two local helpers (``centred``,
+        # ``wrapped``), their text, font and frame calls. Read off this
+        # test's own measurement.
+        ((), 733),
+        (("builtins",), 472),
+        (("builtins", "definitions and imports"), 176),
+        (("builtins", "definitions and imports", "parameters"), 175),
         (
             (
                 "builtins",
@@ -6362,7 +6384,11 @@ class Generator:
         # definition count still one.
         # The raster interior writers' deletion (owner, 2026-11-09): 21, the
         # seven door calls inside the deleted writers gone with them.
-        assert inside == 21, inside
+        # The closing thank-you page (owner, 2026-11-10): 22, and the one
+        # added call is named -- ``page_frame(self.page_spec(page_number))``
+        # in ``vector_closing_page``. Same door, definition count still one
+        # (22 ``self.page_spec(`` occurrences by a plain text search).
+        assert inside == 22, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

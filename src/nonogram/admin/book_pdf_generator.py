@@ -500,6 +500,8 @@ class PageKind(enum.Enum):
     #: (CARD-390): no ink and no folio, the blank title page's own shape.
     BLANK = "blank"
     ANSWER = "answer"
+    #: The thank-you page after the last solution (owner, 2026-11-10).
+    CLOSING = "closing"
 
 
 class PageMedium(enum.Enum):
@@ -879,6 +881,16 @@ LEVEL_DIVIDER_OPENER = True
 #: bare ``3 + len(section)`` sat nine statements from the position it was
 #: supposed to be a duplicate of.
 TITLE_PAGE_COUNT = 1
+
+#: The thank-you page that closes a book with puzzles, after its last answer
+#: page (owner, 2026-11-10).
+CLOSING_PAGE_COUNT = 1
+#: The closing page's words (owner approved the draft, 2026-11-10).
+CLOSING_HEADING = "Thank you for solving!"
+CLOSING_THANKS = "We hope you enjoyed every hidden picture."
+CLOSING_NEXT_IN_SERIES = "Look out for the next book in"
+CLOSING_NEXT_BOOK = "Look out for our next book."
+CLOSING_ONLINE = "Until then, every puzzle in this book is waiting for you online."
 
 #: How many interior pages the guide occupies (FR-041, CARD-201): a term of
 #: :func:`interior_page_count`'s formula, named rather than a bare ``2`` in
@@ -3513,6 +3525,9 @@ def interior_page_count(
     F-006 — latent, and left latent on purpose: making the default follow
     this parameter would turn it into one book's figure).
 
+    The closing page (owner, 2026-11-10) ends every book with puzzles:
+    :data:`CLOSING_PAGE_COUNT` page after the last answer page.
+
     ``play_online`` (CARD-390) is whether the book prints the Play online page
     that follows the last puzzle page. It adds that page and, when the last
     puzzle page is itself right-hand, the one blank page in front of it
@@ -3567,6 +3582,9 @@ def interior_page_count(
         # level's and had nowhere to be said. A book that prints no dividers
         # passes `solutions_divider=False` and loses both.
         + (answers + (1 if solutions_divider else 0) if puzzle_count else 0)
+        # The closing thank-you page after the last solution (owner,
+        # 2026-11-10): like the answer key, only for a book with puzzles.
+        + (CLOSING_PAGE_COUNT if puzzle_count else 0)
     )
 
 
@@ -4473,6 +4491,61 @@ class BookPDFGenerator:
             "No part of this book may be reproduced without written permission.",
             base + 14 * pt, 10.0, secondary,
         )
+        return stream
+
+    def vector_closing_page(self, page_number: int, online: bool) -> ContentStream:
+        """The thank-you page that closes the book (owner, 2026-11-10).
+
+        Centred on the usable width, a little above the middle: the heading,
+        then one short paragraph in grey -- thanks, the next book in the
+        book's own series (the series name set in the admin panel, or "our
+        next book" for a book without one), and, for a book that prints the
+        Play online page, that its puzzles stay online. No folio, as on the
+        title page.
+        """
+        frame = page_frame(self.page_spec(page_number))
+        stream = ContentStream(width_px=frame.width, height_px=frame.height, dpi=self.dpi)
+        face = interior_face_metrics()
+        pt = self.dpi / 72.0
+        middle = (frame.left + frame.right) / 2
+        measure = (frame.right - frame.left) * 0.8
+
+        def centred(value: str, baseline: float, size_pt: float, grey: float, bold: bool = False) -> None:
+            width = face.advance(value) * size_pt * pt
+            stream.text(
+                value, middle - width / 2, baseline, size_pt, grey=grey,
+                embolden_pt=size_pt * 0.04 if bold else 0.0,
+            )
+
+        def wrapped(value: str, size_pt: float) -> List[str]:
+            lines: List[str] = []
+            for word in value.split():
+                candidate = f"{lines[-1]} {word}" if lines else word
+                if lines and face.advance(candidate) * size_pt * pt <= measure:
+                    lines[-1] = candidate
+                else:
+                    lines.append(word)
+            return lines
+
+        series = getattr(self.book, "series_name", None)
+        series = _settable(str(series).strip()) if series is not None else ""
+        # Each sentence starts its own line; the series name has a line of
+        # its own, in ink, so it never breaks across two.
+        sentences = [(CLOSING_THANKS, 0.37)]
+        if series:
+            sentences += [(CLOSING_NEXT_IN_SERIES, 0.37), (f"{series}.", 0.0)]
+        else:
+            sentences.append((CLOSING_NEXT_BOOK, 0.37))
+        if online:
+            sentences.append((CLOSING_ONLINE, 0.37))
+
+        y = frame.top + (frame.bottom - frame.top) * 0.38
+        centred(CLOSING_HEADING, y, 26.0, 0.0, bold=True)
+        y += 26.0 * pt + 18.0 * pt
+        for sentence, grey in sentences:
+            for line in wrapped(sentence, 13.0):
+                centred(line, y, 13.0, grey)
+                y += 13.0 * 1.5 * pt
         return stream
 
     def vector_title_page(self, page_number: int = 1) -> ContentStream:
@@ -6078,6 +6151,7 @@ class BookPDFGenerator:
             if self.divider_pages:
                 page_kinds.append(PageKind.DIVIDER)
             page_kinds.extend(PageKind.ANSWER for _ in answer_plan)
+            page_kinds.append(PageKind.CLOSING)
 
         def produce() -> Iterator[Union[Image.Image, ContentStream]]:
             """The interior's pages in print order, one per :func:`next`.
@@ -6312,6 +6386,11 @@ class BookPDFGenerator:
                     ) from e
                 yield page
                 del page
+            # The closing thank-you page, after the last solution (owner,
+            # 2026-11-10).
+            yield self.vector_closing_page(
+                first_answer_page + len(answer_plan), decided.play_page is not None
+            )
 
         return InteriorStream(
             answer_titles=tuple(
