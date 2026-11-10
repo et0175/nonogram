@@ -2418,6 +2418,10 @@ function wireMarking(container, player) {
     const open = probe !== null;
     probeToggle.setAttribute("aria-pressed", String(open));
     probeToggle.setAttribute("aria-disabled", String(open || player.locked()));
+    // CARD-411: Probe BECOMES the pair while one is open (the owner's
+    // "at full toolbar size"); the line is as tall as its buttons either
+    // way, so nothing moves.
+    probeToggle.hidden = open;
     probeKeep.hidden = !open;
     probeAbandon.hidden = !open;
     probeNote.hidden = !open;
@@ -2719,23 +2723,35 @@ function wireMarking(container, player) {
   //                  redo after an abandon behave exactly as redo after an
   //                  undo always has. The probe is closed BEFORE the commit,
   //                  so the save that commit writes is the whole history.
+  // CARD-411 review cycle 1, F-002: Probe becomes the pair, so the button
+  // that had focus is hidden by its own press; focus moves to the button
+  // now in its place (Keep on open, Probe on close) instead of to <body>.
+  const handOn = (from, to) => {
+    if (document.activeElement === from || document.activeElement === document.body) to?.focus({ preventScroll: true });
+  };
   probeToggle?.addEventListener("click", () => {
     if (gesture || probeToggle.getAttribute("aria-disabled") === "true") return;
+    const had = document.activeElement === probeToggle;
     probe = nextProbe(probe, player.getHistory(), "open");
     player.probed();
     refresh();
+    if (had) handOn(document.body, probeKeep);
   });
   probeKeep?.addEventListener("click", () => {
     if (gesture || probe === null) return;
+    const had = document.activeElement === probeKeep;
     probe = nextProbe(probe, player.getHistory(), "keep");
     player.probed();
     refresh();
+    if (had) handOn(document.body, probeToggle);
   });
   probeAbandon?.addEventListener("click", () => {
     if (gesture || probe === null) return;
+    const had = document.activeElement === probeAbandon;
     const back = abandonProbe(player.getHistory(), probe);
     probe = nextProbe(probe, back, "abandon");
     commit(back);
+    if (had) handOn(document.body, probeToggle);
   });
 
   // Undo and redo change nothing while the board is locked (solved).

@@ -753,13 +753,13 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         _open(page, live, live.store(_GRID_30x25))
         plain = page.evaluate(_GUTTER_SHAPE)
         assert (plain["rowBoxes"], plain["colBoxes"], plain["duplicates"]) == (25, 30, 0)
-        assert _cell_widths(page)[0] == pytest.approx(19.55, abs=0.05)  # CARD-403/404: measured top, then the board margin (was 19.75, then 20.02)
+        assert _cell_widths(page)[0] == pytest.approx(19.11, abs=0.05)  # CARD-403/404: measured top, then the board margin (was 19.75, then 20.02); 19.55 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
 
         _zoom_to(page, 150)
         # 150% of the doubled layout's 16 px cells is exactly the 24 px the
         # duplicate is conditional on — the number this test exists to keep
         # out of the decision.
-        assert _cell_widths(page)[0] == pytest.approx(19.55 * 1.5, abs=0.05)
+        assert _cell_widths(page)[0] == pytest.approx(19.11 * 1.5, abs=0.05)
 
         # Force the redraw the breakpoint listener performs (out to phone
         # width and back), where a zoom-blind decision would double.
@@ -999,8 +999,8 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
             # "the highest zoom that keeps both axes". The window is 100 px
             # taller instead, re-measured.
             ("plain 30x30 at 900x800", _GRID_30x30, {"width": 900, "height": 800}, 0, 125,
-             [212, 237]),
-            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [275, 172]),  # [778, 487] until CARD-403/404: the capped bands are 317 x 194, not 568 x 347
+             [212, 252]),  # 237 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
+            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [275, 187]),  # 172 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop); [778, 487] until CARD-403/404: the capped bands are 317 x 194, not 568 x 347
         ],
         ids=lambda value: value if isinstance(value, str) else "",
     )

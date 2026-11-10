@@ -1443,6 +1443,15 @@ class TestSolverProbe_OnlyOneProbeAtATime:
         checkpoint = _states(browser_page)
 
         _probe(browser_page)
+        # CARD-411 review cycle 1, F-002: the press that hid Probe hands focus
+        # to the button now in its place, not to <body>.
+        assert browser_page.evaluate("document.activeElement.dataset.playerProbeAction") == "keep"
+        # ...and Keep, focused, hands it back to Probe (review cycle 3,
+        # F-203); the probe is opened again for the arms below.
+        browser_page.locator('[data-player-probe-action="keep"]').focus()
+        _keep(browser_page)
+        assert browser_page.evaluate("document.activeElement.id") == "puzzle-player-probe"
+        _probe(browser_page)
         _cell(browser_page, 5, 5).click()
         _cell(browser_page, 6, 6).click()
         members = _members(browser_page)
@@ -1450,14 +1459,15 @@ class TestSolverProbe_OnlyOneProbeAtATime:
         assert _probe_disabled(browser_page) == "true"
         assert _probe_pressed(browser_page) == "true"
 
-        # A REAL press that the page refuses, not a press the test skipped.
-        # Playwright reads aria-disabled as "not enabled" and would wait for
-        # the attribute to go away, so the click is forced — it still goes to
-        # the element's centre as a browser click, which is exactly what a
-        # player clicking the control gets (aria-disabled, unlike `disabled`,
-        # does not stop the browser dispatching one). The same `force=True`
-        # tests/test_puzzle_solver_zoom.py uses on a clamped zoom button.
-        _probe_toggle(browser_page).click(force=True)
+        # RETIRED CLAIM, 2026-11-07 (CARD-411, owner finding: "'✓ Keep' and
+        # '✗ Wrong guess' at full toolbar size"): a forced press on the open
+        # probe's toggle, refused. Probe now BECOMES the pair while a probe is
+        # open, so there is no toggle to press a second time: it is not
+        # drawn and not in the accessibility tree, and its place is the
+        # pair's. A press there is a press of Keep, which is not a second
+        # probe either. What is asserted is that nothing offers one.
+        assert not _probe_toggle(browser_page).is_visible()
+        assert browser_page.get_by_role("button", name="Probe").count() == 0
 
         assert _probe_pressed(browser_page) == "true"
         assert _probe_disabled(browser_page) == "true"
@@ -1466,8 +1476,11 @@ class TestSolverProbe_OnlyOneProbeAtATime:
 
         # The checkpoint is still the FIRST one: abandoning reaches the board
         # before (5, 5), not the board the second press would have kept.
+        browser_page.locator('[data-player-probe-action="abandon"]').focus()
         _contradiction(browser_page)
         assert _states(browser_page) == checkpoint
+        # And the close hands focus back to Probe (review cycle 2, F-104).
+        assert browser_page.evaluate("document.activeElement.id") == "puzzle-player-probe"
         assert problems == []
 
 
@@ -1763,8 +1776,9 @@ _TOOLBAR_PULL = """() => parseFloat(
 
 @pytest.mark.browser
 class TestSolverProbe_TheBarCostsTheBoardNoGround:
-    """The probe bar's line is paid for ABOVE the toolbar, so the board sits
-    exactly where it sat before this card.
+    """The probe bar's line is paid for ABOVE the toolbar — the small-button
+    row CARD-268 measured; since CARD-411 (owner ruling 2026-11-10, "A") the
+    line is a full control row and the board pays exactly the difference.
 
     The card's own first constraint is that the board may not move down —
     ``#puzzle-player`` is a scroll container, Chromium puts it in the Tab
@@ -1792,12 +1806,13 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
     the two must be the same number. That is sharp at one pixel.
 
     Probe CLOSED at all three viewports, which is the standing layout every
-    sibling test sees. An OPEN probe deliberately makes the bar taller (Keep,
-    Contradiction and the leaving note appear) and at 390 px wraps it onto
-    further lines, so the board does move down while a probe is open — the
-    player asked for it, it lasts as long as the probe does, and no test in
-    the family opens one. The companion class above is what holds the air in
-    that state.
+    sibling test sees — and, since CARD-411, OPEN too: the board's top is the
+    same with no probe, one open and after closing it, because the line's
+    height is fixed. The paragraph that stood here said an open probe moved
+    the board down; that claim is retired with the owner's 2026-11-07
+    finding, and so is "the board sits exactly where it sat" (owner ruling
+    2026-11-10, option "A"): the line is a full control row on every screen
+    and costs exactly the difference from the small row, asserted below.
     """
 
     @pytest.mark.parametrize(
@@ -1820,13 +1835,61 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             f"comparison below is between a page and itself"
         )
 
+        # CARD-411 (owner finding 2026-11-07, item 8: "'✓ Keep' and '✗ Wrong
+        # guess' at full toolbar size"; AC-1..AC-3). RETIRED CLAIM: "an OPEN
+        # probe deliberately makes the bar taller ... so the board does move
+        # down while a probe is open". Probe now becomes the pair on a line
+        # of fixed height, so the board's top is the same with no probe,
+        # with one open and after closing it; and the pair is
+        # the toolbar's size (the height of Hint; 44 px or wider compact),
+        # named 'Keep' and 'Wrong guess', with 'Contradiction' gone. At
+        # 390 x 844 the landscape phone is measured too (no new node id).
+        sizes = [viewport] + ([(844, 390)] if viewport == (390, 844) else [])
+        for width, height in sizes:
+            browser_page.set_viewport_size({"width": width, "height": height})
+            browser_page.wait_for_timeout(100)
+            closed = browser_page.evaluate(_BOARD_TOP)
+            _probe(browser_page)
+            opened = browser_page.evaluate(_BOARD_TOP)
+            hint = _button(browser_page, "Hint").bounding_box()
+            keep = browser_page.get_by_role("button", name="Keep", exact=True)
+            wrong = browser_page.get_by_role("button", name="Wrong guess", exact=True)
+            assert keep.is_visible() and wrong.is_visible(), (width, height)
+            assert browser_page.get_by_text("Contradiction").count() == 0
+            compact = width <= 600 or height <= 500  # admin.css's compact condition
+            for box in (keep.bounding_box(), wrong.bounding_box()):
+                # The toolbar's size on every screen (owner ruling
+                # 2026-11-10, option "A").
+                assert abs(box["height"] - hint["height"]) < 0.5, (width, height, box, hint)
+                if compact:
+                    assert box["width"] >= 44, (width, height, box)
+            _keep(browser_page)
+            after = browser_page.evaluate(_BOARD_TOP)
+            assert closed == opened == after, (width, height, closed, opened, after)
+
+        # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "at full toolbar
+        # size"; owner ruling 2026-11-10, option "A"): the line cost the board
+        # nothing. It is now a full control row (the toolbar's button height)
+        # where it was a small-button row, and the pull pays for the small one
+        # only, so the line costs the board EXACTLY the difference on every
+        # screen (12 px compact, 14.78 px with labelled buttons) — sharp at a
+        # pixel, and paid once: the board does not move again when a probe
+        # opens (above).
         with_bar = browser_page.evaluate(_BOARD_TOP)
+        # What the pull pays for: the small-button row CARD-268 measured.
+        old_line = browser_page.evaluate("""() => { const e = document.createElement('i');
+          e.style.cssText = 'display:block;height:calc(var(--control-h) - var(--space-3))'; document.body.append(e);
+          const h = e.getBoundingClientRect().height; e.remove(); return h; }""")
+        line = browser_page.locator(".player-probe").bounding_box()["height"]
+        hint_h = _button(browser_page, "Hint").bounding_box()["height"]
+        assert abs(line - hint_h) < 0.5, (line, hint_h)  # a control row: the toolbar's button height
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
         without = browser_page.evaluate(_BOARD_TOP)
-        assert with_bar == without, (
+        cost = line - old_line
+        assert abs((with_bar - without) - cost) < 0.01, (
             f"the board's top is {with_bar} with the probe line and "
-            f"{without} without it, so the line this card adds to the "
-            f"toolbar moves the board by {with_bar - without} px"
+            f"{without} without it: the line moves the board by "
+            f"{with_bar - without} px, not {cost} px"
         )
 
 

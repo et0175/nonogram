@@ -1231,7 +1231,7 @@ class TestSolverClues_TheCircleIsVisible:
         # CARD-193: below 820 px the cell floor is removed, so at 390 the
         # measured value is this grid's 14.4 px numeral-driven column floor
         # (two-digit column numbers), not the old 24 px phone floor.
-        assert cell == pytest.approx({1100: 14.4, 1440: 17.5, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403/404: measured top, board margin (1440 was 17.67)
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.09, 390: 14.39}[viewport["width"]], abs=0.05), cell  # CARD-403/404: measured top, board margin (1440 was 17.67); 1440 17.5 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -1385,10 +1385,13 @@ class TestSolverClues_SingleDigitRowRingsMayTouch:
         # Never an actual overlap (always positive, less one 1/64 px layout
         # unit, as the existing close-pairs check below tolerates)...
         assert gap > -1 / 64, gap
-        if viewport["width"] == 390:
+        if viewport["width"] in (390, 1100):
             # CARD-193: below the 24 px phone floor this pair is no longer
             # tight — it keeps the ordinary full _RING_GAP, measured here at
-            # about 5.4 px (well clear of the floor).
+            # about 5.4 px (well clear of the floor). CARD-411 (owner ruling
+            # 2026-11-10, option "A": the probe line is a full control row,
+            # 14.78 px less stage) put the 1100 x 700 "floor" viewport's numeral on
+            # its 12 px floor too, and the pair parts there (0.78 px measured).
             assert gap >= _RING_GAP - 1 / 64, gap
         else:
             # ...but F-006 narrows the full _RING_GAP floor away for this one
@@ -1557,7 +1560,11 @@ GRID_30x12 = _unique_grid(30, 12, seed=2121)
 #: for both row gutters on a 30 x 12 (measured: 28 px cells) while a 30 x 25
 #: there can only afford the row pair (25.05 px).
 ROOMY = {"width": 1920, "height": 1500}
-WIDE = {"width": 1920, "height": 1080}
+#: 1080 tall until CARD-411 (owner ruling 2026-11-10, option "A": the probe
+#: line is a full control row, 14.78 px less stage with labelled buttons):
+#: the 30 x 25 no longer doubled both axes there, so the window is 15 px
+#: taller to keep the room these cases were written for (re-measured).
+WIDE = {"width": 1920, "height": 1095}
 #: A laptop window, where doubling a 30 x 25 would leave 19.75 px cells: the
 #: board keeps one gutter per axis (AC-1's "with room" clause, from the other
 #: side).
@@ -1730,7 +1737,7 @@ class TestSolverClues_BigBoardRepeatsBothAxes:
         assert _lines(seen, "rows", duplicate=True) == []
         assert _lines(seen, "columns", duplicate=True) == []
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(19.55, abs=0.05), seen["cell"]  # CARD-403: the cell's height term reads the stage's measured top (was 19.75)
+        assert seen["cell"] == pytest.approx(19.11, abs=0.05), seen["cell"]  # CARD-403: the cell's height term reads the stage's measured top (was 19.75); 19.55 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
 
 
 @pytest.mark.browser
@@ -2127,7 +2134,8 @@ DEFAULT_VIEWPORT = {"width": 1280, "height": 720}
 #: tries the doubled rung. The two 22 x 14 cases below are about a doubled
 #: rung that MISSES the bar while the plain one clears it, so they move to a
 #: window 40 px taller, where that is true again (re-measured, not relaxed).
-LAPTOP_760 = {"width": 1280, "height": 760}
+#: 760 until CARD-411 (option "A", 14.78 px less stage), for the same reason.
+LAPTOP_760 = {"width": 1280, "height": 775}
 
 #: Mid-size boards: big on the row axis, small enough that the row clues DO
 #: double at DEFAULT_VIEWPORT (measured: 26.88 px and, for the 22-wide, a
@@ -2207,7 +2215,7 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
         assert _lines(seen, "rows", duplicate=True) == rows
         assert _lines(seen, "columns", duplicate=True) == []  # 12 rows: not eligible
         assert seen["feet"] == 0
-        assert seen["cell"] == pytest.approx(27.34, abs=0.05), seen["cell"]  # 26.88 until CARD-404 (capped clues, narrower band)
+        assert seen["cell"] == pytest.approx(26.20, abs=0.05), seen["cell"]  # 26.88 until CARD-404 (capped clues, narrower band); 27.34 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
         # The heavy fifth-line rules read the same in both gutters (the
         # duplicate carries .major-below exactly as its twin does).
         heavy = page.evaluate(
@@ -2301,8 +2309,13 @@ GRID_30x30 = _unique_grid(30, 30, seed=19330)
 
 #: Desktop, column band partly scrolled out; the card's AC-1 viewport.
 LAPTOP_720 = DEFAULT_VIEWPORT
-#: Desktop, the whole column band scrolled out.
-SHORT_720 = {"width": 1280, "height": 600}
+#: Desktop, the whole column band scrolled out. 600 tall until CARD-411 (owner
+#: ruling 2026-11-10, option "A": the probe line is a full control row, 14.78
+#: px less stage): at 1280 x 600 the column band no longer has the room to stick
+#: (TheRoomForAStuckBandIsMeasuredNotPredicted's 1280x600 row records that),
+#: so the window is 15 px taller to keep the stage these cases were written
+#: for — both bands stuck, the same port and overflow.
+SHORT_720 = {"width": 1280, "height": 615}
 #: The narrowest desktop measured: a plain big board scrolls on BOTH axes and
 #: is still not mirrored (900 > 820).
 NARROW_DESKTOP = {"width": 900, "height": 700}
@@ -2453,7 +2466,7 @@ class TestSolverClues_TheStageIsTheScrollContainer:
         assert [box["name"] for box in scrollers] == ["DIV.player-stage"], chain
         # And it is the box the board really does outgrow, so the question the
         # card asked is answered by a measurement and not by a declaration.
-        assert scrollers[0]["overflowY"] == 238, scrollers  # 211 until CARD-403's measured stage cap (owner finding 2026-11-07)
+        assert scrollers[0]["overflowY"] == 238, scrollers  # 211 until CARD-403's measured stage cap (owner finding 2026-11-07); SHORT_720 is 15 px taller since CARD-411, same stage
 
 
 @pytest.mark.browser
@@ -2482,9 +2495,9 @@ class TestSolverClues_StayInViewOnAPlainBigBoard:
             # ends above the fold): the stage is capped at its measured top,
             # so each port is shorter and the vertical overflow larger. Was
             # [0, 91], [0, 211], [104, 111].
-            ("the card's 1280x720", LAPTOP_720, [0, 118]),
+            ("the card's 1280x720", LAPTOP_720, [0, 133]),  # 118 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
             ("a short window, whole band gone", SHORT_720, [0, 238]),
-            ("a narrow window, both axes", NARROW_DESKTOP, [104, 195]),
+            ("a narrow window, both axes", NARROW_DESKTOP, [104, 210]),  # 195 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
         ],
         ids=lambda value: value if isinstance(value, str) else "",
     )
@@ -2925,7 +2938,7 @@ class TestSolverClues_DoubledGuttersAreNotStuck:
         # Both bands would scroll clean out of view without the fix: the
         # overflow on each axis is past that axis's whole band (567.9 px and
         # 347.4 px here), so this is a case and not a formality.
-        assert seen["overflow"] == [275, 172], seen["overflow"]  # [778, 487] until CARD-403/404: the capped bands are 317 x 194
+        assert seen["overflow"] == [275, 187], seen["overflow"]  # [778, 487] until CARD-403/404: the capped bands are 317 x 194; 172 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
         # 567.9 x 347.4 until CARD-404 capped the clue numerals at 14 px.
         assert seen["bands"] == [pytest.approx(317.05, abs=0.5),
                                  pytest.approx(194.28, abs=0.5)], seen["bands"]
@@ -3133,16 +3146,16 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         # stage is capped at its measured top, owner finding 2026-11-07); the
         # keeping verdicts are unchanged. Was: 492/91, 372/211, 472/111, and
         # at 390x844 / 600x844 583 tall with no vertical overflow.
-        ("1280x720", {"width": 1280, "height": 720}, [True, True], [0, 118], [980, 465]),
-        ("1280x600", {"width": 1280, "height": 600}, [True, True], [0, 238], [980, 345]),
-        ("900x700", {"width": 900, "height": 700}, [True, True], [104, 195], [600, 388]),
+        ("1280x720", {"width": 1280, "height": 720}, [True, True], [0, 133], [980, 450]),  # 118/465 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
+        ("1280x600", {"width": 1280, "height": 600}, [True, False], [0, 253], [980, 330]),  # [True, True]/238/345 until CARD-411 (option "A", 14.78 px less stage): the column band no longer has the room to stick here
+        ("900x700", {"width": 900, "height": 700}, [True, True], [104, 210], [600, 373]),  # 195/388 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
         # The mirror, and the one case at 100 % zoom where an axis gives up:
         # 272.2 px of band over a 358 px stage is three quarters of it, so a
         # stuck band would leave six columns of thirty visible.
-        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 147], [358, 436]),  # 185/398 until CARD-409 took the answer line out of the head
+        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 159], [358, 424]),  # 185/398 until CARD-409 took the answer line out of the head; 147/436 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
         # The same board and the same mirror, 210 px wider: the row axis now
         # scrolls by 136 px, so that is all the band can hide, and it keeps.
-        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 75], [568, 508]),  # 108/475 until CARD-406's 44 px Fit control; 113/470 until CARD-409 took the answer line out of the head
+        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 87], [568, 496]),  # 108/475 until CARD-406's 44 px Fit control; 113/470 until CARD-409 took the answer line out of the head; 75/508 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
     ]
 
     @pytest.mark.parametrize("name, viewport, keeping, overflow, port", ROOMS,
