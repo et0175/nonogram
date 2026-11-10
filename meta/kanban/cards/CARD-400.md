@@ -1,6 +1,6 @@
 # CARD-400: A clue number the player's marks have settled gets circled — the uncircled-but-solved cases are enumerated and the owner's example reproduced before any rule changes
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** bug
 **Estimate:** 3c (1d)
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/400-settled-numbers-circle
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-400
+**Worktree:** —
 **Source:** owner player findings 2026-11-07, item 10: "BUG: Some solved numbers are not circled (last but one '2' in this picture)", puzzle 1750b436-5669-4ed0-9bc0-56aa2f7e34be on the admin panel (production database: off limits to this work, so the line is read from the owner's screenshot or supplied by the owner). Source file: `~/Documents/nonogram-reviews/player-findings-2026-11-07/OWNER-FINDINGS.md`.
 **Idea:** —
 **Wave:** 79
@@ -19,11 +19,11 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/08-playing-a-stored-puzzle.md
 <!-- `solver.js` (paintCircles / clueNumbersOf) is expected NOT to change: it was read at drafting time and paints whatever `circledClues` returns after every commit AND after every redraw (`redraw()` ends in `showProgress(null)`), so a stale-paint defect is ruled out by reading. If the author finds otherwise, solver.js joins Touches and the finding is reported. `tests/test_public_player_circles.py` pins play.js's port (CARD-399 family) and is NOT touched. -->
-**Review score:** —
+**Review score:** 9.0 (cycle 1)
 **Started:** 2026-11-10T09:51Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-10T12:22Z
+**Actual:** 1 review cycle (wall clock excluded, owner ruling)
+**Merge commit:** 207470ef
 **Blocked by:** —
 
 ## Why this card exists
