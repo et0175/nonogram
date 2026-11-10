@@ -1,6 +1,6 @@
 # CARD-367: This board estimates in review cycles with no ADR of its own saying so — the decision is recorded upstream, and this board never recorded adopting it
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1c (0.5d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/decisions/adr/, meta/architecture/decisions/open.yml, meta/kanban/board.md, meta/kanban/retro.md
-**Review score:** —
+**Review score:** n/a — **RETIRED** on the owner's 2026-11-10 enabler triage. No work is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -129,3 +129,7 @@ asserted bounds and not from here.
   (check: review-lens)
 - ADR-0039/R4 — a figure recomputed and refuted is retracted everywhere it was written
   (check: review-lens)
+
+## RETIRED 2026-11-10 — enabler triage
+
+Paperwork only: the estimate-unit decision is already an accepted ADR upstream in forge_1.

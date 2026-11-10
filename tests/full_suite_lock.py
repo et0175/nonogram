@@ -55,19 +55,65 @@ decision stays a pure function that can be put every case in front of without
 starting a process. The card's Touches named only the conftest; this follows
 the two guards already there instead, and the conftest is still where the hook
 is registered.
+
+CARD-370 and CARD-377 — a full suite takes the lock itself
+----------------------------------------------------------
+Until these cards the lock was mandatory on refusal and advisory on
+acquisition: nothing in the tree wrote it, so a full suite that did not take
+it by hand ran unseen, and the next one to take it refused every child pytest
+the first was still starting (wave 76: 37 failures that were not the tree).
+
+**Which run is a full suite** is decided from what the run *collected*, never
+from how it was spelled: every test module on disk under ``tests/`` produced a
+collection report, nothing was deselected, and no argument named a single
+node. ``pytest``, ``pytest tests``, ``pytest .`` and ``pytest tests/*.py`` are
+all the same full suite by that rule, and ``-k``, ``-m``, ``--deselect``,
+``--ignore``, ``--lf`` or a path list that leaves one module out are all
+narrower. See :func:`is_full_suite`.
+
+**A full suite with no lock in its way takes it** before the first test runs
+(``O_EXCL``, so two that race cannot both win), says so in the terminal
+summary, and removes it when the session ends. It writes ``pid``, ``host``
+and a ``token``, exports the token to its children through
+:data:`OWNER_VAR` so the pytests it starts recognise the lock as theirs, and
+touches the file every :data:`HEARTBEAT_SECONDS` from a daemon thread.
+
+**A lock left by a dead run** no longer waits six hours. On the host that
+wrote it, a ``pid`` no process answers to is gone at once; from another host,
+whose pids mean nothing here, a heartbeat older than
+:data:`HEARTBEAT_STALE_SECONDS` is. :data:`STALE_SECONDS` is unchanged and
+still governs the gate scripts' locks, which carry neither field.
+
+**A second run in the same worktree** is still let through, because a gate
+writes the lock and then runs pytest there — but when the lock carries a token
+that is not this process's, it says so instead of saying nothing.
 """
 
 from __future__ import annotations
 
 import calendar
+import fnmatch
 import os
+import secrets
+import socket
+import threading
 import time
 from pathlib import Path
 
 __all__ = [
+    "HEARTBEAT_SECONDS",
+    "HEARTBEAT_STALE_SECONDS",
     "LOCK_PATH_VAR",
     "OVERRIDE",
+    "OWNER_VAR",
     "STALE_SECONDS",
+    "acquire",
+    "heartbeat_age_seconds",
+    "holder_alive",
+    "is_full_suite",
+    "lock_text_for",
+    "release",
+    "modules_on_disk",
     "current_verdict",
     "default_lock_path",
     "lock_age_seconds",
@@ -125,6 +171,21 @@ LOCK_PATH_VAR = "NONOGRAM_FULL_SUITE_LOCK"
 #: room — and the cost of being generous is bounded by the override, which
 #: needs no wait at all.
 STALE_SECONDS = 21600.0
+
+#: Set by this module, and only by it, in the process that took the lock, so
+#: that the pytests that process starts inherit it and recognise the lock as
+#: their own run's. Not a switch: setting it by hand to a lock's token makes a
+#: run read that lock as its parent's, and nothing else.
+OWNER_VAR = "NONOGRAM_FULL_SUITE_LOCK_OWNER"
+
+#: How often a lock this module took is touched.
+HEARTBEAT_SECONDS = 60.0
+
+#: How long a heartbeat may be silent before its holder is presumed gone. Read
+#: only when the holder's pid cannot be checked (another host): fifteen beats,
+#: so a loaded machine that starves the thread for a few minutes is not read
+#: as a dead one. On the writing host the pid answers sooner and exactly.
+HEARTBEAT_STALE_SECONDS = 900.0
 
 #: Where the lock lives, relative to the main repo root.
 LOCK_RELATIVE_PATH = ("meta", "kanban", ".full-suite.lock")
@@ -282,6 +343,52 @@ def lock_age_seconds(
     return (time.time() if now is None else now) - when
 
 
+def holder_alive(fields: dict[str, str], *, host: str | None = None) -> bool | None:
+    """Is the process that wrote this lock still running? ``None``: cannot tell.
+
+    Only a lock that names both ``pid`` and ``host`` can be asked, and only on
+    that host — a pid from another machine names nothing here. The gate
+    scripts write neither, so their locks always answer ``None`` and keep the
+    age rule.
+    """
+    here = socket.gethostname() if host is None else host
+    if fields.get("host") != here:
+        return None
+    try:
+        pid = int(fields.get("pid", ""))
+    except ValueError:
+        return None
+    if pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return None
+    return True
+
+
+def heartbeat_age_seconds(
+    fields: dict[str, str], *, path: Path | None, now: float | None = None
+) -> float | None:
+    """Seconds since a heartbeating lock was last touched; ``None`` otherwise.
+
+    Only a lock that says it heartbeats (a ``heartbeat`` field, which this
+    module writes) is read this way. Any other lock's mtime is its acquisition
+    time and says nothing about whether its holder is alive.
+    """
+    if "heartbeat" not in fields or path is None:
+        return None
+    try:
+        touched = path.stat().st_mtime
+    except OSError:
+        return None
+    return (time.time() if now is None else now) - touched
+
+
 def _describe(fields: dict[str, str], age_seconds: float | None, path: Path | None) -> str:
     """The holder, field by field, as a block to paste into a message."""
     lines = []
@@ -318,6 +425,9 @@ def verdict(
     age_seconds: float | None,
     overridden: bool,
     path: Path | None = None,
+    alive: bool | None = None,
+    heartbeat_age: float | None = None,
+    own_token: str | None = None,
 ) -> tuple[bool, str | None]:
     """May this run start? And what must it say?
 
@@ -332,16 +442,40 @@ def verdict(
     fields = parse_fields(lock_text)
     held_by = fields.get("worktree")
     names_a_tree = _names_a_tree(held_by)
+    gone = _gone(alive, heartbeat_age)
     if names_a_tree and _same_tree(held_by or "", worktree):
         # The gate writes the lock and then runs the suite in the worktree it
         # named. Refusing here would stop every gate on the board; this is the
         # case "treat every lock as foreign" reds.
-        return True, None
+        token = fields.get("token")
+        if not token or token == own_token:
+            return True, None
+        # CARD-377: a lock this module wrote, in this worktree, for a run this
+        # process does not descend from. Still allowed — refusing would stop
+        # a gate — but no longer silent, so one worktree shared by two runs
+        # has something in the output that says so.
+        if gone:
+            return True, (
+                f"full-suite lock: ignoring a lock in this worktree left by "
+                f"{_one_line(fields)}, which {gone}. Delete {path} if it is still there."
+            )
+        return True, (
+            f"full-suite lock: another run in this worktree holds the lock — "
+            f"{_one_line(fields)}, taken at {fields.get('at', '(no at: field)')}. "
+            f"This run is not that one; two runs in one worktree share its database "
+            f"and its files."
+        )
 
     if overridden:
         return True, (
             f"full-suite lock: held by {_one_line(fields)} — "
             f"running anyway because {OVERRIDE} is set"
+        )
+
+    if gone:
+        return True, (
+            f"full-suite lock: ignoring a stale lock — {_one_line(fields)} "
+            f"{gone}. Delete {path} if it is still there."
         )
 
     if age_seconds is not None and age_seconds >= STALE_SECONDS:
@@ -382,6 +516,23 @@ def verdict(
     )
 
 
+def _gone(alive: bool | None, heartbeat_age: float | None) -> str | None:
+    """Why the holder is presumed gone, in words, or ``None`` if it may be alive.
+
+    A pid answered on its own host outranks the heartbeat: a test that holds
+    the interpreter long enough to starve the heartbeat thread is still a live
+    run, and only the pid can say so.
+    """
+    if alive is False:
+        return "is no longer running (its pid answers to no process on this host)"
+    if alive is None and heartbeat_age is not None and heartbeat_age >= HEARTBEAT_STALE_SECONDS:
+        return (
+            f"stopped its heartbeat {heartbeat_age:.0f}s ago, past the "
+            f"{HEARTBEAT_STALE_SECONDS:.0f}s threshold"
+        )
+    return None
+
+
 def current_verdict() -> tuple[bool, str | None]:
     """:func:`verdict` for the lock and environment this process is in."""
     path = lock_path()
@@ -395,6 +546,9 @@ def current_verdict() -> tuple[bool, str | None]:
         age_seconds=lock_age_seconds(fields, path=path),
         overridden=bool(os.getenv(OVERRIDE)),
         path=path,
+        alive=holder_alive(fields),
+        heartbeat_age=heartbeat_age_seconds(fields, path=path),
+        own_token=os.getenv(OWNER_VAR) or None,
     )
 
 
@@ -437,6 +591,205 @@ def redirect_note() -> str | None:
     )
 
 
+def modules_on_disk(tests_dir: Path, patterns: list[str] | tuple[str, ...]) -> set[Path]:
+    """Every file under ``tests_dir`` that pytest would collect as a test module.
+
+    ``patterns`` is the run's own ``python_files``, so the rule follows the
+    configuration rather than restating it. Hidden directories and
+    ``__pycache__`` are left out, as pytest's default ``norecursedirs`` does.
+    """
+    found: set[Path] = set()
+    for folder, dirs, files in os.walk(tests_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
+        for name in files:
+            if name.endswith(".py") and any(fnmatch.fnmatch(name, pat) for pat in patterns):
+                found.add(Path(folder, name).resolve())
+    return found
+
+
+def is_full_suite(
+    *,
+    on_disk: set[Path],
+    collected: set[Path],
+    deselected: int,
+    args: list[str] | tuple[str, ...],
+) -> bool:
+    """Did this run collect the whole suite? (CARD-370 AC-1.)
+
+    Derived from the collection, so no spelling of the command line changes the
+    answer: a run is full when every test module on disk was collected,
+    nothing was deselected afterwards, and no argument named a single node
+    (``file::test`` collects its whole module but runs one test). An empty
+    ``on_disk`` — a tree this rule cannot see — answers *full*: the doubtful
+    case takes the lock, which costs another worktree a wait, rather than
+    running unlocked, which cost wave 76 thirty-seven failures.
+    """
+    if any("::" in str(arg) for arg in args):
+        return False
+    if deselected:
+        return False
+    return on_disk <= collected
+
+
+def lock_text_for(*, worktree: str, token: str, pid: int, host: str, now: float) -> str:
+    """The lock a full suite writes: the gate scripts' fields, plus its own."""
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+    return (
+        f"holder: pytest full suite (pid {pid})\n"
+        f"worktree: {worktree}\n"
+        f"at: {stamp}\n"
+        f"host: {host}\n"
+        f"pid: {pid}\n"
+        f"token: {token}\n"
+        f"heartbeat: file mtime, every {HEARTBEAT_SECONDS:.0f}s\n"
+    )
+
+
+#: The lock this process took, while it holds it: path, token, stop event.
+_HELD: dict | None = None
+
+#: This process's :class:`_Session`, once :func:`pytest_configure` registered it.
+_SESSION = None
+
+
+def acquire(path: Path, *, worktree: str) -> tuple[bool, str]:
+    """Take the lock at ``path`` if nobody holds it. ``(taken, what to say)``.
+
+    ``O_CREAT | O_EXCL``: of two full suites that both found no lock, exactly
+    one creates the file and the other is told who did. A stale lock (the
+    verdict already walked past it) is removed first and then taken the same
+    way. On success the token goes into :data:`OWNER_VAR` for this process's
+    children and a daemon thread starts touching the file.
+    """
+    global _HELD
+    token = secrets.token_hex(8)
+    text = lock_text_for(
+        worktree=worktree, token=token, pid=os.getpid(), host=socket.gethostname(), now=time.time()
+    )
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        return False, "another run took it first"
+    except OSError as error:
+        return False, f"it could not be written ({error.strerror})"
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(HEARTBEAT_SECONDS):
+            try:
+                os.utime(path)
+            except OSError:
+                return
+
+    threading.Thread(target=beat, name="full-suite-lock-heartbeat", daemon=True).start()
+    os.environ[OWNER_VAR] = token
+    _HELD = {"path": path, "token": token, "stop": stop}
+    return True, f"full-suite lock: this run is a full suite and holds the lock ({path})"
+
+
+def release() -> None:
+    """Remove the lock this process took — only if it is still ours."""
+    global _HELD
+    held, _HELD = _HELD, None
+    if held is None:
+        return
+    held["stop"].set()
+    if os.environ.get(OWNER_VAR) == held["token"]:
+        del os.environ[OWNER_VAR]
+    text = read_lock(held["path"])
+    if text is not None and parse_fields(text).get("token") == held["token"]:
+        try:
+            held["path"].unlink()
+        except OSError:
+            pass
+
+
+def _add_announcement(line: str) -> None:
+    global _ANNOUNCEMENT
+    _ANNOUNCEMENT = f"{_ANNOUNCEMENT}\n{line}" if _ANNOUNCEMENT else line
+
+
+class _Session:
+    """The hooks that need the collection: registered by :func:`pytest_configure`."""
+
+    def __init__(self, config) -> None:
+        self.config = config
+        self.collected: set[Path] = set()
+        self.deselected = 0
+        self.failed_under_foreign_lock = 0
+
+    def pytest_collectreport(self, report) -> None:
+        nodeid = report.nodeid
+        if nodeid.endswith(".py") and "::" not in nodeid:
+            self.collected.add((self.config.rootpath / nodeid).resolve())
+
+    def pytest_deselected(self, items) -> None:
+        self.deselected += len(items)
+
+    def pytest_collection_finish(self, session) -> None:
+        tests_dir = this_worktree() / "tests"
+        full = is_full_suite(
+            on_disk=modules_on_disk(tests_dir, self.config.getini("python_files")),
+            collected=self.collected,
+            deselected=self.deselected,
+            args=self.config.args,
+        )
+        if not full or self.config.option.collectonly:
+            return
+        path = lock_path()
+        text = read_lock(path)
+        if text is not None:
+            allowed, said = current_verdict()
+            if not allowed:
+                # Taken between configure and now, by another worktree.
+                import pytest
+
+                raise pytest.UsageError(said or "full-suite lock taken during collection")
+            fields = parse_fields(text)
+            gone = _gone(holder_alive(fields), heartbeat_age_seconds(fields, path=path))
+            stale = gone or (lock_age_seconds(fields, path=path) or 0.0) >= STALE_SECONDS
+            if not stale:
+                return  # a gate in this worktree, or the override: theirs to hold
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        taken, said = acquire(path, worktree=str(this_worktree()))
+        if taken:
+            _add_announcement(said)
+            return
+        allowed, refusal = current_verdict()
+        if not allowed:
+            import pytest
+
+            raise pytest.UsageError(refusal or "full-suite lock taken during collection")
+        _add_announcement(
+            f"full-suite lock: this run is a full suite and does NOT hold the lock — {said}"
+        )
+
+    def pytest_runtest_logreport(self, report) -> None:
+        """CARD-370 AC-3: a failure while another worktree holds the lock says so there."""
+        if not report.failed:
+            return
+        allowed, said = current_verdict()
+        if allowed:
+            return
+        self.failed_under_foreign_lock += 1
+        report.sections.append(
+            (
+                "full-suite lock",
+                "Another worktree held the full-suite lock when this test failed, so "
+                "any pytest it started was refused before collecting anything. "
+                "Re-run it alone before reading this as the tree's failure.\n\n" + (said or ""),
+            )
+        )
+
+    def pytest_unconfigure(self, config) -> None:
+        release()
+
+
 def pytest_configure(config) -> None:
     """Stop the run before collection while another worktree holds the lock.
 
@@ -452,6 +805,11 @@ def pytest_configure(config) -> None:
     _ANNOUNCEMENT = "\n".join(lines) or None
     if not allowed:
         raise pytest.UsageError(said)
+    if not config.pluginmanager.has_plugin("full_suite_lock_session"):
+        session = _Session(config)
+        config.pluginmanager.register(session, "full_suite_lock_session")
+        global _SESSION
+        _SESSION = session
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
@@ -464,3 +822,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     """
     if _ANNOUNCEMENT:
         terminalreporter.write_line(_ANNOUNCEMENT, yellow=True)
+    session = _SESSION
+    if session is not None and session.failed_under_foreign_lock:
+        terminalreporter.write_line(
+            f"full-suite lock: {session.failed_under_foreign_lock} failure(s) happened while "
+            f"another worktree held the lock; each carries a 'full-suite lock' section.",
+            yellow=True,
+        )

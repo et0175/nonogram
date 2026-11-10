@@ -328,6 +328,14 @@ direction this guard exists to close, reached through the handling for the
 loud one. (A `( ... )` subshell around the three steps does the same job if
 you would rather not think about it.)
 
+**Since CARD-370 a full suite takes the lock itself.** A pytest run that
+collects every test module and deselects nothing writes this file before its
+first test, with its `pid`, `host` and a heartbeat, and removes it when it ends;
+the terminal summary says so. Write the lock by hand only when something other
+than one bare pytest has to hold it — a wrapper around several runs, as above.
+A lock pytest wrote is stale as soon as its pid is gone (CARD-377), so a killed
+run no longer blocks the board for six hours; a hand-written one still does.
+
 The gate scripts have the same `rm -f` shape and no trap of their own; they
 live outside this repo and are nobody's to edit here, so an aborted *gate*
 still leaves its lock behind and the override (below) is the way past it.
