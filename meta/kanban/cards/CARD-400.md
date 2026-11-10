@@ -1,6 +1,6 @@
 # CARD-400: A clue number the player's marks have settled gets circled — the uncircled-but-solved cases are enumerated and the owner's example reproduced before any rule changes
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bug
 **Estimate:** 3c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/400-settled-numbers-circle
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-400
 **Source:** owner player findings 2026-11-07, item 10: "BUG: Some solved numbers are not circled (last but one '2' in this picture)", puzzle 1750b436-5669-4ed0-9bc0-56aa2f7e34be on the admin panel (production database: off limits to this work, so the line is read from the owner's screenshot or supplied by the owner). Source file: `~/Documents/nonogram-reviews/player-findings-2026-11-07/OWNER-FINDINGS.md`.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/08-playing-a-stored-puzzle.md
 <!-- `solver.js` (paintCircles / clueNumbersOf) is expected NOT to change: it was read at drafting time and paints whatever `circledClues` returns after every commit AND after every redraw (`redraw()` ends in `showProgress(null)`), so a stale-paint defect is ruled out by reading. If the author finds otherwise, solver.js joins Touches and the finding is reported. `tests/test_public_player_circles.py` pins play.js's port (CARD-399 family) and is NOT touched. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-10T09:51Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -92,3 +92,4 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 ## Worktree notes
 
 OWNER REPRODUCTION 2026-11-08 (the data "What to implement" item 1 asked for; supplied by the owner, not derived): on the admin panel, puzzle 32861a84-0750-44f7-b0b1-f7502368f0dc (https://nonogram-admin.onrender.com/puzzle/32861a84-0750-44f7-b0b1-f7502368f0dc/solve), line 27: the clue's 4 and 3 are solved (circled), and the 1 and 1 at the left could be circled but are not. The author reads the puzzle's clues from the puzzle file/bundle WITHOUT touching the production database (nonogram_poc is never connected); if the clue and the marks of line 27 cannot be recovered from a local copy, ask the owner for the clue and the state of each cell of line 27 (dark, white, undecided) instead of guessing. This is a second instance of the same class as the original item-10 example (a settled number beside a settled run not circled) and may separate H1/H2 (the two 1s share a value, so rule C refuses) from H3: record which hypothesis it supports.
+[OWNER RULING 2026-11-10] "ok but I think it would be nice to fix all 3": circle a number when the marks pin it down (the same span, all dark, in every placement of the clue consistent with the marks). All three measured groups (open beside undecided, open beside "?", closed repeated value with a blocked walk) are settled by construction and circle; nothing still ambiguous does. Retires CARD-213 AC-4 "open means open" and the repeated-value refusal where the number is pinned.
