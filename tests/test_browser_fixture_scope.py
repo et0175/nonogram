@@ -748,6 +748,9 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_clues.py::TestSolverClues_PinnedNumbersCircle::test_the_owners_line_and_every_short_line_circle_what_the_marks_pin": (
+        "CARD-400", "AC-1/AC-2/AC-3/AC-5 (owner finding 2026-11-07 item 10, ruling 2026-11-10): the owner's line, and every fitting marking of lines up to 7 circles exactly what a brute force calls pinned",
+    ),
     "tests/test_puzzle_solver_probe.py::TestSolverProbe_StateIsPureAndStatesAreFour::test_the_wrong_guess_verdict_matches_its_table": (
         "CARD-412", "AC-1 (owner ruling 2026-11-07): probeVerdict offers the other colour only for a single dark/white first stroke, against an independent table",
     ),

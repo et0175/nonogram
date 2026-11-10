@@ -672,6 +672,7 @@ _GUTTER_SHAPE = """() => {
     mirrored: table.classList.contains('is-mirrored'),
     zoomProperty: table.style.getPropertyValue('--player-zoom'),
     circled: [...table.querySelectorAll('.player-clue-num.is-circled')].length,
+    circledInRows: [...table.querySelectorAll('th.player-clue.is-row .player-clue-num.is-circled')].length,
     circledRow0: [...table.querySelectorAll('th.player-clue.is-row[data-line="0"]')].map(
       (box) => [...box.querySelectorAll('.player-clue-num')].map((n) => n.classList.contains('is-circled'))),
   };
@@ -716,7 +717,11 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         numbers = len(shaped["circledRow0"][0])
         assert numbers > 1  # a 30-wide tight row: several numbers to circle
         assert shaped["circledRow0"] == [[True] * numbers] * 2  # both gutters
-        assert shaped["circled"] == 2 * numbers  # only row 0's, in both gutters
+        # Only row 0's among the ROW clues, in both gutters. RETIRED CLAIM,
+        # 2026-11-10 (CARD-400, owner ruling "circle a number when the marks
+        # pin it down"): no other number circled at all — row 0's marks now
+        # also pin some columns' first numbers, which circle too.
+        assert shaped["circledInRows"] == 2 * numbers
         assert shaped["zoomProperty"] == "1.5"
 
         # Crossing to phone width: the duplicates cannot be afforded there,
@@ -733,7 +738,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert _board_snapshot(page, puzzle_id) == before
         assert _zoom_readout(page) == "150%" and phone["zoomProperty"] == "1.5"
         assert phone["circledRow0"] == [[True] * numbers]  # the one gutter, still circled
-        assert phone["circled"] == numbers
+        assert phone["circledInRows"] == numbers  # row 0's, among the row clues (CARD-400: pinned column numbers circle too)
 
         # And back: the duplicates return, with the marks, the zoom and the
         # circles unchanged.

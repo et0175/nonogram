@@ -112,6 +112,15 @@ step before the suite (ADR-0038/R8); **without it the `browser`-marked tests fai
 with that instruction rather than skipping green.**" The marker is declared at
 `pyproject.toml:92`.
 
+**Clue circles.** A clue number is circled once the player's marks settle it —
+in the owner's words (2026-11-10), "circle a number when the marks pin it down":
+its run sits on the same cells, all marked black, in every way the clue can
+still fit the line. A run beside a blank cell circles when the clue leaves that
+cell no choice; a run that could still grow, or still be another number of the
+same value, does not. `solver_state.js`'s `circledNumbers` holds the rules (A-D,
+the last added by CARD-400) and reads only the marks and the clues, never the
+solution, so the public player circles the same numbers.
+
 ADR-0038/R5 is why the scripts are listed as package data (`pyproject.toml:85`):
 "`static/*.js` is the puzzle player's client; without it an editable install works
 and a built wheel serves a player page with no script."

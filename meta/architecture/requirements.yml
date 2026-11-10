@@ -5234,7 +5234,7 @@ functional:
       - id: AC-345
         given: a 15×15 player page
         when: real clicks and a real drag close a run that matches its clue number from the line's edge, then undo, redo and reset are pressed
-        then: that clue number is circled after the stroke, uncircled after the undo, circled again after the redo, and every circle is gone after the reset; no other number changes
+        then: that clue number is circled after the stroke, uncircled after the undo, circled again after the redo, and every circle is gone after the reset; every other number reads what the marks pin down (CARD-400, owner ruling 2026-11-10 — until then "no other number changes")
         kind: happy
         test: TestSolverClues_CirclesFollowEveryCommit
       - id: AC-346
@@ -5246,7 +5246,7 @@ functional:
       - id: AC-347
         given: each line of the rule's examples table, including a mismatch that stops the walk from one edge but not the other, a "0" clue on a line marked empty throughout, and a wrong mark that closes a run
         when: the circled numbers are computed
-        then: exactly the table's circled numbers are returned — anchored from either edge, or all numbers when the line's closed runs equal the clue, or a number whose value is unique in its clue, where exactly one closed run of the line has that length; a "0" circles only when its whole line is marked empty; and a wrong mark can circle a number
+        then: exactly the table's circled numbers are returned — anchored from either edge, or all numbers when the line's closed runs equal the clue, or a number whose value is unique in its clue, where exactly one closed run of the line has that length, or (CARD-400, owner ruling 2026-11-10) a number the marks pin down, its run on the same cells, all dark, in every placement of the clue that fits the marks; a "0" circles only when its whole line is marked empty; and a wrong mark can circle a number
         kind: boundary
         test: TestSolverClues_RuleExamples
       - id: AC-348
