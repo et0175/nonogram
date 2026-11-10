@@ -612,6 +612,59 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
         assert flagged >= 100, flagged  # the probe broke something
         assert spared >= 50, spared     # a line broken BEFORE the probe, left unflagged
 
+    def test_the_wrong_guess_verdict_matches_its_table(self, browser_page, live) -> None:
+        """CARD-412 AC-1 (owner ruling 2026-11-07: "Your first guess was wrong,
+        so that cell must be white. Mark it?"): ``probeVerdict`` offers the
+        OPPOSITE colour of the probe's first stroke only when that stroke
+        marked one cell dark or white; for a drag, a "?", a hint, an empty
+        probe and a probe undone back past its first stroke it offers
+        nothing. Each case's expectation is computed here from the op list
+        alone (independently of the module), and the table is held to reach
+        both an offer and every kind of refusal."""
+        _open(browser_page, live, live.store(GRID))
+        # (name, ops after one pre-probe mark at (0, 0); "p" opens the probe)
+        cases = {
+            "one dark cell": [["p"], ["click", 2, 3, "f"], ["click", 4, 4, "e"]],
+            "one white cell": [["p"], ["click", 5, 1, "e"]],
+            "a drag first": [["p"], ["drag", 3, 0, 3, 3, "f"], ["click", 6, 6, "f"]],
+            "a maybe first": [["p"], ["click", 2, 2, "m"], ["click", 4, 4, "f"]],
+            "a hint first": [["p"], ["hint", 1, 1, "f"]],
+            "an empty probe": [["p"]],
+            "undone past it": [["p"], ["click", 2, 3, "f"], ["undo"]],
+        }
+        got = browser_page.evaluate("""async (cases) => {
+          const S = await import('/static/solver_state.js');
+          const tools = { f: S.FILLED, e: S.EMPTY, m: S.MAYBE };
+          const out = {};
+          for (const [name, ops] of Object.entries(cases)) {
+            let h = S.record(S.createHistory(S.createBoard(8, 8)), S.clickStroke(S.createBoard(8, 8), 0, 0, S.FILLED, false));
+            let probe = null;
+            for (const op of ops) {
+              if (op[0] === 'p') probe = S.nextProbe(probe, h, 'open');
+              else if (op[0] === 'click') h = S.record(h, S.markStroke(op[1], op[2], tools[op[3]]));
+              else if (op[0] === 'drag') h = S.record(h, S.dragStroke([op[1], op[2]], [[op[3], op[4]]], tools[op[5]]));
+              else if (op[0] === 'hint') h = S.record(h, S.hintStroke(op[1], op[2], tools[op[3]]));
+              else if (op[0] === 'undo') { h = S.undo(h); probe = S.nextProbe(probe, h, 'change'); }
+            }
+            const v = S.probeVerdict(h, probe);
+            out[name] = v === null ? null : [v.row, v.col, v.state, Object.isFrozen(v)];
+          }
+          return out;
+        }""", cases)
+
+        def expected(ops):
+            strokes = [op for op in ops[1:] if op[0] != "undo"]
+            undone = sum(1 for op in ops if op[0] == "undo")
+            strokes = strokes[: len(strokes) - undone]
+            if not strokes or strokes[0][0] != "click" or strokes[0][3] not in ("f", "e"):
+                return None
+            _, row, col, tool = strokes[0]
+            return [row, col, "empty" if tool == "f" else "filled", True]
+
+        want = {name: expected(ops) for name, ops in cases.items()}
+        assert got == want, (got, want)
+        assert sum(v is not None for v in want.values()) == 2 and sum(v is None for v in want.values()) == 5
+
     def test_the_checkpoint_prefix_is_a_savable_history(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         cases = _corpus(random.Random(2680))
@@ -2070,3 +2123,73 @@ def _contrast(first: str, second: str) -> float:
         return 0.2126 * red + 0.7152 * green + 0.0722 * blue
     high, low = sorted((luminance(first), luminance(second)), reverse=True)
     return (high + 0.05) / (low + 0.05)
+
+
+_OFFER = """() => { const o = document.getElementById('puzzle-player-offer');
+  return { shown: !o.hidden && o.getBoundingClientRect().height > 0,
+           text: o.querySelector('.player-offer-text').textContent,
+           said: document.getElementById('puzzle-player-announce').textContent }; }"""
+
+
+@pytest.mark.browser
+class TestSolverProbe_AWrongGuessOffersTheOtherColour:
+    """CARD-412 (owner ruling 2026-11-07: "Your first guess was wrong, so that
+    cell must be white. Mark it?" with Yes/No, never an auto-mark, only when
+    the probe's first stroke was one dark or white cell).
+
+    One cell, in the order a player meets it: a single-cell guess, more
+    marks, Wrong guess — the strip over the board names the cell by 1-based
+    row and column and the OPPOSITE colour, the live region says the same,
+    and the board does not move (AC-2, AC-7); "Mark it" records one ordinary
+    stroke that one Undo takes back (AC-3); "No thanks" leaves the
+    checkpoint board (AC-4); Keep, and a probe whose first stroke is a drag,
+    offer nothing (AC-5). The pure rule's table is
+    test_the_wrong_guess_verdict_matches_its_table; the probe rule cells
+    run unchanged (AC-6). Public mode runs the same bytes and the rule reads
+    no solution, so no public cell (owner test budget).
+    """
+
+    def test_the_offer_names_the_other_colour_and_marks_it_once(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size({"width": 1280, "height": 720})
+        _open(page, live, live.store(GRID))
+        _cell(page, 0, 0).click()
+        checkpoint = _states(page)
+        top = page.evaluate(_BOARD_TOP)
+
+        _probe(page)
+        _cell(page, 2, 3).click()          # the guess: (2, 3) dark
+        _cell(page, 4, 4).click()          # a consequence
+        _contradiction(page)
+        offer = page.evaluate(_OFFER)
+        assert offer["shown"], offer
+        assert offer["text"] == "Your first guess was wrong, so row 3, column 4 must be white. Mark it?", offer
+        assert offer["said"] == offer["text"]
+        assert _states(page) == checkpoint
+        assert page.evaluate(_BOARD_TOP) == top  # AC-7: the strip moves nothing
+
+        page.get_by_role("button", name="Mark it", exact=True).click()
+        assert not page.evaluate(_OFFER)["shown"]
+        marked = _states(page)
+        assert marked[2 * SIDE + 3] == E and [i for i, (a, b) in enumerate(zip(checkpoint, marked)) if a != b] == [2 * SIDE + 3]
+        _button(page, "Undo").click()
+        assert _states(page) == checkpoint  # one ordinary stroke, one undo step
+
+        _probe(page)
+        _tool(page, "White")
+        _cell(page, 5, 1).click()          # a white guess: the offer is black
+        _contradiction(page)
+        assert "row 6, column 2 must be black" in page.evaluate(_OFFER)["text"]
+        page.get_by_role("button", name="No thanks", exact=True).click()
+        assert not page.evaluate(_OFFER)["shown"] and _states(page) == checkpoint
+
+        _tool(page, "Black")
+        _probe(page)
+        _cell(page, 2, 3).click()
+        _keep(page)                        # Keep offers nothing
+        assert not page.evaluate(_OFFER)["shown"]
+        _button(page, "Undo").click()
+        _probe(page)
+        _drag(page, [(6, 0), (6, 3)])     # a drag first: no single guess
+        _contradiction(page)
+        assert not page.evaluate(_OFFER)["shown"]

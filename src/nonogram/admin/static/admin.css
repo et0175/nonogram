@@ -1100,6 +1100,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 }
 .player-explain.is-top { top: var(--player-explain-top, 0px); bottom: auto; border-top: 0; border-bottom: var(--border-width) solid var(--color-accent); }
 .player-explain:empty, .player-explain[hidden] { display: none; }
+/* CARD-412: the Wrong-guess offer, in the hint strip's place and look; it
+   holds two buttons, so it takes the pointer, and it is a row that wraps. */
+.player-offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); pointer-events: auto; }
+.player-offer[hidden] { display: none; }
+.player-offer-text { flex: 1 1 12rem; }
+.player-cell.is-offered { outline: calc(2 * var(--player-rule-major)) solid var(--color-accent); outline-offset: calc(-2 * var(--player-rule-major)); }
 /* With the answer line gone from the head, the tier badge stays beside the
    title (the head's flex would otherwise push it to the far right). */
 .player-head { justify-content: flex-start; }

@@ -619,7 +619,7 @@ import { boardOfGrid } from "./solver_state.js";
 // save is written from and the two transitions are all pure (ADR-0038/R4);
 // the three buttons, the one-line notice and the marker on the member cells
 // are this file's.
-import { abandonProbe, brokenLines, checkpointHistory, nextProbe, probeCells } from "./solver_state.js";
+import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, probeCells, probeVerdict } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -1806,7 +1806,7 @@ function placeExplain(line) {
   // A revealed cell is the target when there is one; otherwise the hinted
   // ROW's cells (a hinted column runs the board's whole height, so some of
   // it is under any strip — its clue and the cells above stay in view).
-  let targets = [...stage.querySelectorAll("td.player-cell.is-hinted")];
+  let targets = [...stage.querySelectorAll("td.player-cell.is-hinted, td.player-cell.is-offered")];
   if (targets.length === 0) {
     const lined = [...stage.querySelectorAll("td.player-cell.is-hint-line")];
     const rows = new Set(lined.map((cell) => cell.dataset.row));
@@ -2106,6 +2106,11 @@ function wireMarking(container, player) {
   // empty and syncTrigger's loop simply does nothing.
   const regionCells = [...regionToggle.querySelectorAll(".player-swatch")];
   const announce = document.getElementById("puzzle-player-announce");
+  // CARD-412: the Wrong-guess offer's elements and the cell it names (see
+  // THE WRONG-GUESS OFFER below); declared here because commit() closes it.
+  const offer = document.getElementById("puzzle-player-offer");
+  const offerText = offer?.querySelector(".player-offer-text") ?? null;
+  let offered = null;
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
   // The reset confirmation (see PROGRESS "reset").
@@ -2478,6 +2483,9 @@ function wireMarking(container, player) {
     // stale line on it.
     rung = nextRung(rung, "change");
     setLadderLine(null);
+    // CARD-412: any recorded change closes the Wrong-guess offer (it is
+    // about the board as it was when Wrong guess was pressed).
+    closeOffer();
     // CARD-268: the probe follows the recorded change BEFORE the change is
     // handed over, because player.commit writes the save from it (rule 9). A
     // board that reaches the solved state was a correct hypothesis, so the
@@ -2748,11 +2756,55 @@ function wireMarking(container, player) {
   probeAbandon?.addEventListener("click", () => {
     if (gesture || probe === null) return;
     const had = document.activeElement === probeAbandon;
+    // CARD-412: the verdict is read from the probe BEFORE the abandon undoes it.
+    const verdict = probeVerdict(player.getHistory(), probe);
     const back = abandonProbe(player.getHistory(), probe);
     probe = nextProbe(probe, back, "abandon");
     commit(back);
     if (had) handOn(document.body, probeToggle);
+    if (verdict !== null && !player.locked()) openOffer(verdict);
   });
+
+  // THE WRONG-GUESS OFFER (CARD-412, owner ruling 2026-11-07). After Wrong
+  // guess on a probe whose first stroke was one dark or white cell
+  // (solver_state.js probeVerdict), the strip over the board asks whether to
+  // mark that cell the other colour; "Mark it" records ONE ordinary stroke
+  // (one undo step, counted like any mark), "No thanks" changes nothing. The
+  // next pointer-down outside the offer, Escape, or any recorded change
+  // closes it; it never marks by itself.
+  const offeredCell = () => (offered === null ? null
+    : container.querySelector(`td.player-cell[data-row="${offered.row}"][data-col="${offered.col}"]`));
+  function closeOffer() {
+    if (offer === null || offered === null) return;
+    offeredCell()?.classList.remove("is-offered");
+    offered = null;
+    offer.hidden = true;
+    offer.classList.remove("is-top");
+  }
+  function openOffer(verdict) {
+    if (offer === null) return;
+    closeOffer();
+    offered = verdict;
+    const colour = verdict.state === FILLED ? "black" : "white";
+    const said = `Your first guess was wrong, so row ${verdict.row + 1}, column ${verdict.col + 1} must be ${colour}. Mark it?`;
+    offerText.textContent = said;
+    announce.textContent = said;
+    offer.hidden = false;
+    offeredCell()?.classList.add("is-offered");
+    requestAnimationFrame(() => placeExplain(offer));
+  }
+  offer?.querySelector('[data-player-offer="mark"]')?.addEventListener("click", () => {
+    if (offered === null || player.locked()) return closeOffer();
+    const { row, col, state } = offered;
+    closeOffer();
+    commit(record(player.getHistory(), markStroke(row, col, state)));
+  });
+  offer?.querySelector('[data-player-offer="dismiss"]')?.addEventListener("click", closeOffer);
+  document.addEventListener("pointerdown", (event) => {
+    if (event.target instanceof Element && event.target.closest("#puzzle-player-offer")) return;
+    closeOffer();
+  }, true);
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeOffer(); });
 
   // Undo and redo change nothing while the board is locked (solved).
   const step = {

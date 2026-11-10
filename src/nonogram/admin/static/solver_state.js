@@ -1387,6 +1387,33 @@ export function checkpointHistory(history, probe) {
   return historyOf(board, history.done.slice(0, keep), []);
 }
 
+// The verdict a Wrong guess (CARD-412, owner ruling 2026-11-07: "Your first
+// guess was wrong, so that cell must be white. Mark it?") offers: when the
+// open probe's FIRST stroke marked exactly one cell dark or white — a click,
+// not a drag, not "?", not a hint — the hypothesis was that one cell, and a
+// contradiction makes it false, so the cell must be the other colour.
+// Returns { row, col, state } (state the OPPOSITE of the guess), or null when
+// the probe holds no stroke or its first stroke is anything else: a drag or
+// several guesses do not identify "the first guess". Reads the history only
+// (no solution), so public mode is the same. Call it BEFORE abandonProbe.
+export function probeVerdict(history, probe) {
+  if (probe === null) return null;
+  const at = probeStart(history, probe);
+  const first = history.done[at];
+  if (first === undefined) return null;
+  const { stroke } = first;
+  if (stroke.hint || stroke.cells.length !== 1) return null;
+  if (stroke.state !== FILLED && stroke.state !== EMPTY) return null;
+  const [row, col] = stroke.cells[0];
+  return Object.freeze({ row, col, state: stroke.state === FILLED ? EMPTY : FILLED });
+}
+
+// The stroke that marks one cell `state` (CARD-412's "Mark it"): an ordinary
+// stroke, recorded like a click — one undo step, counted like any mark.
+export function markStroke(row, col, state) {
+  return makeStroke([[row, col]], state);
+}
+
 // The lines the open probe has BROKEN (CARD-410, owner finding 2026-11-07:
 // "Flag broken lines during a probe"): every row and column that no
 // placement of its clue fits on `board` (lineForced returns null) and that
