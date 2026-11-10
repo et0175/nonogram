@@ -259,9 +259,9 @@ def test_the_landing_header_and_squares_fit_a_phone(browser_page, pages_host) ->
     assert boxes and all(w >= 44 and h >= 44 for w, h in boxes), boxes
     for selector in ("[data-pages-jump-number]", "[data-pages-jump] button", ".book-section-head"):
         assert page.locator(selector).first.bounding_box()["height"] >= 44, selector
-    # The two links out: the lesson and the library.
+    # The one link out: the lesson (the owner removed the library link, 2026-11-10).
     links = page.evaluate("() => [...document.querySelectorAll('.book-foot a')].map(a => a.getAttribute('href'))")
-    assert links == ["/how-to-solve", "/library"]
+    assert links == ["/how-to-solve"]
     # And no puzzle title anywhere on the page.
     text = page.evaluate("() => document.body.innerText")
     for name in BOOK_ORDER:
