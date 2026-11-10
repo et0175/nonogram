@@ -1803,9 +1803,9 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
     same with no probe, one open and after closing it, because the line's
     height is fixed. The paragraph that stood here said an open probe moved
     the board down; that claim is retired with the owner's 2026-11-07
-    finding, and on a COMPACT screen so is "the board sits exactly where it
-    sat": there the line is a full control row and costs exactly --space-3,
-    asserted below (on a mouse screen it still costs nothing).
+    finding, and so is "the board sits exactly where it sat" (owner ruling
+    2026-11-10, option "A"): the line is a full control row on every screen
+    and costs exactly the difference from the small row, asserted below.
     """
 
     @pytest.mark.parametrize(
@@ -1850,31 +1850,36 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             assert keep.is_visible() and wrong.is_visible(), (width, height)
             assert browser_page.get_by_text("Contradiction").count() == 0
             compact = width <= 600 or height <= 500  # admin.css's compact condition
-            line = browser_page.locator(".player-probe").bounding_box()
             for box in (keep.bounding_box(), wrong.bounding_box()):
-                # Option C (put to the owner 2026-11-10): the toolbar's size
-                # where it is tapped; the line's own size on a mouse screen.
-                want = hint["height"] if compact else line["height"]
-                assert abs(box["height"] - want) < 0.5, (width, height, box, hint, line)
+                # The toolbar's size on every screen (owner ruling
+                # 2026-11-10, option "A").
+                assert abs(box["height"] - hint["height"]) < 0.5, (width, height, box, hint)
                 if compact:
                     assert box["width"] >= 44, (width, height, box)
             _keep(browser_page)
             after = browser_page.evaluate(_BOARD_TOP)
             assert closed == opened == after, (width, height, closed, opened, after)
 
-        # CARD-411 (owner finding "at full toolbar size", option C): on a
-        # mouse screen the line is the small-button row it was and costs the
-        # board nothing (CARD-268's claim, unchanged); on a compact screen it
-        # is a full control row and costs EXACTLY --space-3 (the difference),
-        # once — the board does not move again when a probe opens (above).
+        # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "at full toolbar
+        # size"; owner ruling 2026-11-10, option "A"): the line cost the board
+        # nothing. It is now a full control row (the toolbar's button height)
+        # where it was a small-button row, and the pull pays for the small one
+        # only, so the line costs the board EXACTLY the difference on every
+        # screen (12 px compact, 14.78 px with labelled buttons) — sharp at a
+        # pixel, and paid once: the board does not move again when a probe
+        # opens (above).
         with_bar = browser_page.evaluate(_BOARD_TOP)
-        space3 = browser_page.evaluate("""() => { const e = document.createElement('i');
-          e.style.cssText = 'display:block;width:var(--space-3)'; document.body.append(e);
-          const w = e.getBoundingClientRect().width; e.remove(); return w; }""")
+        # What the pull pays for: the small-button row CARD-268 measured.
+        old_line = browser_page.evaluate("""() => { const e = document.createElement('i');
+          e.style.cssText = 'display:block;height:calc(var(--control-h) - var(--space-3))'; document.body.append(e);
+          const h = e.getBoundingClientRect().height; e.remove(); return h; }""")
+        line = browser_page.locator(".player-probe").bounding_box()["height"]
+        hint_h = _button(browser_page, "Hint").bounding_box()["height"]
+        assert abs(line - hint_h) < 0.5, (line, hint_h)  # a control row: the toolbar's button height
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
         without = browser_page.evaluate(_BOARD_TOP)
-        cost = space3 if viewport[0] <= 600 or viewport[1] <= 500 else 0
-        assert with_bar - without == cost, (
+        cost = line - old_line
+        assert abs((with_bar - without) - cost) < 0.01, (
             f"the board's top is {with_bar} with the probe line and "
             f"{without} without it: the line moves the board by "
             f"{with_bar - without} px, not {cost} px"

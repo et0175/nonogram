@@ -1642,14 +1642,16 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* CARD-411 (owner finding 2026-11-07: "'✓ Keep' and '✗ Wrong guess' at
    full toolbar size"): Probe BECOMES the pair while a probe is open, with
    the leaving note beside it, and the line's height is FIXED, so opening a
-   probe moves nothing at any width. On a mouse screen the line keeps its
-   small-button height (the pull above pays for it exactly, as CARD-268
-   measured); on a compact (touch) screen the pair is the toolbar's size and
-   the line a full control row — the compact block at the end of this file
-   — which costs the board --space-3 there, once (option C, put to the
-   owner 2026-11-10). */
-.player-probe { height: calc(var(--control-h) - var(--space-3)); }
-.player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); height: calc(var(--control-h) - var(--space-3)); min-height: 0; padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1; }
+   probe moves nothing at any width. The pair is the toolbar's size on every
+   screen and the line a full control row, which costs the board the
+   difference from the small-button row it was, once, desktop included (owner ruling 2026-11-10, option "A"; the pull
+   above pays for the small-button row CARD-268 measured, not for this). */
+/* The line is as tall as its buttons (Probe and the pair are the same
+   height, and the note is shorter, clamped to two lines on a compact screen),
+   so it is the same height closed and open without a fixed figure that a
+   labelled button (38.78 px on desktop) would overhang onto the board. */
+.player-probe { min-height: var(--control-h); }
+.player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); }
 .player-probe-note { flex: 1 1 0; min-width: 0; }
 /* The glyphs carry the pair's meaning in colour too, so the phone's
    icon-only Keep (✓) does not read as Check's tick. */
@@ -1744,10 +1746,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   }
   .player-zoom-readout[role="button"] { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; }
   .player-probe-glyph { line-height: 1; }
-  .player-probe, .player-probe .btn { height: var(--control-h); }
-  .player-probe .btn { font-size: var(--text-base); }
   /* Review cycle 2, F-103: at 360 px and below the note would take three
-     lines and spill past the fixed line; two lines, the rest in its title. */
+     lines and make the line taller than its buttons; two lines, the rest in
+     its title. */
   .player-probe-note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .player-history > .btn, .player-zoom .btn, .player-probe > .btn { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
