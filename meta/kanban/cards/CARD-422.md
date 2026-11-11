@@ -1,6 +1,6 @@
 # CARD-422: A puzzle opened from the Christmas book wears its garland and green heading too
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** card/422-puzzle-decor
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-422
+**Branch:** —
+**Worktree:** —
 **Source:** owner 2026-11-11, after CARD-421's landing: "Looks good. Please apply it to individual puzzles also (they now appear without new theme)" — a puzzle opened from the book carried only CARD-420's colour tokens (cream ground, gold-edged buttons), which read as no theme.
 **Idea:** —
 **Wave:** 79
@@ -18,11 +18,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-420, CARD-421
 **Touches:** player/decor.js, player/decor.css, player/pages.js, player/player.css, player/book.html, player/assemble.py, tests/test_book_landing_page.py, tests/test_public_player.py
-**Review score:** —
+**Review score:** — (no review cycle; merged on the gates)
 **Started:** 2026-11-11T09:30Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-11T11:31Z
+**Actual:** one owner session (wall clock excluded, owner ruling)
+**Merge commit:** 3ada9ba7
 **Blocked by:** —
 
 ## What to implement
@@ -37,3 +37,4 @@
 ## Worktree notes
 
 - **[Implementation, 2026-11-11]** `decor.css` is attached by the loader rather than linked in the page's head: `TestSharedUi_ThePageRuns` holds an ordinary puzzle to the admin's three stylesheets, and that stays true. The loader's dynamic imports are now `/decor.js` and `/solver.js` (`test_the_runtime_dependency_baseline_is_untouched` re-pointed). Plant: the loader never calls `decorate()` -> the garland arm red (`0 == 1`). Also fixed on the way: `docs/deploy/player.md` backticked `--no-reload`, the same red as CARD-420's `--player-wave`.
+- **[Gate]** `make test-gate`: 5349 passed; 1 red, `test_book_pdf_memory`'s guard, red on main too (pre-existing).
