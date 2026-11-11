@@ -397,6 +397,10 @@ PLAYER_FILES: dict[str, str] = {
     "pages.js": "pages.js",
     "how-to-solve.js": "how-to-solve.js",
     "player.css": "player.css",
+    # CARD-422: the Christmas book's decorations, shared by the landing and
+    # the play page of a puzzle opened from it (CARD-421 drew them).
+    "decor.js": "decor.js",
+    "decor.css": "decor.css",
     "shared-ui-base.css": "base.css",
     "vercel.json": "vercel.json",
 }
@@ -515,7 +519,8 @@ _SHARED_UI_PAGE = """<!doctype html>
   Everything between <main> and the script is the admin's puzzle_solve.html,
   rendered once at build time; solver.js, solver_state.js, admin.css and
   tokens.css are byte-identical copies of the admin's files; there is no
-  override stylesheet.
+  override stylesheet. Only a puzzle opened from a Christmas book attaches
+  decor.css (CARD-422), for its decorations and its heading's colour.
 -->
 <html lang="en">
 <head>
@@ -609,6 +614,16 @@ async function main() {
       && Array.isArray(shelved.puzzles)
       && shelved.puzzles.some((entry) => entry !== null && typeof entry === "object" && entry.key === key)) {
     document.documentElement.dataset.theme = shelved.theme;
+    // CARD-422: and its decorations (the garland; the board is left as it is).
+    // Their stylesheet is attached here, so a puzzle outside a Christmas book
+    // links nothing beyond the admin's own.
+    if (shelved.theme === "christmas") {
+      const sheet = document.createElement("link");
+      sheet.rel = "stylesheet";
+      sheet.href = "/decor.css";
+      document.head.append(sheet);
+      (await import("/decor.js")).decorate();
+    }
   }
   const data = document.createElement("script");
   data.type = "application/json";

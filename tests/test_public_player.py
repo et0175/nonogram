@@ -1854,7 +1854,9 @@ def test_the_runtime_dependency_baseline_is_untouched() -> None:
     # the shell's loader imports the player and nothing else.
     imports = re.findall(r"""from\s+["']([^"']+)["']""", script)
     assert imports and set(imports) == {"./solver_state.js"}, imports
-    assert re.findall(r"""import\(["']([^"']+)["']\)""", page) == ["/solver.js"]
+    # CARD-422: and, for a puzzle opened from a Christmas book, the site's own
+    # decorations module (served beside the page, a PLAYER_FILES entry).
+    assert re.findall(r"""import\(["']([^"']+)["']\)""", page) == ["/decor.js", "/solver.js"]
     for name, text in (("solver.js", script), ("the play page", page)):
         assert "http://" not in text.replace("http://127.0.0.1", ""), name
         # No exemption here, because neither file needs a URL. ADR-0039/R3: an

@@ -305,7 +305,8 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     Plant: the play page's loader applies the theme without checking that the
     book holds the key -> the "a book that does not hold this key" arm red.
     CARD-421 adds the decorations to the same walk (plant: decorate() for
-    every book -> the default book's arm red).
+    every book -> the default book's arm red), and CARD-422 the puzzle's
+    garland (plant: the loader never decorates -> the garland arm red).
     """
     url, report, keys, slug = pages_host
     page = browser_page
@@ -369,7 +370,19 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
         })"""
     )
     assert themed["ground"] == CREAM and themed["paper"] == "#fffdf8", themed
-    assert page.locator(".decor-garland, .decor-snow").count() == 0  # the board is not decorated
+    # CARD-422 (owner 2026-11-11: "apply it to individual puzzles also"): the
+    # garland hangs over the puzzle too and its heading is pine; the board
+    # carries no decoration.
+    hung = page.evaluate(
+        """() => ({
+          garlands: document.querySelectorAll('.decor-garland').length,
+          onBoard: document.querySelectorAll('.player-board .decor-garland, .player-board .decor-snow').length,
+          heading: getComputedStyle(document.querySelector('.player-head h1')).color,
+          sheets: [...document.querySelectorAll('link[rel=stylesheet]')].map((l) => l.getAttribute('href')),
+        })"""
+    )
+    assert hung["garlands"] == 1 and hung["onBoard"] == 0 and hung["heading"] == PINE, hung
+    assert hung["sheets"][-1] == "/decor.css", hung
 
     # Any other way in is the default look (AC-4): no book, a malformed book,
     # and a real christmas book that does not hold this key.
@@ -379,4 +392,5 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
         page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
         assert page.evaluate(_ROOT_THEME) is None, address
         assert page.evaluate("() => getComputedStyle(document.body).backgroundColor") != CREAM, address
+        assert page.locator(".decor-garland, link[href='/decor.css']").count() == 0, address
 
