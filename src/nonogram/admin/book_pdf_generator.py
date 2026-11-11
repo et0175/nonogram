@@ -427,6 +427,7 @@ from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
     DPI,
     INTERIOR_FOOTER_LINE_PT,
+    INTERIOR_FOOTER_MM,
     DifficultyDots,
     HeaderBand,
     Layout,
@@ -2313,46 +2314,6 @@ def footer_solution_text(pages: Sequence[int]) -> str:
     return "Solutions on p. " + " and ".join(str(page) for page in distinct)
 
 
-#: The corner label's grey: secondary, like the TOC's level ranges.
-CORNER_LABEL_GREY = 0.37
-
-#: The gap kept between the grid-size label and the edges of the clue
-#: corner it is set in, in points.
-CORNER_LABEL_PAD_PT = 2.0
-
-
-def draw_corner_size_label(
-    stream: ContentStream, layout: Layout, label: str, size_px: float, metrics: FontMetrics
-) -> bool:
-    """Set ``label`` centred in the blank corner above the row clues (2026-11-10).
-
-    The corner is the box between the drawing's top-left edge and the grid's
-    top-left corner. Returns ``False`` and draws nothing when the label does
-    not fit there at ``size_px`` (a grid with shallow clues has a tiny
-    corner); the caller then keeps the size in the footer.
-    """
-    placement = layout.page
-    left = (
-        layout.grid_left - layout.row_gutter_cells * layout.cell
-        if placement is None else placement.drawing_left
-    )
-    top = (
-        layout.grid_top - layout.column_gutter_cells * layout.cell
-        if placement is None else placement.drawing_top
-    )
-    pad = CORNER_LABEL_PAD_PT * layout.dpi / 72.0
-    width = metrics.advance(label) * size_px
-    cap = 0.72 * size_px
-    room_w = layout.grid_left - left - 2 * pad - layout.thick_rule
-    room_h = layout.grid_top - top - 2 * pad - layout.thick_rule
-    if width > room_w or cap > room_h:
-        return False
-    x = (left + layout.grid_left) / 2 - width / 2
-    baseline = (top + layout.grid_top) / 2 + cap / 2
-    stream.text(label, x, baseline, stream.to_points(size_px), grey=CORNER_LABEL_GREY)
-    return True
-
-
 def _guide_rule_width(spec: PageSpec) -> int:
     """This page's thin rule width, in pixels (CARD-201).
 
@@ -2839,13 +2800,21 @@ RUNNING_HEAD_MM = 9.0
 
 
 def answer_section_spec(spec: PageSpec) -> PageSpec:
-    """``spec`` with the running head's strip taken off the top of its usable area.
+    """``spec`` with the running head's strip taken off the top of its usable
+    area and the footer strip off its bottom.
 
     Every answer page is planned and laid out on this spec, so the packing
     walk's feasibility check and the page that is finally drawn agree about
-    how much room the tiles have.
+    how much room the tiles have. The footer strip is the puzzle pages' own
+    (:data:`~nonogram.export.layout.INTERIOR_FOOTER_MM`): an answer page sets
+    its page number centred in it, where the puzzle pages set theirs, and no
+    answer reaches into it, so the number is never dropped (owner, 2026-11-11).
     """
-    return replace(spec, top_mm=spec.top_mm + RUNNING_HEAD_MM)
+    return replace(
+        spec,
+        top_mm=spec.top_mm + RUNNING_HEAD_MM,
+        bottom_mm=spec.bottom_mm + INTERIOR_FOOTER_MM,
+    )
 
 
 def page_frame(spec: PageSpec) -> PageFrame:
@@ -4654,15 +4623,17 @@ class BookPDFGenerator:
             (left, y), "Check your finished picture. Solutions run in puzzle order.",
             font=blurb_font,
         )
+        # The puzzle pages' centred folio (owner, 2026-11-11).
+        footer = interior_frame(self.page_spec(page_number))
         _draw_folio(
             draw,
             frame.left,
             frame.top,
             frame.right,
-            frame.bottom,
+            footer.baseline,
             page_number,
             self.dpi,
-            content_bottom=blurb_box[3],
+            centred_x=footer.folio_x,
         )
         return page
 
@@ -4705,15 +4676,17 @@ class BookPDFGenerator:
             draw, level, left, dot_top, left + 4 * height, dot_top + height
         )
         dots_bottom = dot_top + height if drawn is not None else bbox[3]
+        # The puzzle pages' centred folio (owner, 2026-11-11).
+        footer = interior_frame(self.page_spec(page_number))
         _draw_folio(
             draw,
             frame.left,
             frame.top,
             frame.right,
-            frame.bottom,
+            footer.baseline,
             page_number,
             self.dpi,
-            content_bottom=dots_bottom,
+            centred_x=footer.folio_x,
         )
         return page
 
@@ -4747,15 +4720,17 @@ class BookPDFGenerator:
         x = (frame.width - (bbox[2] - bbox[0])) // 2
         y = (frame.height - (bbox[3] - bbox[1])) // 2
         draw.text((x, y), text, fill="black", font=divider_font)
+        # The puzzle pages' centred folio (owner, 2026-11-11).
+        footer = interior_frame(self.page_spec(page_number))
         _draw_folio(
             draw,
             frame.left,
             frame.top,
             frame.right,
-            frame.bottom,
+            footer.baseline,
             page_number,
             self.dpi,
-            content_bottom=y + bbox[3],
+            centred_x=footer.folio_x,
         )
         return divider
 
@@ -4944,9 +4919,8 @@ class BookPDFGenerator:
         """:meth:`_blank_page`'s vector twin: the same page as operators (CARD-295).
 
         With ``solution_pages`` (puzzle number -> its answer page, from the
-        answer plan) the footer says where the solution is and the grid size
-        moves into the clue corner, or stays in the footer beside the pointer
-        when the corner is too small (owner, 2026-11-10).
+        answer plan) the footer carries the grid size and where the solution
+        is (owner, 2026-11-10).
 
         ADR-0042/R1. The sheet, the cell and the band identity are taken
         exactly as :meth:`_blank_page` takes them — the same
@@ -5001,7 +4975,7 @@ class BookPDFGenerator:
         )
         placement = layout.page
         size_label = self._footer_label(
-            stream, [layout], (puzzle_number,), solution_pages
+            [layout], (puzzle_number,), solution_pages
         )
         draw_sheet_furniture(
             stream,
@@ -5018,32 +4992,26 @@ class BookPDFGenerator:
 
     def _footer_label(
         self,
-        stream: ContentStream,
         layouts: Sequence[Layout],
         numbers: Tuple[int, ...],
         solution_pages: Optional[Mapping[int, int]],
     ) -> Optional[str]:
         """The footer's right-hand label for a page of ``layouts``.
 
-        Without ``solution_pages`` it is the grid size (one puzzle) or nothing
-        (two). With them, each grid's size is set in its clue corner, and the
-        label says where the solutions are, led by any size that did not fit
-        its corner.
+        The grid size for one puzzle, nothing for two (a two-up page has never
+        carried one), then, with ``solution_pages``, where the solutions are.
+        The size is never set in the clue corner (Anna and the owner,
+        2026-11-10: a size that sat in the corner on one page and in the
+        footer on the next looked strange).
         """
-        sizes = [grid_size_label(layout.columns, layout.rows) for layout in layouts]
+        size = (
+            grid_size_label(layouts[0].columns, layouts[0].rows)
+            if len(layouts) == 1 else None
+        )
         if solution_pages is None:
-            return sizes[0] if len(layouts) == 1 else None
-        size_px = type_px(SIZE_LABEL_PT, self.dpi)
-        face = interior_face_metrics()
-        unplaced = [
-            size
-            for layout, size in zip(layouts, sizes)
-            if not draw_corner_size_label(stream, layout, size, size_px, face)
-        ]
+            return size
         text = footer_solution_text([solution_pages[number] for number in numbers])
-        if unplaced:
-            text = ", ".join(dict.fromkeys(unplaced)) + BAND_SEPARATOR + text
-        return text
+        return text if size is None else size + BAND_SEPARATOR + text
 
     def _sheet_furniture(
         self,
@@ -5133,7 +5101,7 @@ class BookPDFGenerator:
         )
         footer_area = pair.lower.page
         size_label = self._footer_label(
-            stream, [pair.upper, pair.lower], plan.numbers, solution_pages
+            [pair.upper, pair.lower], plan.numbers, solution_pages
         )
         draw_sheet_furniture(
             stream,

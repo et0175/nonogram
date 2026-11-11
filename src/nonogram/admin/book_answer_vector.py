@@ -83,8 +83,8 @@ from nonogram.admin.book_vector_draw import (
     _middle_em,
     advance_px,
     as_grey,
+    draw_centred_folio,
     draw_clue_digits,
-    draw_folio,
     draw_frame,
     draw_grid_lines,
     page_stream,
@@ -96,11 +96,13 @@ from nonogram.export.layout import (
     ANSWER_TILE_GAP_MM,
     INTERIOR_FOOTER_LINE_PT,
     HeaderBand,
+    InteriorFrame,
     Layout,
     PageSpec,
     compute_layout,
     compute_packed_solved_layout,
     header_band,
+    interior_frame,
     interior_header_rule_px,
 )
 
@@ -417,51 +419,33 @@ def answer_page_stream(
     caption: str,
     type_spec: AnswerTypeSpec,
     page_number: int,
+    footer: InteriorFrame,
     *,
     metrics: FontMetrics | None = None,
     grey: float = INK_GREY,
 ) -> ContentStream:
     """One full answer page — one puzzle solved, with its folio.
 
-    ``solved_puzzle_page``'s page: the slot is the whole page's
-    :class:`~nonogram.export.layout.Layout`, so the folio is placed against
-    that layout's own usable area rather than against a separate frame.
-
-    The caption's own box is folded into the folio's collision check **only on
-    a right-hand page**, where the right-aligned caption can actually reach the
-    corner the folio anchors to — the raster page's own parity gate, and the
-    defect its review cycle found when the fold-in was applied on both sides.
+    ``solved_puzzle_page``'s page. The folio is the puzzle pages': centred on
+    ``footer``'s ``folio_x`` at its ``baseline`` (owner, 2026-11-11). The
+    slot was laid out on
+    :func:`~nonogram.admin.book_pdf_generator.answer_section_spec`, which keeps
+    the footer strip free, so nothing on the page can reach the number and it
+    is always printed.
 
     Raises:
         ValueError: ``slot`` is not a placed book page.
     """
     face = interior_face_metrics() if metrics is None else metrics
-    placement = slot.page
-    if placement is None:
+    if slot.page is None:
         raise ValueError("a full answer page is drawn on a placed book page")
-    right_hand = page_is_right_hand(page_number)
     stream = page_stream(slot)
-    caption_box = draw_answer_slot(
+    draw_answer_slot(
         stream, slot, grid, band, band_text, caption, type_spec, metrics=face, grey=grey
     )
-    content_bottom: float = placement.drawing_bottom
-    content_right: float | None = None
-    if caption_box is not None and right_hand:
-        content_bottom = max(content_bottom, caption_box[0])
-        content_right = caption_box[1]
-    draw_folio(
-        stream,
-        placement.usable_left,
-        placement.usable_top,
-        placement.usable_right,
-        placement.usable_bottom,
-        str(page_number),
-        type_spec.folio_size_px,
-        face,
-        right_hand=right_hand,
-        content_bottom=content_bottom,
-        content_right=content_right,
-        grey=grey,
+    draw_centred_folio(
+        stream, str(page_number), footer.folio_x, footer.baseline,
+        type_spec.folio_size_px, face, grey=grey,
     )
     return stream
 
@@ -472,6 +456,7 @@ def packed_answer_page_stream(
     frame: PageFrame,
     type_spec: AnswerTypeSpec,
     page_number: int,
+    footer: InteriorFrame,
     *,
     metrics: FontMetrics | None = None,
     grey: float = INK_GREY,
@@ -487,11 +472,8 @@ def packed_answer_page_stream(
     carries no page-level usable area of its own, only each tile's, which is
     the gap the frame fills.
 
-    The folio's content figures come from the **corner tile alone** — the last
-    tile row crossed with the last tile column on a right-hand page or the
-    first on a left-hand one — because no tile elsewhere on the page can reach
-    the corner the folio anchors to, and the plan may have left that position
-    unfilled, in which case there is nothing there to collide with.
+    The folio is centred in the footer strip, as on a full answer page
+    (:func:`answer_page_stream`), and is always printed.
 
     Raises:
         ValueError: ``answers`` does not match ``packed``'s slots. A plan whose
@@ -504,48 +486,24 @@ def packed_answer_page_stream(
             f"{len(answers)} answer(s) for {len(packed.slots)} packed slot(s)"
         )
     face = interior_face_metrics() if metrics is None else metrics
-    right_hand = page_is_right_hand(page_number)
     stream = ContentStream(width_px=frame.width, height_px=frame.height, dpi=packed.dpi)
-    boxes: List[Tuple[float, float] | None] = []
     for slot, (grid, band, band_text, caption) in zip(
         packed.slots, answers, strict=True
     ):
-        boxes.append(
-            draw_answer_slot(
-                stream,
-                slot,
-                grid,
-                band,
-                band_text,
-                caption,
-                type_spec,
-                metrics=face,
-                grey=grey,
-            )
+        draw_answer_slot(
+            stream,
+            slot,
+            grid,
+            band,
+            band_text,
+            caption,
+            type_spec,
+            metrics=face,
+            grey=grey,
         )
-    corner_column = packed.tile_columns - 1 if right_hand else 0
-    corner = (packed.tile_rows - 1) * packed.tile_columns + corner_column
-    placement = packed.slots[corner].page if corner < len(packed.slots) else None
-    content_bottom = None if placement is None else placement.drawing_bottom
-    content_right = None if placement is None else placement.drawing_right
-    corner_caption = boxes[corner] if corner < len(boxes) else None
-    if right_hand and content_bottom is not None and corner_caption is not None:
-        content_bottom = max(content_bottom, corner_caption[0])
-        content_right = corner_caption[1]
-    draw_folio(
-        stream,
-        frame.left,
-        frame.top,
-        frame.right,
-        frame.bottom,
-        str(page_number),
-        type_spec.folio_size_px,
-        face,
-        right_hand=right_hand,
-        content_bottom=content_bottom,
-        content_right=content_right,
-        content_left=None if placement is None else placement.drawing_left,
-        grey=grey,
+    draw_centred_folio(
+        stream, str(page_number), footer.folio_x, footer.baseline,
+        type_spec.folio_size_px, face, grey=grey,
     )
     return stream
 
@@ -590,6 +548,7 @@ def answer_page(
         answer_caption(puzzle_number, title),
         answer_type(dpi),
         page_number,
+        interior_frame(spec),
         metrics=metrics,
     )
     draw_running_head(
@@ -655,6 +614,7 @@ def packed_answer_page(
         page_frame(spec),
         answer_type(dpi),
         page_number,
+        interior_frame(spec),
         metrics=metrics,
     )
     draw_running_head(

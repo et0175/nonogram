@@ -82,6 +82,7 @@ __all__ = [
     "as_grey",
     "ascent_px",
     "descent_px",
+    "draw_centred_folio",
     "draw_clue_digits",
     "draw_difficulty_dots",
     "draw_frame",
@@ -505,6 +506,32 @@ def draw_folio(
     size_pt = stream.to_points(size_px)
     stream.text(text, x, bottom, size_pt, grey=grey)
     return True
+
+
+def draw_centred_folio(
+    stream: ContentStream,
+    text: str,
+    centre_x: float,
+    baseline: float,
+    size_px: float,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """``text`` centred on ``centre_x`` with its baseline on ``baseline``.
+
+    The puzzle pages' folio, for a page that sets its number in the same
+    place without the rest of their footer (owner, 2026-11-11: "page numbers
+    are centred for puzzles, how to solve and play online, but they're at
+    corners and sometimes missing for solutions"). The caller passes the
+    sheet's :class:`~nonogram.export.layout.InteriorFrame` ``folio_x`` and
+    ``baseline`` and keeps its own content above the footer strip, so there is
+    no room check and the number is always printed.
+    """
+    pen = centre_x - advance_px(text, size_px, metrics) / 2.0
+    # Bound before the call for the reason :func:`set_from_top` states.
+    size_pt = stream.to_points(size_px)
+    stream.text(text, pen, baseline, size_pt, grey=grey)
 
 
 def draw_clue_digits(

@@ -4410,10 +4410,18 @@ class Generator:
         # ``vector_closing_page`` and its two local helpers (``centred``,
         # ``wrapped``), their text, font and frame calls. Read off this
         # test's own measurement.
-        ((), 733),
-        (("builtins",), 472),
-        (("builtins", "definitions and imports"), 176),
-        (("builtins", "definitions and imports", "parameters"), 175),
+        #
+        # **The grid size leaves the clue corner (Anna and the owner,
+        # 2026-11-10): -9** (733 -> 724, 472 -> 464, 176 -> 171, 175 -> 170):
+        # ``draw_corner_size_label`` and its calls are gone.
+        #
+        # **The centred folio (owner, 2026-11-11): +3** (724 -> 727, 464 ->
+        # 467, last four unchanged): the three dividers' ``interior_frame``
+        # calls. Read off this test's own measurement.
+        ((), 727),
+        (("builtins",), 467),
+        (("builtins", "definitions and imports"), 171),
+        (("builtins", "definitions and imports", "parameters"), 170),
         (
             (
                 "builtins",
@@ -6388,7 +6396,13 @@ class Generator:
         # added call is named -- ``page_frame(self.page_spec(page_number))``
         # in ``vector_closing_page``. Same door, definition count still one
         # (22 ``self.page_spec(`` occurrences by a plain text search).
-        assert inside == 22, inside
+        # The centred folio (owner, 2026-11-11): 25, and the three added calls
+        # are named -- ``interior_frame(self.page_spec(page_number))`` in
+        # ``create_solutions_opener``, ``create_level_divider`` and
+        # ``create_divider_page``, each reading the footer line its page number
+        # is centred on. Same door, definition count still one (25
+        # ``self.page_spec(`` occurrences by a plain text search).
+        assert inside == 25, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

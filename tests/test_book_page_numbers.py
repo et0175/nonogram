@@ -412,21 +412,18 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
     def test_a_page_whose_slack_is_too_small_prints_no_folio_rather_than_collide(
         self, monkeypatch
     ) -> None:
-        """The min-trim book's lone answer page has no room for the caption
-        (``test_book_interior_type_floor.py``'s own finding) — the folio
-        shares that exact slack and is omitted for the same reason, not
-        drawn on top of the grid.
+        """A page whose own grid reaches the footer omits its folio rather
+        than drawing it on top — and an answer page is never such a page.
 
-        **Review cycle 2, F-1:** this same book's lone *blank* puzzle page
-        (page 5 — a single, unpaired puzzle, confirmed by
-        ``generator.section_plan``) is page-fit-bound on this 10 cm trim
-        exactly the way the reviewer's own reproduction is (direct
-        measurement: ``usable_bottom - drawing_bottom == 0``), so it is now
-        correctly missing too — before the F-1 fix, this was the one real,
-        already-in-the-test-suite case of the defect itself: the folio was
-        drawn directly over this page's own grid, and this test's own
-        "presence only, within a tolerance of 2" check was loose enough to
-        pass anyway.
+        **Review cycle 2, F-1:** this book's lone *blank* puzzle page (a
+        single, unpaired puzzle, confirmed by ``generator.section_plan``) is
+        page-fit-bound on this 10 cm trim (``usable_bottom - drawing_bottom
+        == 0``), so it keeps the omit-rather-than-collide rule.
+
+        **Owner, 2026-11-11:** the answer page used to be the other such page
+        here (no slack for its caption, CARD-197, and so none for a folio).
+        Answers are now laid out above the footer strip and the page number is
+        centred in it, so the answer page prints its number even on this trim.
         """
         generator = BookPDFGenerator(_min_trim_book())
         single = [puzzle("card200-mintrim", 20, 20, 5, "easy", "Solo")]
@@ -437,10 +434,9 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         # page (owner, 2026-11-10) follows it.
         answer_page = drawn - 1
         blank_puzzle_page = drawn - 3  # divider, this puzzle's blank page, SOLUTIONS, the answer page, the closing page
-        assert answer_page not in folios, (
-            "the min-trim book's answer page has no slack for a caption "
-            "(CARD-197) and so none for a folio either — one must have been "
-            "drawn without checking the room"
+        assert folios.get(answer_page) == str(answer_page), (
+            "the min-trim book's answer page keeps its footer strip clear and "
+            "must print its own number"
         )
         assert blank_puzzle_page not in folios, (
             "the min-trim book's own blank puzzle page is page-fit-bound "
@@ -449,49 +445,27 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         )
         # The omission is specific to pages with no measurable room — plus
         # CARD-206's own title page, which has no ink for a folio to
-        # collide with and draws none by design (TITLE_PAGE_COUNT) — and the
-        # set is now stated exactly rather than bounded (CARD-221): **both**
-        # guide pages (at this 10 cm trim not one of the five fallback forms
-        # fits the sheet at all — the loop exhausts them and draws the last,
-        # which on the packaged face leaves page 1 212 px *past* the frame
-        # and page 2 only 18 px inside it, against the folio's own 49 px
-        # line), the blank puzzle page's and the answer page's own
-        # page-fit-bound grids. Page 2 was the one of the four that used to
-        # print: on Arial that same last form left it 93 px, and the 75 px
-        # the packaged face adds is what spent them. Not a blanket "min trim
-        # never gets folios" bug — the TOC page and both dividers print
-        # theirs, asserted below.
+        # collide with and draws none by design (TITLE_PAGE_COUNT).
+        # CARD-229: the guide's first page still reaches past the footer rule
+        # at this trim (its last mark is at y=1706 px on a 1181 px sheet) and
+        # keeps the omit-rather-than-collide rule; its second page prints.
         missing = set(range(1, drawn + 1)) - set(folios)
-        guide_pages = {
-            number
-            for number in range(
-                1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
-            )
-        }
-        # CARD-229: the guide's SECOND page now prints its folio at this trim
-        # (its last form drops the pipeline, the worked example and the
-        # explanations, and the page's last mark is at y=904 px against the
-        # footer rule at y=923, measured), while the first still reaches past
-        # the footer rule (its last mark is at y=1706 px on a 1181 px sheet) and
-        # keeps the omit-rather-than-collide rule. So exactly the first guide
-        # page is folio-less.
         first_guide_page = 1 + TITLE_PAGE_COUNT
         assert missing == (
             set(range(1, TITLE_PAGE_COUNT + 1))
             | {first_guide_page}
-            | {blank_puzzle_page, answer_page}
+            | {blank_puzzle_page}
             # the closing thank-you page (owner, 2026-11-10): no folio by design
             | {drawn}
         ), (
             "the min-trim book's folio-less pages are exactly its blank title "
-            "page, its first guide page, its page-fit-bound blank puzzle page, "
-            "its answer page and its closing page, and this book drew none on "
-            f"{sorted(missing)}"
+            "page, its first guide page, its page-fit-bound blank puzzle page "
+            f"and its closing page, and this book drew none on {sorted(missing)}"
         )
         assert set(folios) == set(range(1, drawn + 1)) - missing
-        assert len(folios) == 4, (
-            f"the guide's second page, the TOC page and the two dividers carry "
-            f"folios; {len(folios)} pages of this book drew one"
+        assert len(folios) == 5, (
+            f"the guide's second page, the TOC page, the two dividers and the "
+            f"answer page carry folios; {len(folios)} pages of this book drew one"
         )
 
 
@@ -612,8 +586,25 @@ _GUIDE_PAGES = frozenset(
 )
 
 
+def _markless_pages(generator: BookPDFGenerator, puzzles: List[dict]) -> set:
+    """The pages that set the centred folio with no grid-size label beside it.
+
+    Since the owner's 2026-11-11 call ("page numbers are centred for puzzles,
+    how to solve and play online, but they're at corners and sometimes
+    missing for solutions") the contents page, the dividers and every answer
+    page set the puzzle pages' centred folio and no other footer mark, so
+    their hand is told by their margins, as a guide page's is.
+    """
+    kinds = generator.interior_stream(list(puzzles)).page_kinds
+    return {
+        number
+        for number, kind in enumerate(kinds, start=1)
+        if kind.value in {"toc", "divider", "answer", "packed_answer"}
+    }
+
+
 def _check_every_folios_side(
-    folios: dict, by_page: dict, labels: dict, two_up_pages: set
+    folios: dict, by_page: dict, labels: dict, two_up_pages: set, markless: set
 ) -> int:
     """Assert every folio's page says which hand it is on, and count them.
 
@@ -645,6 +636,10 @@ def _check_every_folios_side(
     one only because it is in ``two_up_pages``. A page with a centred folio,
     no label and no such excuse is still a failure, which is what keeps this
     from becoming "any mark will do".
+
+    **A fifth form, owner 2026-11-11.** The contents page, the dividers and
+    the answer pages set the centred folio too, with no label: ``markless``
+    (:func:`_markless_pages`) names them from the walk's own page kinds.
     """
     checked = 0
     for page in folios:
@@ -666,10 +661,10 @@ def _check_every_folios_side(
                     f"grid size is set {label.anchor!r}, not against the inner margin"
                 )
             else:
-                assert page in two_up_pages | _GUIDE_PAGES, (
+                assert page in two_up_pages | _GUIDE_PAGES | markless, (
                     f"page {page} drew a centred folio and no grid-size label but "
-                    "is neither a two-up page nor a guide page, so nothing on it "
-                    "says which hand it is on"
+                    "is neither a two-up page, a guide page nor a page that sets "
+                    "no other footer mark, so nothing on it says which hand it is on"
                 )
         checked += 1
     return checked
@@ -688,7 +683,9 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         assert page_is_right_hand(1), "interior page 1 (the guide) is right-hand (FR-043)"
         two_up = _two_up_pages(generator, baseline_puzzles())
         assert two_up, "the baseline book prints a two-up page"
-        checked = _check_every_folios_side(folios, by_page, labels, two_up)
+        checked = _check_every_folios_side(
+            folios, by_page, labels, two_up, _markless_pages(generator, baseline_puzzles())
+        )
         # Neither the title page nor the closing thank-you page (owner,
         # 2026-11-10) carries a folio.
         assert checked == len(folios) >= drawn - 2, "almost every page carried a checkable folio"
@@ -748,16 +745,20 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
             "a 60-puzzle book should still print well over a hundred pages, "
             "or parity has nowhere to go wrong"
         )
+        markless = _markless_pages(generator, puzzles)
         assert _check_every_folios_side(
-            folios, by_page, labels, _two_up_pages(generator, puzzles)
+            folios, by_page, labels, _two_up_pages(generator, puzzles), markless
         ) == len(folios)
         # Both hands really are exercised on this book, so neither branch of
         # the check above is reached vacuously.
         hands = {page_is_right_hand(page) for page in folios}
         assert hands == {True, False}
         centred = {page for page, call in by_page.items() if call.anchor == "mb"}
-        assert centred, "no page carried the frame's centred folio"
-        assert set(labels) | _GUIDE_PAGES >= centred, "a centred folio with no label beside it"
+        # Every page sets the centred folio now (owner, 2026-11-11).
+        assert centred == set(folios), "a page set its folio in a corner"
+        assert set(labels) | _GUIDE_PAGES | markless >= centred, (
+            "a centred folio with no label beside it"
+        )
 
 
 # --------------------------------------------------------------------------
@@ -1121,18 +1122,16 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         )
         return _page_folios(generator, stream, page_number)
 
-    def test_packed_answer_page_omits_the_folio_when_the_corner_tile_is_page_fit_bound(
+    def test_packed_answer_page_draws_the_folio_even_with_a_page_fit_bound_tile(
         self,
     ) -> None:
-        """The packed page's corner tile can be as page-fit-bound as a full
-        answer page's grid. A 25 x 30, depth-10 member at capacity 4 (packed
-        since 2026-11-09, ``PACKED_MAX_*`` = ``MAX_SIZE``) leaves its corner
-        tile less than a folio's line below and nothing to its right, measured
-        below rather than assumed."""
+        """A 25 x 30, depth-10 member at capacity 4 fills its tiles to the
+        bottom of the answer area, which used to leave the corner folio no
+        room (it was omitted). The answer area now stops above the footer
+        strip (owner, 2026-11-11), so the centred folio is drawn, and the
+        tile's ink ends above the footer rule's row, measured below."""
         from nonogram.admin.book_answer_vector import answer_section_spec
-        from nonogram.admin.book_vector import interior_face_metrics
-        from nonogram.admin.book_vector_draw import line_height_px
-        from nonogram.export.layout import compute_packed_solved_layout
+        from nonogram.export.layout import compute_packed_solved_layout, interior_frame
 
         tight = puzzle("f1-packed-tight", 25, 30, 10, "easy", "Tight")
         generator = BookPDFGenerator(corpus_book("f1-packed-tight-book"))
@@ -1142,15 +1141,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             4,
             answer_section_spec(generator.page_spec(9)),
         )
-        corner = layout.slots[3].page  # page 9 is right-hand: the bottom-right tile
-        folio_line = line_height_px(type_px(FOLIO_PT, DPI), interior_face_metrics())
-        assert corner.usable_bottom - corner.drawing_bottom < folio_line
-        assert corner.usable_right - corner.drawing_right == 0
+        frame = interior_frame(generator.page_spec(9))
+        assert max(slot.page.drawing_bottom for slot in layout.slots) <= frame.footer_rule.y
 
-        assert not self._packed_folios(generator, tight, 4), (
-            "a packed answer page whose corner tile has no room drew a "
-            "folio directly over its own grid instead of omitting it"
-        )
+        assert self._packed_folios(generator, tight, 4) == {9: "9"}
 
     def test_packed_answer_page_still_draws_when_the_corner_tile_has_room(self) -> None:
         """Control: an ordinary packed page still gets its folio."""

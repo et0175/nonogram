@@ -114,6 +114,10 @@ USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 12.0
 #: ("SOLUTIONS · EASY" / "PUZZLES 1–4", the approved solutions mockup), so an
 #: a packed answer page's usable height is this much shorter.
 RUNNING_HEAD_MM = 9.0
+#: The footer strip every answer page keeps under its answers for its centred
+#: page number (owner, 2026-11-11): the puzzle pages' own footer, a 10 pt
+#: line with a 9 pt gap above and below it.
+ANSWER_FOOTER_MM = (10.0 + 2 * 9.0) * 25.4 / 72.0
 STANDARD_CELL_MM = 7.5
 PX_PER_MM = book_pdf_generator.DPI / 25.4
 
@@ -126,7 +130,9 @@ PACKED_GAP_MM = 4.0
 PACKED_MAX_CELL_MM = 6.0
 PACKED_BAND_MM = 12.0
 PACKED_TILE_WIDTH_MM = (USABLE_WIDTH_MM - PACKED_GAP_MM) / 2
-PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - RUNNING_HEAD_MM
+PACKED_USABLE_HEIGHT_MM = (
+    11 * 25.4 - TOP_MM - BOTTOM_MM - RUNNING_HEAD_MM - ANSWER_FOOTER_MM
+)
 
 #: FR-040's two-up minimum, and the usable height a page has left once it
 #: reserves a band for each of two puzzles rather than one **and one footer
@@ -1000,22 +1006,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 )
                 if expected_mm is None:
                     continue  # a lone leftover's packed page: column empty
-                # CARD-200: the page's own folio now sits in the usable
-                # area's bottom-outer corner — inside the margin-free
-                # region, not the bottom margin itself (the folio's own
-                # anchor puts its glyph box's bottom edge exactly at
-                # ``usable_bottom``, one line above it) — so a plain
-                # leftmost-ink scan over the full page height would read
-                # the folio's own ink on whichever half it lands in
-                # (it is flush with the usable area's *outer* edge,
-                # often further out than a packed tile's own left edge).
-                # Cropped above ``BOTTOM_MM`` plus a few mm of headroom
-                # for one line of :data:`~nonogram.admin.book_pdf_generator.FOLIO_PT`
-                # text, which stays well clear of a packed tile's own
-                # bottom edge (every tile keeps its drawing inside the
-                # band below PACKED_BAND_MM and the usable height,
-                # never down into this margin at all).
-                bottom_limit = page.height - round((BOTTOM_MM + 6.0) * PX_PER_MM)
+                # The page's own folio sits centred in the footer strip
+                # under the answers (owner, 2026-11-11), and its ink straddles
+                # the page's centre, so a leftmost-ink scan of the right half
+                # would read it. Cropped above the footer strip, which no
+                # answer reaches into.
+                bottom_limit = page.height - round((BOTTOM_MM + ANSWER_FOOTER_MM) * PX_PER_MM)
                 crop = page.crop((left, 0, right, bottom_limit))
                 ink = np.asarray(crop.convert("L")) < 128
                 # The approved solutions mockup puts two lines of type
