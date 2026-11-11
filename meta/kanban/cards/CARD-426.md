@@ -1,6 +1,6 @@
 # CARD-426: The brush menu hangs: an outside tap neither closes it nor lets Escape close it, and it swallows taps on the board
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** bug
 **Estimate:** 1c (0.5d)
@@ -21,9 +21,9 @@
 <!-- Derived 2026-11-11 by reading `solver.js`'s `openMenu`/`closeMenu` and every `closeMenu()` call site, and `admin.css`'s `.player-tool-menu`. Conflict edge: CARD-424 also edits `admin.css`'s compact block and the brush-menu test module — serialize, no dependency. -->
 **Review score:** 9.0 (cycle 2)
 **Started:** 2026-11-11T18:05:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-11T20:15:00Z
+**Actual:** 2 review cycles + 3 rounds (fix, owner ruling, ruling resolution), wall clock excluded per the owner's ruling
+**Merge commit:** 1fbec7b3
 **Blocked by:** —
 
 ## Why this card exists
@@ -589,3 +589,12 @@ The remedy was one selector: narrow the exemption to `closest("#puzzle-player-to
 - **[AC-3 rewritten by the orchestrator]** Cycle 2's first minor: the ruling section said "the card's AC-3 is rewritten to the ruling" and nothing had done it, in either copy — the code and the test implemented the ruling while the card's own contract text still demanded the behaviour the ruling withdrew. Rewritten above in main's copy (the worktree's is frozen by INV-023).
 - **[Two minors routed to CARD-424, not fixed here]** (1) a chrome dismissal **drops focus to `<body>`** — measured at 1440x900: `closeMenu()` hides the menu around the focused item, and unlike `pick()` and Escape nothing calls `trigger.focus()`. Any fix must be scoped to the in-box case: a blanket `trigger.focus()` in `closeMenu()` would yank focus back on an ordinary board tap. (2) the exemption selector `.player-tool-item` is **globally scoped** — harmless today (six elements, all inside the menu, across both templates) but a future control reusing that class outside the box would silently stop dismissing the menu; `#puzzle-player-tool-menu .player-tool-item` is the scoped form. CARD-424 is the natural home: it already owns that class and that block.
 - **[Out of scope, worth the owner's eye]** The ruling's one stated cost — on the **public** shell cells really do lie under the box, so a reader taps once to dismiss and again to mark — is reasoned from the admin geometry plus the certified census. **Nobody has seen it on the live site.** It is the first thing to look at after the next deploy.
+
+- **[Build gate] run three times, and the third is the one that counts.** Derived selection: 149 files / 7656 tests.
+  - **Run 1** (rebased onto `c902fae0`): 7654 passed, 30 skipped, **2 failed** in 34:06 — the known pre-existing `test_book_pdf_memory` red, plus `tests/test_puzzle_solver_clues.py::TestPlayerNumerals_ColumnFloorIsTheWidestColumnNumeral::test_one_digit_column_numbers_keep_the_fit`, which had appeared in no gate today.
+  - **Run 2**, identical head and selection: **7655 passed**, 1 failed, 26:17 — the clues test passed, the +1 being exactly it.
+  - **Run 3**, after rebasing onto the new main `e8c7b2d1`: **7655 passed, 30 skipped, 1 failed**, 26:33; run 2 of the lifted marked files 6 passed.
+- **[Flaky gate member, recorded not waved through]** Before accepting run 1's extra red as transient it was chased: the test passes on main, alone on this branch, across its whole module (85 passed), and across **847 tests of the solver/player family under the lock** (14:21). Only the 149-file run ever reddened it, and the timing agrees with load — the failing run took **34:06** against the two passing runs' 26:17 and 26:33 on the same work. It measures CARD-196's column-numeral floor, a fit figure, which is the class that drifts on a busy machine. Worth a card if it recurs; one observation is not yet a pattern.
+- **[Harness flaw, fixed]** Run 1's assertion numbers were lost because the gate script printed only the last 30 lines of pytest's output. It now prints every failure's full context. A red reported without its numbers is a red nobody can act on.
+- **[Main moved mid-gate, and my first two merge attempts failed for a DIFFERENT reason]** Another session merged `claude/solution-one-path` into main at 19:38 (`src/nonogram/admin/book_answer_vector.py` and a vector golden fixture — disjoint from this card). I reported that as the cause of a failed merge; **it was not**. Both attempts were refused by my own uncommitted staged `meta/kanban/cards/CARD-429.md` — `error: Your local changes to the following files would be overwritten by merge` — and a `grep` filter on the merge output hid the message from me. The lesson is the filter, not the merge: never pipe a command through a pattern that can swallow its error. The rebase onto the new main was still right, and run 3 is the gate that measured what actually merged.
+- **[Done]** Merged `1fbec7b3` on the gates. Estimate 1c against 2 review cycles and 3 rounds — the overrun is the owner's ruling arriving mid-card and reversing one half of the fix, which is not an estimation error but a decision that could not have been made earlier: it took the first implementation existing before the question could be asked.
