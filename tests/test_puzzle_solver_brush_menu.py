@@ -1040,29 +1040,40 @@ class TestSolverBrushMenu_Keyboard:
 # ==========================================================================
 
 
-#: Where the menu's box takes the pointer and where it does not (CARD-426
-#: AC-3). Points are computed from the live rects, never written down: the
-#: box's left padding strip, its bottom padding strip and the middle of the
-#: gap between the first two items belong to no item, and each item's own
-#: centre belongs to that item. ``dead`` is what
-#: ``document.elementFromPoint`` says about the three no-item points —
-#: ``true`` meaning the menu (or something inside it) took the pointer there,
-#: which is Chromium's side of Playwright's "<div role=menu ...> intercepts
-#: pointer events". Strips, not corners: the box is ``--radius-container``
-#: rounded, so a point 1 px inside its bottom-right corner lies outside the
-#: box either way and would assert nothing (measured against the mutant).
+#: Who answers the hit test over the menu's box (CARD-426 AC-3). Points are
+#: computed from the live rects, never written down: ``chrome`` is the box's
+#: left padding strip, its bottom padding strip and the middle of the gap
+#: between the first two items — the three places inside the box that belong
+#: to no item — and ``items`` is each option's own centre. Both lists hold
+#: what ``document.elementFromPoint`` says: ``true`` meaning the menu, or
+#: something inside it, took the pointer there.
+#:
+#: RETIRED CLAIM, 2026-11-11 (CARD-426, the owner's ruling "chrome should
+#: swallow the tap"): the three chrome points answered ``false`` — the box
+#: carried ``pointer-events: none``, so Chromium named whatever lay under it
+#: and a near-miss on the menu's own padding marked a cell. They are
+#: ``true`` now: the box keeps the pointer, so a tap on the chrome closes
+#: the menu (``solver.js``'s document dismissal, unchanged) and marks
+#: nothing, while only a tap clear of the box marks. The list keeps its
+#: three points — they are exactly the surface the ruling moved.
+#:
+#: Strips, not corners: the box is ``--radius-container`` rounded, so a
+#: point 1 px inside its bottom-right corner lies outside the box either way
+#: and would assert nothing (measured against the mutant).
 _MENU_HIT_TEST = """() => {
   const menu = document.getElementById('puzzle-player-tool-menu');
   const box = menu.getBoundingClientRect();
   const items = [...menu.querySelectorAll('.player-tool-item')].map((i) => i.getBoundingClientRect());
   const centre = (r) => [(r.x + r.right) / 2, (r.y + r.bottom) / 2];
   const took = (x, y) => { const e = document.elementFromPoint(x, y); return e !== null && menu.contains(e); };
+  const chrome = [
+    [box.x + 2, centre(items[0])[1]],
+    [centre(box)[0], box.bottom - 3],
+    [centre(items[0])[0], (items[0].bottom + items[1].y) / 2],
+  ];
   return {
-    dead: [
-      took(box.x + 2, centre(items[0])[1]),
-      took(centre(box)[0], box.bottom - 3),
-      took(centre(items[0])[0], (items[0].bottom + items[1].y) / 2),
-    ],
+    chrome: chrome.map(([x, y]) => took(x, y)),
+    chromePoints: chrome,
     items: items.map((r) => took(...centre(r))),
   };
 }"""
@@ -1099,8 +1110,7 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     shape ``wireExplainDismiss`` and the wrong-guess offer's dismissal
     already use, trigger exemption included (AC-2: the pointer-down on the
     trigger must reach its own toggle, or the click behind it would reopen
-    what the dismissal just closed) — and ``admin.css`` takes the pointer off
-    the BOX, leaving it to the four items.
+    what the dismissal just closed).
 
     **The card's one decision, recorded here and in the card's Worktree
     notes: (b) — the dismissing tap also acts.** Nothing is consumed, so the
@@ -1109,13 +1119,37 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     both dismissals this file's neighbours already ship, and it is what
     "the board is reachable" means for a panel that lies over the board.
 
+    RETIRED CLAIM, 2026-11-11 (CARD-426, the owner's ruling "chrome should
+    swallow the tap"): "``admin.css`` takes the pointer off the BOX, leaving
+    it to the four items" — the box carried ``pointer-events: none`` and its
+    padding ring and inter-item gaps therefore let a near-miss through to
+    mark a cell. The owner was asked how a near-miss on the menu's own
+    chrome should behave and ruled that the chrome swallows it, so that rule
+    and its paired ``.player-tool-item { pointer-events: auto }`` are gone,
+    and the dismissal's exemption narrowed with them: it was the trigger and
+    the whole ``#puzzle-player-tool-menu``, and is now the trigger and the
+    four ``.player-tool-item`` options, because an opaque box makes the
+    chrome's own pointer-down target the MENU — which matched the old
+    exemption, so the menu hung open on a near-miss (measured at 1440x900 on
+    all three chrome points; the plant below is that state).
+
+    **What is asserted instead, in the same cell:** the box answers the hit
+    test for itself at all three chrome points, each item still answers for
+    itself, and a tap on the chrome closes the menu and does nothing else —
+    nothing marked, the brush unchanged — while a tap on an item picks that
+    brush and closes the menu, and a tap clear of the box closes it and
+    marks. This is NOT a reversal to decision (a): nothing is consumed
+    anywhere, which is why AC-1's and AC-2's blocks below are untouched by
+    the ruling, and the board's own ``pointerdown`` (pinch bookkeeping, the
+    crosshair) and the click behind a tap are reached exactly as before.
+
     One geometry note, measured in this worktree at both viewports: on the
     ADMIN solve page this file drives, the box overlaps the stage's sticky
     row-clue band rather than a cell (390 x 844: the box ends 2 px into the
     stage; 1440 x 900: it ends 12 px short of the first column), so the
     "under the menu's box" half is asserted as the hit test the box answers
-    — the box takes the pointer nowhere, each item takes it on itself — and
-    the marking half on an ordinary cell tap. On the public page, whose
+    — the box answers for itself, each item for itself — and the marking
+    half on an ordinary cell tap, clear of the box. On the public page, whose
     shorter shell is where the owner met this, the same box lies over the
     grid's first columns; both files are the same bytes
     (``player/assemble.py``'s ``COPIED_FROM_ADMIN``).
@@ -1125,16 +1159,21 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     which is the production defect itself); dropping that handler's trigger
     exemption fails at the toggle block instead (the pointer-down closes and
     the click behind it reopens, so a second click never shuts the menu);
-    dropping ``.player-tool-menu { pointer-events: none }`` fails ``dead``
-    (all three no-item points answer "the menu"); dropping
-    ``.player-tool-item { pointer-events: auto }`` fails ``items`` (all four
-    answer "not the menu" — nothing in it is clickable any more, which also
-    fails every ``_tool`` call in this family)."""
+    putting ``.player-tool-menu { pointer-events: none }`` back — the rule
+    the 2026-11-11 ruling retired — fails ``chrome`` (all three chrome
+    points answer "not the menu", i.e. they name what lies under the box,
+    which is the behaviour the owner ruled against); and widening the
+    dismissal's exemption back to ``#puzzle-player-tool-menu`` fails the
+    chrome-tap block with ``('1440x900', [262, 212.78125])`` — the menu is
+    still visible after a pointer-down on its left padding strip, which is
+    this card's own defect surviving on the chrome and is exactly what the
+    ruling was asked about."""
 
     def test_an_outside_pointer_down_closes_it_and_the_board_stays_reachable(self, browser, live) -> None:
         """AC-1 (the board and the header, at both of the card's viewports),
-        AC-2 (the trigger still toggles both ways) and AC-3 (the tap acts,
-        and the box takes the pointer nowhere) in one cell — the owner's test
+        AC-2 (the trigger still toggles both ways) and AC-3 (a tap clear of
+        the box acts, and the box answers the hit test for itself) in one
+        cell — the owner's test
         budget of 2026-11-07: change or reuse a cell rather than add four."""
         for width, height, touch in ((390, 844, True), (1440, 900, False)):
             context = browser.new_context(viewport={"width": width, "height": height}, has_touch=touch)
@@ -1170,18 +1209,48 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                 assert menu.is_hidden(), where
                 assert _trigger(page).get_attribute("aria-expanded") == "false", where
 
-                # AC-3 — opened again, the box intercepts nothing: its padding
-                # and the gaps between its items answer the hit test with
-                # whatever lies under them, while each item answers for itself.
+                # AC-3 — opened again, the box answers the hit test for
+                # ITSELF: its padding ring and the gaps between its options
+                # are the menu's chrome, which the owner's 2026-11-11 ruling
+                # has swallow the tap, while each item answers for itself.
                 _trigger(page).click()
                 hits = page.evaluate(_MENU_HIT_TEST)
-                assert hits == {"dead": [False, False, False], "items": [True, True, True, True]}, where
+                assert hits["chrome"] == [True, True, True], where
+                assert hits["items"] == [True, True, True, True], where
 
                 # AC-4 — unchanged, and asserted here only because the tap
                 # path is what used to take focus out of reach of it.
                 assert "player-tool-item" in page.evaluate("document.activeElement.className"), where
                 page.keyboard.press("Escape")
                 assert menu.is_hidden(), where
+
+                # AC-1 + AC-3 under the owner's ruling of 2026-11-11 — what a
+                # tap on the CHROME does, not merely what the box answers to
+                # a hit test. The three points are the ones asserted above,
+                # handed over by the same snippet so the two cannot drift: a
+                # real pointer-down and -up on each closes the menu and does
+                # NOTHING else — nothing marked, and the brush unchanged, so
+                # a near-miss cannot silently pick an option either.
+                #
+                # Desktop only, and measured rather than assumed: at 390x844
+                # Chromium's touch adjustment retargets a near-miss onto the
+                # nearest option (two of these three points), which closes
+                # the menu by PICKING a brush. That snap predates this card
+                # (cycle 1's F-005 measured it against a cell centre), it is
+                # the browser's and not this code's, and what it produces is
+                # a menu action rather than a board action — the half the
+                # owner objected to. It is the ruling's stated limit on a
+                # phone, recorded in the card's notes, not a second claim.
+                if not touch:
+                    brush, marked = _trigger(page).get_attribute("aria-label"), _marked(_states(page))
+                    for point in hits["chromePoints"]:
+                        _trigger(page).click()
+                        assert menu.is_visible(), (where, point)
+                        tap(*point)
+                        assert menu.is_hidden(), (where, point)
+                        assert _trigger(page).get_attribute("aria-expanded") == "false", (where, point)
+                        assert _trigger(page).get_attribute("aria-label") == brush, (where, point)
+                        assert _marked(_states(page)) == marked, (where, point)
             finally:
                 context.close()
 
