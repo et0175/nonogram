@@ -31,6 +31,7 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _as_planned,
     _degrade_infeasible_packed_pages,
+    answer_section_spec,
     page_frame,
     page_is_right_hand,
 )
@@ -733,8 +734,12 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
     :func:`~nonogram.export.layout.compute_packed_solved_layout` now declines
     (``tests/test_layout_packed_solved.py`` pins that half directly). This
     class proves the walk that wraps it recovers gracefully: the book still
-    exports, split across two working 2-up pages instead, and no two slots'
-    drawing extents overlap anywhere in the result.
+    exports, split across a working 2-up page and two full pages instead,
+    and no two slots' drawing extents overlap anywhere in the result.
+
+    (Two 2-up pages until 2026-11-11, when every answer page began keeping
+    the puzzle pages' footer strip free for its centred page number: on this
+    10 cm trim the 15 x 18 and 15 x 20 pair no longer fits one page.)
     """
 
     SIZES_AND_TIERS: Tuple[Tuple[int, int, str], ...] = (
@@ -774,7 +779,7 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
 
         assert layout is None, "the naive 4-up page must be the one the fix declines"
 
-    def test_the_walk_degrades_to_two_working_two_up_pages(self) -> None:
+    def test_the_walk_degrades_to_a_two_up_page_and_two_full_pages(self) -> None:
         book = _kdp_min_book()
         puzzles = self._puzzles()
         gen = BookPDFGenerator(book)
@@ -783,14 +788,16 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
         naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
 
         degraded = _degrade_infeasible_packed_pages(
-            naive_plan, payloads, gen.page_spec(start)
+            naive_plan, payloads, answer_section_spec(gen.page_spec(start))
         )
 
-        assert [entry.numbers for entry in degraded] == [(1, 2), (3, 4)]
-        assert all(
-            isinstance(entry, PackedAnswerPage) and entry.capacity == 2
-            for entry in degraded
-        )
+        first, *rest = degraded
+        assert isinstance(first, PackedAnswerPage)
+        assert (first.numbers, first.capacity) == ((1, 2), 2)
+        assert [(type(entry), entry.number) for entry in rest] == [
+            (Answer, 3),
+            (Answer, 4),
+        ]
 
     def test_no_two_slots_drawing_extents_overlap_on_either_surviving_page(
         self,
@@ -810,16 +817,18 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
         start = first_answer_page(book, puzzles)
         naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
         degraded = _degrade_infeasible_packed_pages(
-            naive_plan, payloads, gen.page_spec(start)
+            naive_plan, payloads, answer_section_spec(gen.page_spec(start))
         )
 
         checked_any = False
         for offset, packed in enumerate(degraded):
+            if not isinstance(packed, PackedAnswerPage):
+                continue  # a full answer page: one slot, nothing to overlap
             members = [payloads[number - 1] for number in packed.numbers]
             layout = compute_packed_solved_layout(
                 [(payload.row_clues, payload.column_clues) for _, payload in members],
                 packed.capacity,
-                gen.page_spec(start + offset),
+                answer_section_spec(gen.page_spec(start + offset)),
             )
             assert layout is not None
             for slot in layout.slots:
@@ -836,14 +845,14 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
         gen = BookPDFGenerator(book)
         payloads = [(p["id"], gen._payload(p)) for p in puzzles]
         degraded = _degrade_infeasible_packed_pages(
-            naive_plan, payloads, gen.page_spec(start)
+            naive_plan, payloads, answer_section_spec(gen.page_spec(start))
         )
 
         pages = _interior(puzzles, book)
 
         # + 1: the closing thank-you page (owner, 2026-11-10).
         assert len(pages) == start - 1 + len(degraded) + 1
-        assert len(degraded) == 2, "two 2-up pages, not one 4-up and not four singles"
+        assert len(degraded) == 3, "a 2-up page and two full pages, not one 4-up and not four singles"
 
     def test_the_rendered_pages_match_the_degraded_plan_drawn_directly(self) -> None:
         """The wiring draws exactly the degraded plan — the same style
@@ -858,10 +867,12 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
         titles = gen.custom_titles()
         naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
         degraded = _degrade_infeasible_packed_pages(
-            naive_plan, payloads, gen.page_spec(start)
+            naive_plan, payloads, answer_section_spec(gen.page_spec(start))
         )
 
         for offset, packed_page in enumerate(degraded):
+            if not isinstance(packed_page, PackedAnswerPage):
+                continue  # full answer pages are pinned by their own tests
             expected = _packed_twin(gen, packed_page, payloads, start + offset, titles)
             assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected), (
                 f"answer page at offset {offset} does not match the direct call"
@@ -3219,7 +3230,11 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
                 generator.dpi,
             )
         )
-        expected.add(_flip(frame.bottom, frame.height, generator.dpi))
+        # The folio: the puzzle pages' centred footer line, one 9 pt gap
+        # above the bottom margin (owner, 2026-11-11).
+        expected.add(
+            _flip(frame.bottom - round(9.0 * generator.dpi / 72.0), frame.height, generator.dpi)
+        )
 
         baselines = {
             float(y)

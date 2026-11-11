@@ -426,7 +426,9 @@ from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
     DPI,
+    INTERIOR_FOOTER_GAP_PT,
     INTERIOR_FOOTER_LINE_PT,
+    INTERIOR_FOOTER_MM,
     DifficultyDots,
     HeaderBand,
     Layout,
@@ -2799,13 +2801,21 @@ RUNNING_HEAD_MM = 9.0
 
 
 def answer_section_spec(spec: PageSpec) -> PageSpec:
-    """``spec`` with the running head's strip taken off the top of its usable area.
+    """``spec`` with the running head's strip taken off the top of its usable
+    area and the footer strip off its bottom.
 
     Every answer page is planned and laid out on this spec, so the packing
     walk's feasibility check and the page that is finally drawn agree about
-    how much room the tiles have.
+    how much room the tiles have. The footer strip is the puzzle pages' own
+    (:data:`~nonogram.export.layout.INTERIOR_FOOTER_MM`): an answer page sets
+    its page number centred in it, where the puzzle pages set theirs, and no
+    answer reaches into it, so the number is never dropped (owner, 2026-11-11).
     """
-    return replace(spec, top_mm=spec.top_mm + RUNNING_HEAD_MM)
+    return replace(
+        spec,
+        top_mm=spec.top_mm + RUNNING_HEAD_MM,
+        bottom_mm=spec.bottom_mm + INTERIOR_FOOTER_MM,
+    )
 
 
 def page_frame(spec: PageSpec) -> PageFrame:
@@ -3042,7 +3052,9 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     entry_height = entry_ascent + entry_descent + type_px(TOC_ENTRY_GAP_PT, dpi)
     folio_font = _band_font(type_px(FOLIO_PT, dpi))
     folio_ascent, folio_descent = folio_font.getmetrics()
-    folio_space = folio_ascent + folio_descent
+    # The folio's line, and the gap the centred folio stands above the bottom
+    # margin by (owner, 2026-11-11: the puzzle pages' footer line).
+    folio_space = folio_ascent + folio_descent + type_px(INTERIOR_FOOTER_GAP_PT, dpi)
     available = (frame.bottom - frame.top) - title_space - folio_space
     return max(1, available // entry_height)
 
@@ -4614,15 +4626,17 @@ class BookPDFGenerator:
             (left, y), "Check your finished picture. Solutions run in puzzle order.",
             font=blurb_font,
         )
+        # The puzzle pages' centred folio (owner, 2026-11-11).
+        footer = interior_frame(self.page_spec(page_number))
         _draw_folio(
             draw,
             frame.left,
             frame.top,
             frame.right,
-            frame.bottom,
+            footer.baseline,
             page_number,
             self.dpi,
-            content_bottom=blurb_box[3],
+            centred_x=footer.folio_x,
         )
         return page
 
@@ -4665,15 +4679,17 @@ class BookPDFGenerator:
             draw, level, left, dot_top, left + 4 * height, dot_top + height
         )
         dots_bottom = dot_top + height if drawn is not None else bbox[3]
+        # The puzzle pages' centred folio (owner, 2026-11-11).
+        footer = interior_frame(self.page_spec(page_number))
         _draw_folio(
             draw,
             frame.left,
             frame.top,
             frame.right,
-            frame.bottom,
+            footer.baseline,
             page_number,
             self.dpi,
-            content_bottom=dots_bottom,
+            centred_x=footer.folio_x,
         )
         return page
 
@@ -4707,15 +4723,17 @@ class BookPDFGenerator:
         x = (frame.width - (bbox[2] - bbox[0])) // 2
         y = (frame.height - (bbox[3] - bbox[1])) // 2
         draw.text((x, y), text, fill="black", font=divider_font)
+        # The puzzle pages' centred folio (owner, 2026-11-11).
+        footer = interior_frame(self.page_spec(page_number))
         _draw_folio(
             draw,
             frame.left,
             frame.top,
             frame.right,
-            frame.bottom,
+            footer.baseline,
             page_number,
             self.dpi,
-            content_bottom=y + bbox[3],
+            centred_x=footer.folio_x,
         )
         return divider
 

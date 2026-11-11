@@ -1,9 +1,9 @@
 {
   "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
   "digests": {
-    "answer_full": "c554e4aebb62af85bb908518dc81c2791488aeb83cf196c0d414a6d12ff4a86d",
-    "answer_packed_one": "e6d65f36ac52d4e4170dae4b9f2f1a661478a32f44bb4e0e609a715e82cbe7f3",
-    "answer_packed_two": "6527e1d7c551f182fcea47d1735e454d7327e0e454594d915122c2904e9d9821",
+    "answer_full": "b42562247bb0e2e7b1a09721743d1b272f1749c9f0f9bac3acb886f0c50d2129",
+    "answer_packed_one": "2a363076fc990f101964fd071fdef1233c1a8e4efb77a65a316f141ec3b6873a",
+    "answer_packed_two": "ad0ada5dbaa673d9d8efc4d22771e176bc34ef97ebed18e1c6bb5f42978f36c1",
     "closing": "9bb8fb46d60f245e6ad9776f9dceef155824e604453675d4555bc457a4e5fbeb",
     "guide_1": "3d315f38d41c619ddc10625939e4f18141faa6381159bace33c311d2840317e4",
     "guide_2": "6986039bc2e6686e41d01265b608134ef04f7595ebd8410f6cb86c27c2d61974",
@@ -12,7 +12,7 @@
     "puzzle_single_30x30": "e7ca23e5828fad57ae6fddf36d42a55e67a06f45e889bae1577d8f2a4ee078de",
     "puzzle_two_up": "d35cf30cf79331e897cd5d0a103275196026af3132d14cf5c9173bf3dad9b5a0",
     "title": "a3896738935b7820eb3c1aa248cc31251c66a57997f70b0d40bb223a0f2d28ef",
-    "toc": "b2bb1af7471a17490cb86c0e547db5f9d1433a2f5f36dd99934b46135110552a"
+    "toc": "d220611dbd2435d1bb682121f644484a47e7d069de2991b109a1222351051c61"
   },
   "hash": "sha-256 of the decoded content stream (cp1252)",
   "plan": [

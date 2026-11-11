@@ -65,24 +65,24 @@ from nonogram.admin.book_pdf_generator import (
     TOC_ENTRY_PT,
     TOC_GROUP_GAP_PT,
     TOC_TITLE,
+    POINTS_PER_INCH,
     PageFrame,
     TocEntry,
     _toc_entries_per_page,
     page_frame,
-    page_is_right_hand,
     type_px,
 )
 from nonogram.admin.book_vector import ContentStream, FontMetrics, interior_face_metrics
 from nonogram.admin.book_vector_draw import (
     INK_GREY,
     advance_px,
-    draw_folio,
+    draw_centred_folio,
     line_height_px,
     set_from_top,
     set_right_from_top,
 )
 from nonogram.admin.book_puzzle_vector import draw_tier_dots
-from nonogram.export.layout import interior_header_rule_px
+from nonogram.export.layout import INTERIOR_FOOTER_GAP_PT, interior_header_rule_px
 
 #: The approved mockup's secondary text and the leaders' lighter grey.
 TOC_RANGE_GREY = 0.36
@@ -320,19 +320,23 @@ def toc_page_stream(
         bottom = y + row_height
         y += line_height
 
-    draw_folio(
-        stream,
-        frame.left,
-        frame.top,
-        frame.right,
-        frame.bottom,
-        str(page_number),
-        spec.folio_size_px,
-        face,
-        right_hand=page_is_right_hand(page_number),
-        content_bottom=bottom,
-        grey=grey,
-    )
+    # The puzzle pages' folio: centred on the trim, on the footer line's
+    # baseline one gap above the bottom margin (owner, 2026-11-11) --
+    # :func:`~nonogram.export.layout.interior_frame`'s ``folio_x`` and
+    # ``baseline``, read off this page's own frame. Rows run the full measure,
+    # so on a trim short enough for the last row to reach the footer line the
+    # page prints no number rather than setting one over that row.
+    baseline = frame.bottom - round(INTERIOR_FOOTER_GAP_PT * dpi / POINTS_PER_INCH)
+    if baseline - bottom >= line_height_px(spec.folio_size_px, face):
+        draw_centred_folio(
+            stream,
+            str(page_number),
+            frame.width // 2,
+            baseline,
+            spec.folio_size_px,
+            face,
+            grey=grey,
+        )
     return stream
 
 

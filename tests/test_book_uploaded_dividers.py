@@ -743,12 +743,16 @@ class TestInterior_TheDrawnFallbackIsTheDrawnPageItAlwaysWas:
     own sheet (``_book()``) and hashing ``Image.tobytes()``; the same script on
     this branch printed the same three values. They are literals, not
     recomputed, so a change to the drawn page reds here.
+
+    Re-taken on 2026-11-11, when the divider's page number moved from the
+    bottom-outer corner to the puzzle pages' centred footer line (owner) —
+    the one change to the drawn page since.
     """
 
     DIGESTS = {
-        ("Easy", 5): "de268a41b3a1a03fa1036ab591e47a408cf988858c6dbe069fa911262c1f3f45",
-        ("SOLUTIONS", 12): "00f657409e0955437b57aab215dbf0d2969c19ef69eeb4644c3d8d874a242328",
-        ("Hard", 11): "9dbcc6c6c9d9e93aa3e4f91975915ab47ba47c65ad6177845497688fe4051a9c",
+        ("Easy", 5): "859b199a5291b609be4fc0f9a69290556eed8a65041daf4615675ee4f3fdf5a2",
+        ("SOLUTIONS", 12): "8718ea6ed1917cb47145ec1402b5b3e03de55569af76743d222a4ff3b4d90501",
+        ("Hard", 11): "72bd4b6a94c1cd02b881f96b56b45c25de6e7c8455599757731e3e156dc7edfa",
     }
     SLOTS = {"Easy": "easy", "SOLUTIONS": "solutions", "Hard": "hard"}
 
