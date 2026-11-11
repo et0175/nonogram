@@ -1,16 +1,16 @@
 # CARD-423: Portrait phone tap targets are 44 x 36 px — the compact toolbar sets a width floor and no height floor
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ux-polish
 **Estimate:** 1c (0.5d)
-<!-- The CSS is one declaration beside the `min-width: 44px` rules it joins. The cost is the three parts that are not CSS: widening `_LABEL_BOXES` to the five controls it cannot currently see, and re-measuring the four viewports because the toolbar gets taller and the board absorbs it. The owner ruled D1 below at drafting time, so no decision is outstanding. -->
+<!-- The CSS is one declaration beside the `min-width: 44px` rules it joins. The cost is the three parts that are not CSS: widening `_LABEL_BOXES` to the four of the nine it cannot currently see, and re-measuring the four viewports because the toolbar gets taller and the board absorbs it. The owner ruled D1 below at drafting time, so no decision is outstanding. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/423-portrait-tap-targets
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-423
 **Source:** my own measurement of the live site (https://nonogram.adverax.io) on 2026-11-11, at the owner's "check the live site on my phone", carded on their "card the 44px portrait touch targets". **Measured under Playwright device emulation (iPhone UA, touch, DPR 3), not on a physical phone** — the geometry is the page's, but no finger has tested it.
 **Idea:** —
 **Wave:** 79
@@ -20,6 +20,10 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py
 <!-- Derived 2026-11-11 by reading which file holds the measured behaviour: the compact block in admin.css ("Compact toolbar", CARD-401) and the one test that asserts the 44 px claim. `src/nonogram/admin/static/tokens.css` is read, not edited (`--control-h: 36px` stays: it is the whole panel's control height, not the player's). Nothing under `player/` changes — `admin.css` is in `COPIED_FROM_ADMIN`, so the public player gets this by the build-time copy and the byte-identity check carries it. Conflict edges: none open (CARD-400..422 are all `done`). -->
 **Review score:** —
+**Started:** 2026-11-11T13:20:00Z
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
 **Blocked by:** —
 
 ## Why this card exists
@@ -57,3 +61,9 @@ No AC in `meta/architecture/requirements.yml` pins a tap-target minimum — the 
 ## Verification
 
 Measured in a browser, not asserted from CSS, and recorded in Worktree notes with the numbers: **390x844**, **844x390**, **1280x720**, **1440x900**, each on a 15x15 board and on a 30x30 stored grid. For each: every toolbar control's two dimensions, the toolbar's height and row count, the stage's measured top, the cell size, and no horizontal page scroll.
+
+## Worktree notes
+
+- **[Env]** forge version unresolved: no `.claude-plugin/plugin.json` at the executing path, and this project has no `meta/.skills.yml`, so no `forge.min_version` comparison ran and no `models:` block exists (agents spawn without a `model:` override, inheriting the session model).
+- **[Start gate]** `make_probe.py start-gate` → exit 0, `decision: gate`, `source: test_command`, command `./.venv/bin/python -m pytest`. **But that command is exit 127 in a worktree** — no card worktree has a `.venv` (the path is relative). The gate in this worktree runs as `make test-gate PY=/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python`, or that absolute interpreter directly for a single module.
+- **[Impact scope]** Player card: the gate is the player/solver test set (`tests/test_puzzle_solver_*.py`, `tests/test_player_*.py`), not the generator or book suites. The full suite runs at the merge gate; acquire `meta/kanban/.full-suite.lock` before any full run.
