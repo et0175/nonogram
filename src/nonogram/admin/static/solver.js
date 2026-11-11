@@ -2746,10 +2746,52 @@ function wireMarking(container, player) {
   // never sees the tap, and all it does is close the menu.
   // The keyboard path is untouched (AC-4): Escape with focus inside the menu
   // still closes it, and the items' roving focus is as it was.
+  //
+  // CARD-424 carries two minors CARD-426's review cycle 2 raised against this
+  // handler, both about the menu that card's own height change was already
+  // touching.
+  //
+  // 1. The exemption is SCOPED TO THE BOX. It read ".player-tool-item" alone,
+  //    which matches that class anywhere in the document: harmless while the
+  //    only six such elements are inside this menu across both templates, but
+  //    a future control reusing the class outside the box would silently stop
+  //    dismissing the menu. "#puzzle-player-tool-menu .player-tool-item" says
+  //    what was meant — the options of THIS menu — and the trigger keeps its
+  //    own id, which is unique already.
+  // 2. A chrome dismissal puts focus back on the trigger. openMenu() focuses
+  //    the checked option, so closing the menu around it (hidden="" on an
+  //    ancestor of document.activeElement) dropped focus to <body>: measured
+  //    at 1440x900, where pick() and Escape both end with trigger.focus() and
+  //    this path did not. The restore is scoped to the IN-BOX case on
+  //    purpose. A blanket trigger.focus() here would yank focus back to the
+  //    toolbar on an ordinary board tap, which is the opposite of what
+  //    CARD-426 shipped on the owner's ruling — a tap clear of the box is a
+  //    board action and must leave the toolbar alone. `onChrome` is therefore
+  //    read BEFORE closeMenu() and is false unless the menu was open and the
+  //    pointer-down landed inside its box (the items having already returned
+  //    above, that is exactly the padding ring and the inter-item gaps).
+  //
+  //    The restore is QUEUED, and measured rather than assumed: a focus()
+  //    call made here is undone a moment later, because the mousedown that
+  //    follows this pointerdown still has its default action to run and that
+  //    action moves focus — to nothing, the chrome being unfocusable. (This
+  //    is why pick() and Escape need no such care: a click arrives after that
+  //    default, and a keydown has none.) Consuming the event instead is not
+  //    on the table — nothing here consumes anything, which is CARD-426's
+  //    decision (b). So the restore goes in a task behind it, guarded on
+  //    focus having actually been lost, so it can never take focus from
+  //    whatever else may have claimed it in between.
   document.addEventListener("pointerdown", (event) => {
-    if (event.target instanceof Element
-      && event.target.closest("#puzzle-player-tool-trigger, .player-tool-item") !== null) return;
+    const at = event.target instanceof Element ? event.target : null;
+    if (at !== null
+      && at.closest("#puzzle-player-tool-trigger, #puzzle-player-tool-menu .player-tool-item") !== null) return;
+    const onChrome = !menu.hidden && at !== null && at.closest("#puzzle-player-tool-menu") !== null;
     closeMenu();
+    if (onChrome) {
+      setTimeout(() => {
+        if (document.activeElement === null || document.activeElement === document.body) trigger.focus();
+      }, 0);
+    }
   }, true);
   menu.addEventListener("keydown", (event) => {
     const at = items.indexOf(document.activeElement);

@@ -1044,12 +1044,19 @@ class TestSolverPhone_CompactToolbar:
     claim this class used to make: the floor is **44 px in both dimensions**,
     for the eleven controls AC-1 enumerates — the ones ``_CONTROLS`` names
     and this cell measures — at every compact viewport. It is NOT a claim
-    about every ``<button>`` inside ``.player-toolbar``: the brush menu's
-    four options (``.player-tool-item``) are buttons and no ``.btn``, keep
-    ``min-height: var(--control-h)`` and measure 142 x 36 px at 390 x 844,
-    600 x 844 and 844 x 390 — reached by neither this floor nor CARD-402's
-    landscape block, and raising them is an owner call (D1 named nine
-    controls, not the menu) on a follow-up card. The old
+    about every ``<button>`` inside ``.player-toolbar``, and it is still not
+    one: the brush menu's four options (``.player-tool-item``) are buttons
+    and no ``.btn``, so neither this floor nor CARD-402's landscape block
+    reaches them, their own ``min-height: var(--control-h)`` stood, and they
+    measured 142 x 36 px at 390 x 844, 600 x 844 and 844 x 390 — the one
+    sub-44 px tap target the compact toolbar drew. What has changed since is
+    the figure, not this set: raising them was the owner call D1 did not make
+    (it named nine controls, not the menu), **CARD-424 asked and got it on
+    2026-11-11 — "44 px, like the rest" — and gives them a floor of their own
+    in the same compact block**, held where the menu is driven open, in
+    ``tests/test_puzzle_solver_brush_menu.py``'s
+    ``TestSolverBrushMenu_RegionIsItsOwnToggle``. Nothing here measures them:
+    ``_CONTROLS`` is the eleven, and this cell is held to the eleven. The old
     one-dimensional rule was satisfied by nine portrait controls under 44 px
     tall — seven at 36 px, where the height fell through to
     ``.player-toolbar .btn``'s ``min-height: var(--control-h)`` = 36 px, and

@@ -395,6 +395,23 @@ class TestSolverBrushMenu_RenameDidNotTouchTheStateName:
 # ==========================================================================
 
 
+#: CARD-424 — the OPEN menu's own rect, its four options' heights and the
+#: viewport it has to end inside, all read live rather than written down (the
+#: box's position is a viewport matter, and in landscape ``openMenu`` lifts
+#: it). ``window.innerWidth``/``innerHeight`` and not the context's requested
+#: size, so a scrollbar or a lifted menu is measured against what the page
+#: actually has.
+_MENU_BOXES = """() => {
+  const menu = document.getElementById('puzzle-player-tool-menu');
+  const box = menu.getBoundingClientRect();
+  return {
+    box: [box.x, box.y, box.width, box.height],
+    items: [...menu.querySelectorAll('.player-tool-item')].map((i) => i.getBoundingClientRect().height),
+    viewport: [window.innerWidth, window.innerHeight],
+  };
+}"""
+
+
 @pytest.mark.browser
 class TestSolverBrushMenu_RegionIsItsOwnToggle:
     """CARD-211 AC-2 — at load the Region control is a <button> of its own,
@@ -459,21 +476,73 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         (>= 24 px square — TestSolverZoom_TapTargetsAreAtLeast24px) and the
         card's "reuse .btn.btn-outline-secondary": the toggle is exactly as
         tall as Undo, so it cannot drift from the toolbar's own height. At
-        this 390 px viewport that shared height is the compact block's
+        these compact viewports that shared height is the compact block's
         44 px floor (CARD-423), not the panel's 36 px ``--control-h``, which
-        is what a toolbar button measures where the toolbar is labelled."""
-        context = browser.new_context(viewport={"width": 390, "height": 844})
-        page = context.new_page()
-        try:
-            _open(page, live, live.store(GRID))
-            classes = _region_toggle(page).get_attribute("class").split()
-            box = _region_toggle(page).bounding_box()
-            undo = _button(page, "Undo").bounding_box()
-        finally:
-            context.close()
-        assert {"btn", "btn-outline-secondary"} <= set(classes)
-        assert box["width"] >= 24 and box["height"] >= 24, box
-        assert round(box["height"]) == round(undo["height"])
+        is what a toolbar button measures where the toolbar is labelled.
+
+        **RETIRED CLAIM, 2026-11-11 (CARD-424, the owner's ruling D1 — "44 px,
+        like the rest").** The floor CARD-423 raised was held to the eleven
+        controls that card's AC-1 enumerated, and the brush menu's four
+        options were outside it: ``.player-tool-item`` is a ``<button>``
+        inside ``.player-toolbar`` carrying no ``.btn``, so neither the
+        compact block's ``.player-toolbar .btn { min-height: 44px }`` nor
+        CARD-402's landscape block reached it, its own
+        ``min-height: var(--control-h)`` stood, and the four options measured
+        **142 x 36 px** at 390 x 844, 600 x 844 and 844 x 390 — the one
+        sub-44 px tap target the compact toolbar still drew. The owner ruled
+        one rule for every control the toolbar draws, the menu included, and
+        declined the intermediate value for a stated reason: it would leave
+        the menu the only control in the player at its own height.
+
+        **The claim asserted here instead (AC-1), in the same cell per the
+        owner's test budget of 2026-11-07:** with the menu open, each of the
+        four options has a border box **at least 44 px tall** at all three of
+        the card's viewports. And AC-2 beside it, because the height is what
+        buys it: the popover that holds them grew from 160 x 174 px to
+        160 x 206 px (four options at 44 instead of 36, the three
+        ``--space-1`` gaps, the 8 px padding ring and the 1 px border
+        unchanged) and still ends inside its viewport at every one.
+
+        A fourth viewport, 740 x 320, is measured for AC-2 alone and is not
+        one of the card's three: it is the shortest landscape screen this
+        family is driven at, and the one that actually exercises
+        ``openMenu``'s lift (CARD-402 F-009) — the branch that has to absorb
+        the growth, since in landscape the menu is ``fixed`` and hangs 52 px
+        below the trigger. Measured in this worktree with the floor on: the
+        lift fires at both landscape sizes and leaves the box's bottom 8 px
+        clear of the window (844 x 390 -> top 176, bottom 382; 740 x 320 ->
+        top 106, bottom 312), while in portrait the box stays in flow under
+        the trigger at top 256.08, nowhere near the fold. The lift's own
+        ``Math.max(8, …)`` clamp is what would give first, and only on a
+        window shorter than 222 px.
+
+        Mutant: dropping the compact block's ``.player-tool-item`` declaration
+        puts all four options back at 36 px and reds every viewport here."""
+        for width, height in ((390, 844), (600, 844), (844, 390), (740, 320)):
+            context = browser.new_context(viewport={"width": width, "height": height})
+            page = context.new_page()
+            where = f"{width}x{height}"
+            try:
+                _open(page, live, live.store(GRID))
+                classes = _region_toggle(page).get_attribute("class").split()
+                box = _region_toggle(page).bounding_box()
+                undo = _button(page, "Undo").bounding_box()
+                _trigger(page).click()
+                menu = page.evaluate(_MENU_BOXES)
+            finally:
+                context.close()
+            assert {"btn", "btn-outline-secondary"} <= set(classes), where
+            assert box["width"] >= 24 and box["height"] >= 24, (where, box)
+            assert round(box["height"]) == round(undo["height"]), where
+            # CARD-424 AC-1 — the floor reaches the menu.
+            assert len(menu["items"]) == 4, (where, menu)
+            assert all(item >= 44 for item in menu["items"]), (where, menu)
+            # CARD-424 AC-2 — and the popover it grew still fits.
+            left, top, box_width, box_height = menu["box"]
+            viewport_width, viewport_height = menu["viewport"]
+            assert left >= 0 and top >= 0, (where, menu)
+            assert left + box_width <= viewport_width, (where, menu)
+            assert top + box_height <= viewport_height, (where, menu)
 
     @pytest.mark.parametrize("width,height", [(1280, 720), (1440, 900), (390, 844)])
     @pytest.mark.parametrize("brush", MENU_ORDER)
@@ -1079,6 +1148,15 @@ _MENU_HIT_TEST = """() => {
 }"""
 
 
+#: CARD-424 — how long to let the focus restore land before reading
+#: ``document.activeElement``. The restore is a task queued behind the
+#: mousedown's own focus default (``solver.js``'s dismissal), so it has not
+#: run when Playwright's ``mouse.up`` returns: measured at 1440x900, "" on
+#: the immediate read and the trigger 100 ms later. 100 is that measurement
+#: with room, not a guess at a frame.
+_FOCUS_SETTLE_MS = 100
+
+
 def _tapper(context, page, touch):
     """One tap at viewport coordinates, as the device would send it: real CDP
     touch events (never ``page.touchscreen``, which Playwright may satisfy as
@@ -1104,7 +1182,11 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     used to have exactly one way out, its own trigger: an outside tap neither
     closed it nor let Escape close it afterwards (the tap moved focus out of
     the menu, where the keydown handler lives), and its 160 x 174 px box sat
-    over the top-left of the board swallowing taps aimed at a cell.
+    over the top-left of the board swallowing taps aimed at a cell. (That box
+    is 160 x 206 px since CARD-424 put its four options at the toolbar's
+    44 px floor; 174 is what this card was measured at, and nothing here is
+    keyed on either figure — every point below is computed from the live
+    rects.)
 
     ``solver.js`` now closes it on the next pointer-down outside it — the
     shape ``wireExplainDismiss`` and the wrong-guess offer's dismissal
@@ -1119,6 +1201,19 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     both dismissals this file's neighbours already ship, and it is what
     "the board is reachable" means for a panel that lies over the board.
 
+    **ADDED CLAIM, 2026-11-11 (CARD-424, carrying CARD-426 review cycle 2's
+    two minors — both about this menu, which that card was already
+    changing).** A chrome dismissal now puts focus back on the trigger.
+    ``openMenu()`` focuses the checked option, so hiding the menu around it
+    left ``document.activeElement`` on ``BODY`` where ``pick()`` and Escape
+    both end with ``trigger.focus()`` — a keyboard user losing their place to
+    a stray tap. The restore is scoped to the IN-BOX case, and the two halves
+    are asserted in one cell: the chrome taps end on the trigger, and the
+    board tap above them ends anywhere BUT the trigger, which is the control
+    a blanket ``trigger.focus()`` in the dismissal would red. The second
+    minor — the exemption selector, scoped to the box — is in the retired
+    claim below, beside the selector it narrows.
+
     RETIRED CLAIM, 2026-11-11 (CARD-426, the owner's ruling "chrome should
     swallow the tap"): "``admin.css`` takes the pointer off the BOX, leaving
     it to the four items" — the box carried ``pointer-events: none`` and its
@@ -1127,8 +1222,12 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     chrome should behave and ruled that the chrome swallows it, so that rule
     and its paired ``.player-tool-item { pointer-events: auto }`` are gone,
     and the dismissal's exemption narrowed with them: it was the trigger and
-    the whole ``#puzzle-player-tool-menu``, and is now the trigger and the
-    four ``.player-tool-item`` options, because an opaque box makes the
+    the whole ``#puzzle-player-tool-menu``, and is now the trigger and
+    ``#puzzle-player-tool-menu .player-tool-item`` (CARD-424 scoped that
+    second half to the box — it read ``.player-tool-item`` alone, which
+    matches the class anywhere in the document, so a future control reusing
+    it outside the menu would silently stop dismissing), because an opaque
+    box makes the
     chrome's own pointer-down target the MENU — which matched the old
     exemption, so the menu hung open on a near-miss (measured at 1440x900 on
     all three chrome points; the plant below is that state).
@@ -1192,6 +1291,16 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                 assert menu.is_hidden(), where
                 assert _trigger(page).get_attribute("aria-expanded") == "false", where
                 assert _marked(_states(page)) == {(4, 4): F}, where
+                # CARD-424, carrying CARD-426 review cycle 2's minor 1: the
+                # control on that fix's scope. A tap CLEAR of the box is a
+                # board action, so it must leave the toolbar alone — a
+                # blanket trigger.focus() in the dismissal (rather than the
+                # in-box one solver.js ships) would pull focus onto the
+                # trigger here and red this line. Settled first, for the same
+                # reason the chrome block below settles: an unsettled read
+                # would pass under that mutant and assert nothing.
+                page.wait_for_timeout(_FOCUS_SETTLE_MS)
+                assert page.evaluate("document.activeElement.id") != "puzzle-player-tool-trigger", where
 
                 # AC-1 — and on the header, which marks nothing.
                 _trigger(page).click()
@@ -1251,6 +1360,23 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                         assert _trigger(page).get_attribute("aria-expanded") == "false", (where, point)
                         assert _trigger(page).get_attribute("aria-label") == brush, (where, point)
                         assert _marked(_states(page)) == marked, (where, point)
+                        # CARD-424, carrying CARD-426 review cycle 2's minor
+                        # 1: focus comes back to the trigger. openMenu()
+                        # focuses the checked option, so closing the menu
+                        # around it left document.activeElement on BODY —
+                        # pick() and Escape both end with trigger.focus() and
+                        # this path did not, which is a keyboard user losing
+                        # their place to a stray tap. solver.js restores it
+                        # for the IN-BOX case only; the board tap above is the
+                        # control that a blanket restore would red, because it
+                        # must leave focus where it was. The settle is not
+                        # decoration: the restore is QUEUED behind the
+                        # mousedown's own focus default (see solver.js), so it
+                        # has not run when mouse.up returns — measured at
+                        # 1440x900, where the id reads "" immediately after
+                        # the tap and "puzzle-player-tool-trigger" 100 ms on.
+                        page.wait_for_timeout(_FOCUS_SETTLE_MS)
+                        assert page.evaluate("document.activeElement.id") == "puzzle-player-tool-trigger", (where, point)
             finally:
                 context.close()
 
