@@ -2763,6 +2763,34 @@ function wireMarking(container, player) {
     event.preventDefault();
     openMenu();
   });
+  // CARD-426 (owner play-test finding 2026-11-11, item 2): the open menu goes
+  // away on the next pointer-down outside it. Until this card it had exactly
+  // one way out — its own trigger: every closeMenu() call site was a pick,
+  // the solved lock or a key, so an outside tap left it open AND took focus
+  // out of the menu, after which Escape (whose handler is on the menu) no
+  // longer reached it either.
+  //
+  // The same shape as the hint strip's dismissal (wireExplainDismiss) and the
+  // wrong-guess offer's above, exemption included: a pointer-down on the
+  // TRIGGER must reach the trigger's own toggle, or this would close the menu
+  // and the click behind it would reopen it, leaving no way to shut it. The
+  // menu itself is exempt for the items' sake — their click is the pick, and
+  // closing here would hide the button before it arrives.
+  //
+  // Nothing is consumed (no preventDefault, no stopPropagation), exactly as
+  // those two neighbours consume nothing: the pointer-down that closes the
+  // menu goes on to whatever it was aimed at, so a tap on a cell under the
+  // menu's box closes the menu AND marks the cell. That is this card's one
+  // interaction decision — (b), the dismissing tap also acts — and the
+  // pointer-events rule in admin.css (.player-tool-menu) is its other half:
+  // the box takes the pointer nowhere, so the tap reaches the cell at all.
+  // The keyboard path is untouched (AC-4): Escape with focus inside the menu
+  // still closes it, and the items' roving focus is as it was.
+  document.addEventListener("pointerdown", (event) => {
+    if (event.target instanceof Element
+      && event.target.closest("#puzzle-player-tool-trigger, #puzzle-player-tool-menu") !== null) return;
+    closeMenu();
+  }, true);
   menu.addEventListener("keydown", (event) => {
     const at = items.indexOf(document.activeElement);
     if (at === -1) return;
