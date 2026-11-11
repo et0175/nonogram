@@ -402,6 +402,28 @@ def independent_slug(puzzle_keys) -> str:
     return hashlib.sha256(bytes(material)).hexdigest()[:10]
 
 
+def _line_home(book, field: str):
+    """The object whose dataclass DECLARES ``field`` — the book or its metadata.
+
+    Asked of the dataclasses themselves (``dataclasses.fields``), so a field
+    moved between them moves this oracle with it and reds
+    ``player_bundle.BOOK_LINE_HOMES``, which is written by hand. Raises when
+    neither declares the field: a line this helper cannot place must not read
+    as a line that is merely unset.
+    """
+    import dataclasses
+
+    metadata = getattr(book, "metadata", None)
+    for holder in (book, metadata):
+        if holder is not None and dataclasses.is_dataclass(holder) and any(
+            f.name == field for f in dataclasses.fields(holder)
+        ):
+            return holder
+    raise AssertionError(
+        f"neither {type(book).__name__} nor {type(metadata).__name__} declares {field!r}"
+    )
+
+
 def bundle_sources(records, books) -> dict:
     """Every value the bundle is allowed to carry, by where it may come from.
 
@@ -440,8 +462,19 @@ def bundle_sources(records, books) -> dict:
         settled["titles"].add(stored or "Untitled book")
         # CARD-418: the title page's two other lines, "" when not set.
         # CARD-420: and its stored theme, read the same way.
+        #
+        # WHERE each line lives is resolved from the DATACLASSES, not from a
+        # list written here and not from player_bundle's own BOOK_LINE_HOMES:
+        # migration 020's title-page lines are fields of `Book` and `theme` is
+        # a field of its `BookMetadata`, and `_line_home` below asks the
+        # dataclass which. Reading them all off the metadata is what this
+        # oracle used to do, in the same wrong place as the code it checks, so
+        # the served "" matched an expected "" and a real defect passed
+        # (measured 2026-11-11: the production row held both lines and every
+        # export served neither). An independent re-derivation that shares the
+        # defect is not independent.
         for field, store in (("series_name", "series"), ("authors", "authors"), ("theme", "theme")):
-            line = getattr(metadata, field, None)
+            line = getattr(_line_home(book, field), field, None)
             settled[store].add(line.strip() if isinstance(line, str) else "")
 
     titles: dict[str, set] = {}
@@ -1168,6 +1201,16 @@ def corpus(store, manager):
             ),
             puzzle_ids=list(member_ids),
             status=BookStatus.PUBLISHED.value,
+            # CARD-418's two lines, on ONE of the three books: the scan then
+            # has both cases to carry — a stored line and an unset one — and
+            # an exporter that reads them from the wrong object serves "" for
+            # this book and reds here. Without a non-empty line anywhere in
+            # the corpus the default-deny scan cannot tell the two homes
+            # apart, which is why it did not (measured 2026-11-11; the lines
+            # are fields of Book, `theme` is a field of its BookMetadata, and
+            # `_line_home` resolves which from the dataclasses).
+            series_name="Winter series" if number == 1 else None,
+            authors="A. Author and B. Author" if number == 1 else None,
         )
     # And a draft book, whose puzzles must not reach the bundle.
     draft_id = add_rectangle(store, 2, name="Still a draft", side=10)

@@ -716,14 +716,42 @@ def _book_title(book: Any) -> str:
     return "Untitled book"
 
 
+#: Where each stored line this module serves actually lives on a
+#: ``book_manager.Book``. It is a map rather than one ``getattr`` chain because
+#: the two homes are not a choice made here: migration 020's title-page lines
+#: are fields of the ``Book`` dataclass (``book_pdf_generator`` and
+#: ``book_create.html`` both read them off the book), while ``theme`` is a field
+#: of its ``BookMetadata``.
+#:
+#: **Reading only the metadata was a measured defect** (2026-11-11): every
+#: export served ``""`` for ``series`` and ``authors`` while the production row
+#: held "Anna & Olga's Ultimate Puzzle Selection" and "Anna and Olga", so the
+#: landing left out two lines the owner had set. ``theme`` was unaffected and
+#: hid it. ``tests/test_player_bundle.py`` now resolves the home from the
+#: dataclasses themselves, so moving a field between them reds this map.
+BOOK_LINE_HOMES: dict[str, str] = {
+    "series_name": "book",
+    "authors": "book",
+    "theme": "metadata",
+}
+
+
 def _book_line(book: Any, field: str) -> str:
-    """One of a book's title-page lines (``series_name``, ``authors``), or ``""``.
+    """One of a book's stored lines (:data:`BOOK_LINE_HOMES`), or ``""``.
 
     Stored already cleaned (migration 020's ``title_page_text``); ``None``,
     blank or a non-string is "not set" and is served as ``""``, so the landing
     page leaves that line out (CARD-418).
+
+    An unknown field raises rather than answering ``""``: "not set" and "I
+    looked in the wrong object" are the two cases this function must never
+    spell the same way, which is exactly how the defect above survived.
     """
-    value = getattr(getattr(book, "metadata", None), field, None)
+    home = BOOK_LINE_HOMES.get(field)
+    if home is None:
+        raise KeyError(f"{field!r} is not a book line ({', '.join(sorted(BOOK_LINE_HOMES))})")
+    holder = book if home == "book" else getattr(book, "metadata", None)
+    value = getattr(holder, field, None)
     return value.strip() if isinstance(value, str) and value.strip() else ""
 
 
