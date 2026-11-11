@@ -371,6 +371,21 @@ Not observed: a themed landing at all (see above — it needs a re-export), a re
 
 Not observed: a real phone, the theme's look by eye (`data-theme` is asserted, the garland is not), any counting, and Auto-Deploy's dashboard state. CARD-400 remains `in_progress`; CARD-401 and CARD-403..413 remain `ready`.
 
+**The series-and-authors publish, 2026-11-11 (the day's second). Two exports, because a running panel does not reload.** Published from `main` at `578b2a29` — the fix of the same morning — with a bundle re-exported after it.
+
+| Step | What happened |
+| --- | --- |
+| **The export that did not take** | The owner re-exported at 12:29, after the fix had landed at about 12:15, and the bundle still carried `series: ""` and `authors: ""`. The panel had been started at 11:41 with `--no-reload`, so the process still held the **pre-fix** `player_bundle` module: a source fix does not reach a running panel. The panel was restarted, the loaded module checked for `BOOK_LINE_HOMES`, and the export route posted again — one POST, read-only against the database (EC-049). **Worth remembering: after any change under `src/`, restart the panel before trusting an export.** |
+| What the bundle then carried | `series` = "Anna & Olga's Ultimate Puzzle Selection", `authors` = "Anna and Olga", `theme` = `christmas`, 160 keys. **The slug did not move** (`0a958d036e`): the print order was unchanged, so the book keeps the address the earlier publish gave it. |
+| Which code was published | Unchanged from the publish 31 minutes earlier — all eight copied files byte-identical to their sources and to what production was already serving. **This publish is the bundle and nothing else.** |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261111b`, no `--analytics`. 160 puzzles, one book landing, `dropped (not in the served schema): title`. Five served fields on every puzzle file, no JSON holding the string `solution`, no external URL in any served page or script, `.player-site` present, no `.vercel/`. |
+| Preview, then production | `vercel deploy --yes` gave `nonogram-studio-o152gk44w`; `vercel promote` created **`nonogram-studio-8cibfqpfn`**. Five doors 200, unknown path 404, on both. |
+| **How the lines render, and a check of mine that lied** | The served JSON carries both lines on the live domain. The landing's header is `<p class="book-series">` with the series, the `<h1>` title, and a byline `by Anna and Olga · 160 puzzles`. A first check reported the series **missing**, because it compared exact case against `innerText` and `.book-series` is `text-transform: uppercase` — Chromium's `innerText` returns rendered text, so the compare failed on a line that was plainly there. Re-measured through `textContent` and through the computed `text-transform`: present, one element, uppercased by CSS. The assertion was wrong, not the page. |
+| Everything else, on production | `data-theme` `christmas` on the landing and on a puzzle opened from it; following a square fetched exactly its book JSON and its puzzle JSON; 100 cells, a click marks, public mode still carries no error-count, progress or Check element; no picture name anywhere on the play page; `/library` 160 tiles; `/how-to-solve` 5 steps marking on the first tap. Zero page errors, zero non-GET requests, no other host. |
+| Rollback target | `nonogram-studio-1p6esk90l` still Ready. It serves the same code and the previous bundle, so a rollback keeps the address and loses only the two lines. |
+
+Not observed: a real phone, any counting, Auto-Deploy's dashboard state. CARD-400 remains `in_progress`; CARD-401 and CARD-403..413 remain `ready`.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
