@@ -435,14 +435,37 @@ def test_book_landing_lists_and_links(browser_page, pages_host) -> None:
 def test_unknown_slug_lands_softly(browser_page, pages_host) -> None:
     """AC-388 — a stale or misprinted code gets a page, not a bare 404.
 
-    Both halves the AC names: the not-found panel renders with a working way
-    to the library, and **no script error is thrown**. The second is collected
+    Both halves the AC names: the not-found panel renders and says in words
+    why it is up, and **no script error is thrown**. The second is collected
     from the page rather than inferred — a page that threw while drawing the
     panel would still show the panel, because the panel is in the HTML.
 
+    **The panel offers no way to the library, and that is a claim rather
+    than an omission (CARD-425).** This node used to assert the opposite —
+    an ``a.pages-library-link`` inside the panel, followed to ``/library``
+    for real — and the owner's 2026-11-11 play-test retired it: a reader who
+    scanned the QR code on their own printed book wants that book, and a
+    prominent ``btn`` to somebody else's library turns the dead end into a
+    detour. The absence is asserted as ``no anchor at all in the panel``,
+    which is deliberately STRONGER than the card's AC-1 wording ("no
+    ``a.pages-library-link``") and is what the owner's finding implies: the
+    panel's job is to say "this is not it", so it offers no link, not merely
+    no library link. One assertion also covers every shape a narrower pair
+    would miss — a replacement anchor under a fresh class, and one whose
+    ``href`` is assigned at runtime — and the panel can hold no other
+    anchor legitimately, because ``pages.js``'s ``fail`` creates no element:
+    it sets one ``textContent`` and toggles ``hidden``. The ``/library``
+    link on the landing proper is a different element
+    (``data-pages-continue``) and ``test_book_landing_lists_and_links`` and
+    the listing nodes below still hold it.
+
     Two unknown shapes, because they fail on different paths: a well-formed
     slug the bundle does not have (the fetch 404s) and a slug-shaped-wrong
-    path (no fetch is made at all). The published slug is the positive
+    path (no fetch is made at all). They get DIFFERENT words — ``pages.js``'s
+    ``fail`` leaves the markup's own sentence standing for the 404 and
+    replaces it for the malformed address — so the explanation is read per
+    path rather than as one string, which is what keeps "explains itself"
+    from passing on an empty panel. The published slug is the positive
     control in the same test, so "the panel is always up" cannot pass.
     """
     url, report, keys, slug = pages_host
@@ -464,12 +487,17 @@ def test_unknown_slug_lands_softly(browser_page, pages_host) -> None:
     requested: list[str] = []
     browser_page.on("request", lambda request: requested.append(request.url))
 
-    for path in (f"/b/{'0' * 10}", "/b/not-a-slug"):
+    # ``textContent``, not ``innerText``: Chromium applies ``text-transform``
+    # to the latter, and what is asserted here is the words in the markup.
+    for path, explains in (
+        (f"/b/{'0' * 10}", "does not match a book on the site"),
+        ("/b/not-a-slug", "This address names no book"),
+    ):
         _open_pages(browser_page, url, path)
         panel = browser_page.locator("[data-pages-notfound]")
         assert panel.is_visible(), path
-        link = panel.locator("a.pages-library-link")
-        assert link.get_attribute("href") == "/library", path
+        assert explains in panel.locator("[data-pages-notfound-text]").text_content(), path
+        assert panel.locator("a").count() == 0, path
         assert _tiles(browser_page) == [], path
 
     # The malformed path must not have been turned into a fetch: no /book/
@@ -484,12 +512,6 @@ def test_unknown_slug_lands_softly(browser_page, pages_host) -> None:
     _open_pages(browser_page, url, f"/b/{slug}")
     assert not browser_page.locator("[data-pages-notfound]").is_visible()
     assert len(_tiles(browser_page)) == len(BOOK_ORDER)
-
-    # And the library link goes somewhere: followed, not just asserted.
-    _open_pages(browser_page, url, "/b/not-a-slug")
-    browser_page.locator("a.pages-library-link").click()
-    browser_page.wait_for_function("() => window.playerPages !== undefined")
-    assert len(_tiles(browser_page)) == len(PAGE_GRIDS)
 
     assert thrown == [], thrown
     assert logged, "the browser logged no 404, so the unknown slug never fetched"
