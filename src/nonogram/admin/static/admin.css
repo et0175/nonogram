@@ -881,7 +881,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    comes from .player-toolbar .btn and not from anything here — --control-h
    where the toolbar is labelled, and the compact block's 44 px floor
    (CARD-423) on a 390 px phone — so the toggle is as tall as every other
-   toolbar button at either size. */
+   .player-toolbar .btn at either size (Undo, say), which is the pair the
+   brush-menu test asserts. NOT as tall as every <button> in the toolbar:
+   the brush menu's four .player-tool-item options carry no .btn, so on a
+   phone they keep min-height: var(--control-h) = 36 px while this toggle
+   stands at the compact block's 44 px floor. */
 .player-region { padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-region[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 /* The three cells the Region toggle wears instead of the word "Region"
@@ -1770,9 +1774,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      carry none there.
    * The brush trigger shows its swatch alone; its aria-label names the brush.
    * The eleven controls CARD-423's AC-1 enumerates — brush trigger, Region,
-     Undo, Redo, Reset, Hint, Check, Probe, the two zoom steppers and the
+     Undo, Redo, Reset, Hint, Check (ADMIN ONLY: solver.js's PUBLIC_ABSENT
+     removes it in public mode), Probe, the two zoom steppers and the
      zoom readout — are at least 44 x 44 px: the .btn floor here plus the
-     readout's own rule below. That is the set
+     readout's own rule below, which is keyed on [role="button"] — so the
+     readout is in that set only while there is a Fit to go to (the mechanism
+     paragraph below; a board that fits at 100% leaves it a role-less 24.8 px
+     span, and the set is the other ten). That is the set
      tests/test_puzzle_solver_phone.py's _CONTROLS names and measures, and
      the only set this floor is held to. NOT every button inside
      .player-toolbar: the brush menu's four options (.player-tool-item,
@@ -1783,13 +1791,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      controls, not the menu) on a follow-up card.
      CARD-423 (owner ruling 2026-11-11,
      D1) raised the height half of that floor: it had been written in width
-     alone, so in portrait nine controls stood UNDER it in height while
-     already standing at or past it in width — seven of them 36 px tall,
+     alone, so in portrait TEN of the eleven stood UNDER it in height on the
+     ADMIN solve page this file styles — every one but the readout — while
+     already standing at or past it in width: eight of them 36 px tall,
      the height falling through to .player-toolbar .btn's --control-h, and
      the two zoom steppers 38.78 px (their glyph's line box). The width was
-     never one figure: 44 px for the eight the min-width rules reach, 49 px
-     for Region, which takes its width from its content. So it is the FLOOR
-     that is the before/after here, not a 44 x 36 box. CARD-402's landscape
+     never one figure: 44 px for the NINE the min-width rules below reach
+     (.player-tool-trigger; the five .player-history > .btn children Undo,
+     Redo, Reset, Hint, Check; the two .player-zoom .btn steppers; and
+     .player-probe > .btn's Probe), 49 px for Region, which takes its width
+     from its content and no min-width rule reaches. Every one of those three
+     counts is one LOWER on the public player — nine under the floor, seven
+     at 36 px, eight min-width-reached — because Check is not there. So it is
+     the FLOOR that is the before/after here, not a 44 x 36 box. CARD-402's landscape
      block below already set both on the same eleven, which is why the same
      sweep found no landscape .btn under 44 px (the menu's four options are
      36 px tall there too). --control-h itself does not change (it

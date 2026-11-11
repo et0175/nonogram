@@ -989,8 +989,11 @@ _UNLABELLED = ("Brush: Black", "Region", "Zoom out", "Zoom in", "Zoom readout")
 #: CARD-423 review cycle 2 (F-203): this is a STATE PIN, not the toolbar's
 #: inventory — it is exact for the state the cell below drives, i.e. a
 #: freshly opened board with no popover open that does NOT fit at 100%.
-#: Other reachable states change the NAME set without touching the floor:
-#: the brush menu open adds its four options, the reset confirmation adds
+#: Other reachable states change the NAME set without touching the floor —
+#: e.g. the brush menu open adds its four options, a brush other than Black
+#: picked RENAMES the trigger (solver.js's syncTrigger writes
+#: aria-label="Brush: <label>", so what ``_UNLABELLED`` pins there is the
+#: brush and not the control), the reset confirmation adds
 #: "Reset board"/"Keep marks", an open probe adds Keep/Wrong guess, a solved
 #: board draws .player-show-grid while the tools hide, and a board that fits
 #: at 100% drops "Zoom readout" (solver.js gives it role="button" only while
