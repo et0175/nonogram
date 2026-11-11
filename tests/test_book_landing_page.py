@@ -304,6 +304,8 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
 
     Plant: the play page's loader applies the theme without checking that the
     book holds the key -> the "a book that does not hold this key" arm red.
+    CARD-421 adds the decorations to the same walk (plant: decorate() for
+    every book -> the default book's arm red).
     """
     url, report, keys, slug = pages_host
     page = browser_page
@@ -315,9 +317,10 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
         payload = {"slug": slug, "title": "T", "puzzle_keys": [], "theme": stored}
         assert assembler.served_book(payload, slug, {})[0]["theme"] == served, stored
 
-    # The default book: no theme on its landing.
+    # The default book: no theme on its landing, and no decorations (CARD-421).
     _open_pages(page, url, f"/b/{slug}")
     assert page.evaluate(_ROOT_THEME) is None
+    assert page.locator(".decor-garland, .decor-snow").count() == 0
 
     # The same book, stored as christmas (the served file, as the assembler
     # writes it for one).
@@ -339,6 +342,20 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     assert look["ground"] == CREAM and look["jump"] == PINE, look
     assert look["picture"] == PINE, look  # the solved picture, "something greenish"
     assert look["links"] == [f"/play/{keys[name]}?book={slug}" for name in BOOK_ORDER]
+    # CARD-421: the garland at the top and snow on every panel, hidden from
+    # assistive technology and never in a tap's way.
+    decor = page.evaluate(
+        """() => ({
+          garlands: document.querySelectorAll('.decor-garland').length,
+          panels: document.querySelectorAll('.book-jump, .book-continue, .book-section-head').length,
+          snowed: document.querySelectorAll(':is(.book-jump, .book-continue, .book-section-head) > .decor-snow').length,
+          hidden: [...document.querySelectorAll('.decor-garland, .decor-snow')].every((d) =>
+            d.getAttribute('aria-hidden') === 'true' && getComputedStyle(d).pointerEvents === 'none'),
+          needles: document.querySelectorAll('.decor-garland line').length,
+        })"""
+    )
+    assert decor["garlands"] == 1 and decor["snowed"] == decor["panels"] > 0, decor
+    assert decor["hidden"] and decor["needles"] > 0, decor
 
     # A tile opens its puzzle wearing the book's theme, on the board's own paper.
     page.click(f'.tile[data-key="{first}"]')
@@ -352,6 +369,7 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
         })"""
     )
     assert themed["ground"] == CREAM and themed["paper"] == "#fffdf8", themed
+    assert page.locator(".decor-garland, .decor-snow").count() == 0  # the board is not decorated
 
     # Any other way in is the default look (AC-4): no book, a malformed book,
     # and a real christmas book that does not hold this key.
