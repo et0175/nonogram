@@ -1,6 +1,6 @@
 # CARD-421: The Christmas book's landing gets its decorations: a pine garland and snow on the panels
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** card/421-book-decor
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-421
+**Branch:** —
+**Worktree:** —
 **Source:** owner request 2026-11-11 (project thread "Add a Christmas theme to the book page"): "then please make the pictures for the decor" — the co-author's mockup's garland and snow caps, after CARD-420's colours.
 **Idea:** —
 **Wave:** 79
@@ -18,11 +18,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-420
 **Touches:** player/pages.js, player/player.css, tests/test_book_landing_page.py
-**Review score:** —
+**Review score:** — (no review cycle; merged on the gates)
 **Started:** 2026-11-11T08:05Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-11T08:34Z
+**Actual:** one owner session (wall clock excluded, owner ruling)
+**Merge commit:** 6f06f8a3
 **Blocked by:** —
 
 ## Why this card exists
@@ -41,3 +41,4 @@ CARD-420 gave the first book's landing its Christmas colours; the co-author's mo
 ## Worktree notes
 
 - **[Implementation, 2026-11-11]** First drawn as two `player/decor-*.svg` files: the site's self-containment scan (`tests/test_public_player_pages.py`'s `scan_site`) read their `xmlns` as a foreign host and their `"/>` as rooted literals. Rather than loosen that guard, the drawings moved into `pages.js` as HTML-parsed inline SVG with explicit closing tags (no `"/>`), and their colours into `player.css` classes over the theme's tokens (no colour literal in a served script). The garland is 8 cloned 240x64 tiles, about 1000 needle lines each pair of layers; the snow is one path stretched to each panel. Plant: `decorate()` for every book -> the default book's arm red (`7 == 0`).
+- **[Gate]** `make test-gate`: 5331 passed; 1 red, `test_book_pdf_memory`'s guard, red on main too (pre-existing).
