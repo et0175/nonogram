@@ -1113,23 +1113,67 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 
    It is NOT animated — the fade belongs to the line highlight below, and
    AC-10's reduced-motion rule has nothing to suppress here. */
-/* CARD-409: the answer line is a strip over the stage's bottom edge (the
-   title-row line of CARD-269 F-2 is retired, and with it the arithmetic that
-   kept that row at zero vertical cost). Absolutely positioned in
-   .player-stage-wrap, so it moves nothing; empty means not drawn. */
-.player-stage-wrap { position: relative; }
+/* CARD-427 (owner ruling 2026-11-11: "let it disappear. just appear the
+   center of the screen on some background", answering the play-test finding
+   that the hint and contradiction messages are hard to notice and that the
+   desktop one runs longer than the puzzle — 1360 px measured against a
+   698 px board).
+
+   The answer box is CENTRED IN THE VIEWPORT, over whatever is beneath it.
+   `position: fixed` with `inset: 0` and `margin: auto` rather than a
+   translate, so the centring is a layout result and lands on whole pixels
+   (AC-1 reads its centre back and allows two); `width: max-content` with a
+   max-width makes it shrink to its sentence instead of spanning the page.
+   The cap is a READING measure, 30rem, not the board's width: measured at
+   480 px it is inside the board wherever the board is drawn at 100%
+   (592.45 px at 1280 x 900 and 1440 x 900) and a third of the page there,
+   while at a size that scales the board DOWN to Fit (364.09 px at
+   844 x 390, 444.02 px at 1280 x 720) the box is the wider of the two — a
+   message narrower than a shrunk board would not be readable, and 480 px is
+   nothing like the finding's 94% of the page. On a phone the second term
+   binds instead and leaves a --space-4 gutter each side (358 px at 390 px).
+   The same shape as .player-confirm below, which is this stylesheet's other
+   floating message.
+
+   Both .player-explain elements are the sentence's own box — nothing in the
+   page's flow — so nothing moves when one appears (AC-4). It MAY lie over
+   the cells the sentence names, including a hinted column: accepted by the
+   same ruling, because the next pointer-down clears it (wireExplainDismiss,
+   CARD-409, untouched here).
+
+   RETIRED with this card: CARD-409's stage-relative strip — absolute in
+   .player-stage-wrap, drawn at the stage's bottom edge or, by a modifier
+   class, below the sticky column band — together with the solver.js pair
+   that measured the hinted cells to choose between those two edges and
+   re-ran on every redraw, resize and stage move. .player-stage-wrap's
+   `position: relative` went with them: the strip was the only thing
+   positioned against it.
+
+   `z-index` is 1030: above everything this page draws (the sticky clue bands
+   are 1-3, the tool menu and the confirm popover 10) and below the flash
+   stack (1040) and the detail modal (1050), which are the chrome's.
+
+   The ground is --color-accent-tint with a 2 px --color-accent edge: a
+   message, visibly not the board's paper (--grid-paper) and not a panel's
+   --color-surface. Both themes' tokens, no literal; contrast measured in
+   CARD-427's worktree notes. */
 .player-explain {
-  position: absolute; left: 0; right: 0; bottom: var(--space-4); z-index: 3; margin: 0;
-  padding: var(--space-2) var(--space-3);
+  position: fixed; inset: 0; margin: auto; z-index: 1030;
+  width: max-content; height: max-content;
+  max-width: min(30rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm); line-height: var(--leading-base); color: var(--color-text);
-  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
-  border-top: var(--border-width) solid var(--color-accent);
+  background: var(--color-accent-tint);
+  border: calc(2 * var(--border-width)) solid var(--color-accent);
+  border-radius: var(--radius-container);
   box-shadow: var(--shadow-modal); pointer-events: none;
 }
-.player-explain.is-top { top: var(--player-explain-top, 0px); bottom: auto; border-top: 0; border-bottom: var(--border-width) solid var(--color-accent); }
 .player-explain:empty, .player-explain[hidden] { display: none; }
-/* CARD-412: the Wrong-guess offer, in the hint strip's place and look; it
-   holds two buttons, so it takes the pointer, and it is a row that wraps. */
+/* CARD-412: the Wrong-guess offer, in the hint box's place and look; it
+   holds two buttons, so it takes the pointer, and it is a row that wraps.
+   CARD-427: it carries .player-explain, so the owner's "contradiction and
+   probing messages" land centred by the rule above rather than by a second
+   code path of their own. */
 .player-offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); pointer-events: auto; }
 .player-offer[hidden] { display: none; }
 .player-offer-text { flex: 1 1 12rem; }

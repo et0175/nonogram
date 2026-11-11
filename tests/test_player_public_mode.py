@@ -1128,9 +1128,12 @@ class TestPublicMode_TheCensus:
         text = real_template()
         assert any(c.startswith(attribute + "=") for c in template_controls(text))
         # The anchor is the toolbar's close; since CARD-409 the stage sits in a
-        # .player-stage-wrap with the answer strip, after a template comment.
-        planted = text.replace("</div>\n</div>\n\n{# CARD-409",
-                               f'<button {attribute}="ghost">?</button></div>\n</div>\n\n{{# CARD-409')
+        # .player-stage-wrap with the answer line, after a template comment —
+        # whose card number CARD-427 changed when the owner's ruling of
+        # 2026-11-11 centred that line in the viewport. The anchor is the
+        # comment's opening, so it is re-pinned rather than re-claimed.
+        planted = text.replace("</div>\n</div>\n\n{# CARD-427",
+                               f'<button {attribute}="ghost">?</button></div>\n</div>\n\n{{# CARD-427')
         assert planted != text and f"{attribute}=ghost" in template_controls(planted)
 
     def test_an_unclicked_step_is_found_by_the_sweep_not_only_by_the_census(self, touch_page, serve) -> None:

@@ -303,10 +303,10 @@
 //             when that cell came from the solution rather than from one line.
 //             Since the owner's decision of 2026-10-30 each of those
 //             sentences is ALSO written to #puzzle-player-explain, the
-//             visible line beside the puzzle's title, so every rung
-//             changes something a sighted player can see (review F-2 had
-//             measured rung 2's board and toolbar byte-identical to rung
-//             1's). See showExplain below.
+//             visible answer — a box centred in the viewport since
+//             CARD-427 — so every rung changes something a sighted player
+//             can see (review F-2 had measured rung 2's board and toolbar
+//             byte-identical to rung 1's). See showExplain below.
 //   check     [data-player-action="check"] (CARD-269) answers "is one of my
 //             marks wrong?": it highlights the ROW of the first wrong mark
 //             (the same .is-hint-line) and names it, or says there are none —
@@ -598,7 +598,7 @@ import {
 // CARD-280: how long the one-shot celebration class stays on the table —
 // the sweep's longest delay plus its flash, declared rather than measured.
 // The beat: the whole sweep (at most SWEEP_SPAN_MS to the last cell's start),
-// its 440 ms flash, and room to read the strip's sentence.
+// its 440 ms flash, and room to read the answer box's sentence.
 const CELEBRATION_MS = SWEEP_SPAN_MS + 2000;
 // Public mode (CARD-385): see PUBLIC MODE above. The mode's one spelling and
 // its solution-free "solved" come from the pure module.
@@ -1123,7 +1123,7 @@ function start() {
       : isSolved(history.board, payload.solution);
     // CARD-280: the solve's own count ("no hints", "2 hints") is spoken with
     // the banner, and on a genuine solve also shown for the celebration's
-    // beat in the strip over the board (the banner keeps the width it had).
+    // beat in the centred answer box (the banner keeps the width it had).
     const count = solvedStats(hintCount(history));
     const praise = `Solved with ${count}.`;
     // (Read without the decorative mark, which is aria-hidden.)
@@ -1408,7 +1408,6 @@ function start() {
     marking.refresh();
     [stage.scrollLeft, stage.scrollTop] = scrolled;
     measureFit();
-    replaceExplain();
     marking.offerRedrawn();
   }
 
@@ -1581,7 +1580,6 @@ function start() {
       aboveKey = key;
       keepCluesInView();
       measureFit();
-      replaceExplain();
       marking.offerRedrawn();
     });
     for (const element of [toolbar, document.querySelector(".player-head")]) {
@@ -1595,7 +1593,6 @@ function start() {
     else {
       keepCluesInView();
       measureFit();
-      replaceExplain();
       marking.offerRedrawn();
     }
     drawnAt = key;
@@ -1859,89 +1856,32 @@ function checkText(row) {
 //: level apart in two button corners. The test's _pixel_delta carries that
 //: correction and bounds the claim by LEVEL instead.)
 //:
-//: #puzzle-player-explain is a strip over the board (CARD-409: the stage's
-//: bottom edge, or its top below the column clues — see placeExplain). It
-//: carries aria-hidden="true": the live region stays
+//: #puzzle-player-explain is a box centred in the VIEWPORT (CARD-427, owner
+//: ruling 2026-11-11: "let it disappear. just appear the center of the screen
+//: on some background"), over whatever is beneath it. It carries
+//: aria-hidden="true": the live region stays
 //: THE assistive-technology channel and stays unchanged, so a screen reader
 //: meets each sentence once as an announcement instead of twice.
+//:
+//: Writing the sentence is therefore the WHOLE of showing it: admin.css
+//: centres the box, so there is nothing to measure and nothing to re-measure
+//: on a redraw, a resize or a stage move. CARD-409's placement pair — which
+//: tracked the hinted cells to choose between the stage's bottom edge and
+//: its top, and re-ran on every redraw — went with that ruling, and with it
+//: the bug that a hinted COLUMN (one lined cell per row, so no single row to
+//: aim at) left the strip wherever the stylesheet had put it. The box may
+//: now lie over the cells the sentence names; the reader reads it and taps,
+//: and the tap clears it (wireExplainDismiss, unchanged).
 //:
 //: Optional, like the Hint button itself: puzzle_edit.html (CARD-246) loads
 //: this same file with no Hint, no Check and no explain line, and there this
 //: is a no-op rather than a mode flag of its own.
 function showExplain(text) {
   const line = document.getElementById("puzzle-player-explain");
-  if (line !== null) {
-    line.textContent = text;
-    // After the press has painted (and CARD-408 has scrolled), decide the
-    // strip's edge: see placeExplain.
-    requestAnimationFrame(() => placeExplain(line));
-  }
+  if (line !== null) line.textContent = text;
 }
 
-// CARD-409 review cycle 1, F-001: the strip sits over the stage's bottom
-// edge, and a hinted row or a revealed cell near the bottom of the visible
-// board would be under it. So when what the hint points at meets the strip,
-// the strip goes to the TOP of the stage instead — just below the sticky
-// column band, never over it.
-function placeExplain(line) {
-  line.classList.remove("is-top");
-  if (line.textContent === "" || line.hidden) return;
-  const stage = document.getElementById("puzzle-player");
-  const table = stage?.querySelector(".player-board");
-  if (!stage || !table) return;
-  // A revealed cell is the target when there is one; otherwise the hinted
-  // ROW's cells (a hinted column runs the board's whole height, so some of
-  // it is under any strip — its clue and the cells above stay in view).
-  let targets = [...stage.querySelectorAll("td.player-cell.is-hinted, td.player-cell.is-offered")];
-  if (targets.length === 0) {
-    const lined = [...stage.querySelectorAll("td.player-cell.is-hint-line")];
-    const rows = new Set(lined.map((cell) => cell.dataset.row));
-    if (rows.size === 1) targets = lined;
-  }
-  if (targets.length === 0) return;
-  const span = () => {
-    const boxes = targets.map((cell) => cell.getBoundingClientRect());
-    return { top: Math.min(...boxes.map((b) => b.top)), bottom: Math.max(...boxes.map((b) => b.bottom)) };
-  };
-  const meets = () => {
-    const strip = line.getBoundingClientRect();
-    const t = span();
-    return t.bottom > strip.top && t.top < strip.bottom;
-  };
-  if (!meets()) return;
-  // The top placement starts where the column clues END in view — the
-  // sticky band's height, or, when the band is not kept (a short stage),
-  // wherever the scrolled thead's bottom is — so it never covers a clue.
-  const view = stage.getBoundingClientRect();
-  const strip = line.getBoundingClientRect();
-  const head = table.querySelector("thead")?.getBoundingClientRect();
-  const band = Math.max(0, (head?.bottom ?? view.top) - view.top);
-  if (band + strip.height <= stage.clientHeight) {
-    line.style.setProperty("--player-explain-top", `${Math.round(band)}px`);
-    line.classList.add("is-top");
-    if (!meets()) return;
-    line.classList.remove("is-top");
-  }
-  // Neither edge is clear (a short landscape stage, review cycle 2, F-101):
-  // the strip stays at the bottom, and the stage scrolls just enough to
-  // lift the target above it — the stage only, never the page.
-  const lift = span().bottom - line.getBoundingClientRect().top;
-  // CARD-412 review cycles 2-3: in the board's LAST rows the stage may have
-  // no scroll left to lift the target (a spacer that made the room was tried
-  // and taken out: it collapsed Fit on a resize and moved the board under
-  // the dismissing tap). There the strip can lie over the target; the
-  // sentence names its row and column.
-  if (lift > 0) stage.scrollTop += Math.ceil(lift);
-}
-
-// Re-place the strip after anything that moves the board under it (a
-// redraw, a resize, the stage's top moving): review cycle 2, F-103.
-function replaceExplain() {
-  const line = document.getElementById("puzzle-player-explain");
-  if (line !== null && line.textContent !== "") requestAnimationFrame(() => placeExplain(line));
-}
-
-// CARD-409: the strip over the board goes away on the next
+// CARD-409: the box over the page goes away on the next
 // pointer-down anywhere and on Escape — it is a glance, not a panel; the
 // live region (#puzzle-player-announce) keeps the sentence for a screen
 // reader regardless. Wired once, from start().
@@ -2915,7 +2855,7 @@ function wireMarking(container, player) {
 
   // THE WRONG-GUESS OFFER (CARD-412, owner ruling 2026-11-07). After Wrong
   // guess on a probe whose first stroke was one dark or white cell
-  // (solver_state.js probeVerdict), the strip over the board asks whether to
+  // (solver_state.js probeVerdict), the centred answer box asks whether to
   // mark that cell the other colour; "Mark it" records ONE ordinary stroke
   // (one undo step, counted like any mark), "No thanks" changes nothing. The
   // next pointer-down outside the offer, Escape, or any recorded change
@@ -2927,7 +2867,6 @@ function wireMarking(container, player) {
     offeredCell()?.classList.remove("is-offered");
     offered = null;
     offer.hidden = true;
-    offer.classList.remove("is-top");
   }
   function openOffer(verdict) {
     if (offer === null) return;
@@ -2939,7 +2878,6 @@ function wireMarking(container, player) {
     announce.textContent = said;
     offer.hidden = false;
     offeredCell()?.classList.add("is-offered");
-    requestAnimationFrame(() => placeExplain(offer));
   }
   // Review cycle 1, F-306: a keyboard press of either button hands focus to
   // Probe, where the next probe starts, instead of dropping it to <body>.
@@ -2954,13 +2892,14 @@ function wireMarking(container, player) {
     closeOffer();
     probeToggle?.focus({ preventScroll: true });
   });
-  // Review cycle 1, F-303: the offer follows the board like the hint strip
-  // (a redraw replaces the cells, a resize moves them) — the named cell's
-  // outline is put back and the strip re-placed.
+  // Review cycle 1, F-303: a redraw replaces the cells, so the named cell's
+  // outline is put back on the element that took its place. CARD-427: that
+  // is ALL this does now — the offer carries .player-explain and so is
+  // centred in the viewport by the stylesheet, which no redraw or resize can
+  // move, so there is no placement left to re-run.
   function offerRedrawn() {
     if (offered === null) return;
     offeredCell()?.classList.add("is-offered");
-    requestAnimationFrame(() => placeExplain(offer));
   }
   document.addEventListener("pointerdown", (event) => {
     if (event.target instanceof Element && event.target.closest("#puzzle-player-offer")) return;

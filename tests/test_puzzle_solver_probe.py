@@ -2153,10 +2153,22 @@ def _contrast(first: str, second: str) -> float:
     return (high + 0.05) / (low + 0.05)
 
 
+#: CARD-427 added ``box``: the offer carries ``.player-explain``, so the
+#: owner's 2026-11-11 ruling for the hint's sentence ("just appear the center
+#: of the screen on some background") reaches the contradiction's message
+#: through the same stylesheet rule, with no placement code of its own. Read
+#: against documentElement's client box, which is what a ``position: fixed``
+#: element is centred in.
 _OFFER = """() => { const o = document.getElementById('puzzle-player-offer');
-  return { shown: !o.hidden && o.getBoundingClientRect().height > 0,
+  const b = o.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+  return { shown: !o.hidden && b.height > 0,
            text: o.querySelector('.player-offer-text').textContent,
-           said: document.getElementById('puzzle-player-announce').textContent }; }"""
+           said: document.getElementById('puzzle-player-announce').textContent,
+           box: { position: getComputedStyle(o).position,
+                  dx: (b.left + b.right) / 2 - vw / 2, dy: (b.top + b.bottom) / 2 - vh / 2,
+                  width: b.width, vw: vw,
+                  inside: b.left >= -0.5 && b.right <= vw + 0.5 && b.top >= -0.5 && b.bottom <= vh + 0.5 } }; }"""
 
 
 @pytest.mark.browser
@@ -2165,8 +2177,16 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
     cell must be white. Mark it?" with Yes/No, never an auto-mark, only when
     the probe's first stroke was one dark or white cell).
 
+    RETIRED CLAIM, 2026-11-11 (CARD-427, owner ruling "let it disappear. just
+    appear the center of the screen on some background", answering the
+    play-test finding that the contradiction and hint messages are hard to
+    notice): the offer drawn "in the hint strip's place", at the stage's
+    bottom edge. It carries .player-explain, so it moved with that strip and
+    it moves with its replacement — a box centred in the viewport, asserted
+    below as CARD-427's AC-5. Nothing else of CARD-412 changes.
+
     One cell, in the order a player meets it: a single-cell guess, more
-    marks, Wrong guess — the strip over the board names the cell by 1-based
+    marks, Wrong guess — the centred box names the cell by 1-based
     row and column and the OPPOSITE colour, the live region says the same,
     and the board does not move (AC-2, AC-7); "Mark it" records one ordinary
     stroke that one Undo takes back (AC-3); "No thanks" leaves the
@@ -2194,7 +2214,17 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
         assert offer["text"] == "Your first guess was wrong, so row 3, column 4 must be white. Mark it?", offer
         assert offer["said"] == offer["text"]
         assert _states(page) == checkpoint
-        assert page.evaluate(_BOARD_TOP) == top  # AC-7: the strip moves nothing
+        assert page.evaluate(_BOARD_TOP) == top  # AC-7: the box moves nothing
+        # CARD-427 AC-5 (owner ruling 2026-11-11), RETIRING CARD-412's "in
+        # the strip over the board's bottom edge": the contradiction's message
+        # is the hint's box — centred in the VIEWPORT, whole inside it, and
+        # well short of the page — because it carries .player-explain and
+        # nothing places it. A second placement path would show up here as a
+        # centre that is not the screen's.
+        assert offer["box"]["position"] == "fixed", offer
+        assert abs(offer["box"]["dx"]) <= 2 and abs(offer["box"]["dy"]) <= 2, offer
+        assert offer["box"]["inside"], offer
+        assert offer["box"]["width"] <= 0.6 * offer["box"]["vw"], offer
 
         page.get_by_role("button", name="Mark it", exact=True).click()
         assert not page.evaluate(_OFFER)["shown"]
