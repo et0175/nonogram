@@ -1,0 +1,53 @@
+/*
+ * The Christmas book's decorations (CARD-421, CARD-422, owner 2026-11-11):
+ * a pine garland with baubles along the top of the page and snow lying on a
+ * panel's top edge, drawn by decor.js as inline SVG and placed here. Loaded
+ * by the book landing and by the play page; nothing here applies until
+ * decor.js has drawn (every rule is on a .decor-* element or keyed on one).
+ * Nothing moves, and nothing covers a control: both are aria-hidden and not
+ * hit-testable. Every colour is a theme token.
+ */
+
+/* Room for the garland above the page's own content. */
+body:has(> .decor-garland) > main { padding-top: calc(72px + var(--space-1)); }
+
+/* A puzzle opened from the Christmas book: its heading in pine, like the
+   landing's. The board itself is left as it is. */
+:root[data-theme="christmas"] .player-head h1 { color: var(--theme-pine); }
+
+.decor-garland {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 72px;
+  display: flex;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* One tile is 240x64 units, drawn 72 px tall. */
+.decor-garland svg { flex: none; display: block; height: 72px; width: calc(72px * 240 / 64); }
+
+.decor-bough { stroke-width: 1.4; stroke-linecap: round; }
+.decor-needle-1 { stroke: color-mix(in srgb, var(--theme-pine) 80%, black); }
+.decor-needle-2 { stroke: var(--theme-pine); }
+.decor-needle-3 { stroke: var(--color-accent); }
+.decor-needle-4 { stroke: color-mix(in srgb, var(--color-accent) 80%, white); }
+.decor-berry { fill: var(--theme-red); }
+.decor-red { fill: var(--theme-red); }
+.decor-gold { fill: var(--theme-gold); }
+.decor-gold-line { stroke: var(--theme-gold); stroke-width: 1; }
+.decor-shine { fill: var(--grid-paper); opacity: 0.6; }
+.decor-snow-fill { fill: var(--grid-paper); stroke: var(--color-surface-sunken); stroke-width: 0.6; }
+
+.decor-snow {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: -10px;
+  height: 22px;
+  pointer-events: none;
+}
+
+.decor-snow svg { display: block; width: 100%; height: 100%; }
