@@ -4415,12 +4415,11 @@ class Generator:
         # 2026-11-10): -9** (733 -> 724, 472 -> 464, 176 -> 171, 175 -> 170):
         # ``draw_corner_size_label`` and its calls are gone.
         #
-        # **The centred folio (owner, 2026-11-11): +4** (724 -> 728, 464 ->
-        # 468, last four unchanged): the three dividers' ``interior_frame``
-        # calls and the TOC capacity's ``type_px`` for the footer gap the
-        # centred folio stands on. Read off this test's own measurement.
-        ((), 728),
-        (("builtins",), 468),
+        # **The centred folio (owner, 2026-11-11): +3** (724 -> 727, 464 ->
+        # 467, last four unchanged): the three dividers' ``interior_frame``
+        # calls. Read off this test's own measurement.
+        ((), 727),
+        (("builtins",), 467),
         (("builtins", "definitions and imports"), 171),
         (("builtins", "definitions and imports", "parameters"), 170),
         (

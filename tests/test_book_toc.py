@@ -1517,9 +1517,7 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
                 f"a {height} cm book's structural TOC must still be one page "
                 "— the gaps are only safe because it never fills one"
             )
-            # The folio is the puzzle pages' centred one (owner, 2026-11-11),
-            # its baseline one 9 pt gap above the bottom margin.
-            room = (frame.bottom - px(9.0) - frame.top) - needed
+            room = (frame.bottom - frame.top) - needed
             if worst is None or room < worst[0]:
                 worst = (room, height)
             if room < folio_line:
@@ -1563,11 +1561,6 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             "10.40",
             "10.50",
             "10.60",
-            # The centred folio (owner, 2026-11-11) sits 9 pt higher than the
-            # corner one did, which costs three more trims their number.
-            "10.70",
-            "10.80",
-            "10.90",
         ], (
             f"these trims leave the folio less than its own {folio_line} px "
             f"line: {short}. The group gaps have eaten the reservation "
@@ -1575,21 +1568,18 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             "constant carried into CARD-221, on this face, that list was "
             "exactly [('10.00', 47)] and the owner moved the gap to 8.0 to "
             "empty it; CON-018's amended margins (CARD-222) refilled it with "
-            "the seven heights above, and the centred folio (2026-11-11) "
-            "added three"
+            "the seven heights above"
         )
-        assert worst[0] == -64, (
+        assert worst[0] == -26, (
             f"the worst-case headroom is {worst[0]} px, recorded as -26 "
             "(the 10.00 cm trim on the packaged face, CON-018's amended "
-            "margins and the centred folio's 9 pt lift: -26 px before that "
-            "lift, "
             "margins: 55 px before them at the same 8.0 pt gap, 47 px at the "
             "8.5 pt CARD-221 inherited, 59 px on the Arial those 8.5 pt were "
             "chosen against). It must not drift further without the move "
             "being deliberate"
         )
-        assert folio_line - worst[0] == 113, (
-            "and what the margin amendment and the centred folio cost this page is 113 px: the "
+        assert folio_line - worst[0] == 75, (
+            "and what the margin amendment cost this page is 75 px: the "
             "figure any fix has to buy back, measured here rather than "
             "assumed"
         )
@@ -1686,13 +1676,12 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         assert folio is None
 
     def test_the_shortest_trim_the_shipped_gap_numbers_prints_its_folio(self) -> None:
-        """11.00 cm is the shortest trim whose structural TOC keeps its folio
-        with the group gaps in place (the sweep above's set ends at 10.90,
-        since the folio is centred 9 pt above the bottom margin)."""
-        folio, headroom, folio_line = self._headroom("11.00")
-        assert headroom - round(9.0 * DPI / 72.0) >= folio_line, headroom
+        """10.70 cm is the shortest trim whose structural TOC keeps its folio
+        with the group gaps in place (the sweep above's set ends at 10.60)."""
+        folio, headroom, folio_line = self._headroom("10.70")
+        assert headroom >= folio_line, headroom
         assert folio == "3"
-        assert self._headroom("10.90")[0] is None
+        assert self._headroom("10.60")[0] is None
 
 
 # --------------------------------------------------------------------------

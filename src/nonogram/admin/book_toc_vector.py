@@ -324,19 +324,25 @@ def toc_page_stream(
     # baseline one gap above the bottom margin (owner, 2026-11-11) --
     # :func:`~nonogram.export.layout.interior_frame`'s ``folio_x`` and
     # ``baseline``, read off this page's own frame. Rows run the full measure,
-    # so on a trim short enough for the last row to reach the footer line the
-    # page prints no number rather than setting one over that row.
-    baseline = frame.bottom - round(INTERIOR_FOOTER_GAP_PT * dpi / POINTS_PER_INCH)
-    if baseline - bottom >= line_height_px(spec.folio_size_px, face):
-        draw_centred_folio(
-            stream,
-            str(page_number),
-            frame.width // 2,
-            baseline,
-            spec.folio_size_px,
-            face,
-            grey=grey,
-        )
+    # so a page whose last row reaches that line sets the number on the
+    # bottom margin's own row instead, the line ``_toc_entries_per_page``
+    # reserves for it (which keeps the structural TOC one page on every trim),
+    # and a page with no room even there prints no number rather than set one
+    # over a row.
+    folio_line = line_height_px(spec.folio_size_px, face)
+    footer_line = frame.bottom - round(INTERIOR_FOOTER_GAP_PT * dpi / POINTS_PER_INCH)
+    for baseline in (footer_line, frame.bottom):
+        if baseline - bottom >= folio_line:
+            draw_centred_folio(
+                stream,
+                str(page_number),
+                frame.width // 2,
+                baseline,
+                spec.folio_size_px,
+                face,
+                grey=grey,
+            )
+            break
     return stream
 
 

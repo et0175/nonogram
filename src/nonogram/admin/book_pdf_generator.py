@@ -426,7 +426,6 @@ from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
     DPI,
-    INTERIOR_FOOTER_GAP_PT,
     INTERIOR_FOOTER_LINE_PT,
     INTERIOR_FOOTER_MM,
     DifficultyDots,
@@ -3052,9 +3051,7 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     entry_height = entry_ascent + entry_descent + type_px(TOC_ENTRY_GAP_PT, dpi)
     folio_font = _band_font(type_px(FOLIO_PT, dpi))
     folio_ascent, folio_descent = folio_font.getmetrics()
-    # The folio's line, and the gap the centred folio stands above the bottom
-    # margin by (owner, 2026-11-11: the puzzle pages' footer line).
-    folio_space = folio_ascent + folio_descent + type_px(INTERIOR_FOOTER_GAP_PT, dpi)
+    folio_space = folio_ascent + folio_descent
     available = (frame.bottom - frame.top) - title_space - folio_space
     return max(1, available // entry_height)
 
