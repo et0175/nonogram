@@ -1767,7 +1767,25 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      1280 px first row is exactly full (the block about it above), so they
      carry none there.
    * The brush trigger shows its swatch alone; its aria-label names the brush.
-   * Every button is at least 44 px wide and --control-h tall.
+   * Every button is at least 44 x 44 px. CARD-423 (owner ruling 2026-11-11,
+     D1) raised the height half of that floor: it had been written in width
+     alone, so in portrait the controls measured 44 x 36 px (the two zoom
+     steppers 44 x 38.78, their glyph's line box) — the height fell through
+     to .player-toolbar .btn's --control-h — while CARD-402's landscape
+     block below already set both, which is why the same sweep found no
+     landscape control under 44 px. --control-h itself does not change (it
+     is the whole panel's control height, not the player's), so the floor is
+     stated here, on the same selector it overrides. The toolbar grows one
+     8 px step per control row it draws (measured: 183.8 -> 207.8 px at
+     390 x 844, four rows; 111.8 -> 119.8 px at 600 x 844, two) and the
+     BOARD gives that up, not the page: solver.js's measureStageTop writes
+     the measured --player-stage-top, which both the stage's cap and the
+     cell-height term read, so the stage's cap loses exactly as much (the
+     two scrollport pins in tests/test_puzzle_solver_phone.py
+     TestSolverPhone_MirroredGutterSticks are re-pinned for it). A
+     column-floor-bound board's cell does not move at all (14.391 px before
+     and after); a fit-bound one loses a third of a pixel (16.359 -> 16.0
+     px). Both measured, in the card's Worktree notes.
    * The title shrinks so the tier badge sits on its line.
    * The solved banner keeps the picture's NAME (the reward, CARD-163) and
      drops the word "Solved:" visually: smaller type, up to two lines inside
@@ -1778,6 +1796,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 @media (max-width: 600px), (max-height: 500px) {
   .player-head h1 { font-size: var(--text-xl); }
   .player-toolbar { gap: var(--space-2); }
+  .player-toolbar .btn { min-height: 44px; }
   .player-compact-icon { display: contents; }
   .player-tools { min-width: 0; }
   .player-tool-trigger { flex: 0 0 auto; min-width: 44px; justify-content: center; }

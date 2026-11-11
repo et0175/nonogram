@@ -823,8 +823,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 87], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
-            assert seen["scroll"] == [136 if col else 0, 87 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411 (the line above)
+            assert seen["overflow"] == [136, 95], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage; 87 until CARD-423's 44 px tap-target floor, which costs one 8 px step per control row the compact toolbar draws — two of them at 600 x 844 (toolbar 111.8 -> 119.8 px, measured), of which this axis sees the 8 px the stage's cap loses.
+            assert seen["scroll"] == [136 if col else 0, 95 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411, 87 until CARD-423 (the line above)
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
@@ -930,7 +930,7 @@ class TestSolverPhone_MirroredGutterSticks:
         room = _room(page)
         assert room["keeping"] == [False, True], room
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
-        assert room["port"] == [358, 424] and room["overflow"] == [346, 159], room  # 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap
+        assert room["port"] == [358, 400] and room["overflow"] == [346, 183], room  # 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap  # 424/159 until CARD-423's 44 px tap-target floor: four control rows at 390 x 844, 8 px each, so the toolbar is 24 px taller (183.8 -> 207.8 px, measured) and the stage's cap — which reads solver.js's measured --player-stage-top — is 24 px shorter. The BOARD absorbs it, not the page: the cell is the column-floor-bound 14.391 px before and after, and nothing scrolls sideways that did not before.
         # Past the share the rule allows, re-derived here from solver.js's
         # own constant rather than from the class it set — off the RAW cover
         # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs
@@ -972,16 +972,42 @@ class TestSolverPhone_MirroredGutterSticks:
 #: The labelled toolbar buttons, by accessible name. Check is admin-only.
 _LABELLED = ("Undo", "Redo", "Reset", "Hint", "Check", "Probe")
 
+#: CARD-423: the five controls that carry no ``.player-btn-label`` and so were
+#: outside the width assertion entirely — the brush trigger, Region, the two
+#: zoom steppers and the zoom readout (a span the player gives
+#: ``role="button"`` whenever there is a Fit to go to, so it IS a control the
+#: floor must cover). Named by their aria-label, which is the accessible name
+#: a labelled button gets from its hidden word — except the readout, whose
+#: aria-label carries the live zoom ("Zoom 100%. Fit the whole board", "Zoom:
+#: Fit. Back to the last zoom"): it is keyed on its own
+#: ``data-player-zoom-readout`` hook instead, so this list measures the
+#: toolbar's geometry and not the zoom it happens to be at.
+_UNLABELLED = ("Brush: Black", "Region", "Zoom out", "Zoom in", "Zoom readout")
+
+#: Every control the compact toolbar draws, in the order-free form the
+#: measurement below returns.
+_CONTROLS = _LABELLED + _UNLABELLED
+
+#: CARD-423: was ``_LABEL_BOXES``, which started from ``.player-btn-label``
+#: and therefore could not see the five controls in ``_UNLABELLED`` — four of
+#: the nine that measured 44 x 36 px. It starts from the toolbar's controls
+#: now (a ``<button>``, or the readout's ``role="button"`` span) and returns
+#: the border box's HEIGHT beside its width, because the floor this card
+#: raises is two-dimensional.
 #: CARD-411: Keep and Wrong guess carry labels too, and are not drawn while
-#: no probe is open; only the buttons drawn are counted.
-_LABEL_BOXES = """() => [...document.querySelectorAll('.player-btn-label')]
-  .filter((label) => label.closest('button').getClientRects().length > 0).map((label) => {
-  const button = label.closest('button');
+#: no probe is open; only the controls drawn are counted.
+_CONTROL_BOXES = """() => [...document.querySelectorAll('.player-toolbar button, .player-toolbar [role="button"]')]
+  .filter((button) => button.getClientRects().length > 0).map((button) => {
+  const label = button.querySelector('.player-btn-label');
   const icon = button.querySelector('svg');
-  return { name: label.textContent.trim(),
-           label: label.getBoundingClientRect().width,
+  const box = button.getBoundingClientRect();
+  const name = label ? label.textContent.trim()
+    : button.hasAttribute('data-player-zoom-readout') ? 'Zoom readout'
+    : (button.getAttribute('aria-label') || '').trim();
+  return { name: name,
+           label: label ? label.getBoundingClientRect().width : 0,
            icon: icon ? icon.getBoundingClientRect().width : 0,
-           button: button.getBoundingClientRect().width };
+           button: box.width, height: box.height };
 })"""
 
 
@@ -991,12 +1017,25 @@ class TestSolverPhone_CompactToolbar:
     buttons, no text"; "Icon-only should switch on for short screens as well
     as narrow ones"). admin.css's "Compact toolbar" condition is narrow OR
     short: at 390 x 844 (phone) and 844 x 390 (landscape phone) every
-    labelled button shows its icon and no visible word, keeps its accessible
-    name, and is at least 44 px wide.
+    labelled button shows its icon and no visible word, and keeps its
+    accessible name.
+
+    CARD-423 (owner ruling 2026-11-11, D1) retires the "at least 44 px wide"
+    claim this class used to make: the floor is **44 px in both dimensions**,
+    for every control the toolbar draws, at every compact viewport. The old
+    one-dimensional rule was satisfied by nine portrait controls under 44 px
+    tall — seven at 44 x 36 px, where the height fell through to
+    ``.player-toolbar .btn``'s ``min-height: var(--control-h)`` = 36 px, and
+    the two zoom steppers at 44 x 38.78 px (the admin page's Check is an
+    eighth at 36) — while landscape's own block (CARD-402) already pinned
+    both dimensions. Four of those nine carried no ``.player-btn-label``, so
+    the assertion could not even see them (see ``_CONTROL_BOXES``).
 
     One control that can fail, per the owner's test budget: dropping the
-    ``(max-height: 500px)`` arm reds the 844 x 390 cell alone; dropping the
-    clip rule reds both compact cells."""
+    compact block's new ``min-height: 44px`` reds the 390 x 844 cell alone
+    (844 x 390 stays green on CARD-402's block, so the two are independent);
+    dropping the ``(max-height: 500px)`` arm reds the 844 x 390 cell alone;
+    dropping the clip rule reds both compact cells."""
 
     # No desktop cell: the existing 1280/1440 layout cells (brush-menu slot,
     # percent, maybe) already hold the labelled toolbar there (review cycle 1,
@@ -1007,11 +1046,16 @@ class TestSolverPhone_CompactToolbar:
 
         browser_page.set_viewport_size({"width": width, "height": height})
         _open(browser_page, live, live.store(BIG))
-        boxes = browser_page.evaluate(_LABEL_BOXES)
-        assert sorted(box["name"] for box in boxes) == sorted(_LABELLED), boxes
+        boxes = browser_page.evaluate(_CONTROL_BOXES)
+        assert sorted(box["name"] for box in boxes) == sorted(_CONTROLS), boxes
         for box in boxes:
             if compact:
-                assert box["label"] <= 1 and box["icon"] > 0 and box["button"] >= 44, box
+                # CARD-423: both dimensions, every control — not the width of
+                # the labelled ones alone.
+                assert box["button"] >= 44 and box["height"] >= 44, box
+                assert box["label"] <= 1, box
+                if box["name"] in _LABELLED:
+                    assert box["icon"] > 0, box
             else:
                 assert box["label"] > 1, box
         for name in _LABELLED:
