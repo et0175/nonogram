@@ -823,8 +823,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 87], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage.
-            assert seen["scroll"] == [136 if col else 0, 87 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411 (the line above)
+            assert seen["overflow"] == [136, 95], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage; 87 until CARD-423's 44 px tap-target floor, which costs a control row 44 px MINUS its tallest control: of the two rows at 600 x 844 on THIS board ONE paid its 8 px and the other paid nothing, already standing 44 px tall on the zoom readout's own compact rule — which is keyed on [role="button"], so it holds only while a Fit exists, as it does for BIG here (toolbar 111.8 -> 119.8 px, measured), so this axis sees the 8 px the stage's cap loses.
+            assert seen["scroll"] == [136 if col else 0, 95 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411, 87 until CARD-423 (the line above)
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
@@ -930,7 +930,7 @@ class TestSolverPhone_MirroredGutterSticks:
         room = _room(page)
         assert room["keeping"] == [False, True], room
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
-        assert room["port"] == [358, 424] and room["overflow"] == [346, 159], room  # 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap
+        assert room["port"] == [358, 400] and room["overflow"] == [346, 183], room  # 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap  # 424/159 until CARD-423's 44 px tap-target floor: of the four control rows at 390 x 844 three paid an 8 px step and the zoom row paid none (its readout already stood 44 px tall on its own compact rule), so the toolbar is 24 px taller and not the 32 a per-row multiplier predicts (183.8 -> 207.8 px, measured) and the stage's cap — which reads solver.js's measured --player-stage-top — is 24 px shorter. The BOARD absorbs it, not the page: the cell is the column-floor-bound 14.391 px before and after, and nothing scrolls sideways that did not before.
         # Past the share the rule allows, re-derived here from solver.js's
         # own constant rather than from the class it set — off the RAW cover
         # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs
@@ -972,16 +972,62 @@ class TestSolverPhone_MirroredGutterSticks:
 #: The labelled toolbar buttons, by accessible name. Check is admin-only.
 _LABELLED = ("Undo", "Redo", "Reset", "Hint", "Check", "Probe")
 
+#: CARD-423: the five controls that carry no ``.player-btn-label`` and so were
+#: outside the width assertion entirely — the brush trigger, Region, the two
+#: zoom steppers and the zoom readout (a span the player gives
+#: ``role="button"`` whenever there is a Fit to go to, so it IS a control the
+#: floor must cover). Named by their aria-label, which is the accessible name
+#: a labelled button gets from its hidden word — except the readout, whose
+#: aria-label carries the live zoom ("Zoom 100%. Fit the whole board", "Zoom:
+#: Fit. Back to the last zoom"): it is keyed on its own
+#: ``data-player-zoom-readout`` hook instead, so this list measures the
+#: toolbar's geometry and not the zoom it happens to be at.
+_UNLABELLED = ("Brush: Black", "Region", "Zoom out", "Zoom in", "Zoom readout")
+
+#: Every control the compact toolbar draws, in the order-free form the
+#: measurement below returns.
+#: CARD-423 review cycle 2 (F-203): this is a STATE PIN, not the toolbar's
+#: inventory — it is exact for the state the cell below drives, i.e. a
+#: freshly opened board with no popover open that does NOT fit at 100%.
+#: Other reachable states change the NAME set without touching the floor —
+#: e.g. the brush menu open adds its four options, a brush other than Black
+#: picked RENAMES the trigger (solver.js's syncTrigger writes
+#: aria-label="Brush: <label>", so what ``_UNLABELLED`` pins there is the
+#: brush and not the control), the reset confirmation adds
+#: "Reset board"/"Keep marks", an open probe adds Keep/Wrong guess, a solved
+#: board draws .player-show-grid while the tools hide, and a board that fits
+#: at 100% drops "Zoom readout" (solver.js gives it role="button" only while
+#: there is a Fit to go to). A later card that drives one of those gets a red
+#: on the set assertion that says nothing about 44 px.
+_CONTROLS = _LABELLED + _UNLABELLED
+
+#: CARD-423: was ``_LABEL_BOXES``, which started from ``.player-btn-label``
+#: and therefore could not see the five controls in ``_UNLABELLED`` — four of
+#: the nine that measured 44 x 36 px. It starts from the toolbar's controls
+#: now (a ``<button>``, or the readout's ``role="button"`` span) and returns
+#: the border box's HEIGHT beside its width, because the floor this card
+#: raises is two-dimensional.
 #: CARD-411: Keep and Wrong guess carry labels too, and are not drawn while
-#: no probe is open; only the buttons drawn are counted.
-_LABEL_BOXES = """() => [...document.querySelectorAll('.player-btn-label')]
-  .filter((label) => label.closest('button').getClientRects().length > 0).map((label) => {
-  const button = label.closest('button');
+#: no probe is open; only the controls drawn are counted.
+#: CARD-423 review cycle 1 (F-007): the fallback ends at ``textContent`` and
+#: not at ``''``, because the toolbar holds ``.btn``s with neither a label
+#: span nor an ``aria-label`` — the reset dialog's "Reset board" / "Keep
+#: marks" — so a state that draws one names the control in the failure
+#: instead of adding a row called ``''``. ``textContent`` and not
+#: ``innerText``: Chromium applies ``text-transform`` to ``innerText``, which
+#: would report what the CSS painted rather than what the markup says.
+_CONTROL_BOXES = """() => [...document.querySelectorAll('.player-toolbar button, .player-toolbar [role="button"]')]
+  .filter((button) => button.getClientRects().length > 0).map((button) => {
+  const label = button.querySelector('.player-btn-label');
   const icon = button.querySelector('svg');
-  return { name: label.textContent.trim(),
-           label: label.getBoundingClientRect().width,
+  const box = button.getBoundingClientRect();
+  const name = label ? label.textContent.trim()
+    : button.hasAttribute('data-player-zoom-readout') ? 'Zoom readout'
+    : (button.getAttribute('aria-label') || button.textContent || '').trim();
+  return { name: name,
+           label: label ? label.getBoundingClientRect().width : 0,
            icon: icon ? icon.getBoundingClientRect().width : 0,
-           button: button.getBoundingClientRect().width };
+           button: box.width, height: box.height };
 })"""
 
 
@@ -991,12 +1037,43 @@ class TestSolverPhone_CompactToolbar:
     buttons, no text"; "Icon-only should switch on for short screens as well
     as narrow ones"). admin.css's "Compact toolbar" condition is narrow OR
     short: at 390 x 844 (phone) and 844 x 390 (landscape phone) every
-    labelled button shows its icon and no visible word, keeps its accessible
-    name, and is at least 44 px wide.
+    labelled button shows its icon and no visible word, and keeps its
+    accessible name.
+
+    CARD-423 (owner ruling 2026-11-11, D1) retires the "at least 44 px wide"
+    claim this class used to make: the floor is **44 px in both dimensions**,
+    for the eleven controls AC-1 enumerates — the ones ``_CONTROLS`` names
+    and this cell measures — at every compact viewport. It is NOT a claim
+    about every ``<button>`` inside ``.player-toolbar``: the brush menu's
+    four options (``.player-tool-item``) are buttons and no ``.btn``, keep
+    ``min-height: var(--control-h)`` and measure 142 x 36 px at 390 x 844,
+    600 x 844 and 844 x 390 — reached by neither this floor nor CARD-402's
+    landscape block, and raising them is an owner call (D1 named nine
+    controls, not the menu) on a follow-up card. The old
+    one-dimensional rule was satisfied by nine portrait controls under 44 px
+    tall — seven at 36 px, where the height fell through to
+    ``.player-toolbar .btn``'s ``min-height: var(--control-h)`` = 36 px, and
+    the two zoom steppers at 38.78 px (the admin page's Check is an eighth
+    at 36). The WIDTHS were already at the floor or past it, and never one
+    figure — 44 px where the compact block's min-width rules reach, 49 px
+    for Region, which is sized by its content — so what moved is the floor
+    and not a 44 x 36 box. Landscape's own block (CARD-402) already pinned
+    both dimensions on those same eleven. Four of those nine carried no
+    ``.player-btn-label``, so
+    the assertion could not even see them (see ``_CONTROL_BOXES``).
 
     One control that can fail, per the owner's test budget: dropping the
-    ``(max-height: 500px)`` arm reds the 844 x 390 cell alone; dropping the
-    clip rule reds both compact cells."""
+    compact block's new ``min-height: 44px`` reds the 390 x 844 cell alone
+    (844 x 390 stays green on CARD-402's block, so the two are independent);
+    dropping the ``(max-height: 500px)`` arm reds the 844 x 390 cell alone;
+    dropping the clip rule reds both compact cells.
+
+    The "its word is visible" half of the non-compact arm is asserted for
+    ``_LABELLED`` only, because the five controls in ``_UNLABELLED`` have no
+    ``.player-btn-label`` to show at any width (review cycle 1, F-006: the
+    arm is unreached while both cells are compact, and asserting it over
+    every box would red the first desktop cell a later card adds for a
+    reason that says nothing about the page)."""
 
     # No desktop cell: the existing 1280/1440 layout cells (brush-menu slot,
     # percent, maybe) already hold the labelled toolbar there (review cycle 1,
@@ -1007,13 +1084,22 @@ class TestSolverPhone_CompactToolbar:
 
         browser_page.set_viewport_size({"width": width, "height": height})
         _open(browser_page, live, live.store(BIG))
-        boxes = browser_page.evaluate(_LABEL_BOXES)
-        assert sorted(box["name"] for box in boxes) == sorted(_LABELLED), boxes
+        boxes = browser_page.evaluate(_CONTROL_BOXES)
+        assert sorted(box["name"] for box in boxes) == sorted(_CONTROLS), boxes
         for box in boxes:
             if compact:
-                assert box["label"] <= 1 and box["icon"] > 0 and box["button"] >= 44, box
+                # CARD-423: both dimensions, every control — not the width of
+                # the labelled ones alone.
+                assert box["button"] >= 44 and box["height"] >= 44, box
+                assert box["label"] <= 1, box
+                if box["name"] in _LABELLED:
+                    assert box["icon"] > 0, box
             else:
-                assert box["label"] > 1, box
+                # Labelled controls only: the five in _UNLABELLED carry no
+                # .player-btn-label at any width, so their 0 is the right
+                # reading and not a regression (review cycle 1, F-006).
+                if box["name"] in _LABELLED:
+                    assert box["label"] > 1, box
         for name in _LABELLED:
             expect(browser_page.get_by_role("button", name=name, exact=True)).to_have_count(1)
 
