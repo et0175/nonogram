@@ -459,16 +459,50 @@ class TestSolverZoom_HundredPercentIsTheFittedSize:
 
 # ==========================================================================
 # AC-11 — tap targets: the zoom buttons, and cells at 300%
+# (and, since CARD-428, the shape the same three boxes take in landscape)
 # ==========================================================================
+
+
+#: CARD-428: the zoom group's three boxes in DOM order (out, readout, in),
+#: in viewport coordinates, rounded to a tenth — the reading the owner's
+#: finding is about ("zoom button gets awkwardly in 2 lines").
+_ZOOM_BOXES = """() => {
+  const group = document.querySelector('#puzzle-player-controls .player-zoom');
+  const box = (el) => { const b = el.getBoundingClientRect();
+    return { x: Math.round(b.left * 10) / 10, y: Math.round(b.top * 10) / 10,
+             w: Math.round(b.width * 10) / 10, h: Math.round(b.height * 10) / 10 }; };
+  return { out: box(group.querySelector('[data-player-zoom-action="out"]')),
+           readout: box(group.querySelector('[data-player-zoom-readout]')),
+           in: box(group.querySelector('[data-player-zoom-action="in"]')) };
+}"""
 
 
 @pytest.mark.browser
 class TestSolverZoom_TapTargetsAreAtLeast24px:
-    """AC-11."""
+    """AC-11, and the zoom group's own geometry.
 
-    def test_zoom_buttons_and_300_percent_cells_are_at_least_24px(self, browser_page, live) -> None:
+    CARD-428 (owner play-test 2026-11-11, item 5: "Landscape mode - zoom
+    button gets awkwardly in 2 lines (+, number and -)") adds the landscape
+    arm to this cell rather than a cell of its own (owner test budget,
+    2026-11-07): it is the same three boxes AC-11 already measures. On a
+    landscape phone CARD-402's strip is ``grid-template-columns: repeat(2,
+    44px)`` and ``.player-zoom`` was ``display: contents``, so its THREE
+    children flowed into a TWO-column grid and wrapped 2 + 1 — the readout
+    beside ``-``, and ``+`` orphaned on the next row, which is the two
+    members of one stepper on different rows. The shape here is the card's
+    D1 default (unanswered by the owner): the pair side by side on one row,
+    the readout — also the Fit control, and the member already
+    full-width-friendly, as the brush slot and the counters are in that same
+    block — spanning both columns below. Plant: drop admin.css's
+    ``.player-zoom`` grid rules from the landscape block and the pair's two
+    tops part again."""
+
+    def test_zoom_buttons_and_300_percent_cells_are_at_least_24px_and_the_steppers_pair(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = live.store(_unique_grid(15, 15, seed=19518))
         browser_page.set_viewport_size({"width": 390, "height": 844})
-        _open(browser_page, live, live.store(_unique_grid(15, 15, seed=19518)))
+        _open(browser_page, live, puzzle_id)
 
         for direction in ("out", "in"):
             box = _zoom_button(browser_page, direction).bounding_box()
@@ -478,6 +512,28 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
 
         for width, height in _cell_sizes(browser_page):
             assert width >= 24 and height >= 24, (width, height)
+
+        # CARD-428, AC-1: the owner's two landscape viewports. One node, a
+        # loop inside it (net 0 added node ids).
+        for width, height in ((844, 390), (874, 402)):
+            browser_page.set_viewport_size({"width": width, "height": height})
+            _open(browser_page, live, puzzle_id)
+            boxes = browser_page.evaluate(_ZOOM_BOXES)
+            where = (width, height, boxes)
+            minus, plus, readout = boxes["out"], boxes["in"], boxes["readout"]
+            # The pair shares a row and is horizontally adjacent (one grid
+            # gap, var(--space-2) = 8 px, and nothing else between them).
+            assert round(minus["y"]) == round(plus["y"]), where
+            assert 0 <= plus["x"] - (minus["x"] + minus["w"]) <= 8.5, where
+            # The readout is the member that takes the row below, and it
+            # spans the pair rather than sitting under one of them.
+            assert readout["y"] >= minus["y"] + minus["h"], where
+            assert readout["x"] <= minus["x"] + 0.5, where
+            assert readout["x"] + readout["w"] >= plus["x"] + plus["w"] - 0.5, where
+            # Two rows for the group, and CARD-423's floor on all three.
+            assert len({round(b["y"]) for b in boxes.values()}) == 2, where
+            for name, box in boxes.items():
+                assert box["w"] >= 44 and box["h"] >= 44, (name, where)
 
 
 # ==========================================================================
