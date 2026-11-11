@@ -1885,8 +1885,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
     align-content: start; height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain;
     margin: 0; position: relative;
   }
+  /* .player-zoom was in this list until CARD-428; it now keeps its own box
+     and lays its three members out itself (the rule further down). It is
+     named in ONE place, not overridden from two at the same specificity. */
   .player-toolbar:has(~ .player-stage-wrap) .player-history,
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom,
   .player-toolbar:has(~ .player-stage-wrap) .player-probe { display: contents; }
   .player-toolbar:has(~ .player-stage-wrap) .player-slot { grid-column: 1 / -1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-tools { flex-wrap: nowrap; }
@@ -1895,11 +1897,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   /* CARD-428 (owner play-test 2026-11-11, item 5: "Landscape mode - zoom
      button gets awkwardly in 2 lines (+, number and -)"; the card's D1
      default, the owner having answered only "start 428 too"): the zoom
-     group has THREE members and this strip is TWO columns wide, so under
-     the display: contents above its children flowed into the strip's grid
-     and wrapped 2 + 1 — the readout beside the minus and the plus orphaned
-     on the next row, which put the two halves of one stepper on different
-     rows. So the group keeps its box here and is its own two-column grid,
+     group has THREE members and this strip is TWO columns wide, so while
+     the group was display: contents (it was in the grouped rule above until
+     this card) its children flowed into the strip's grid and wrapped 2 + 1
+     — the readout beside the minus and the plus orphaned on the next row,
+     which put the two halves of one stepper on different rows. So the group
+     was taken OUT of that list — this is its only display declaration in
+     the block, not a later override of one at equal specificity (review
+     cycle 1, F-002) — and it keeps its box here as its own two-column grid,
      spanning the strip the way the brush slot and the counters do: the
      pair side by side on one row, the readout — which is also the Fit
      button (solver.js's syncZoom gives it role=button while there is a Fit

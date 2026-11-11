@@ -495,11 +495,29 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
     full-width-friendly, as the brush slot and the counters are in that same
     block — spanning both columns below. Plant: drop admin.css's
     ``.player-zoom`` grid rules from the landscape block and the pair's two
-    tops part again."""
+    tops part again.
 
-    def test_zoom_buttons_and_300_percent_cells_are_at_least_24px_and_the_steppers_pair(
+    The cell below keeps the node id CARD-217's recording holds
+    (``test_zoom_buttons_and_300_percent_cells_are_at_least_24px``) although
+    its subject is now wider than that name says. The board's standing G-T —
+    "no test is deleted, renamed, skipped or weakened to fit" — is why, and
+    ``tests/test_browser_fixture_scope.py``'s
+    :class:`TestBrowserFixtures_NoTestAddedOrRemoved` is what measures it: a
+    renamed node id in the ``tests/test_puzzle_solver`` family is a node id
+    recorded nowhere, and reds that control. So the added subject is carried
+    here and in the cell's own docstring instead of in its name (review
+    cycle 1, F-001)."""
+
+    def test_zoom_buttons_and_300_percent_cells_are_at_least_24px(
         self, browser_page, live
     ) -> None:
+        """AC-11's tap-target floor, and — since CARD-428 — the landscape shape.
+
+        CARD-428 (owner play-test 2026-11-11, item 5) adds the second arm:
+        at 844x390 and 874x402 the ``-`` and ``+`` steppers share a row and
+        are adjacent, and the readout takes the row below, spanning them.
+        The node id stays as recorded; see the class docstring.
+        """
         puzzle_id = live.store(_unique_grid(15, 15, seed=19518))
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open(browser_page, live, puzzle_id)
