@@ -5673,7 +5673,13 @@ functional:
         # named below is the same node — it asserts the negation.
         given: a slug not in the bundle
         when: /b/<slug> loads
-        then: the not-found page renders, explains in words why it is up, offers no way to the library, and no script error is thrown
+        # Review cycle 2's minor: the clause below is PANEL-scoped on purpose, because
+        # the node is. The page also carries a.book-continue[data-pages-continue] with a
+        # static href="/library", kept off this path only by its hidden attribute, which
+        # no assertion holds; a page-scoped promise would therefore be true only by
+        # accident of when that card is painted. The decision the card took is also the
+        # stronger one and is stated here rather than left in a docstring: no link at all.
+        then: the not-found panel renders, explains in words why it is up, offers no link at all (and so no way to the library), and no script error is thrown
         kind: negative
         test: tests/test_public_player_pages.py::test_unknown_slug_lands_softly
       - id: AC-389
