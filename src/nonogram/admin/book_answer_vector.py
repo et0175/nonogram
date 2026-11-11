@@ -177,10 +177,15 @@ def draw_answer_cells(
     read off the rules themselves, so a filled cell and the rule framing it
     cannot be half a pixel apart.
 
-    One ``re`` per filled cell and no run merging: a filled row of twenty
-    cells is twenty rectangles rather than one, because merging them would
-    change which boundaries the grey joins below are drawn over and so change
-    the page, which G-1 forbids. (The raster page fills cell by cell too.)
+    **One path, painted once** (owner, 2026-11-11). Each row's run of
+    filled cells is one rectangular subpath, from the first cell's left rule
+    to the last cell's right rule, and the whole picture is filled by a single
+    ``f``. A page of separate ``re f`` fills was rewritten by KDP's file
+    conversion: it merged stacked black bars into an axial shading, which
+    Apple's PDF viewer drew as nothing, so solutions looked half-empty in a
+    downloaded proof. One path leaves the converter no stack of fills to
+    merge. The union is the same cells either way, and the grey joins below
+    are drawn over the fill exactly as before.
 
     ``grid`` is truncated to the tile's own line count, exactly as
     ``_draw_solved_slot`` truncates it: a payload longer than its layout is
@@ -189,25 +194,32 @@ def draw_answer_cells(
     """
     xs = [line.position for line in tile.vertical_lines]
     ys = [line.position for line in tile.horizontal_lines]
-    set_tone = True
+    runs: List[Tuple[float, float, float, float]] = []
     for row_index, row in enumerate(grid[: len(ys) - 1]):
-        for column_index, filled in enumerate(row[: len(xs) - 1]):
-            if filled:
-                if set_tone:
-                    # The tone is set once, and **only if something is
-                    # filled**: a page with an empty picture emits no ``g`` at
-                    # all, so a reader of the stream cannot mistake a state
-                    # operator for a mark. The same reason ``draw_grid_lines``
-                    # sets its state on change rather than per line.
-                    stream.fill_grey(grey)
-                    set_tone = False
-                stream.rectangle(
-                    xs[column_index],
-                    ys[row_index],
-                    xs[column_index + 1],
-                    ys[row_index + 1],
-                    paint="fill",
-                )
+        cells = list(row[: len(xs) - 1])
+        column = 0
+        while column < len(cells):
+            if not cells[column]:
+                column += 1
+                continue
+            start = column
+            while column < len(cells) and cells[column]:
+                column += 1
+            runs.append((xs[start], ys[row_index], xs[column], ys[row_index + 1]))
+    if not runs:
+        # An empty picture emits nothing, not even a tone, so a reader of the
+        # stream cannot mistake a state operator for a mark.
+        return
+    stream.fill_grey(grey)
+    for left, top, right, bottom in runs:
+        # Every subpath is wound the same way, so the nonzero fill is their
+        # union.
+        stream.begin_path(left, top)
+        stream.line_to(right, top)
+        stream.line_to(right, bottom)
+        stream.line_to(left, bottom)
+        stream.close_path()
+    stream.paint("fill")
 
 
 def draw_solved_joins(
