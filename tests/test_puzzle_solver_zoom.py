@@ -502,11 +502,17 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
     its subject is now wider than that name says. The board's standing G-T —
     "no test is deleted, renamed, skipped or weakened to fit" — is why, and
     ``tests/test_browser_fixture_scope.py``'s
-    :class:`TestBrowserFixtures_NoTestAddedOrRemoved` is what measures it: a
-    renamed node id in the ``tests/test_puzzle_solver`` family is a node id
-    recorded nowhere, and reds that control. So the added subject is carried
-    here and in the cell's own docstring instead of in its name (review
-    cycle 1, F-001)."""
+    :class:`TestBrowserFixtures_NoTestAddedOrRemoved` is what measures it. Be
+    exact about that control, because this docstring is where the next card
+    touching this family will look: a rename is NOT impossible to record — its
+    ``RENAMED_SINCE_BEFORE`` table exists for exactly that ("a rename is a
+    MOVE", and ``_recorded_node_ids`` applies the table to CARD-217's artefact
+    before anything is compared; the CARD-247 entries are live precedent), so a
+    RECORDED rename does not red it. An UNrecorded one does, which is what
+    happened here. G-T is the reason the name stayed, not the registry. So the
+    added subject is carried here and in the cell's own docstring instead of in
+    its name (review cycle 1, F-001; review cycle 2's second minor corrected
+    this very sentence)."""
 
     def test_zoom_buttons_and_300_percent_cells_are_at_least_24px(
         self, browser_page, live

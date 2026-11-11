@@ -1865,8 +1865,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    rulings 2026-11-10: "B", two buttons wide, on the left) the title and the
    tool strip form a column on the LEFT and the board takes the whole height
    to their right. The strip is one box whose groups become its grid cells
-   (display: contents); the brush slot, the counters and the probe note span
-   both columns. It takes no size of its own (height 0) and fills its grid
+   (display: contents) — except the zoom group, which CARD-428 gave a box of
+   its own so its two steppers stay a pair; the brush slot, the counters, the
+   probe note and that zoom group span both columns. It takes no size of its own (height 0) and fills its grid
    area (min-height 100%), so the board, not the strip, sets the height, and
    a strip taller than that scrolls itself, never the page. Keyed on the
    toolbar's parent, so the public page's shell gets it too. */
