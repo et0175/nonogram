@@ -1,6 +1,6 @@
 # CARD-425: The “book not found” page should not offer “Browse the library”
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** ux-polish
 **Estimate:** 1c (0.25d)
@@ -19,11 +19,11 @@
 **Depends on:** —
 **Touches:** player/book.html, tests/test_public_player_pages.py
 <!-- Derived 2026-11-11 by reading where the panel lives: the not-found block in `player/book.html`, and the one test that asserts its link (`test_unknown_slug_lands_softly`, which both asserts `a.pages-library-link` inside `[data-pages-notfound]` AND follows it). Nothing under `src/`: this page is the assembler's, not the admin's. -->
-**Review score:** 8.5 (cycle 1)
+**Review score:** 9.0 (cycle 2)
 **Started:** 2026-11-11T18:40:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-11T18:05:00Z
+**Actual:** 2 review cycles + 1 fix round + 2 orchestrator prose edits (wall clock excluded, owner ruling)
+**Merge commit:** c1a81086
 **Blocked by:** —
 
 ## Why this card exists
@@ -271,3 +271,9 @@ summary):
 first run — re-derived here rather than carried: `grep -rln components.md
 tests/ src/` names one other test module, and its single hit is a docstring
 sentence, not a read.
+
+- [Review 2/3] Score: 9.0 — forge:review, all three verdicts `pass` (38 rules: 7 ✓, 31 ⚠, 0 ✗). 0 critical, 0 important, 1 minor, 3 out-of-scope. Report `meta/review/20261111T170742Z-CARD-425-cycle2.yml`. **[Severity gate]** PASS. Its mutation check killed **three** mutants including one the fix round had not planted — a fresh-class anchor with **no href at all**, the runtime-assigned shape that was the stated reason for collapsing the assertion. The cycle-2 minor (AC-388 page-scoped vs a panel-scoped test) was applied by the orchestrator in `6bf3c95d`, rebased as `4514c260`.
+- **[Validator trap, recorded for every future before/after comparison]** The reviewer reproduced the fix round's validator figures (0 errors / 98 warnings, `comm -3` over the sorted WARN sets printing 0 lines) and found the trap: run the same validator against a **detached copy** of `meta/architecture` and it answers 0 / 88 / 11, because check-ref resolution searches the surrounding tree. Only worktree-rooted pairs are comparable.
+- **[Build gate]** Rebased onto main first, so the gate measured what merges. Derived selection (`scripts/impact_set.py --gate --against main`): 79 files, 5382 tests. Result: **5354 passed, 19 skipped, 9 deselected, 1 xfailed, 1 failed** in 22:22, lock held through `acquire()` and released. The one red is `tests/test_book_pdf_memory.py::TestMemoryGuard_StillFailsWhenTheExportItselfRegresses`, **pre-existing on main** (a drifted host-calibration bound, verified on main earlier today). 19 skips is the proportional DB count for a 79-file subset (18 bare-`DATABASE_URL` + 1 `setrlimit` the kernel refuses here) — nothing newly skipped.
+- **[Rebase note]** `git rebase main` autostashed the worktree's frozen card copy and the autostash conflicted. Resolved by taking the branch's version; the autostash was then verified to hold nothing but `CARD-425.md`, all three of whose `###` sections were already synced into main's copy, and dropped by its explicit id. **The owner's three own WIP stashes were untouched.** For the remaining cards: clean the worktree card file before rebasing rather than letting git autostash it.
+- **[Done]** Merged `c1a81086` on the gates. Estimate 1c against 2 cycles — ratio 2.000, and the reason is the same shape CARD-423 showed: the markup change was one element, and everything after it was the retraction of claims the change refuted.

@@ -17,7 +17,7 @@
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-423, CARD-426
-**Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py
+**Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_brush_menu.py
 <!-- Derived 2026-11-11 from where the measured behaviour lives: `.player-tool-item`'s own rule in admin.css, and the brush-menu module that already drives the menu open at 390 px. `tests/test_player_base_css.py`'s FROZEN[390] records the four options' `min-height` and WILL move if this lands — name it in the brief and re-record it the way CARD-423 did (the real Bootstrap is the pinned URL in `src/nonogram/admin/templates/base.html`, sha256 7f1d37f0…, and the two-step certification is in CARD-423's Worktree notes). Nothing under `player/`: admin.css is in COPIED_FROM_ADMIN. -->
 **Review score:** —
 **Started:** —
@@ -64,4 +64,6 @@ So: no author decides a height here, and the alternatives the card used to offer
 
 ## Worktree notes
 
-—
+- **[Two minors inherited from CARD-426's cycle 2, 2026-11-11]** Both are in `solver.js` and both concern the menu this card is already changing, so they land here rather than as cards of their own (cut bar: each is smaller than a card and neither needs a decision). `Touches:` has gained `solver.js` for them.
+  1. **A chrome dismissal drops focus to `<body>`.** Measured at 1440x900: opening the menu focuses the checked `.player-tool-item`; a pointer-down on the chrome then calls `closeMenu()`, which hides the menu around the focused element, and `document.activeElement` becomes `BODY`. `pick()` and Escape both call `trigger.focus()`; the chrome path does not. **Any fix must be scoped to the in-box case** — a blanket `trigger.focus()` in `closeMenu()` would yank focus back on an ordinary board tap, which is the opposite of what CARD-426's decision (b) ships.
+  2. **The exemption selector is globally scoped.** `closest("#puzzle-player-tool-trigger, .player-tool-item")` matches that class anywhere in the document. Harmless today — six elements, all inside the menu, across both templates — but a future control reusing the class outside the box would silently stop dismissing the menu. `#puzzle-player-tool-menu .player-tool-item` is the scoped form.
