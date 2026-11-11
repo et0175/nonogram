@@ -1,6 +1,6 @@
 # CARD-428: Landscape: the zoom control wraps onto two rows (− and 100% on one, + alone below)
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** ux-polish
 **Estimate:** 1c (0.5d)
@@ -286,3 +286,5 @@ in one place; no bound, lifecycle or error classification changed.`
 
 - **[Build gate]** Worktree card file cleaned before rebasing (not left for git to autostash, which conflicted on CARD-425), then rebased onto main so the gate measured what merges. Derived selection: 141 files / 7546 tests, plus the two lifted `wave_close_only` files (`test_book_export_interior_cover.py`, `test_browser_fixture_scope.py` — rule S pulls in the census guard whose break started this card's critical). Result: run 1 **7508 passed, 30 skipped, 12 deselected, 1 xfailed, 1 failed** in 26:18; run 2 **6 passed**. The 30 skips are the expected unarmed count (29 bare-`DATABASE_URL` + 1 `setrlimit`), and the one red is the pre-existing `tests/test_book_pdf_memory.py::TestMemoryGuard_StillFailsWhenTheExportItselfRegresses` host-calibration drift — identical figures to CARD-423's gate on the same selection. Lock held through `acquire()` and released.
 - **[Done]** Merged `c902fae0` on the gates. Estimate 1c against 2 cycles, ratio 2.000 — and the overrun is not the CSS, which was four declarations. It is that a test rename (made for a good reason: the name saying what the cell asserts) collided with a frozen census and a house rule, and that the correcting docstring then had to be corrected itself. Third card today whose cost was carried by the record rather than the code.
+
+- **[Record correction, mine]** This card sat at `Status: review` after it merged. The `done` stamp was written to replace `in_progress`, but the sync point had already moved it to `review`, so the edit matched nothing and failed silently while every other field (Closed, Actual, Merge commit) was written correctly. Caught by reading the board's statuses back rather than by any guard — `tests/test_kanban_review_record.py` was green throughout, because a merged card left at `review` is well-formed, just wrong. This is the standing "align the branch card's Status before every merge" rule, failing in the one direction that rule did not anticipate: not a missing stamp, a stamp that targeted the wrong predecessor.
