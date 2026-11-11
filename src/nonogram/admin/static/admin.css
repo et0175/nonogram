@@ -878,8 +878,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    .player-tool-item[aria-checked="true"]'s tint, because this is a mode
    that is either armed or not and must read as such at a glance, and it is
    the toolbar's only accent-filled control. Tokens only (G-4); the height
-   comes from .player-toolbar .btn's --control-h, so the toggle is as tall
-   as every other toolbar button on a 390 px phone too. */
+   comes from .player-toolbar .btn and not from anything here — --control-h
+   where the toolbar is labelled, and the compact block's 44 px floor
+   (CARD-423) on a 390 px phone — so the toggle is as tall as every other
+   toolbar button at either size. */
 .player-region { padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-region[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 /* The three cells the Region toggle wears instead of the word "Region"
@@ -1769,16 +1771,25 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    * The brush trigger shows its swatch alone; its aria-label names the brush.
    * Every button is at least 44 x 44 px. CARD-423 (owner ruling 2026-11-11,
      D1) raised the height half of that floor: it had been written in width
-     alone, so in portrait the controls measured 44 x 36 px (the two zoom
-     steppers 44 x 38.78, their glyph's line box) — the height fell through
-     to .player-toolbar .btn's --control-h — while CARD-402's landscape
+     alone, so in portrait nine controls stood UNDER it in height while
+     already standing at or past it in width — seven of them 36 px tall,
+     the height falling through to .player-toolbar .btn's --control-h, and
+     the two zoom steppers 38.78 px (their glyph's line box). The width was
+     never one figure: 44 px for the eight the min-width rules reach, 49 px
+     for Region, which takes its width from its content. So it is the FLOOR
+     that is the before/after here, not a 44 x 36 box. CARD-402's landscape
      block below already set both, which is why the same sweep found no
      landscape control under 44 px. --control-h itself does not change (it
      is the whole panel's control height, not the player's), so the floor is
-     stated here, on the same selector it overrides. The toolbar grows one
-     8 px step per control row it draws (measured: 183.8 -> 207.8 px at
-     390 x 844, four rows; 111.8 -> 119.8 px at 600 x 844, two) and the
-     BOARD gives that up, not the page: solver.js's measureStageTop writes
+     stated here, on the same selector it overrides. The cost is NOT one
+     8 px step per control row: a row pays the step only where its tallest
+     control was still under 44 px, and a row holding the zoom readout —
+     44 px tall on its own rule below since CARD-401 — pays nothing.
+     Measured (control rows read off their controls' tops, with the floor
+     on and off): at 390 x 844 three of the four rows paid, 183.8 ->
+     207.8 px, so +24 and not the +32 a per-row multiplier predicts; at
+     600 x 844 one of the two, 111.8 -> 119.8 px, +8. The BOARD gives that
+     up, not the page: solver.js's measureStageTop writes
      the measured --player-stage-top, which both the stage's cap and the
      cell-height term read, so the stage's cap loses exactly as much (the
      two scrollport pins in tests/test_puzzle_solver_phone.py

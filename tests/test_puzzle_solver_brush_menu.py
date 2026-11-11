@@ -449,10 +449,12 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
 
     def test_it_keeps_a_tap_target_and_the_toolbars_button_pattern_on_a_phone(self, browser, live) -> None:
         """CARD-182's tap-target rule as the rest of the player states it
-        (>= 24 px square — TestSolverZoom_TapTargetsAreAtLeast24px; the
-        panel's --control-h is 36 px, so no toolbar button reaches 44) and
-        the card's "reuse .btn.btn-outline-secondary": the toggle is exactly
-        as tall as Undo, so it cannot drift from the toolbar's own height."""
+        (>= 24 px square — TestSolverZoom_TapTargetsAreAtLeast24px) and the
+        card's "reuse .btn.btn-outline-secondary": the toggle is exactly as
+        tall as Undo, so it cannot drift from the toolbar's own height. At
+        this 390 px viewport that shared height is the compact block's
+        44 px floor (CARD-423), not the panel's 36 px ``--control-h``, which
+        is what a toolbar button measures where the toolbar is labelled."""
         context = browser.new_context(viewport={"width": 390, "height": 844})
         page = context.new_page()
         try:

@@ -319,7 +319,8 @@ def test_the_region_toggles_pressed_look_comes_from_tokens() -> None:
     smuggle a literal in. Every value they declare is a design token, a
     ``calc()``/``color-mix()`` over design tokens, or one of the layout
     keywords named below; the toggle's height is nobody's business here, it
-    comes from ``.player-toolbar .btn`` (--control-h).
+    comes from ``.player-toolbar .btn`` — ``--control-h`` where the toolbar
+    is labelled, and the compact block's 44 px floor (CARD-423) on a phone.
 
     The sweep above catches a hex colour anywhere in admin.css; this pins
     these rules, so a later edit cannot keep the file hex-free by reaching
