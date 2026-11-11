@@ -240,6 +240,10 @@
 //             CARD-211 put it between the trigger and Undo) —
 //             picking an item (click, or Enter/Space on a native <button>)
 //             closes the menu and returns focus to the trigger the same way.
+//             The fourth way out (CARD-426) is a pointer-down anywhere
+//             outside the trigger and the menu: it closes the menu and is
+//             not consumed, so that same tap goes on to act on whatever it
+//             was aimed at (the listener, in wireMarking, says why).
 //             The trigger and the Region toggle are the two direct <button>
 //             children of .player-tools (the menu is a sibling <div> between
 //             them), so a layout selector scoped to ".player-tools > button"
