@@ -823,7 +823,7 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 95], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage; 87 until CARD-423's 44 px tap-target floor, which costs an 8 px step only on a control row whose tallest control was still under 44 px: of the two rows at 600 x 844 ONE paid and the other did not, already standing 44 px tall on the zoom readout's own compact rule (toolbar 111.8 -> 119.8 px, measured), so this axis sees the 8 px the stage's cap loses.
+            assert seen["overflow"] == [136, 95], (corner, seen["overflow"])  # [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage; 87 until CARD-423's 44 px tap-target floor, which costs a control row 44 px MINUS its tallest control: of the two rows at 600 x 844 on THIS board ONE paid its 8 px and the other paid nothing, already standing 44 px tall on the zoom readout's own compact rule — which is keyed on [role="button"], so it holds only while a Fit exists, as it does for BIG here (toolbar 111.8 -> 119.8 px, measured), so this axis sees the 8 px the stage's cap loses.
             assert seen["scroll"] == [136 if col else 0, 95 if row else 0], (corner, seen["scroll"])  # 75 until CARD-411, 87 until CARD-423 (the line above)
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
@@ -986,6 +986,16 @@ _UNLABELLED = ("Brush: Black", "Region", "Zoom out", "Zoom in", "Zoom readout")
 
 #: Every control the compact toolbar draws, in the order-free form the
 #: measurement below returns.
+#: CARD-423 review cycle 2 (F-203): this is a STATE PIN, not the toolbar's
+#: inventory — it is exact for the state the cell below drives, i.e. a
+#: freshly opened board with no popover open that does NOT fit at 100%.
+#: Other reachable states change the NAME set without touching the floor:
+#: the brush menu open adds its four options, the reset confirmation adds
+#: "Reset board"/"Keep marks", an open probe adds Keep/Wrong guess, a solved
+#: board draws .player-show-grid while the tools hide, and a board that fits
+#: at 100% drops "Zoom readout" (solver.js gives it role="button" only while
+#: there is a Fit to go to). A later card that drives one of those gets a red
+#: on the set assertion that says nothing about 44 px.
 _CONTROLS = _LABELLED + _UNLABELLED
 
 #: CARD-423: was ``_LABEL_BOXES``, which started from ``.player-btn-label``
@@ -1029,7 +1039,14 @@ class TestSolverPhone_CompactToolbar:
 
     CARD-423 (owner ruling 2026-11-11, D1) retires the "at least 44 px wide"
     claim this class used to make: the floor is **44 px in both dimensions**,
-    for every control the toolbar draws, at every compact viewport. The old
+    for the eleven controls AC-1 enumerates — the ones ``_CONTROLS`` names
+    and this cell measures — at every compact viewport. It is NOT a claim
+    about every ``<button>`` inside ``.player-toolbar``: the brush menu's
+    four options (``.player-tool-item``) are buttons and no ``.btn``, keep
+    ``min-height: var(--control-h)`` and measure 142 x 36 px at 390 x 844,
+    600 x 844 and 844 x 390 — reached by neither this floor nor CARD-402's
+    landscape block, and raising them is an owner call (D1 named nine
+    controls, not the menu) on a follow-up card. The old
     one-dimensional rule was satisfied by nine portrait controls under 44 px
     tall — seven at 36 px, where the height fell through to
     ``.player-toolbar .btn``'s ``min-height: var(--control-h)`` = 36 px, and
@@ -1038,7 +1055,8 @@ class TestSolverPhone_CompactToolbar:
     figure — 44 px where the compact block's min-width rules reach, 49 px
     for Region, which is sized by its content — so what moved is the floor
     and not a 44 x 36 box. Landscape's own block (CARD-402) already pinned
-    both dimensions. Four of those nine carried no ``.player-btn-label``, so
+    both dimensions on those same eleven. Four of those nine carried no
+    ``.player-btn-label``, so
     the assertion could not even see them (see ``_CONTROL_BOXES``).
 
     One control that can fail, per the owner's test budget: dropping the

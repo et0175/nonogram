@@ -1769,7 +1769,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      1280 px first row is exactly full (the block about it above), so they
      carry none there.
    * The brush trigger shows its swatch alone; its aria-label names the brush.
-   * Every button is at least 44 x 44 px. CARD-423 (owner ruling 2026-11-11,
+   * The eleven controls CARD-423's AC-1 enumerates — brush trigger, Region,
+     Undo, Redo, Reset, Hint, Check, Probe, the two zoom steppers and the
+     zoom readout — are at least 44 x 44 px: the .btn floor here plus the
+     readout's own rule below. That is the set
+     tests/test_puzzle_solver_phone.py's _CONTROLS names and measures, and
+     the only set this floor is held to. NOT every button inside
+     .player-toolbar: the brush menu's four options (.player-tool-item,
+     role=menuitemradio) are <button>s and no .btn, so they keep
+     min-height: var(--control-h) and measure 142 x 36 px at 390 x 844,
+     600 x 844 and 844 x 390 — neither this floor nor CARD-402's landscape
+     block reaches them, and raising them is an owner call (D1 named nine
+     controls, not the menu) on a follow-up card.
+     CARD-423 (owner ruling 2026-11-11,
      D1) raised the height half of that floor: it had been written in width
      alone, so in portrait nine controls stood UNDER it in height while
      already standing at or past it in width — seven of them 36 px tall,
@@ -1778,18 +1790,26 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      never one figure: 44 px for the eight the min-width rules reach, 49 px
      for Region, which takes its width from its content. So it is the FLOOR
      that is the before/after here, not a 44 x 36 box. CARD-402's landscape
-     block below already set both, which is why the same sweep found no
-     landscape control under 44 px. --control-h itself does not change (it
+     block below already set both on the same eleven, which is why the same
+     sweep found no landscape .btn under 44 px (the menu's four options are
+     36 px tall there too). --control-h itself does not change (it
      is the whole panel's control height, not the player's), so the floor is
      stated here, on the same selector it overrides. The cost is NOT one
-     8 px step per control row: a row pays the step only where its tallest
-     control was still under 44 px, and a row holding the zoom readout —
-     44 px tall on its own rule below since CARD-401 — pays nothing.
-     Measured (control rows read off their controls' tops, with the floor
+     8 px step per control row: a row pays 44 px MINUS its tallest control —
+     8 px where that control was 36 px, 5.22 px for a row of bare zoom
+     steppers (38.78 px) — and a row holding the zoom readout pays nothing
+     only while the readout IS a control: its 44 px rule below is keyed on
+     .player-zoom-readout[role="button"], and solver.js's syncZoom gives it
+     that role only while there is a Fit to go to. A board that fits at
+     100% leaves the readout a role-less 24.8 px span, and its row then pays
+     the steppers' 5.22 px — the state tests/test_player_base_css.py's
+     FROZEN[390] is recorded in (its two stepper rows 38.78 -> 44 px).
+     Measured on the admin solve page's BIG board, where the readout IS a
+     control (control rows read off their controls' tops, with the floor
      on and off): at 390 x 844 three of the four rows paid, 183.8 ->
      207.8 px, so +24 and not the +32 a per-row multiplier predicts; at
-     600 x 844 one of the two, 111.8 -> 119.8 px, +8. The BOARD gives that
-     up, not the page: solver.js's measureStageTop writes
+     600 x 844 one of the two, 111.8 -> 119.8 px, +8. On that page the
+     BOARD gives that up, not the page: solver.js's measureStageTop writes
      the measured --player-stage-top, which both the stage's cap and the
      cell-height term read, so the stage's cap loses exactly as much (the
      two scrollport pins in tests/test_puzzle_solver_phone.py
