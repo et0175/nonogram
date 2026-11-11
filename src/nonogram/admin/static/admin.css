@@ -1865,8 +1865,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    rulings 2026-11-10: "B", two buttons wide, on the left) the title and the
    tool strip form a column on the LEFT and the board takes the whole height
    to their right. The strip is one box whose groups become its grid cells
-   (display: contents); the brush slot, the counters and the probe note span
-   both columns. It takes no size of its own (height 0) and fills its grid
+   (display: contents) — except the zoom group, which CARD-428 gave a box of
+   its own so its two steppers stay a pair; the brush slot, the counters, the
+   probe note and that zoom group span both columns. It takes no size of its own (height 0) and fills its grid
    area (min-height 100%), so the board, not the strip, sets the height, and
    a strip taller than that scrolls itself, never the page. Keyed on the
    toolbar's parent, so the public page's shell gets it too. */
@@ -1885,13 +1886,41 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
     align-content: start; height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain;
     margin: 0; position: relative;
   }
+  /* .player-zoom was in this list until CARD-428; it now keeps its own box
+     and lays its three members out itself (the rule further down). It is
+     named in ONE place, not overridden from two at the same specificity. */
   .player-toolbar:has(~ .player-stage-wrap) .player-history,
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom,
   .player-toolbar:has(~ .player-stage-wrap) .player-probe { display: contents; }
   .player-toolbar:has(~ .player-stage-wrap) .player-slot { grid-column: 1 / -1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-tools { flex-wrap: nowrap; }
   .player-toolbar:has(~ .player-stage-wrap) .btn,
   .player-toolbar:has(~ .player-stage-wrap) .player-zoom-readout { min-width: 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  /* CARD-428 (owner play-test 2026-11-11, item 5: "Landscape mode - zoom
+     button gets awkwardly in 2 lines (+, number and -)"; the card's D1
+     default, the owner having answered only "start 428 too"): the zoom
+     group has THREE members and this strip is TWO columns wide, so while
+     the group was display: contents (it was in the grouped rule above until
+     this card) its children flowed into the strip's grid and wrapped 2 + 1
+     — the readout beside the minus and the plus orphaned on the next row,
+     which put the two halves of one stepper on different rows. So the group
+     was taken OUT of that list — this is its only display declaration in
+     the block, not a later override of one at equal specificity (review
+     cycle 1, F-002) — and it keeps its box here as its own two-column grid,
+     spanning the strip the way the brush slot and the counters do: the
+     pair side by side on one row, the readout — which is also the Fit
+     button (solver.js's syncZoom gives it role=button while there is a Fit
+     to go to) and so the member a full-width row suits — on the row below,
+     spanning both columns. The readout gives up the fixed 44 px WIDTH of
+     the rule above (it keeps that rule's min-width and height, so its tap
+     target cannot fall under CARD-423's floor) in order to fill the span;
+     it is centred by .player-zoom-readout's own text-align. The cost is
+     one more strip row, because the plus no longer shares its row with the
+     next control: measured, with the strip's own scroll absorbing it and
+     the board's box unchanged, in CARD-428's Worktree notes. */
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, 44px); gap: var(--space-2); }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="out"] { grid-area: 1 / 1; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="in"] { grid-area: 1 / 2; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { grid-area: 2 / 1 / 3 / -1; width: auto; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters { grid-column: 1 / -1; order: 1; flex-direction: column; align-items: flex-start; gap: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters-pair { flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters p { min-height: 0; font-size: var(--text-xs); }
