@@ -16,7 +16,7 @@
 **Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
-**Depends on:** —
+**Depends on:** CARD-426
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_probe.py
 <!-- Derived 2026-11-11 by reading `solver.js`'s `placeExplain`, `replaceExplain` and `wireExplainDismiss`, and `admin.css`'s `.player-explain`. `tests/test_player_public_mode.py` and `tests/test_player_shared_ui_site.py` also name `player-explain` — name them in the brief, they may need re-pinning. -->
 **Review score:** —
@@ -69,4 +69,5 @@ Asked whether the message should stop being a glance, the owner's answer: **"let
 
 ## Worktree notes
 
-—
+- **[Ordering, 2026-11-11]** `Depends on:` names **CARD-426** — not a logical dependency but a serialization, enforced by the board rather than remembered. This card edits `src/nonogram/admin/static/solver.js` and `src/nonogram/admin/static/admin.css`; CARD-426 is in review on both files and will take a further round for the owner's chrome ruling, and CARD-424 is already queued behind it on the same stylesheet block. Three cards rewriting one stylesheet and one script at once is the case the board's serialize rule exists for. `start` gates on this field, so the queue holds without anyone re-reading the board.
+- **[Owner ruling already recorded]** D1 and D2 are settled (see `## Owner ruling, 2026-11-11` above): the message stays a glance, and it is centred in the viewport. No decision is outstanding, and the estimate is 1c because the ruling deletes `placeExplain`'s targeting path rather than fixing it.
