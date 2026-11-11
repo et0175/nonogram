@@ -839,6 +839,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-swatch[data-state="filled"] { background: var(--grid-ink); border-color: var(--grid-ink); }
 .player-swatch[data-state="empty"]::after { content: ""; position: absolute; inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 .player-swatch[data-state="maybe"]::after { content: "?"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 600; line-height: 1; color: var(--color-accent); }
+/* CARD-426: the box KEEPS the pointer, by the owner's ruling of 2026-11-11
+   — "chrome should swallow the tap". There is no `pointer-events` rule
+   here, and that is the decision: a pointer-down anywhere outside the
+   trigger closes the menu (solver.js's document dismissal, which consumes
+   nothing), so one tap is still all it takes to reach the board — but while
+   the menu is open, its 8 px padding ring and the 4 px gaps between its
+   options are the MENU's chrome, not the board's, and a near-miss there
+   must close the menu and mark nothing. So the box answers the hit test for
+   itself, each item answers for itself, and only a tap clear of the box
+   marks. Held by tests/test_puzzle_solver_brush_menu.py
+   TestSolverBrushMenu_AnOutsidePointerDownDismissesIt, which computes the
+   points it hit-tests from the live rects rather than writing them down,
+   and the box's own value is one field of tests/test_player_base_css.py's
+   frozen census ("04 div puzzle-player-tool-menu"). */
 .player-tool-menu {
   position: absolute; top: calc(100% + var(--space-2)); left: 0; z-index: 10;
   display: flex; flex-direction: column; gap: var(--space-1);

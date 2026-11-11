@@ -61,6 +61,7 @@ from tests.test_puzzle_solver_progress import (
     _is_solved_shown,
     _near_solved,
     _set,
+    _solution_cells,
     _solved_of,
     _watch_problems,
 )
@@ -1104,7 +1105,16 @@ class TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved:
         _trigger(browser_page).click()
         assert browser_page.evaluate("document.getElementById('puzzle-player-tool-menu').hidden") is False
 
-        _solve_and_measure(browser_page)
+        # CARD-426 review cycle 1, F-002: the solve must NOT be reached by a
+        # pointer-down on the board. Since CARD-426 a pointer-down outside the
+        # menu closes it by itself, so _solve_and_measure's
+        # `_cell(page, *LAST).click()` would satisfy the assertions below
+        # whether or not refresh()'s `if (locked) closeMenu()` ever ran — the
+        # claim would hold with its production code deleted. setBoard commits
+        # the full solution with no pointer event at all, so the solved lock
+        # is the only thing left that can close the menu.
+        _set(browser_page, _solution_cells(GRID, U))
+        assert _is_solved_shown(browser_page)
 
         # The `hidden` attribute itself, not just visibility inherited from
         # the hidden .player-tools box (which was already true before this

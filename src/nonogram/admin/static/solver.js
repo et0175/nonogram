@@ -240,6 +240,13 @@
 //             CARD-211 put it between the trigger and Undo) —
 //             picking an item (click, or Enter/Space on a native <button>)
 //             closes the menu and returns focus to the trigger the same way.
+//             The fourth way out (CARD-426) is a pointer-down anywhere
+//             outside the trigger and the four options — the menu's own
+//             chrome included, by the owner's ruling of 2026-11-11: it
+//             closes the menu and is not consumed, so that same tap goes on
+//             to act on whatever it was aimed at, which on the chrome is
+//             the box itself and therefore nothing (the listener, in
+//             wireMarking, says why).
 //             The trigger and the Region toggle are the two direct <button>
 //             children of .player-tools (the menu is a sibling <div> between
 //             them), so a layout selector scoped to ".player-tools > button"
@@ -2763,6 +2770,47 @@ function wireMarking(container, player) {
     event.preventDefault();
     openMenu();
   });
+  // CARD-426 (owner play-test finding 2026-11-11, item 2): the open menu goes
+  // away on the next pointer-down outside it. Until this card it had exactly
+  // one way out — its own trigger: every closeMenu() call site was a pick,
+  // the solved lock or a key, so an outside tap left it open AND took focus
+  // out of the menu, after which Escape (whose handler is on the menu) no
+  // longer reached it either.
+  //
+  // The same shape as the hint strip's dismissal (wireExplainDismiss) and the
+  // wrong-guess offer's above, exemption included: a pointer-down on the
+  // TRIGGER must reach the trigger's own toggle, or this would close the menu
+  // and the click behind it would reopen it, leaving no way to shut it. The
+  // four .player-tool-item options are exempt for their own sake — their
+  // click is the pick, and closing here would hide the button before it
+  // arrives. The BOX around them is deliberately NOT exempt (the owner's
+  // ruling of 2026-11-11, "chrome should swallow the tap"): the exemption
+  // was once the whole #puzzle-player-tool-menu, which — once admin.css
+  // stopped taking the pointer off the box — made a near-miss on the
+  // padding ring or an inter-item gap unreachable here, because the chrome's
+  // own pointer-down target IS the menu, so it matched the exemption and the
+  // menu hung open with focus outside it. Measured at 1440x900 on all three
+  // chrome points before the selector was narrowed; the cell named below
+  // asserts the behaviour and reds if the exemption widens again.
+  //
+  // Nothing is consumed (no preventDefault, no stopPropagation), exactly as
+  // those two neighbours consume nothing: the pointer-down that closes the
+  // menu goes on to whatever it was aimed at, so a tap on a cell under the
+  // menu's box closes the menu AND marks the cell. That is this card's one
+  // interaction decision — (b), the dismissing tap also acts — and it is
+  // what makes a tap CLEAR of the menu's box both close the menu and mark.
+  // A tap ON the box does not mark, and that is the other half: the box
+  // keeps the pointer (there is no pointer-events rule on
+  // .player-tool-menu any more — see its comment in admin.css for the
+  // owner's 2026-11-11 ruling), so it is the event's own target, the board
+  // never sees the tap, and all it does is close the menu.
+  // The keyboard path is untouched (AC-4): Escape with focus inside the menu
+  // still closes it, and the items' roving focus is as it was.
+  document.addEventListener("pointerdown", (event) => {
+    if (event.target instanceof Element
+      && event.target.closest("#puzzle-player-tool-trigger, .player-tool-item") !== null) return;
+    closeMenu();
+  }, true);
   menu.addEventListener("keydown", (event) => {
     const at = items.indexOf(document.activeElement);
     if (at === -1) return;
