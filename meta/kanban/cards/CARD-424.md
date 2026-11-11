@@ -16,7 +16,7 @@
 **Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
-**Depends on:** CARD-423
+**Depends on:** CARD-423, CARD-426
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py
 <!-- Derived 2026-11-11 from where the measured behaviour lives: `.player-tool-item`'s own rule in admin.css, and the brush-menu module that already drives the menu open at 390 px. `tests/test_player_base_css.py`'s FROZEN[390] records the four options' `min-height` and WILL move if this lands — name it in the brief and re-record it the way CARD-423 did (the real Bootstrap is the pinned URL in `src/nonogram/admin/templates/base.html`, sha256 7f1d37f0…, and the two-step certification is in CARD-423's Worktree notes). Nothing under `player/`: admin.css is in COPIED_FROM_ADMIN. -->
 **Review score:** —
@@ -36,9 +36,17 @@ CARD-423 raised the compact toolbar's tap-target floor to 44 x 44 px on the elev
 
 Raised as an out-of-scope observation by **all three** of CARD-423's review cycles and carded only now; the delay is itself the argument for a card, since an observation nobody owns is re-measured every cycle and fixed in none.
 
-## Decision owed before implementation (owner)
+## Owner ruling, 2026-11-11
 
-**D1:** the four options are 44 px tall, and the popover grows 32 px over the board; or they stay 36 px and the player keeps one sub-floor target; or they take an intermediate value that the 24 px floor of CARD-195 AC-11 already clears. **There is no default.** CARD-423's own D1 ruled on nine named controls and the owner has not been asked about these four, so an author who picks one is deciding for them. The popover opens over the board on a phone, which is exactly the trade CARD-423's D1 weighed for the toolbar — and there the owner chose the target over the space.
+**D1: 44 px, like the rest.** The owner's words when asked: *"44 px, like the rest"* — one rule for every control the toolbar draws, the menu included, and the popover grows from about 174 px to about 206 px over the top-left of the grid. That is the same trade they took in CARD-423's D1, where the toolbar's own floor cost the board 24 px of height and they chose the target over the space; this card is that decision applied to the four controls CARD-423's enumeration did not name.
+
+So: no author decides a height here, and the alternatives the card used to offer — stay at 36, or an intermediate value — are **declined**. An intermediate value is declined for a stated reason, not just unchosen: it would leave the menu the only control in the player at its own height, clearing neither the guideline nor the inconsistency.
+
+**What is still an author's to measure, not to decide:** whether the taller popover still fits its viewport at 390x844 and at 844x390 (where CARD-402's block makes the menu `fixed` and `openMenu` already lifts it to end inside the window). If 44 px makes it run off the screen on a short landscape phone, that is a `[BLOCKER]` with the measurement, not a licence to pick 40.
+
+## Ordering, decided with the ruling
+
+`Depends on:` now names **CARD-426** as well as CARD-423. CARD-426 (the menu that will not close) was in flight when this ruling was given and edits the same `admin.css` compact block and the same `tests/test_puzzle_solver_brush_menu.py`. The owner chose to queue rather than run both: two agents rewriting one test module about one component is a guaranteed rebase and a real chance of one clobbering the other's work. The dependency is how that choice is enforced — `start` gates on it — rather than left to whoever reads the board next.
 
 ## What to implement
 

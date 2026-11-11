@@ -1,6 +1,6 @@
 # CARD-426: The brush menu hangs: an outside tap neither closes it nor lets Escape close it, and it swallows taps on the board
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bug
 **Estimate:** 1c (0.5d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/426-brush-menu-dismiss
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-426
 **Source:** owner play-test findings, Google Doc "Гра - тест", 2026-11-11, item 2. Reproduced on production (https://nonogram.adverax.io) before drafting; the measurements below are mine, the finding is the owner's.
 **Idea:** —
 **Wave:** 79
@@ -20,7 +20,7 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py
 <!-- Derived 2026-11-11 by reading `solver.js`'s `openMenu`/`closeMenu` and every `closeMenu()` call site, and `admin.css`'s `.player-tool-menu`. Conflict edge: CARD-424 also edits `admin.css`'s compact block and the brush-menu test module — serialize, no dependency. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-11T18:05:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -60,4 +60,7 @@ And, separately measured: while the menu is open, Playwright refuses a tap on th
 
 ## Worktree notes
 
-—
+- **[Env]** forge version unresolved (no `.claude-plugin/plugin.json` at the executing path; this project has no `meta/.skills.yml`, so no `forge.min_version` comparison ran and no `models:` block exists — agents inherit the session model).
+- **[Start gate]** `make_probe.py start-gate` → exit 0, `decision: gate`, `source: test_command`. **That command is exit 127 in a worktree** (no `.venv` there): use `/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python`, or `make test-gate PY=<main>/.venv/bin/python`. Fork point `8ecb8758`, interactive mode.
+- **[Impact scope]** Derive it with `scripts/impact_set.py --gate --against main`, never from a standing note — CARD-423 shipped two criticals past a hand-picked 10-module set that the script would have caught (it selects 141 files for an `admin.css` change).
+- **[Conflict edges]** CARD-424 (brush-menu tap targets) and CARD-428 (landscape zoom) both edit `admin.css`, and CARD-424 also edits `tests/test_puzzle_solver_brush_menu.py`. Neither is started; serialize, no dependency.
