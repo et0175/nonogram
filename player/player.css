@@ -242,8 +242,6 @@ body {
 .pages-notfound p { margin: 0 0 var(--space-3); }
 .pages-notfound p:last-child { margin-bottom: 0; }
 
-.pages-library-link { text-decoration: none; }
-
 /* A live region has to be in the document to be announced reliably, so it is
    always present and visually hidden rather than shown and hidden. */
 .player-announce {
