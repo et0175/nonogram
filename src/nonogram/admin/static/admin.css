@@ -1922,7 +1922,16 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      they kept .player-tool-item's own min-height: var(--control-h) = 36 px and
      were the one tap target this floor did not reach. One rule for every
      control the toolbar draws, the menu included: stated here on the option's
-     own selector, in the same block, so the floor is one figure in one place.
+     own selector, in the same block. That makes the floor ONE FIGURE STATED
+     BY SEVERAL DECLARATIONS, not one selector that covers them — counted in
+     this block: min-height: 44px appears three times (.player-toolbar .btn
+     above, this rule, and .player-zoom-readout[role="button"] below) and
+     min-width: 44px three more, and the literal 44px occurs 14 times in this
+     file. That is CARD-423's established precedent and is deliberate: see
+     .player-region's own comment, which says the same thing about the pair
+     it names — the toggle and these options agree at a compact viewport
+     because two declarations say 44, not because one reaches both. No token
+     is proposed; --control-h is explicitly not it (below).
      The width needs nothing — the options are 142 px wide at every compact
      viewport (.player-tool-menu's 10rem minimum, less its padding and border).
      The cost is the popover, which opens over the top-left of the board and
@@ -1934,8 +1943,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      height, not the player's. Held by tests/test_puzzle_solver_brush_menu.py
      TestSolverBrushMenu_RegionIsItsOwnToggle::test_it_keeps_a_tap_target_and_the_toolbars_button_pattern_on_a_phone
      (the options' height and the popover's fit at all three viewports) and
-     recorded at both widths in tests/test_player_base_css.py's frozen census
-     (rows "05".."08 button player-tool-item"). */
+     recorded AT 390 ONLY in tests/test_player_base_css.py's frozen census
+     (rows "05".."08 button player-tool-item" of FROZEN[390]). The rows exist
+     at both of that census's widths, but only the 390 ones carry 44px:
+     FROZEN[1280]'s four keep 36px, correctly and deliberately, because 1280
+     is outside this compact block and nothing here applies there. Patching
+     those four to match would red the census against the real Bootstrap. */
   .player-tool-item { min-height: 44px; }
   .player-compact-icon { display: contents; }
   .player-tools { min-width: 0; }

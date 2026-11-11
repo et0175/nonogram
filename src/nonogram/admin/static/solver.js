@@ -2758,7 +2758,10 @@ function wireMarking(container, player) {
   //    dismissing the menu. "#puzzle-player-tool-menu .player-tool-item" says
   //    what was meant — the options of THIS menu — and the trigger keeps its
   //    own id, which is unique already.
-  // 2. A chrome dismissal puts focus back on the trigger. openMenu() focuses
+  // 2. A chrome dismissal made with a POINTER — a mouse or a pen — puts focus
+  //    back on the trigger. The path qualifier is load-bearing and is not
+  //    decoration: on a touch screen the restore does NOT apply, measured,
+  //    and the paragraph after next is why. openMenu() focuses
   //    the checked option, so closing the menu around it (hidden="" on an
   //    ancestor of document.activeElement) dropped focus to <body>: measured
   //    at 1440x900, where pick() and Escape both end with trigger.focus() and
@@ -2781,6 +2784,22 @@ function wireMarking(container, player) {
   //    decision (b). So the restore goes in a task behind it, guarded on
   //    focus having actually been lost, so it can never take focus from
   //    whatever else may have claimed it in between.
+  //
+  //    WHICH IS ALSO WHY IT IS A POINTER-PATH BEHAVIOUR ONLY. The guard's
+  //    premise — "focus was actually lost", i.e. document.activeElement is
+  //    <body> or null — is MADE TRUE by that same mousedown default: the
+  //    default is what puts focus on nothing, and the queued task then finds
+  //    it there. A touch tap runs no such default before the task fires, so
+  //    the guard sees whatever Chromium's own focus fixup left behind and
+  //    correctly skips. Measured at 390x844 with touch emulated on, using the
+  //    brush-menu test module's CDP tap shape on the box's padding ring: the
+  //    menu closes and document.activeElement ends on the Undo button, never
+  //    the trigger — polled 2000 ms, three trials identical — while the same
+  //    tap with a mouse restores the trigger in 5.5-6.0 ms. This is NOT a
+  //    regression: focus was equally unrestored on touch before this handler
+  //    learned to restore it at all. Making it work on touch would be new
+  //    behaviour — an owner call and a card of its own — and not a reason to
+  //    widen the sentence above.
   document.addEventListener("pointerdown", (event) => {
     const at = event.target instanceof Element ? event.target : null;
     if (at !== null

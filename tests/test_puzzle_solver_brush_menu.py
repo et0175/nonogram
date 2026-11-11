@@ -1149,11 +1149,24 @@ _MENU_HIT_TEST = """() => {
 
 
 #: CARD-424 — how long to let the focus restore land before reading
-#: ``document.activeElement``. The restore is a task queued behind the
-#: mousedown's own focus default (``solver.js``'s dismissal), so it has not
-#: run when Playwright's ``mouse.up`` returns: measured at 1440x900, "" on
-#: the immediate read and the trigger 100 ms later. 100 is that measurement
-#: with room, not a guess at a frame.
+#: ``document.activeElement`` **where the assertion is a NEGATIVE one**. The
+#: restore is a task queued behind the mousedown's own focus default
+#: (``solver.js``'s dismissal), so it has not run when Playwright's
+#: ``mouse.up`` returns: measured at 1440x900, "" on the immediate read and
+#: the trigger 5.5-6.0 ms later (3 trials). 100 is that measurement with
+#: room, not a guess at a frame.
+#:
+#: **The asymmetry, stated rather than left as a habit** (CARD-424 review
+#: cycle 1, F-002): a fixed settle is the only instrument a NEGATIVE read
+#: has — "focus did NOT move onto the trigger" is not a condition anything
+#: can wait for, so the board-tap control below sleeps this long and then
+#: reads, and its margin (~17x over the measured restore) is what makes it
+#: an honest control rather than a race the blanket-restore mutant could
+#: slip through. A POSITIVE read has an exact equivalent that cannot flake
+#: at all and is faster — ``page.wait_for_function`` on the id — so the
+#: chrome block uses that and this constant deliberately does NOT reach it.
+#: Do not "simplify" the two back together: the swap costs a positive read
+#: nothing and costs a negative read its whole meaning.
 _FOCUS_SETTLE_MS = 100
 
 
@@ -1203,7 +1216,8 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
 
     **ADDED CLAIM, 2026-11-11 (CARD-424, carrying CARD-426 review cycle 2's
     two minors — both about this menu, which that card was already
-    changing).** A chrome dismissal now puts focus back on the trigger.
+    changing).** A chrome dismissal made with a POINTER — a mouse or a pen —
+    now puts focus back on the trigger.
     ``openMenu()`` focuses the checked option, so hiding the menu around it
     left ``document.activeElement`` on ``BODY`` where ``pick()`` and Escape
     both end with ``trigger.focus()`` — a keyboard user losing their place to
@@ -1213,6 +1227,24 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     a blanket ``trigger.focus()`` in the dismissal would red. The second
     minor — the exemption selector, scoped to the box — is in the retired
     claim below, beside the selector it narrows.
+
+    **The claim stops at the pointer path, and that boundary is measured,
+    not conceded.** ``solver.js`` queues the restore behind the mousedown's
+    own focus default and guards it on focus having actually been lost
+    (``document.activeElement`` being ``<body>`` or ``null``) — and that
+    premise is MADE TRUE by that default. A touch tap runs no such default
+    before the queued task fires, so the guard sees whatever Chromium's own
+    focus fixup left and skips. Measured in this worktree at 390x844 with
+    ``has_touch=True``, using ``_tapper``'s own CDP touch shape on the box's
+    padding ring: the menu closes and ``document.activeElement`` ends on the
+    **Undo** button (``data-player-action="undo"``), never the trigger —
+    polled for 2000 ms, three trials identical — where the same tap with a
+    mouse restores the trigger in 5.5-6.0 ms. So the focus assertion below
+    is desktop-only for TWO reasons, not one: Chromium's touch-adjustment
+    retarget (which is what the ``if not touch:`` guard was written for) and
+    this. Not a regression — touch was equally unrestored before — and
+    making it work on touch is new behaviour, an owner call and a card of
+    its own, never a wider sentence here.
 
     RETIRED CLAIM, 2026-11-11 (CARD-426, the owner's ruling "chrome should
     swallow the tap"): "``admin.css`` takes the pointer off the BOX, leaving
@@ -1296,9 +1328,13 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                 # board action, so it must leave the toolbar alone — a
                 # blanket trigger.focus() in the dismissal (rather than the
                 # in-box one solver.js ships) would pull focus onto the
-                # trigger here and red this line. Settled first, for the same
-                # reason the chrome block below settles: an unsettled read
-                # would pass under that mutant and assert nothing.
+                # trigger here and red this line. Settled first, and this is
+                # the one read that HAS to be: a negative is not a condition
+                # ``wait_for_function`` can be given, so where the chrome
+                # block below waits on the restore landing, this one sleeps
+                # out the window in which it could land and then reads. An
+                # unsettled read would pass under that mutant and assert
+                # nothing. See ``_FOCUS_SETTLE_MS`` for the asymmetry.
                 page.wait_for_timeout(_FOCUS_SETTLE_MS)
                 assert page.evaluate("document.activeElement.id") != "puzzle-player-tool-trigger", where
 
@@ -1350,6 +1386,21 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                 # a menu action rather than a board action — the half the
                 # owner objected to. It is the ruling's stated limit on a
                 # phone, recorded in the card's notes, not a second claim.
+                #
+                # CARD-424: the focus assertion inside this block is
+                # desktop-only for a SECOND, unrelated reason, and saying so
+                # here is the point — the retarget above is about the
+                # close/mark half, so a reader would otherwise take the focus
+                # half to be verified where it is in fact FALSE. solver.js's
+                # restore is queued behind the mousedown's own focus default
+                # and guarded on focus having been lost; a touch tap runs no
+                # such default, so the guard sees Chromium's focus fixup and
+                # skips. Measured at 390x844 with has_touch=True and this
+                # module's own CDP tap shape on the box's padding ring: focus
+                # ends on the Undo button, never the trigger (polled 2000 ms,
+                # three trials identical). Restoring it on touch is new
+                # behaviour and a card of its own, not a widening of the
+                # claim in this class's docstring.
                 if not touch:
                     brush, marked = _trigger(page).get_attribute("aria-label"), _marked(_states(page))
                     for point in hits["chromePoints"]:
@@ -1369,13 +1420,22 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                         # their place to a stray tap. solver.js restores it
                         # for the IN-BOX case only; the board tap above is the
                         # control that a blanket restore would red, because it
-                        # must leave focus where it was. The settle is not
+                        # must leave focus where it was. The wait is not
                         # decoration: the restore is QUEUED behind the
                         # mousedown's own focus default (see solver.js), so it
                         # has not run when mouse.up returns — measured at
                         # 1440x900, where the id reads "" immediately after
-                        # the tap and "puzzle-player-tool-trigger" 100 ms on.
-                        page.wait_for_timeout(_FOCUS_SETTLE_MS)
+                        # the tap and "puzzle-player-tool-trigger" 5.5-6.0 ms
+                        # on (3 trials). This read is POSITIVE, so it waits on
+                        # the condition itself rather than on a clock: the
+                        # wait returns the moment focus lands and cannot flake
+                        # under load, where a fixed settle only has margin.
+                        # Its negative twin — the board tap above — cannot be
+                        # written this way and keeps _FOCUS_SETTLE_MS; see
+                        # that constant's own comment for the asymmetry.
+                        page.wait_for_function(
+                            "document.activeElement && document.activeElement.id === 'puzzle-player-tool-trigger'"
+                        )
                         assert page.evaluate("document.activeElement.id") == "puzzle-player-tool-trigger", (where, point)
             finally:
                 context.close()
