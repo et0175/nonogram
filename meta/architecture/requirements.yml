@@ -5664,9 +5664,16 @@ functional:
         kind: happy
         test: tests/test_public_player_pages.py::test_book_landing_lists_and_links
       - id: AC-388
+        # The "no way to the library" clause is the owner's 2026-11-11
+        # decision (play-test findings item 1, carded as CARD-425): the AC
+        # read "renders with a way to the library" until then, and a reader
+        # who scanned the QR code on their OWN printed book wants that book,
+        # so a prominent library button turns the dead end into a detour.
+        # The absence is now a claim rather than an omission, and the test
+        # named below is the same node — it asserts the negation.
         given: a slug not in the bundle
         when: /b/<slug> loads
-        then: the not-found page renders with a way to the library, and no script error is thrown
+        then: the not-found page renders, explains in words why it is up, offers no way to the library, and no script error is thrown
         kind: negative
         test: tests/test_public_player_pages.py::test_unknown_slug_lands_softly
       - id: AC-389

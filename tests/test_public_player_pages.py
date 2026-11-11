@@ -446,10 +446,16 @@ def test_unknown_slug_lands_softly(browser_page, pages_host) -> None:
     for real — and the owner's 2026-11-11 play-test retired it: a reader who
     scanned the QR code on their own printed book wants that book, and a
     prominent ``btn`` to somebody else's library turns the dead end into a
-    detour. So the absence is asserted twice over, by the class the removed
-    anchor carried and by the ``href`` any replacement would need, because a
-    re-added button under a fresh class would otherwise pass. The
-    ``/library`` link on the landing proper is a different element
+    detour. The absence is asserted as ``no anchor at all in the panel``,
+    which is deliberately STRONGER than the card's AC-1 wording ("no
+    ``a.pages-library-link``") and is what the owner's finding implies: the
+    panel's job is to say "this is not it", so it offers no link, not merely
+    no library link. One assertion also covers every shape a narrower pair
+    would miss — a replacement anchor under a fresh class, and one whose
+    ``href`` is assigned at runtime — and the panel can hold no other
+    anchor legitimately, because ``pages.js``'s ``fail`` creates no element:
+    it sets one ``textContent`` and toggles ``hidden``. The ``/library``
+    link on the landing proper is a different element
     (``data-pages-continue``) and ``test_book_landing_lists_and_links`` and
     the listing nodes below still hold it.
 
@@ -491,8 +497,7 @@ def test_unknown_slug_lands_softly(browser_page, pages_host) -> None:
         panel = browser_page.locator("[data-pages-notfound]")
         assert panel.is_visible(), path
         assert explains in panel.locator("[data-pages-notfound-text]").text_content(), path
-        assert panel.locator("a.pages-library-link").count() == 0, path
-        assert panel.locator('a[href="/library"]').count() == 0, path
+        assert panel.locator("a").count() == 0, path
         assert _tiles(browser_page) == [], path
 
     # The malformed path must not have been turned into a fetch: no /book/
