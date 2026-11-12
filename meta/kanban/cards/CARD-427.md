@@ -1,6 +1,6 @@
 # CARD-427: The hint and probe messages are hard to notice: a page-wide strip that vanishes on the next tap
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** ux-polish
 **Estimate:** 1c (0.5d)
@@ -21,9 +21,9 @@
 <!-- Derived 2026-11-11 by reading `solver.js`'s `placeExplain`, `replaceExplain` and `wireExplainDismiss`, and `admin.css`'s `.player-explain`. `tests/test_player_public_mode.py` and `tests/test_player_shared_ui_site.py` also name `player-explain` — name them in the brief, they may need re-pinning. -->
 **Review score:** 9.0 (cycle 1)
 **Started:** 2026-11-11T20:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-12T07:40:00Z
+**Actual:** 1 review cycle + 2 orchestrator prose edits (wall clock excluded, owner ruling)
+**Merge commit:** b389f8fa
 **Blocked by:** —
 
 ## Why this card exists
@@ -137,3 +137,10 @@ So: **one box, one rule, no second placement path**, which is what this card spe
 The measured facts behind the decision, so a later reader sees what was weighed: the praise covers **4.0% of the board at 390x844, 7.7% at 844x390, 3.5% at 1280x900 and 1440x900**, never the board's own centre (the head and toolbar push the board up and left), clears after `CELEBRATION_MS` (= `SWEEP_SPAN_MS` + 2000 = 4000 ms), and clears early on any pointer-down like every other message in that box.
 
 **Nothing to implement.** The behaviour the owner chose is what the branch already does; this note exists so the next card does not read the absence of an AC as an oversight. The one thing still owed is the owner's own eyeball on a real picture — the review ran no screenshots, console log or automated a11y scan, and said so as coverage rather than as a pass.
+
+- **[Build gate]** Derived selection: **202 files / 9002 tests (84.7%)** — much larger than its siblings because the card touches `puzzle_solve.html`, which reaches the book and PDF suites. Run 1: 8956 passed, 30 skipped, **2 failed** in 33:20. Run 2 of the lifted marked files: 11 passed.
+  - The extra red was `tests/test_player_public_mode.py::TestPublicMode_TheSweep::test_every_control_is_driven_and_nothing_goes_wrong[chromium]` — **this card's own territory**, so it was chased rather than retried blind: it passes alone on the branch (10.3 s), in the implementer's narrow set (180 passed) and in the reviewer's (232 passed).
+  - **Re-run of the identical selection on the identical head: 8957 passed, 1 failed** (the pre-existing `test_book_pdf_memory` host-calibration red), 28:22. The +1 is exactly the sweep test.
+- **[Flaky gate members — a pattern now, not an incident]** Two different browser tests have now reddened two consecutive large gates and passed on re-run of the identical selection: `test_puzzle_solver_clues.py::TestPlayerNumerals_ColumnFloorIsTheWidestColumnNumeral::test_one_digit_column_numbers_keep_the_fit` on CARD-426 (34:06 failing against 26:17 and 26:33 passing) and this one (33:20 against 28:22). **In both cases the failing run was the slower one**, and both tests measure browser geometry. The common cause is most likely contention at this selection size rather than anything in either card. Worth a card if it recurs a third time; two observations with consistent timing are a pattern worth recording but not yet a diagnosis.
+- **[Harness flaw, mine, fixed on the second attempt]** The gate script printed only pytest's last 30 lines, so run 1's assertion was lost. I "fixed" it once by capturing context around `FAILED ` and `_ test_` — markers that match pytest's **summary**, not its `____ TestClass.test_name ____` failure header — so the traceback was discarded a second time and I had to measure the test directly instead. It now writes the complete output to a file and prints the whole `= FAILURES =` section. **A red reported without its numbers is a red nobody can act on**, and I shipped that flaw twice.
+- **[Done]** Merged `b389f8fa` on the gates. Estimate 1c against 1 review cycle — the only card in this set to meet its estimate, and the reason is the owner's ruling: it arrived before implementation and deleted work rather than adding it.
