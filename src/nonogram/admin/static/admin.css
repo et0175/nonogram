@@ -1978,7 +1978,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      drawn inside the pill, whose rounded clip would otherwise cut it. */
   .player-zoom {
     flex-wrap: nowrap; gap: 0;
-    border: var(--border-width) solid var(--color-border-strong);
+    /* The edge is a ring, not a border: it takes no room, so the toolbar —
+       and the board under it — keep the height they had. */
+    box-shadow: 0 0 0 var(--border-width) var(--color-border-strong);
     border-radius: 22px; overflow: hidden;
   }
   .player-zoom > .btn { border: 0; border-radius: 0; }
