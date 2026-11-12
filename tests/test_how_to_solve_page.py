@@ -336,6 +336,8 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     _open(page, url, "/how-to-solve#5")
     assert _visible_step(page) == [5]
     assert page.locator("[data-hts-step='5'] h2").inner_text() == "Big puzzles on a phone"
+    # One row of progress segments, one per step (a sixth once wrapped).
+    assert page.evaluate("() => new Set([...document.querySelectorAll('[data-hts-goto]')].map(d => d.offsetTop)).size") == 1
     assert page.locator("[data-hts-next]").inner_text() == "Next: Levels and the promise"
     _open(page, url, "/how-to-solve#6")
     assert _visible_step(page) == [6]
