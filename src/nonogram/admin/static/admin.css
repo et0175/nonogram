@@ -896,10 +896,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    where the toolbar is labelled, and the compact block's 44 px floor
    (CARD-423) on a 390 px phone — so the toggle is as tall as every other
    .player-toolbar .btn at either size (Undo, say), which is the pair the
-   brush-menu test asserts. NOT as tall as every <button> in the toolbar:
-   the brush menu's four .player-tool-item options carry no .btn, so on a
-   phone they keep min-height: var(--control-h) = 36 px while this toggle
-   stands at the compact block's 44 px floor. */
+   brush-menu test asserts. The brush menu's four .player-tool-item options
+   carry no .btn either, so they did NOT follow this toggle: on a phone they
+   kept min-height: var(--control-h) = 36 px while it stood at the compact
+   block's 44 px floor. That is no longer the difference it was — CARD-424
+   (owner ruling 2026-11-11, "44 px, like the rest") gives them a floor of
+   their own in the same block — but it is still not this rule reaching them:
+   the two heights agree at a compact viewport because two declarations say
+   44, not because one selector covers both. */
 .player-region { padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-region[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 /* The three cells the Region toggle wears instead of the word "Region"
@@ -1848,13 +1852,17 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      paragraph below; a board that fits at 100% leaves it a role-less 24.8 px
      span, and the set is the other ten). That is the set
      tests/test_puzzle_solver_phone.py's _CONTROLS names and measures, and
-     the only set this floor is held to. NOT every button inside
-     .player-toolbar: the brush menu's four options (.player-tool-item,
-     role=menuitemradio) are <button>s and no .btn, so they keep
-     min-height: var(--control-h) and measure 142 x 36 px at 390 x 844,
-     600 x 844 and 844 x 390 — neither this floor nor CARD-402's landscape
-     block reaches them, and raising them is an owner call (D1 named nine
-     controls, not the menu) on a follow-up card.
+     the only set this floor is held to — but it is no longer the only set
+     AT the floor. The brush menu's four options (.player-tool-item,
+     role=menuitemradio) are <button>s and no .btn, so this .btn-keyed rule
+     still does not reach them and neither does CARD-402's landscape block:
+     they measured 142 x 36 px at 390 x 844, 600 x 844 and 844 x 390 and were
+     the one sub-44 px tap target the compact toolbar drew. Raising them was
+     the owner call CARD-423's D1 did not make (it named nine controls, not
+     the menu), and CARD-424 asked and got it — "44 px, like the rest",
+     2026-11-11 — so they stand at 44 px too, by a declaration of their own
+     further down this block rather than by this one growing a selector.
+     The follow-up card that sentence promised is that card.
      CARD-423 (owner ruling 2026-11-11,
      D1) raised the height half of that floor: it had been written in width
      alone, so in portrait TEN of the eleven stood UNDER it in height on the
@@ -1871,8 +1879,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      at 36 px, eight min-width-reached — because Check is not there. So it is
      the FLOOR that is the before/after here, not a 44 x 36 box. CARD-402's landscape
      block below already set both on the same eleven, which is why the same
-     sweep found no landscape .btn under 44 px (the menu's four options are
-     36 px tall there too). --control-h itself does not change (it
+     sweep found no landscape .btn under 44 px (the menu's four options were
+     36 px tall there too, until CARD-424's declaration below raised them at
+     every compact viewport, landscape included). --control-h itself does not change (it
      is the whole panel's control height, not the player's), so the floor is
      stated here, on the same selector it overrides. The cost is NOT one
      8 px step per control row: a row pays 44 px MINUS its tallest control —
@@ -1908,6 +1917,43 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-head h1 { font-size: var(--text-xl); }
   .player-toolbar { gap: var(--space-2); }
   .player-toolbar .btn { min-height: 44px; }
+  /* CARD-424 (owner ruling 2026-11-11, D1: "44 px, like the rest"). The rule
+     above is keyed on .btn, and the brush menu's four options are not one, so
+     they kept .player-tool-item's own min-height: var(--control-h) = 36 px and
+     were the one tap target this floor did not reach. One rule for every
+     control the toolbar draws, the menu included: stated here on the option's
+     own selector, in the same block. That makes the floor ONE FIGURE STATED
+     BY SEVERAL DECLARATIONS, not one selector that covers them — counted in
+     this block: min-height: 44px appears three times (.player-toolbar .btn
+     above, this rule, and .player-zoom-readout[role="button"] below) and
+     min-width: 44px three more. File-wide, the literal stands in 14
+     DECLARATIONS — `grep -o 44px admin.css | wc -l`, the command the card's
+     note cites, returns 18, because it also counts this comment's own four
+     mentions of the token: the census was counting itself while it reported
+     14 as that command's output (CARD-424 review cycle 2, F-009).
+     That is CARD-423's established precedent and is deliberate: see
+     .player-region's own comment, which says the same thing about the pair
+     it names — the toggle and these options agree at a compact viewport
+     because two declarations say 44, not because one reaches both. No token
+     is proposed; --control-h is explicitly not it (below).
+     The width needs nothing — the options are 142 px wide at every compact
+     viewport (.player-tool-menu's 10rem minimum, less its padding and border).
+     The cost is the popover, which opens over the top-left of the board and
+     grows 174 -> 206 px; the owner took that trade knowingly, as they did in
+     CARD-423's D1 where the toolbar's own floor cost the board 24 px of
+     height. An intermediate value was declined for a stated reason: it would
+     leave the menu the only control in the player at its own height.
+     --control-h does not change — it is the whole admin panel's control
+     height, not the player's. Held by tests/test_puzzle_solver_brush_menu.py
+     TestSolverBrushMenu_RegionIsItsOwnToggle::test_it_keeps_a_tap_target_and_the_toolbars_button_pattern_on_a_phone
+     (the options' height and the popover's fit at all three viewports) and
+     recorded AT 390 ONLY in tests/test_player_base_css.py's frozen census
+     (rows "05".."08 button player-tool-item" of FROZEN[390]). The rows exist
+     at both of that census's widths, but only the 390 ones carry 44px:
+     FROZEN[1280]'s four keep 36px, correctly and deliberately, because 1280
+     is outside this compact block and nothing here applies there. Patching
+     those four to match would red the census against the real Bootstrap. */
+  .player-tool-item { min-height: 44px; }
   .player-compact-icon { display: contents; }
   .player-tools { min-width: 0; }
   .player-tool-trigger { flex: 0 0 auto; min-width: 44px; justify-content: center; }

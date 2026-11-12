@@ -2746,10 +2746,96 @@ function wireMarking(container, player) {
   // never sees the tap, and all it does is close the menu.
   // The keyboard path is untouched (AC-4): Escape with focus inside the menu
   // still closes it, and the items' roving focus is as it was.
+  //
+  // CARD-424 carries two minors CARD-426's review cycle 2 raised against this
+  // handler, both about the menu that card's own height change was already
+  // touching.
+  //
+  // 1. The exemption is SCOPED TO THE BOX. It read ".player-tool-item" alone,
+  //    which matches that class anywhere in the document: harmless while the
+  //    only six such elements are inside this menu across both templates, but
+  //    a future control reusing the class outside the box would silently stop
+  //    dismissing the menu. "#puzzle-player-tool-menu .player-tool-item" says
+  //    what was meant — the options of THIS menu — and the trigger keeps its
+  //    own id, which is unique already.
+  // 2. A chrome dismissal made with a MOUSE puts focus back on the trigger.
+  //    The path qualifier is load-bearing and is not decoration: on a touch
+  //    screen focus does NOT end on the trigger, measured, and the paragraph
+  //    after next is why. (A MOUSE, not "a pointer": the pen path has never
+  //    been measured on either side of this, so it is deliberately not
+  //    named.) openMenu() focuses
+  //    the checked option, so closing the menu around it (hidden="" on an
+  //    ancestor of document.activeElement) dropped focus to <body>: measured
+  //    at 1440x900, where pick() and Escape both end with trigger.focus() and
+  //    this path did not. The restore is scoped to the IN-BOX case on
+  //    purpose. A blanket trigger.focus() here would yank focus back to the
+  //    toolbar on an ordinary board tap, which is the opposite of what
+  //    CARD-426 shipped on the owner's ruling — a tap clear of the box is a
+  //    board action and must leave the toolbar alone. `onChrome` is therefore
+  //    read BEFORE closeMenu() and is false unless the menu was open and the
+  //    pointer-down landed inside its box (the items having already returned
+  //    above, that is exactly the padding ring and the inter-item gaps).
+  //
+  //    The restore is QUEUED, and measured rather than assumed: a focus()
+  //    call made here is undone a moment later, because the mousedown that
+  //    follows this pointerdown still has its default action to run and that
+  //    action moves focus — to nothing, the chrome being unfocusable. (This
+  //    is why pick() and Escape need no such care: a click arrives after that
+  //    default, and a keydown has none.) Consuming the event instead is not
+  //    on the table — nothing here consumes anything, which is CARD-426's
+  //    decision (b). So the restore goes in a task behind it, guarded on
+  //    focus having actually been lost, so it can never take focus from
+  //    whatever else may have claimed it in between.
+  //
+  //    WHICH IS ALSO WHY IT IS A MOUSE-PATH BEHAVIOUR ONLY — and the OUTCOME
+  //    and the MECHANISM are two different grades of evidence, so they are
+  //    written here as two different sentences.
+  //
+  //    THE OUTCOME, measured 3 of 3: on touch, document.activeElement ends on
+  //    the Undo button and the trigger is never seen. Trajectory logged at
+  //    390x844 with has_touch=true, the brush-menu test module's own CDP tap
+  //    shape on the box's first chrome point, capturing pointerdown /
+  //    mousedown / focusin / focusout and reading activeElement 2000 ms on.
+  //
+  //    THE MECHANISM is a RACE, not a clean skip, and both of its branches
+  //    were observed. A touch tap DOES dispatch a compat mousedown carrying
+  //    the same focus default — the difference is that the mousedown is
+  //    DEFERRED (Chromium's touch adjustment and gesture detection run first:
+  //    the option's focusout lands 27-47 ms after the pointerdown rather than
+  //    in the same tick) and RETARGETED onto a neighbouring control
+  //    ([data-player-action=undo], not the unfocusable chrome under the
+  //    finger). So the queued restore and that deferred mousedown race:
+  //      - 2 of 3 trials — the task runs FIRST, while the hidden option still
+  //        holds focus, so activeElement is neither <body> nor null and the
+  //        guard skips;
+  //      - 1 of 3 trials — the task runs AFTER the option's focusout, so
+  //        trigger.focus() DOES run; the compat mousedown then takes focus to
+  //        Undo 0.5-0.7 ms later.
+  //    Either way focus ends off the trigger, which is why the outcome is
+  //    stable while "the guard correctly skips" is not true as a mechanism.
+  //    The second branch is also why restoring UNCONDITIONALLY would not buy
+  //    touch anything: that is the branch already observed, and the mousedown
+  //    undoes it.
+  //
+  //    With a mouse the same mousedown is synchronous with the pointerdown,
+  //    so the default has already fired when the task runs and the guard's
+  //    premise ("focus was actually lost") is MADE TRUE by it; the trigger
+  //    takes focus 10-38 ms after the pointerdown (6 trials, two rounds).
+  //    This is NOT a regression: focus was equally unrestored on touch before
+  //    this handler learned to restore it at all. Making it work on touch
+  //    would be new behaviour — an owner call and a card of its own — and not
+  //    a reason to widen the sentence above.
   document.addEventListener("pointerdown", (event) => {
-    if (event.target instanceof Element
-      && event.target.closest("#puzzle-player-tool-trigger, .player-tool-item") !== null) return;
+    const at = event.target instanceof Element ? event.target : null;
+    if (at !== null
+      && at.closest("#puzzle-player-tool-trigger, #puzzle-player-tool-menu .player-tool-item") !== null) return;
+    const onChrome = !menu.hidden && at !== null && at.closest("#puzzle-player-tool-menu") !== null;
     closeMenu();
+    if (onChrome) {
+      setTimeout(() => {
+        if (document.activeElement === null || document.activeElement === document.body) trigger.focus();
+      }, 0);
+    }
   }, true);
   menu.addEventListener("keydown", (event) => {
     const at = items.indexOf(document.activeElement);
