@@ -632,6 +632,10 @@ import { boardOfGrid } from "./solver_state.js";
 // the three buttons, the one-line notice and the marker on the member cells
 // are this file's.
 import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, probeCells, probeVerdict } from "./solver_state.js";
+// Line focus (CARD-439): see LINE FOCUS in wireMarking. The line's cells, the
+// crossing line of a long press and the split into strips are pure
+// (ADR-0038/R4); the dialog, its mini board and its strips are this file's.
+import { circledNumbers, crossingLine, lineOf, linePosition, lineStrips } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -670,6 +674,11 @@ const NO_SAVE = Object.freeze({
 // number for the column axis (H > 15 doubles the column clues), so the two
 // axes are one rule read twice, not two rules that can drift apart.
 const BIG_SIDE = 15;
+// CARD-439: the line focus view is offered on a compact screen for a board at
+// least this many cells on its longer side. Below it the board's own cells
+// are already a fair tap target at Fit (a 15 x 15 on a 390 px phone has
+// ~21 px cells), and the view would only take the board away.
+const LINE_MIN_SIDE = 20;
 
 // CARD-212: a second gutter is drawn only while the cells it leaves are at
 // least this many CSS pixels on a side — CARD-182's phone-fit minimum (a
@@ -1439,6 +1448,9 @@ function start() {
     // Check's reader of the answer: UNREACHABLE in public mode, because the
     // button is removed above (and were it not, the sealed getter throws).
     wrongRow: () => firstWrongRow(history.board, payload.solution),
+    // CARD-439: the line focus view draws one line's clue; the clues are the
+    // payload's, read here like hintLine's.
+    clues: { rows: payload.rows, columns: payload.columns },
     show(next) {
       board = next;
       paint(cellElements, board);
@@ -2118,6 +2130,95 @@ const REGION_ANNOUNCEMENT = {
   false: "Region off.",
 };
 
+// CARD-439: the line focus view's markup (see LINE FOCUS in wireMarking),
+// built once for a board that can be offered it. Returns the dialog and the
+// Line button, which joins the probe line after Probe.
+const LINE_ICONS = {
+  // _icons.html's arrow-left, arrow-right and undo, and a strip of cells.
+  left: "M13 8H3M7 4L3 8l4 4",
+  right: "M3 8h10M9 4l4 4-4 4",
+  undo: "M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6",
+  line: "M1.5 4.5h13v7h-13zM5.8 4.5v7M10.2 4.5v7",
+};
+
+// Parsed from markup rather than built with createElementNS: the HTML parser
+// puts an <svg> in the SVG namespace by itself.
+function lineSvg(markup) {
+  const template = document.createElement("template");
+  template.innerHTML = markup;
+  return template.content.firstElementChild;
+}
+
+function lineIcon(name) {
+  return lineSvg(`<svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="${LINE_ICONS[name]}"/></svg>`);
+}
+
+function lineElement(tag, attributes = {}, children = []) {
+  const element = document.createElement(tag);
+  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+  element.append(...children);
+  return element;
+}
+
+function lineButton(attributes, children) {
+  return lineElement("button", { type: "button", class: "btn btn-outline-secondary", ...attributes }, children);
+}
+
+function lineLabel(text) {
+  return lineElement("span", { class: "player-btn-label" }, [text]);
+}
+
+function buildLineView(probeBar, stage) {
+  const lineOpen = lineButton({
+    class: "btn btn-outline-secondary player-line-open", "data-player-line-open": "",
+    "aria-haspopup": "dialog", "aria-controls": "puzzle-player-line", "aria-expanded": "false",
+    title: "Line", hidden: "",
+  }, [lineElement("span", { class: "player-compact-icon" }, [lineIcon("line")]), lineLabel("Line")]);
+  const probe = probeBar.querySelector("[data-player-probe]");
+  if (probe !== null) probe.after(lineOpen);
+  else probeBar.prepend(lineOpen);
+  const brush = [["filled", "Black"], ["empty", "White"], ["maybe", "Maybe"], ["unknown", "Clear"]].map(
+    ([state, name]) => lineButton({ "data-player-line-tool": state, "aria-pressed": "false", title: name },
+      [lineElement("span", { class: "player-swatch", "data-state": state, "aria-hidden": "true" }), lineLabel(name)]));
+  const lineDialog = lineElement("div", {
+    class: "player-line", id: "puzzle-player-line", role: "dialog", "aria-modal": "true",
+    "aria-labelledby": "puzzle-player-line-title", hidden: "",
+  }, [
+    lineElement("div", { class: "player-line-head" }, [
+      lineButton({ class: "btn btn-outline-secondary player-line-close", "data-player-line-action": "close",
+        title: "Back to the board" }, [lineIcon("left"), lineElement("span", {}, ["Board"])]),
+      lineElement("h2", { class: "player-line-title", id: "puzzle-player-line-title", "data-player-line-title": "" }),
+      lineElement("div", { class: "player-line-axis", role: "group", "aria-label": "Line direction" }, [
+        lineButton({ "data-player-line-axis": "row", "aria-pressed": "true" }, ["Rows"]),
+        lineButton({ "data-player-line-axis": "column", "aria-pressed": "false" }, ["Cols"]),
+      ]),
+    ]),
+    lineElement("div", { class: "player-line-map" }, [
+      lineButton({ class: "btn btn-outline-secondary player-line-step", "data-player-line-action": "prev",
+        "aria-label": "Previous line" }, [lineIcon("left")]),
+      lineSvg('<svg class="player-line-mini" data-player-line-mini role="img" '
+        + 'aria-label="The whole board. Tap it to choose a line." preserveAspectRatio="xMidYMid meet"></svg>'),
+      lineButton({ class: "btn btn-outline-secondary player-line-step", "data-player-line-action": "next",
+        "aria-label": "Next line" }, [lineIcon("right")]),
+    ]),
+    lineElement("p", { class: "player-line-clue", "data-player-line-clue": "" }),
+    lineElement("div", { class: "player-line-strips", "data-player-line-strips": "" }),
+    lineElement("div", { class: "player-line-tools" }, [
+      lineElement("div", { class: "player-line-brush", role: "group", "aria-label": "Brush" }, brush),
+      lineElement("div", { class: "player-line-history", role: "group", "aria-label": "History" }, [
+        lineButton({ "data-player-line-action": "undo", "aria-disabled": "true", title: "Undo" },
+          [lineIcon("undo"), lineLabel("Undo")]),
+        lineButton({ "data-player-line-action": "redo", "aria-disabled": "true", title: "Redo" },
+          [lineElement("span", { class: "player-mirror" }, [lineIcon("undo")]), lineLabel("Redo")]),
+      ]),
+    ]),
+    lineElement("p", { class: "player-line-tip" },
+      ["Tap or drag along the line to mark it. Long-press a cell to open the line that crosses it."]),
+  ]);
+  (stage.closest(".player-stage-wrap") ?? stage).after(lineDialog);
+  return { lineDialog, lineOpen };
+}
+
 function wireMarking(container, player) {
   const controls = document.getElementById("puzzle-player-controls");
   const trigger = document.getElementById("puzzle-player-tool-trigger");
@@ -2517,6 +2618,7 @@ function wireMarking(container, player) {
     // rung the reader is standing on visible across a resize.
     if (ladderLine !== null) paintLadderLine(ladderLine, true);
     syncProbe(); // CARD-268
+    syncLine(); // CARD-439
   }
 
   function commit(next, hint = null, replay = false) {
@@ -2580,6 +2682,7 @@ function wireMarking(container, player) {
     if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0)) return;
     const start = cellUnder(container, event.clientX, event.clientY);
     if (!start) return;
+    lastCell = start; // CARD-439: where Line opens
     // A mouse drag always marks (G-1); a touch or pen drag marks only while
     // Region is on (CARD-194 target behaviour #8/#10, the rule itself in
     // solver_state.js gesturePaints) — captured here, at pointerdown, like
@@ -3111,6 +3214,363 @@ function wireMarking(container, player) {
     event.preventDefault();
     commit(event.shiftKey ? step.redo() : step.undo(), null, true);
   });
+
+  // LINE FOCUS (CARD-439, owner request 2026-11-12; split strips by the
+  // owner's ruling the same day). One row or column of the board drawn large
+  // in a dialog over the page (#puzzle-player-line), for a big board on a
+  // phone whose cells are smaller than a fingertip:
+  //
+  //   entry     the Line button on the probe line, shown only while the
+  //             compact query matches AND the board is at least LINE_MIN_SIDE
+  //             on its longer side AND the board is not solved. It opens the
+  //             row of the last cell touched on the board (row 1 before any).
+  //   the map   a mini board (an SVG, redrawn from the board on every
+  //             refresh) with the focused line outlined. A tap on it focuses
+  //             the row or column under the finger, along the current axis;
+  //             the two arrow buttons step to the previous/next line, and the
+  //             Rows/Cols toggle switches axis through the last cell touched
+  //             in the view (or the line's first cell).
+  //   the line  the clue (each number circled exactly as on the board —
+  //             circledNumbers) and the cells as one or two strips
+  //             (lineStrips). Tap, repeat-tap and drag follow the board's own
+  //             rules (clickStroke with the same `lastClick` repeat rule,
+  //             dragStroke along the line) and ALWAYS mark: a strip has
+  //             nothing to scroll, so Region has nothing to decide here.
+  //             A press held LONG_PRESS_MS without moving marks nothing and
+  //             pivots instead: the view focuses the line that crosses the
+  //             line at that cell (crossingLine), with that cell marked.
+  //   marks     every change is an ordinary recorded stroke through commit()
+  //             — the save, the probe, the hint ladder, Hint and Check all see
+  //             it exactly as a mark made on the board. The brush buttons set
+  //             the board's own brush; Undo and Redo are the board's.
+  //   leaving   the Board button, Escape, or the board becoming solved (so the
+  //             celebration is seen). Nothing about the view is saved.
+  //
+  // The view's markup is BUILT here (buildLineView), and only for a board
+  // that can be offered it, rather than written in puzzle_solve.html: a page
+  // for a small board, and the manual editor's page (no probe line), carry
+  // none of it, so every census of that page's controls and computed styles
+  // (tests/test_player_base_css.py's FROZEN sample, the public sweep's
+  // control census) reads exactly the page it read before this card.
+  const lineBoard = player.getHistory().board;
+  const { lineDialog, lineOpen } = probeBar !== null
+    && Math.max(lineBoard.width, lineBoard.height) >= LINE_MIN_SIDE
+    ? buildLineView(probeBar, container) : { lineDialog: null, lineOpen: null };
+  const compactQuery = window.matchMedia("(max-width: 600px), (max-height: 500px)");
+  const LONG_PRESS_MS = 450;
+  // The last board cell a pointer went down on ([row, col]) — where Line opens.
+  let lastCell = null;
+  // The focused line, {axis, index}, while the dialog is open; null otherwise.
+  let focused = null;
+  // The cell (index along the line) a long press pivoted onto, or the last
+  // cell touched in the view: the Rows/Cols toggle pivots through it.
+  let focusAt = null;
+  // The strip gesture: { pointerId, start, path, moved, timer, pivoted }.
+  let lineGesture = null;
+  const lineParts = lineDialog === null ? null : {
+    title: lineDialog.querySelector("[data-player-line-title]"),
+    mini: lineDialog.querySelector("[data-player-line-mini]"),
+    clue: lineDialog.querySelector("[data-player-line-clue]"),
+    strips: lineDialog.querySelector("[data-player-line-strips]"),
+    axes: [...lineDialog.querySelectorAll("[data-player-line-axis]")],
+    tools: [...lineDialog.querySelectorAll("[data-player-line-tool]")],
+    action: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-action]")]
+      .map((b) => [b.dataset.playerLineAction, b])),
+  };
+
+  function lineOffered() {
+    if (lineDialog === null || lineOpen === null) return false;
+    const { width, height } = player.getHistory().board;
+    return compactQuery.matches && Math.max(width, height) >= LINE_MIN_SIDE && !player.locked();
+  }
+
+  function lineCount(axis) {
+    const { width, height } = player.getHistory().board;
+    return axis === "row" ? height : width;
+  }
+
+  // Everything the dialog shows is redrawn from the CURRENT board (or a drag's
+  // preview, `shown`) — the view keeps no copy of any cell.
+  function drawLine(shown = player.getHistory().board) {
+    const { axis, index } = focused;
+    const cells = lineOf(shown, axis, index);
+    const clue = (axis === "row" ? player.clues.rows : player.clues.columns)[index];
+    const name = axis === "row" ? "Row" : "Column";
+    lineParts.title.textContent = `${name} ${index + 1} of ${lineCount(axis)}`;
+    lineDialog.dataset.axis = axis;
+    for (const button of lineParts.axes) {
+      button.setAttribute("aria-pressed", String(button.dataset.playerLineAxis === axis));
+    }
+    lineParts.action.prev.setAttribute("aria-label", `Previous ${name.toLowerCase()}`);
+    lineParts.action.next.setAttribute("aria-label", `Next ${name.toLowerCase()}`);
+    lineParts.action.prev.setAttribute("aria-disabled", String(index === 0));
+    lineParts.action.next.setAttribute("aria-disabled", String(index === lineCount(axis) - 1));
+    // The clue, its numbers circled as the board circles them.
+    const circled = circledNumbers(clue, cells);
+    lineParts.clue.replaceChildren(...clue.map((value, k) => {
+      const number = document.createElement("span");
+      number.className = "player-line-num";
+      number.classList.toggle("is-circled", circled[k]);
+      number.textContent = String(value);
+      return number;
+    }));
+    lineParts.clue.setAttribute("aria-label", `Clue: ${clue.join(" ")}`);
+    // The strips: rebuilt only when the line's length changes, repainted always.
+    const strips = lineStrips(cells.length);
+    const key = strips.join("+");
+    if (lineParts.strips.dataset.split !== key) {
+      lineParts.strips.dataset.split = key;
+      lineParts.strips.style.setProperty("--player-line-across", String(Math.max(...strips)));
+      let first = 0;
+      lineParts.strips.replaceChildren(...strips.map((length) => {
+        const strip = document.createElement("div");
+        strip.className = "player-line-strip";
+        strip.style.setProperty("--player-line-length", String(length));
+        for (let k = first; k < first + length; k += 1) {
+          const cell = document.createElement("span");
+          cell.className = "player-line-cell";
+          cell.dataset.index = String(k);
+          cell.classList.toggle("is-major", k % 5 === 0 && k !== first);
+          const label = document.createElement("span");
+          label.className = "player-line-index";
+          label.setAttribute("aria-hidden", "true");
+          if ((k + 1) % 5 === 0 || k === first) label.textContent = String(k + 1);
+          cell.append(label);
+          strip.append(cell);
+        }
+        first += length;
+        return strip;
+      }));
+    }
+    for (const cell of lineParts.strips.querySelectorAll(".player-line-cell")) {
+      const k = Number(cell.dataset.index);
+      cell.dataset.state = cells[k];
+      cell.classList.toggle("is-pivot", k === focusAt);
+      cell.setAttribute("aria-label", `${k + 1}: ${BRUSH_LABEL[cells[k]] === "Clear" ? "empty" : BRUSH_LABEL[cells[k]]}`);
+    }
+    drawMini(shown);
+    for (const button of lineParts.tools) {
+      button.setAttribute("aria-pressed", String(button.dataset.playerLineTool === tool));
+    }
+    const { done, undone } = player.getHistory();
+    lineParts.action.undo.setAttribute("aria-disabled", String(done.length === 0));
+    lineParts.action.redo.setAttribute("aria-disabled", String(undone.length === 0));
+  }
+
+  // The mini board: the whole board, the focused line outlined.
+  function drawMini(shown) {
+    // An SVG of the whole board: one rect per decided cell, classed by its
+    // state, so every colour is admin.css's (a themed page draws a themed
+    // map) and the drawing scales with no pixel arithmetic here.
+    const { width, height } = shown;
+    const { axis, index } = focused;
+    const parts = [`<rect class="player-line-mini-paper" width="${width}" height="${height}"/>`];
+    const kinds = { [FILLED]: "filled", [EMPTY]: "empty", [MAYBE]: "maybe" };
+    for (let row = 0; row < height; row += 1) {
+      for (let col = 0; col < width; col += 1) {
+        const kind = kinds[shown.cells[row * width + col]];
+        if (kind !== undefined) {
+          parts.push(`<rect class="player-line-mini-${kind}" x="${col}" y="${row}" width="1" height="1"/>`);
+        }
+      }
+    }
+    const rules = [];
+    for (let k = 5; k < width; k += 5) rules.push(`M${k} 0V${height}`);
+    for (let k = 5; k < height; k += 5) rules.push(`M0 ${k}H${width}`);
+    if (rules.length > 0) parts.push(`<path class="player-line-mini-rule" d="${rules.join("")}"/>`);
+    parts.push(axis === "row"
+      ? `<rect class="player-line-mini-focus" x="0" y="${index}" width="${width}" height="1"/>`
+      : `<rect class="player-line-mini-focus" x="${index}" y="0" width="1" height="${height}"/>`);
+    lineParts.mini.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    lineParts.mini.innerHTML = parts.join("");
+  }
+
+  // The map is sized by CSS from the board's aspect ratio; this sets that
+  // ratio. Called on open (the board's extent never changes while open).
+  function sizeMini() {
+    const { width, height } = player.getHistory().board;
+    lineParts.mini.style.setProperty("--player-line-aspect", `${width} / ${height}`);
+  }
+
+  function focusLine(axis, index, at = null) {
+    focused = { axis, index: Math.max(0, Math.min(lineCount(axis) - 1, index)) };
+    focusAt = at;
+    lastClick = null; // a different line is an input: the next tap is a first tap
+    drawLine();
+  }
+
+  function openLine() {
+    if (!lineOffered() || focused !== null) return;
+    closeMenu();
+    closeOffer();
+    const [row] = lastCell ?? [0, 0];
+    lineDialog.hidden = false;
+    document.documentElement.classList.add("is-line-open");
+    lineOpen.setAttribute("aria-expanded", "true");
+    sizeMini();
+    focusLine("row", row, lastCell === null ? null : lastCell[1]);
+    lineParts.action.close.focus();
+  }
+
+  function closeLine() {
+    if (focused === null) return;
+    cancelLineGesture();
+    focused = null;
+    focusAt = null;
+    lineDialog.hidden = true;
+    document.documentElement.classList.remove("is-line-open");
+    lineOpen.setAttribute("aria-expanded", "false");
+    if (!lineOpen.hidden) lineOpen.focus();
+  }
+
+  // Called from refresh(): the button follows the offer, and an open view
+  // follows the board (or closes, once the board is solved).
+  function syncLine() {
+    if (lineDialog === null) return;
+    const offered = lineOffered();
+    if (lineOpen !== null) lineOpen.hidden = !offered;
+    if (focused === null) return;
+    if (!offered) {
+      closeLine();
+      return;
+    }
+    drawLine();
+  }
+
+  function stripIndexAt(x, y) {
+    const element = document.elementFromPoint(x, y)?.closest(".player-line-cell");
+    if (!element || !lineParts.strips.contains(element)) return null;
+    return Number(element.dataset.index);
+  }
+
+  function cancelLineGesture() {
+    if (lineGesture === null) return;
+    clearTimeout(lineGesture.timer);
+    lineGesture = null;
+    player.show(player.getHistory().board);
+  }
+
+  function linePreview() {
+    const { axis, index } = focused;
+    const stroke = dragStroke(linePosition(axis, index, lineGesture.start),
+      lineGesture.path.map((k) => linePosition(axis, index, k)), lineGesture.tool);
+    return applyStroke(player.getHistory().board, stroke);
+  }
+
+  if (lineDialog !== null && lineOpen !== null) {
+    lineOpen.setAttribute("aria-expanded", "false");
+    lineOpen.addEventListener("click", openLine);
+    lineParts.action.close.addEventListener("click", closeLine);
+    lineDialog.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeLine();
+    });
+    for (const [name, step] of [["prev", -1], ["next", 1]]) {
+      lineParts.action[name].addEventListener("click", () => {
+        if (focused === null || lineGesture !== null) return;
+        focusLine(focused.axis, focused.index + step, focusAt);
+      });
+    }
+    for (const button of lineParts.axes) {
+      button.addEventListener("click", () => {
+        if (focused === null || lineGesture !== null) return;
+        const axis = button.dataset.playerLineAxis;
+        if (axis === focused.axis) return;
+        // Switch through the cell last touched here: its crossing line.
+        const crossing = crossingLine(focused.axis, focused.index, focusAt ?? 0);
+        focusLine(crossing.axis, crossing.index, crossing.at);
+      });
+    }
+    lineParts.mini.addEventListener("click", (event) => {
+      if (focused === null) return;
+      const box = lineParts.mini.getBoundingClientRect();
+      const { width, height } = player.getHistory().board;
+      const cell = Math.min(box.width / width, box.height / height);
+      const col = Math.floor((event.clientX - box.left) / cell);
+      const row = Math.floor((event.clientY - box.top) / cell);
+      if (col < 0 || row < 0 || col >= width || row >= height) return;
+      if (focused.axis === "row") focusLine("row", row, col);
+      else focusLine("column", col, row);
+    });
+    for (const button of lineParts.tools) {
+      button.addEventListener("click", () => {
+        tool = button.dataset.playerLineTool;
+        lastClick = null;
+        syncTrigger();
+        refresh();
+      });
+    }
+    for (const name of ["undo", "redo"]) {
+      lineParts.action[name].addEventListener("click", () => {
+        if (gesture || lineGesture) return;
+        commit(step[name](), null, true);
+      });
+    }
+    // The strip's own pointer handling: it always marks (see LINE FOCUS).
+    lineParts.strips.addEventListener("contextmenu", (event) => event.preventDefault());
+    lineParts.strips.addEventListener("pointerdown", (event) => {
+      if (focused === null || lineGesture !== null || player.locked()) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const start = stripIndexAt(event.clientX, event.clientY);
+      if (start === null) return;
+      event.preventDefault();
+      lineParts.strips.setPointerCapture(event.pointerId);
+      focusAt = start;
+      const pressed = { pointerId: event.pointerId, start, path: [], moved: false, tool, pivoted: false };
+      pressed.timer = setTimeout(() => {
+        if (lineGesture !== pressed || pressed.moved) return;
+        // The pivot: no mark, the crossing line instead.
+        lineGesture = null;
+        lastClick = null;
+        const crossing = crossingLine(focused.axis, focused.index, start);
+        focusLine(crossing.axis, crossing.index, crossing.at);
+        // The live region only: the visible answer line sits under the dialog.
+        announce.textContent = `${crossing.axis === "row" ? "Row" : "Column"} ${crossing.index + 1}`;
+      }, LONG_PRESS_MS);
+      lineGesture = pressed;
+      drawLine();
+    });
+    lineParts.strips.addEventListener("pointermove", (event) => {
+      if (lineGesture === null || event.pointerId !== lineGesture.pointerId) return;
+      const k = stripIndexAt(event.clientX, event.clientY);
+      const previous = lineGesture.path.at(-1) ?? lineGesture.start;
+      if (k === null || k === previous) return;
+      lineGesture.path.push(k);
+      if (k !== lineGesture.start) lineGesture.moved = true;
+      if (!lineGesture.moved) return;
+      clearTimeout(lineGesture.timer);
+      const preview = linePreview();
+      player.show(preview);
+      drawLine(preview);
+    });
+    lineParts.strips.addEventListener("pointerup", (event) => {
+      if (lineGesture === null || event.pointerId !== lineGesture.pointerId) return;
+      const done = lineGesture;
+      clearTimeout(done.timer);
+      lineGesture = null;
+      const { axis, index } = focused;
+      const history = player.getHistory();
+      if (done.moved) {
+        commit(record(history, dragStroke(linePosition(axis, index, done.start),
+          done.path.map((k) => linePosition(axis, index, k)), done.tool)));
+        return;
+      }
+      const [row, col] = linePosition(axis, index, done.start);
+      const repeat = lastClick !== null && lastClick.row === row && lastClick.col === col
+        && lastClick.tool === done.tool;
+      commit(record(history, clickStroke(history.board, row, col, done.tool, repeat)));
+      lastClick = { row, col, tool: done.tool };
+    });
+    lineParts.strips.addEventListener("pointercancel", (event) => {
+      if (lineGesture === null || event.pointerId !== lineGesture.pointerId) return;
+      cancelLineGesture();
+      lastClick = null;
+      drawLine();
+    });
+    compactQuery.addEventListener("change", refresh);
+    window.addEventListener("resize", () => { if (focused !== null) drawLine(); });
+  }
 
   syncTrigger();
   refresh();

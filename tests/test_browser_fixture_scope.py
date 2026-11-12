@@ -219,6 +219,11 @@ ALONE_PROBES = (
     "tests/test_puzzle_solver_solved_reveal.py::"
     "TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce::"
     "test_a_real_solve_reveals_the_picture",
+    # CARD-439's file postdates ALONE_RECORD too. This is its test that
+    # leaves the most behind: three recorded strokes in the localStorage save
+    # it counts, and the brush it changes through the view.
+    "tests/test_puzzle_solver_line.py::"
+    "TestSolverLine_MarksAreTheBoardsMarks::test_tap_repeat_tap_drag_and_undo[chromium]",
 )
 
 #: Wall clock each child pytest below is allowed. The dearest of them is an
@@ -2167,6 +2172,51 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "the same measurement at the width where the open bar WRAPS, which "
         "is where the margin is thinnest: 0 px closed, 7 px open, against a "
         "half-cell of 7.20"
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_ALongPressOpensTheCrossingLine::test_row_to_column_marks_nothing[chromium]": (
+        "CARD-439", "AC-5: a long press on a strip cell focuses the crossing line at that cell and marks nothing",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone::test_a_big_board_on_a_phone_offers_it[chromium-390x844]": (
+        "CARD-439", "AC-1: the Line button is offered for a 30 x 30 on a portrait phone",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone::test_a_big_board_on_a_phone_offers_it[chromium-844x390]": (
+        "CARD-439", "AC-1: the Line button is offered for a 30 x 30 on a landscape phone",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone::test_elsewhere_it_is_not_drawn[chromium-15x15-phone]": (
+        "CARD-439", "AC-1: no Line button for a 15 x 15, even on a phone",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone::test_elsewhere_it_is_not_drawn[chromium-30x30-desktop]": (
+        "CARD-439", "AC-1: no Line button on a desktop, even for a 30 x 30",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_MarksAreTheBoardsMarks::test_a_drag_crosses_from_one_strip_to_the_other[chromium]": (
+        "CARD-439", "AC-3: a drag in the view marks across the split between the two strips",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_MarksAreTheBoardsMarks::test_tap_repeat_tap_drag_and_undo[chromium]": (
+        "CARD-439", "AC-3: tap, repeat tap and drag in the view are the board's recorded, saved strokes, and Undo takes them back",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_MarksAreTheBoardsMarks::test_the_arrows_and_the_mini_board_choose_the_line[chromium]": (
+        "CARD-439", "AC-3: the arrows, the mini board and the Rows/Cols toggle choose the focused line",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_OpensAtTheLastCellTouched::test_row_one_then_the_touched_row[chromium]": (
+        "CARD-439", "AC-2: Line opens row 1, then the row of the last board cell touched; Escape and Board close it",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_SolvingClosesTheView::test_the_last_cell[chromium]": (
+        "CARD-439", "AC-6: the stroke that solves the board closes the view",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_TheLineIsSplitInTwo::test_the_strips_fit_the_phone[chromium-20-column]": (
+        "CARD-439", "AC-4: a 20-cell column is split 10 + 10 and fits a 390 px phone",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_TheLineIsSplitInTwo::test_the_strips_fit_the_phone[chromium-25-row]": (
+        "CARD-439", "AC-4: a 25-cell row is split 15 + 10 and fits a 390 px phone",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_TheLineIsSplitInTwo::test_the_strips_fit_the_phone[chromium-30-row]": (
+        "CARD-439", "AC-4: a 30-cell row is split 15 + 15 and fits a 390 px phone",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_ThePublicPlayerOffersItToo::test_a_mark_in_the_public_player[chromium]": (
+        "CARD-439", "AC-7: the public player offers the same view, and its mark is saved",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_ThePureHelpers::test_the_split_and_the_pivot": (
+        "CARD-439", "the pure lineStrips/crossingLine/lineOf/linePosition, from the page's own module",
     ),
 }
 

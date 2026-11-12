@@ -2081,3 +2081,90 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-tool-menu { position: fixed; top: auto; left: auto; margin-top: calc(44px + var(--space-2)); }
   .player-toolbar:has(~ .player-stage-wrap) .player-confirm { position: fixed; top: var(--space-4); right: var(--space-4); left: auto; }
 }
+
+/* CARD-439 (owner request 2026-11-12; split strips by the owner's ruling the
+   same day): the line focus view — one row or column of the board, large,
+   over the whole page. solver.js offers it (the Line button) on a compact
+   screen only, so every rule below is only ever seen there. Colours are the
+   page's tokens, so a themed page draws a themed view. */
+.player-line-open[hidden] { display: none; }
+.player-line {
+  position: fixed; inset: 0; z-index: 1050;
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  background: var(--color-bg); color: var(--color-text);
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.player-line[hidden] { display: none; }
+html.is-line-open, html.is-line-open body { overflow: hidden; }
+.player-line .btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); }
+.player-line .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.player-line-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.player-line-title { margin: 0; font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-tight); white-space: nowrap; }
+.player-line-axis { display: flex; flex: none; }
+.player-line-axis .btn { padding: 0 var(--space-3); border-radius: 0; }
+.player-line-axis .btn:first-child { border-radius: 22px 0 0 22px; }
+.player-line-axis .btn:last-child { border-radius: 0 22px 22px 0; margin-left: calc(-1 * var(--border-width)); }
+.player-line-axis .btn[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+.player-line-map { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+.player-line-step { flex: none; width: 44px; padding: 0; border-radius: 22px; }
+/* One pair of arrow icons, left/right; a row steps up/down, so they turn. */
+.player-line[data-axis="row"] .player-line-step .icon { transform: rotate(90deg); }
+.player-line-mini {
+  --player-line-aspect: 1;
+  display: block; flex: none; aspect-ratio: var(--player-line-aspect); height: auto; overflow: visible;
+  width: min(calc(100vw - 2 * var(--space-4) - 2 * (44px + var(--space-3))), 32svh);
+  border: var(--border-width) solid var(--color-border-strong); background: var(--grid-paper);
+  cursor: pointer; touch-action: manipulation;
+}
+/* The map's drawing (solver.js drawMini): one rect per decided cell. */
+.player-line-mini-paper { fill: var(--grid-paper); }
+.player-line-mini-filled { fill: var(--grid-ink); }
+.player-line-mini-empty { fill: color-mix(in srgb, var(--color-border-strong) 28%, var(--grid-paper)); }
+.player-line-mini-maybe { fill: color-mix(in srgb, var(--color-accent) 45%, var(--grid-paper)); }
+.player-line-mini-rule { fill: none; stroke: color-mix(in srgb, var(--grid-ink) 35%, var(--grid-paper)); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.player-line-mini-focus { fill: color-mix(in srgb, var(--color-accent) 22%, transparent); stroke: var(--color-accent); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.player-line-clue { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin: var(--space-1) 0 0; min-height: 44px; }
+.player-line-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 40px; height: 44px; padding: 0 var(--space-2);
+  font-family: var(--font-num); font-size: 1.5rem; font-weight: 600; line-height: 1;
+  background: var(--color-surface); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-control);
+}
+/* A number the marks have settled — the board's circle, said as a strike. */
+.player-line-num.is-circled { color: var(--color-text-secondary); background: transparent; border-color: var(--color-border); text-decoration: line-through; }
+/* The strips: one width for every strip of a line (the longer one's cells),
+   so a 15 + 10 split keeps one cell size, both strips flush left. */
+.player-line-strips {
+  --player-line-across: 15; --player-line-cell-max: 48px;
+  display: flex; flex-direction: column; gap: calc(var(--space-3) + 1rem);
+  width: min(100%, calc(var(--player-line-across) * var(--player-line-cell-max))); margin: 0 auto;
+}
+.player-line-strip {
+  display: flex; align-self: flex-start;
+  width: calc(100% * var(--player-line-length, var(--player-line-across)) / var(--player-line-across));
+  border: var(--player-rule-major, 2px) solid var(--grid-ink); background: var(--grid-paper);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.player-line-cell { position: relative; flex: 1 1 0; min-width: 0; height: 48px; cursor: pointer; }
+.player-line-cell + .player-line-cell { border-left: var(--border-width) solid color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
+.player-line-cell.is-major { border-left: var(--player-rule-major, 2px) solid var(--grid-ink); }
+.player-line-cell[data-state="filled"] { background: var(--grid-ink); }
+.player-line-cell[data-state="empty"]::after { content: ""; position: absolute; inset: 0; width: 7px; height: 7px; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
+.player-line-cell[data-state="maybe"]::after { content: "?"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 600; line-height: 1; color: var(--color-accent); }
+.player-line-cell.is-pivot { outline: 3px solid var(--color-warning); outline-offset: -2px; z-index: 1; }
+.player-line-index { position: absolute; top: calc(100% + var(--space-1)); left: -4px; right: -4px; font-family: var(--font-num); font-size: var(--text-xs); line-height: 1; text-align: center; color: var(--color-text-secondary); pointer-events: none; }
+.player-line-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
+.player-line-brush, .player-line-history { display: flex; gap: var(--space-1); }
+.player-line-brush .btn[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: 0 0 0 var(--border-width) var(--color-accent); background: var(--color-accent-tint); }
+.player-line-tip { margin: auto 0 0; font-size: var(--text-xs); line-height: var(--leading-tight); color: var(--color-text-secondary); text-align: center; }
+/* A landscape phone: the map on the left, the line and its tools on the right. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .player-line { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr; column-gap: var(--space-5); row-gap: var(--space-2); }
+  .player-line-head { grid-column: 1 / -1; }
+  .player-line-map { grid-column: 1; grid-row: 2 / 6; align-self: start; flex-direction: column; }
+  .player-line-mini { width: auto; height: calc(100svh - 44px - 2 * 44px - 4 * var(--space-3) - var(--space-4)); max-width: 40vw; }
+  .player-line-clue, .player-line-strips, .player-line-tools, .player-line-tip { grid-column: 2; }
+  .player-line[data-axis="row"] .player-line-step .icon { transform: rotate(90deg); }
+  .player-line[data-axis="column"] .player-line-step .icon { transform: none; }
+}
