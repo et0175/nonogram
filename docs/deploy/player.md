@@ -492,6 +492,19 @@ CARD-439 is live and was verified present (seven `CARD-439` references in the se
 
 Not observed: a real phone, for the fifth publish record running — and line focus is the feature most about the hand: the long-press to open a line and a drag along the strip.
 
+**The line-polish publish, 2026-11-12 (the day's fifth).** Published from `main` at `155d72d6`, same curated bundle. One card, **CARD-440**, the owner's three requests after trying line focus live: the Line button before Hint, a "?" on the mini board no longer the green of the selected line, and a tutorial step. The promote waited for the owner's explicit "yes, publish" (the request itself asked for the changes, not the deploy).
+
+| Step | What was observed |
+| --- | --- |
+| What changed | `solver.js` `baa34f4eac8c` → **`71eee5594642`** (Line inserted before `.player-history [data-player-action="hint"]`, the probe line only as fallback); `admin.css` `9d310cb2f3cc` → **`3ce59ee8f375`** (`.player-line-mini-maybe` amber, `--color-warning` 55 %; while Line is offered at `max-width: 600px` the toolbar's column gap and the history group's gap are 4 px); `how-to-solve.js` → **`083cba6a0e6d`** and the page: step 5 "Big puzzles on a phone", levels now step 6; `player.css` → **`4f902f571108`** (`.hts-dots` one column per dot — `repeat(5)` put the sixth segment on a second row, caught on the first preview `nonogram-studio-o3jo3qr0e` and fixed before promoting). `solver_state.js` `171451de779f`, `tokens.css` `41cd8c918f84`, `base.css` `3f02fa5cd666` unchanged. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261112e`, no `--analytics`. 160 puzzles, one book landing. The five copied files, `how-to-solve.js` and `player.css` byte-identical to their sources; 160/160 puzzle files with exactly the five served fields; no goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-f1ej7f5jz`**. Seven hashes matched, five doors 200, `/nope` 404. |
+| Behaviour, on the preview and repeated on the live domain | 30 x 30 `/play/52603b6dee`, touch. **390x844 and 375x812:** Undo 121, Redo 169, Reset 217, Line 265, Hint 313 (all y 51, 44x44), toolbar 125 px — the height it had on `main` with one button fewer — no horizontal overflow. **360x780:** the history group wraps to its own row (toolbar 177 px, no overflow); it fitted on one row before this card. **844x390:** the strip reads Undo/Redo, Reset/Line, Hint. Line view with six "?" cells: map maybe fill `color(srgb 0.737 0.647 0.438)`, focus band `color(srgb 0.122 0.373 0.357 / 0.22)`. `/how-to-solve#5` captions "Step 5 of 6 · Big puzzles on a phone"; six progress segments on one row. No page error. |
+| Production | `vercel promote <the preview URL> --scope et0175s-projects --yes` created **`nonogram-studio-2f5g1875l`** (Ready). Live hashes matched on the first check; every figure above reproduced on `https://nonogram.adverax.io`. |
+| Rollback target | `nonogram-studio-1196mrvzr` (the joined-zoom publish, carrying CARD-439) still Ready. |
+
+Not observed: a real phone. The 4 px gaps between the toolbar's 44 px buttons are the thing to try with a thumb, and the step-5 wording is the owner's to judge.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
