@@ -211,9 +211,14 @@
 
   Zoom (CARD-195): a third toolbar group, after History and before the
   counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,
-  a plain (non-live) "100%" readout and a "Zoom in" button — 100% to 300% in
-  25-point steps on the buttons, continuous by a two-finger pinch on the
-  board — and down to Fit, the zoom that shows the whole board (CARD-406).
+  a "Zoom in" button and a plain (non-live) "100%" readout, in that order —
+  100% to 300% in 25-point steps on the buttons, continuous by a two-finger
+  pinch on the board — and down to Fit, the zoom that shows the whole board
+  (CARD-406). The readout follows the pair rather than standing between them
+  (CARD-429, owner ruling 2026-11-11: "Accept − + 100% everywhere"): focus
+  order is DOM order and cannot be set from CSS, and the landscape strip
+  draws the two steppers side by side (CARD-428), so this is the one order
+  in which what the eye reads and what Tab visits agree at every size.
   It is a view setting only: it changes no board state and is never saved.
   Every page load (a resume included) opens at 100%, except that a puzzle
   whose board does not fit at 100% opens at Fit on a compact screen
@@ -292,8 +297,8 @@
     </div>
     <div class="player-zoom" role="group" aria-label="Zoom">
         <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="out" aria-label="Zoom out" aria-disabled="true">&minus;</button>
-        <span class="player-zoom-readout" data-player-zoom-readout>100%</span>
         <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="in" aria-label="Zoom in" aria-disabled="false">+</button>
+        <span class="player-zoom-readout" data-player-zoom-readout>100%</span>
     </div>
     <div class="player-counters">
     <div class="player-counters-pair">

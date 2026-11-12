@@ -770,7 +770,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-history { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 /* Zoom (CARD-195): a third group, after .player-history and before
    .player-counters (G-6 — the DOM order and Tab-order tests check this).
-   The readout is a plain <span>, not a live region (target behaviour #3). */
+   Its three members are the minus, the plus and then the readout (CARD-429,
+   owner ruling 2026-11-11: "Accept − + 100% everywhere"); this rule draws
+   them in that DOM order, which is focus order too, and the landscape grid
+   below draws the same order in two rows. The readout is a plain <span>,
+   not a live region (target behaviour #3). */
 .player-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
 /* Narrower side padding than the toolbar's other buttons (like
    .player-tool-trigger above): "-"/"+" are single glyphs, and the group
@@ -2013,12 +2017,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      group has THREE members and this strip is TWO columns wide, so while
      the group was display: contents (it was in the grouped rule above until
      this card) its children flowed into the strip's grid and wrapped 2 + 1
-     — the readout beside the minus and the plus orphaned on the next row,
-     which put the two halves of one stepper on different rows. So the group
-     was taken OUT of that list — this is its only display declaration in
-     the block, not a later override of one at equal specificity (review
-     cycle 1, F-002) — and it keeps its box here as its own two-column grid,
-     spanning the strip the way the brush slot and the counters do: the
+     — the readout, which then stood between the steppers in the DOM, took
+     the second column beside the minus and orphaned the plus on the next
+     row, which put the two halves of one stepper on different rows.
+     CARD-429 has since moved the readout after the plus, and that does NOT
+     make these rules redundant: back in the display: contents list the
+     group would be auto-placed from wherever the groups before it left the
+     two columns, so the pair's row would depend on them and the readout
+     would take one 44 px column instead of spanning; dropped altogether,
+     the group falls back to the flex row above inside ONE 44 px column —
+     measured at 844 x 390, all three stacked at x 312, tops 292, 340 and
+     388, the pair parted again. So the group was taken OUT of that list —
+     this is its only display declaration in the block, not a later
+     override of one at equal specificity (review cycle 1, F-002) — and it
+     keeps its box here as its own two-column grid, spanning the strip the
+     way the brush slot and the counters do: the
      pair side by side on one row, the readout — which is also the Fit
      button (solver.js's syncZoom gives it role=button while there is a Fit
      to go to) and so the member a full-width row suits — on the row below,
