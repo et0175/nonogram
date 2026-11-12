@@ -34,3 +34,4 @@ In the compact layout (`max-width: 600px` or `max-height: 500px`) `.player-head 
 - **AC-1** *Given* a compact portrait viewport, *then* the puzzle's heading computes to 20 px and the landscape strip's to 16 px. (test: the player set's existing phone and geometry cells, re-pointed where they measured the old heading)
 
 ## Worktree notes
+- **[Gate, 2026-11-12]** Player set: 1396 passed, 5 red, all the intended consequence: the 20 px heading gives the board 13 px more height, and four cells pin the stage's measured overflow and port (`TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted` 390x844 and 600x844; `TestSolverPhone_MirroredGutterSticks` both cells) — re-pointed to the new measurements with the old ones kept in their history comments; the base-css FROZEN table re-recorded (green against the real Bootstrap and the project stylesheet). After: clues, phone and base-css 110 passed.
