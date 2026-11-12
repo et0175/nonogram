@@ -1,6 +1,6 @@
 # CARD-424: The brush menu's four options are 142 x 36 px — the one tap target the compact floor does not reach
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** ux-polish
 **Estimate:** 1c (0.5d)
@@ -21,9 +21,9 @@
 <!-- Derived 2026-11-11 from where the measured behaviour lives: `.player-tool-item`'s own rule in admin.css, and the brush-menu module that already drives the menu open at 390 px. `tests/test_player_base_css.py`'s FROZEN[390] records the four options' `min-height` and WILL move if this lands — name it in the brief and re-record it the way CARD-423 did (the real Bootstrap is the pinned URL in `src/nonogram/admin/templates/base.html`, sha256 7f1d37f0…, and the two-step certification is in CARD-423's Worktree notes). Nothing under `player/`: admin.css is in COPIED_FROM_ADMIN. -->
 **Review score:** 9.5 (cycle 3)
 **Started:** 2026-11-11T20:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-12T08:35:00Z
+**Actual:** 3 review cycles + 2 fix rounds (wall clock excluded, owner ruling)
+**Merge commit:** c5792aed
 **Blocked by:** —
 
 ## Why this card exists
@@ -129,3 +129,7 @@ Also corrected in passing: the review's count of `44px` in `admin.css` (10) was 
 - [Review 3/3] Score: 9.5 — all three verdicts `pass`, **0 critical, 0 important**, 3 minor. Report `meta/review/20261112T053143Z-CARD-424-cycle3.yml`. **[Severity gate]** PASS. Its verdict in its own words: *"the behaviour was right from commit one, and this round is the first in which the prose matches the measurement in every shipped home and every figure re-derives under its own named command… close it."* It grepped the six touched files for every refuted phrase (`or a pen`, `correctly skips`, `runs no such default`, `focus fixup`, `5.5-6.0`, `17x`) and found hits only where the old sentence is quoted in order to be refuted; it re-derived `grep -o 44px | wc -l` = 18 with the comment's own four identified by line; and it added two mutants aimed at what this round introduced rather than re-running the earlier set — the dropped restore now reds in **4.66 s** with `('1440x900', [262, 212.78125])` and `assert '' == 'puzzle-player-tool-trigger'`, and the ordinary regression still reds in **1.5 s**.
 - **[Lesson, and it is about how I ran this card, not about the code.]** Cycle 3's third minor: `solver.js` now carries **115 comment lines above a 12-line handler**, about 22 of them added in the last round for zero behaviour change, several narrating the review itself ("that sentence stood here for one cycle and the trajectory refutes it"). That is a permanent read cost on a file with 147 commits in twelve months, and it is the direct product of my demanding a prose correction three times over. **Review archaeology belongs in the card and the review report, not in the source.** The rule to carry forward: when a fix round's whole content is "this sentence was wrong", the correction replaces the sentence — it does not append the history of the sentence. Trim opportunistically when the file is next open for a real change; not now, because a fourth pass over these comments would be the same mistake again.
 - **[Known, deliberately not fixed]** `PROVENANCE`'s numbering convention is on its third rewrite and still not obeyed by its own sentence (it declares indices 0-based and bracketed, then writes the census rows as `"05".."08"`, which are 0-based and unbracketed). Every figure around it re-derives correctly. Cycle 3's own instruction: fold the exemption in next time the file is opened, and **do not let it buy a fourth cycle**. Recorded here so the next editor sees it rather than rediscovering it.
+
+- **[Rebase onto CARD-427] three conflicts, all the same line, and the table itself never collided.** CARD-427 merged first and had re-recorded row 27 of the same frozen census. The two cards' table edits are disjoint — this card owns rows 05-08 at 390, CARD-427 owns row 27 at both widths — but both append their account to the **single `PROVENANCE["recorded"]` comment line**, and because each of this card's three commits rewrote its own half of that note, the same line conflicted once per commit. Each resolution kept this card's newest text and re-attached CARD-427's half at a marker. **The merged table was then certified rather than assumed:** sha256 of the pinned Bootstrap verified against `PROVENANCE`, the sha-matched branch run, **3 passed** — the merged table equals the real file's live measurement at both widths. A wrong hand-merge there would have passed an ordinary run and been invisible. Verified independently as well: `FROZEN[390]`'s four `player-tool-item` rows carry `44px`, `FROZEN[1280]`'s keep `36px`, and the offer row is `fixed` at both widths.
+- **[Build gate]** 146 files / 7569 tests after rebase: **7568 passed, 30 skipped, 13 deselected, 1 xfailed, 1 failed** (the pre-existing `test_book_pdf_memory` host-calibration red) in 26:18; run 2 of the lifted marked files 6 passed. **Clean on the first run** — no flake, and the 26-minute wall clock is the fast end of the range in which both of this session's flakes did NOT occur.
+- **[Done]** Merged `c5792aed` on the gates. Estimate 1c against 3 cycles, ratio 3.000 — equal to CARD-423's, the worst on the board, and for the same reason restated: the production change was one declaration, and everything after it was the record catching up with it. On this card specifically, three of the five rounds existed only to make prose match a measurement.
