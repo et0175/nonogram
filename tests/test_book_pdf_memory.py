@@ -160,6 +160,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import math
 import os
 import subprocess
 import sys
@@ -1917,25 +1918,44 @@ class TestMemoryGuard_StillFailsWhenTheExportItselfRegresses:
         assert f"{CORPUS_PAGE_COUNT}.00 page bitmaps" in str(refused.value)
 
     def test_an_export_that_retains_a_fraction_of_the_book_fails(self):
-        """Not only the absurd case: 20 of 307 pages retained is already red.
+        """Not only the absurd case: a FRACTION of the book retained is red.
 
         Measured against the export this host really costs, so the regression
-        is the retention and nothing else. 20 pages is 6.5 % of the book — two
-        orders of magnitude short of the list shape, and the bound still bites.
-        The smallest retention it bites on, from the same measurement, is
-        reported by the assertion below if it ever stops being far smaller
-        than the book.
+        is the retention and nothing else — a retention well short of the list
+        shape's every-page order of magnitude, and the bound still bites.
+
+        ``retained`` is DERIVED, not carried (CARD-437's wave, 2026-11-12).
+        It used to be the literal 20, written when this module's interior was
+        about 307 pages; CARD-202 packed the answer pages four-up and
+        :data:`CORPUS_PAGE_COUNT` fell to 198, whose tenth is 19.8 — so the
+        literal drifted out of its own window and this test reddened on every
+        card's gate. It reddened CORRECTLY: the upper bound exists to say
+        exactly that, and the message it printed is the one that diagnosed it.
+        The repair is to stop carrying the number.
+
+        The two clauses now say different things, deliberately. The lower one
+        is CONSTRUCTION — ``retained`` is the smallest retention this host's
+        bound bites on, rounded up, plus a page of margin, so it is the
+        TIGHTEST modest regression available rather than a comfortable one.
+        The upper one is the live ASSERTION: that such a retention is still a
+        small fraction of the book. If the window ever closes, the premise
+        that a fraction of the book is already caught has failed at this
+        corpus size, and the answer is to re-judge the guard — not to widen
+        the bound to fit.
         """
-        retained = 20
         real = _export_marginal_cost(
             _capped_child(STREAMING_SHAPE, SENTRY_MECHANISM),
             _habitable(SENTRY_MECHANISM),
         )
         smallest_caught = (CHILD_EXPORT_COST_BYTES - real) / PAGE_BITMAP_BYTES
-        assert smallest_caught < retained < CORPUS_PAGE_COUNT / 10, (
+        retained = math.ceil(smallest_caught) + 1
+        assert retained < CORPUS_PAGE_COUNT / 10, (
             f"on this host the bound first bites at {smallest_caught:.1f} "
-            f"retained pages of {CORPUS_PAGE_COUNT}; this test's {retained} is "
-            "no longer the modest regression it is written to be"
+            f"retained pages, so the smallest modest regression is {retained}, "
+            f"which is no longer under a tenth of this book's "
+            f"{CORPUS_PAGE_COUNT} pages: at this corpus size the premise that a "
+            "FRACTION of the book is already caught has failed. Re-judge the "
+            "guard; do not widen this bound to fit."
         )
         floor, regressed = self._floor_and_export(
             real + retained * PAGE_BITMAP_BYTES
