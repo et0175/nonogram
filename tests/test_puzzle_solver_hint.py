@@ -2809,6 +2809,19 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
             #    message narrower than a shrunk board would be unreadable,
             #    and the finding's complaint — a box twice the board and
             #    nearly the whole page — does not come back at 480 px.
+            # Cycle 1's second minor, recorded rather than left implicit: at
+            # 844 x 390 and 1280 x 720 the THIRD bound does not apply (its
+            # guard is `height == 900 or width == 390`), so the only live
+            # width bound at those two sizes is the 60%-of-page one — a box
+            # of 768 px would be 1.7x the 444.02 px board at 1280 x 720 and
+            # this cell would still pass. It does not happen because the cap
+            # is ONE global `min(30rem, calc(100vw - 2 * var(--space-4)))`,
+            # so any regression that widens the box here also widens it at
+            # 1280 x 900, where bound 3 does bind and reds. That is a guard
+            # by COUPLING, not by assertion: it holds only while the cap
+            # stays global. A per-viewport cap would break the coupling
+            # silently, so whoever introduces one owes this cell a real
+            # per-size board bound.
             if box["width"] > box["vw"] - 32 + 0.5:
                 roomy.append((width, height, box))
             elif width >= 844 and box["width"] > 0.6 * box["vw"]:

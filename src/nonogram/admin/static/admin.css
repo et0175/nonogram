@@ -1160,6 +1160,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-explain {
   position: fixed; inset: 0; margin: auto; z-index: 1030;
   width: max-content; height: max-content;
+  /* `100vw` includes a classic scrollbar while this fixed box is laid out
+     in a containing block that excludes it, so below about 512 px on a
+     platform with non-overlay scrollbars the gutter could in principle be
+     short. Measured on this head: 358.00 against 358 at 390 px and 288.00
+     against 288 at 320 px, `scrollWidth` equal to the viewport everywhere.
+     Kept because it is this file's existing idiom — `.player-confirm` uses
+     the identical `min(22rem, calc(100vw - 2 * var(--space-4)))` — and a
+     lone divergence here would be the surprise, not the fix. */
   max-width: min(30rem, calc(100vw - 2 * var(--space-4)));
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm); line-height: var(--leading-base); color: var(--color-text);
