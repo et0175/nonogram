@@ -725,10 +725,16 @@ def test_the_probe_tint_comes_from_tokens() -> None:
         and ("data-probe" in line.split("{")[0] or "--player-probe" in line)
     ]
     assert [rule.split("{")[0].strip() for rule in rules] == [
-        ".player-stage",
+        ".player-stage, .player-line",
         ".player-cell[data-probe]",
         '.player-cell[data-probe][data-state="filled"]',
         ".player-cell.is-hinted[data-probe]",
+        # CARD-442: the same marker in the line view's strip (a cell, and a
+        # filled cell for the same 3.57:1 reason), and the map's outline
+        # colour (its geometry is a rule of its own, as the bar's layout is).
+        ".player-line-cell[data-probe]",
+        '.player-line-cell[data-probe][data-state="filled"]',
+        ".player-line-mini-probe",
     ], rules
     assert any(
         rule.startswith('.player-cell[data-probe][data-state="filled"]') for rule in rules
