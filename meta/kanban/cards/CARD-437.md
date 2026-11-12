@@ -1,6 +1,6 @@
 # CARD-437: The book page does not notice what you just played — coming back from a puzzle leaves every tile as it was
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** bug
 **Estimate:** 1c (0.25d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/437-book-progress-refresh
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-437
 **Source:** owner's play-test doc "Гра - тест", 2026-11-12, item 6: *"Refresh solved puzzles on the book even"*. Reproduced on production the same day; the measurement is below.
 **Idea:** —
 **Wave:** 79
@@ -20,7 +20,7 @@
 **Touches:** player/pages.js, tests/test_book_landing_page.py
 <!-- Derived 2026-11-12. readProgress, progressOf and SAVE_PREFIX are all in player/pages.js, which serves both /b/<slug> and /library — the library's tiles read the same saves and are in scope. tests/test_book_landing_page.py holds test_progress_comes_from_this_device_and_draws_the_readers_own_picture; tests/test_public_player_pages.py drives the library. Re-derive with scripts/impact_set.py --gate. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-12T12:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -63,3 +63,4 @@ The book page is where a reader sees what they have done — "Solved puzzles sho
 **Net test count: 0 added** — the cells exist; they assert the reload path and must assert the restore path instead, since the reload path is the one that never broke.
 
 ## Worktree notes
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`, so no `min_version` comparison was made. Start gate: `decision: gate`, command `./.venv/bin/python -m pytest` from `review.test_command`. Fork point: `e11c0af2` (interactive mode, target tip).
