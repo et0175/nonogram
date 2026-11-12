@@ -1,6 +1,6 @@
 # CARD-442: Probe inside the line view — see an open probe, and start, keep or abandon one from there
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, player/how-to-solve.html, tests/test_puzzle_solver_line.py, tests/test_browser_fixture_scope.py (ADDED_SINCE_BEFORE)
 **Review score:** — (no review cycle; owner request, 2026-11-12)
 **Started:** 2026-11-12T19:30Z
-**Closed:** —
+**Closed:** 2026-11-12T20:00Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 0b666a45
 **Blocked by:** —
 
 ## Why
