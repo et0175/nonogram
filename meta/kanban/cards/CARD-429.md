@@ -16,7 +16,7 @@
 **Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
-**Depends on:** CARD-426
+**Depends on:** CARD-426, CARD-424
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_zoom.py, tests/test_player_base_css.py
 <!-- Derived 2026-11-11. The markup is `puzzle_solve.html`'s `.player-zoom` group; `admin.css` only if a comment or a grid-area needs to follow (CARD-402's landscape block places the three children by explicit `grid-area`, so the visual result there must NOT move). `tests/test_player_base_css.py` is named because its FROZEN census enumerates elements in document order — moving one changes which row is which, and that is a re-record with the 26-second real-Bootstrap certification, not a one-field edit. Conflict edge: CARD-424 and CARD-427 are queued behind CARD-426 on the same stylesheet and script; this card touches the template, which none of them does. -->
 **Review score:** —
@@ -56,4 +56,5 @@ So the choice the owner was given was real and the cost is real: moving the read
 
 ## Worktree notes
 
-—
+- **[Ordering, 2026-11-11]** `Depends on:` names **CARD-424** as well — a serialization on one shared artefact, not a logical dependency. `tests/test_player_base_css.py`'s `FROZEN` census samples 29 elements **in document order**; CARD-424 changes rows 05-08's VALUES (`player-tool-item`'s height), and this card changes which row IS which, because it moves an element in that order. Two cards re-recording one frozen table would each have to redo the other's certification. `start` gates on this field, so the order holds without anyone re-reading the board.
+- **[This card's census work is a RE-RECORD, not a field edit]** — the distinction matters: a field edit changes one property of one row by its index in `PROPS`; moving an element renumbers rows from that point on. Re-record both widths and certify against the pinned Bootstrap, and read CARD-423's ordering trap first (the sha-matched assert fires BEFORE the printing branch, so patch from measured actuals, then certify).
