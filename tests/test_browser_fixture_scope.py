@@ -2212,6 +2212,15 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "tests/test_puzzle_solver_line.py::TestSolverLine_TheLineIsSplitInTwo::test_the_strips_fit_the_phone[chromium-30-row]": (
         "CARD-439", "AC-4: a 30-cell row is split 15 + 15 and fits a 390 px phone",
     ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_ReadsLikeTheBoard::test_ring_and_divider[chromium]": (
+        "CARD-441", "a settled number in the view is ringed, not struck; the heavy fifth rule shows between two black cells",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_ProbesInTheView::test_an_open_probe_shows_and_keep_keeps_it[chromium]": (
+        "CARD-442", "a probe open on the board shows in the view; marks in the view join it; Keep in the view keeps them",
+    ),
+    "tests/test_puzzle_solver_line.py::TestSolverLine_ProbesInTheView::test_a_wrong_guess_in_the_view_undoes_it_and_offers_the_other_colour[chromium]": (
+        "CARD-442", "Probe and Wrong guess from the view; the CARD-412 offer is on top of the view and Mark it marks",
+    ),
     "tests/test_puzzle_solver_line.py::TestSolverLine_ThePublicPlayerOffersItToo::test_a_mark_in_the_public_player[chromium]": (
         "CARD-439", "AC-7: the public player offers the same view, and its mark is saved",
     ),

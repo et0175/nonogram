@@ -334,6 +334,69 @@ class TestSolverLine_ReadsLikeTheBoard:
             context.close()
 
 
+def _probe_state(page) -> dict:
+    return page.evaluate("""() => ({
+      buttons: Object.fromEntries([...document.querySelectorAll('[data-player-line-probe]')]
+        .map((b) => [b.dataset.playerLineProbe, !b.hidden])),
+      strip: [...document.querySelectorAll('.player-line-cell[data-probe]')].map((c) => Number(c.dataset.index)),
+      board: [...document.querySelectorAll('.player-board tbody tr:first-child td.player-cell')]
+        .flatMap((c, k) => c.hasAttribute('data-probe') ? [k] : []),
+      mini: document.querySelectorAll('.player-line-mini-probe').length,
+    })""")
+
+
+@pytest.mark.browser
+class TestSolverLine_ProbesInTheView:
+    """CARD-442 — the probe (CARD-268) inside the line view: a probe already
+    open shows when the view opens, and one is started, kept and abandoned
+    from it with the probe bar's own transitions."""
+
+    def test_an_open_probe_shows_and_keep_keeps_it(self, browser, live) -> None:
+        context, page = _open_phone(browser, live, BIG)
+        try:
+            page.locator("#puzzle-player-probe").tap()
+            page.locator(".player-board tbody tr").first.locator("td.player-cell").nth(3).tap()
+            _open_line(page)
+            state = _probe_state(page)
+            assert state["buttons"] == {"open": False, "keep": True, "abandon": True}
+            assert state["strip"] == [3] and state["board"] == [3] and state["mini"] == 1
+            page.locator(_cell(7)).tap()
+            state = _probe_state(page)
+            assert state["strip"] == [3, 7] and state["board"] == [3, 7] and state["mini"] == 2
+            page.locator('[data-player-line-probe="keep"]').tap()
+            state = _probe_state(page)
+            assert state["buttons"] == {"open": True, "keep": False, "abandon": False}
+            assert state["strip"] == [] and state["board"] == []
+            assert _board_line(page, "row", 0)[3] == F and _board_line(page, "row", 0)[7] == F
+            assert page.locator("#puzzle-player-probe").is_visible()   # the bar closed with it
+        finally:
+            context.close()
+
+    def test_a_wrong_guess_in_the_view_undoes_it_and_offers_the_other_colour(self, browser, live) -> None:
+        context, page = _open_phone(browser, live, BIG)
+        try:
+            _open_line(page)
+            page.locator('[data-player-line-probe="open"]').tap()
+            assert page.locator("#puzzle-player-probe").is_hidden()    # the bar opened with it
+            page.locator(_cell(20)).tap()
+            assert _probe_state(page)["strip"] == [20]
+            page.locator('[data-player-line-probe="abandon"]').tap()
+            assert _board_line(page, "row", 0)[20] == U
+            assert _probe_state(page)["strip"] == []
+            offer = page.locator("#puzzle-player-offer")
+            assert offer.is_visible()
+            assert "row 1, column 21 must be white" in offer.text_content()
+            box = offer.bounding_box()
+            assert page.evaluate("([x, y]) => !!document.elementFromPoint(x, y)?.closest('#puzzle-player-offer')",
+                                 [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2])
+            assert page.locator(f"{_cell(20)}.is-offered").count() == 1
+            page.locator('[data-player-offer="mark"]').tap()
+            assert _board_line(page, "row", 0)[20] == E
+            assert offer.is_hidden() and _dialog(page).is_visible()
+        finally:
+            context.close()
+
+
 @pytest.mark.browser
 class TestSolverLine_ALongPressOpensTheCrossingLine:
     """AC-5."""

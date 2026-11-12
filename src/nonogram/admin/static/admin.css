@@ -1780,7 +1780,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 [data-player-probe-action="keep"] .player-probe-glyph { color: var(--color-success); }
 [data-player-probe-action="abandon"] .player-probe-glyph { color: var(--color-danger); }
 .player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
-.player-stage { --player-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
+.player-stage, .player-line { --player-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
 .player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
 .player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
@@ -1791,14 +1791,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    crosshair's and the hint line's ground on the clue box (same specificity,
    later in the file): a broken line is the louder fact, and the hint keeps
    its cells and its pulse ring. Tokens and token-only color-mix() only. */
-.player-stage { --player-broken: color-mix(in srgb, var(--color-danger) 31%, var(--color-danger-tint)); }
+.player-stage, .player-line { --player-broken: color-mix(in srgb, var(--color-danger) 31%, var(--color-danger-tint)); }
 .player-clue.is-broken { background: var(--player-broken); color: var(--color-danger-hover); }
-.btn[data-player-probe-action].is-flagged { border-color: var(--color-danger); color: var(--color-danger); box-shadow: 0 0 0 var(--border-width) var(--color-danger); animation: player-flag-in calc(8 * var(--duration-base)) var(--ease); }
+.btn[data-player-probe-action].is-flagged, .btn[data-player-line-probe].is-flagged { border-color: var(--color-danger); color: var(--color-danger); box-shadow: 0 0 0 var(--border-width) var(--color-danger); animation: player-flag-in calc(8 * var(--duration-base)) var(--ease); }
 @keyframes player-flag-in {
   0%, 50%, 100% { box-shadow: 0 0 0 var(--border-width) var(--color-danger); }
   25%, 75% { box-shadow: 0 0 0 calc(3 * var(--border-width)) var(--color-danger-tint); }
 }
-@media (prefers-reduced-motion: reduce) { .btn[data-player-probe-action].is-flagged { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .btn[data-player-probe-action].is-flagged, .btn[data-player-line-probe].is-flagged { animation: none; } }
 
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the
@@ -2182,6 +2182,25 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
 .player-line-brush, .player-line-history { display: flex; gap: var(--space-1); }
 .player-line-brush .btn[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: 0 0 0 var(--border-width) var(--color-accent); background: var(--color-accent-tint); }
 .player-line-tip { margin: auto 0 0; font-size: var(--text-xs); line-height: var(--leading-tight); color: var(--color-text-secondary); text-align: center; }
+/* CARD-442 (owner 2026-11-12): the probe inside the line view. Its group is
+   in the tools row: a line of its own on a portrait phone (the brush and
+   history fill the width), beside them on a landscape one (where height is
+   what is short). A probe's cells carry the board's dashed marker
+   (.player-cell[data-probe]); its broken clue the board's red; on the map
+   its cells are outlined in the probe colour, which neither the green focus
+   band nor the amber "?" fill uses as an edge. The CARD-412 offer and any
+   centred message is lifted above the view while it is open. */
+.player-line-probe { display: flex; gap: var(--space-1); }
+.player-line-probe .btn { gap: var(--space-1); min-height: 44px; }
+.player-line-probe .btn[hidden] { display: none; }
+@media (max-width: 600px) { .player-line-probe { flex-basis: 100%; justify-content: center; } }
+.player-line-cell[data-probe] { outline: calc(2 * var(--border-width)) dashed var(--player-probe); outline-offset: calc(-4 * var(--border-width)); }
+.player-line-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
+.player-line-cell.is-offered { outline: 3px solid var(--color-accent); outline-offset: -3px; z-index: 1; }
+.player-line-clue.is-broken .player-line-num { background: var(--player-broken); color: var(--color-danger-hover); }
+.player-line-mini-probe { fill: none; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.player-line-mini-probe { stroke: var(--player-probe-ink); }
+.is-line-open .player-explain { z-index: 1060; }
 /* A landscape phone: the map on the left, the line and its tools on the right. */
 @media (max-height: 500px) and (orientation: landscape) {
   .player-line { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr; column-gap: var(--space-5); row-gap: var(--space-2); }

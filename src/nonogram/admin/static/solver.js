@@ -2216,8 +2216,23 @@ function buildLineView(probeBar, stage) {
         lineButton({ "data-player-line-action": "redo", "aria-disabled": "true", title: "Redo" },
           [lineElement("span", { class: "player-mirror" }, [lineIcon("undo")]), lineLabel("Redo")]),
       ]),
+      // CARD-442 (owner 2026-11-12): the probe, inside the view. The same
+      // three actions as the probe bar (wireMarking's openProbe, keepProbe and
+      // wrongGuess); Probe becomes Keep and Wrong guess while one is open,
+      // as the bar does (CARD-411). The icon is the bar's own, cloned.
+      lineElement("div", { class: "player-line-probe", role: "group", "aria-label": "Probe" }, [
+        lineButton({ "data-player-line-probe": "open", "aria-pressed": "false", title: "Probe" }, [
+          probe?.querySelector(".player-compact-icon")?.cloneNode(true) ?? lineElement("span"),
+          lineElement("span", {}, ["Probe"])]),
+        lineButton({ "data-player-line-probe": "keep", title: "Keep", hidden: "" }, [
+          lineElement("span", { class: "player-probe-glyph", "aria-hidden": "true" }, ["\u2713"]),
+          lineElement("span", {}, ["Keep"])]),
+        lineButton({ "data-player-line-probe": "abandon", title: "Wrong guess", hidden: "" }, [
+          lineElement("span", { class: "player-probe-glyph", "aria-hidden": "true" }, ["\u2717"]),
+          lineElement("span", {}, ["Wrong guess"])]),
+      ]),
     ]),
-    lineElement("p", { class: "player-line-tip" },
+    lineElement("p", { class: "player-line-tip", "data-player-line-tip": "" },
       ["Tap or drag along the line to mark it. Long-press a cell to open the line that crosses it."]),
   ]);
   (stage.closest(".player-stage-wrap") ?? stage).after(lineDialog);
@@ -3019,32 +3034,45 @@ function wireMarking(container, player) {
   const handOn = (from, to) => {
     if (document.activeElement === from || document.activeElement === document.body) to?.focus({ preventScroll: true });
   };
-  probeToggle?.addEventListener("click", () => {
-    if (gesture || probeToggle.getAttribute("aria-disabled") === "true") return;
-    const had = document.activeElement === probeToggle;
+  // CARD-442: the three transitions, shared by the probe bar and the line
+  // view's own Probe / Keep / Wrong guess, so there is one implementation of
+  // each. Each answers whether it acted; the caller moves focus.
+  function openProbe() {
+    if (gesture || probe !== null || player.locked()) return false;
     probe = nextProbe(probe, player.getHistory(), "open");
     player.probed();
     refresh();
-    if (had) handOn(document.body, probeKeep);
-  });
-  probeKeep?.addEventListener("click", () => {
-    if (gesture || probe === null) return;
-    const had = document.activeElement === probeKeep;
+    return true;
+  }
+  function keepProbe() {
+    if (gesture || probe === null) return false;
     probe = nextProbe(probe, player.getHistory(), "keep");
     player.probed();
     refresh();
-    if (had) handOn(document.body, probeToggle);
-  });
-  probeAbandon?.addEventListener("click", () => {
-    if (gesture || probe === null) return;
-    const had = document.activeElement === probeAbandon;
+    return true;
+  }
+  function wrongGuess() {
+    if (gesture || probe === null) return false;
     // CARD-412: the verdict is read from the probe BEFORE the abandon undoes it.
     const verdict = probeVerdict(player.getHistory(), probe);
     const back = abandonProbe(player.getHistory(), probe);
     probe = nextProbe(probe, back, "abandon");
     commit(back);
-    if (had) handOn(document.body, probeToggle);
     if (verdict !== null && !player.locked()) openOffer(verdict);
+    return true;
+  }
+  probeToggle?.addEventListener("click", () => {
+    if (probeToggle.getAttribute("aria-disabled") === "true") return;
+    const had = document.activeElement === probeToggle;
+    if (openProbe() && had) handOn(document.body, probeKeep);
+  });
+  probeKeep?.addEventListener("click", () => {
+    const had = document.activeElement === probeKeep;
+    if (keepProbe() && had) handOn(document.body, probeToggle);
+  });
+  probeAbandon?.addEventListener("click", () => {
+    const had = document.activeElement === probeAbandon;
+    if (wrongGuess() && had) handOn(document.body, probeToggle);
   });
 
   // THE WRONG-GUESS OFFER (CARD-412, owner ruling 2026-11-07). After Wrong
@@ -3061,6 +3089,7 @@ function wireMarking(container, player) {
     offeredCell()?.classList.remove("is-offered");
     offered = null;
     offer.hidden = true;
+    syncLine(); // CARD-442: the strip's outline of the offered cell goes too
   }
   function openOffer(verdict) {
     if (offer === null) return;
@@ -3072,6 +3101,7 @@ function wireMarking(container, player) {
     announce.textContent = said;
     offer.hidden = false;
     offeredCell()?.classList.add("is-offered");
+    syncLine(); // CARD-442: and the strip outlines it, if it is in the line shown
   }
   // Review cycle 1, F-306: a keyboard press of either button hands focus to
   // Probe, where the next probe starts, instead of dropping it to <body>.
@@ -3080,12 +3110,17 @@ function wireMarking(container, player) {
     const { row, col, state } = offered;
     closeOffer();
     commit(record(player.getHistory(), markStroke(row, col, state)));
-    probeToggle?.focus({ preventScroll: true });
+    probeHome().focus({ preventScroll: true });
   });
   offer?.querySelector('[data-player-offer="dismiss"]')?.addEventListener("click", () => {
     closeOffer();
-    probeToggle?.focus({ preventScroll: true });
+    probeHome().focus({ preventScroll: true });
   });
+  // Where the next probe starts: the line view's Probe while the view is
+  // open (CARD-442), the probe bar's otherwise.
+  function probeHome() {
+    return (focused !== null ? lineParts?.probe.open : null) ?? probeToggle ?? document.body;
+  }
   // Review cycle 1, F-303: a redraw replaces the cells, so the named cell's
   // outline is put back on the element that took its place. CARD-427: that
   // is ALL this does now — the offer carries .player-explain and so is
@@ -3281,7 +3316,12 @@ function wireMarking(container, player) {
     tools: [...lineDialog.querySelectorAll("[data-player-line-tool]")],
     action: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-action]")]
       .map((b) => [b.dataset.playerLineAction, b])),
+    probe: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-probe]")]
+      .map((b) => [b.dataset.playerLineProbe, b])),
+    tip: lineDialog.querySelector("[data-player-line-tip]"),
   };
+  const LINE_TIP = "Tap or drag along the line to mark it. Long-press a cell to open the line that crosses it.";
+  const LINE_PROBE_TIP = "Probing: new marks get a dashed edge. Keep them, or press Wrong guess to undo them all.";
 
   function lineOffered() {
     if (lineDialog === null || lineOpen === null) return false;
@@ -3347,23 +3387,46 @@ function wireMarking(container, player) {
         return strip;
       }));
     }
+    // CARD-442: the open probe, as the board shows it — its members dashed
+    // (probeCells), the focused line's clue flagged when the probe broke it
+    // (brokenLines), the offered cell outlined after a Wrong guess.
+    const history = player.getHistory();
+    const members = new Set(probeCells(history, probe).map(([r, c]) => `${r},${c}`));
+    const broken = probe === null ? { rows: [], columns: [] }
+      : brokenLines(history.board, checkpointHistory(history, probe).board, player.clues.rows, player.clues.columns);
+    const anyBroken = broken.rows.length + broken.columns.length > 0;
+    lineParts.clue.classList.toggle("is-broken",
+      (axis === "row" ? broken.rows : broken.columns).includes(index));
     for (const cell of lineParts.strips.querySelectorAll(".player-line-cell")) {
       const k = Number(cell.dataset.index);
+      const [row, col] = linePosition(axis, index, k);
       cell.dataset.state = cells[k];
+      if (members.has(`${row},${col}`)) cell.dataset.probe = "true";
+      else delete cell.dataset.probe;
+      cell.classList.toggle("is-offered", offered !== null && offered.row === row && offered.col === col);
       cell.classList.toggle("is-pivot", k === focusAt);
       cell.setAttribute("aria-label", `${k + 1}: ${BRUSH_LABEL[cells[k]] === "Clear" ? "empty" : BRUSH_LABEL[cells[k]]}`);
     }
-    drawMini(shown);
+    drawMini(shown, members);
     for (const button of lineParts.tools) {
       button.setAttribute("aria-pressed", String(button.dataset.playerLineTool === tool));
     }
+    const open = probe !== null;
+    lineParts.probe.open.hidden = open;
+    lineParts.probe.open.setAttribute("aria-pressed", String(open));
+    lineParts.probe.open.setAttribute("aria-disabled", String(open || player.locked()));
+    lineParts.probe.keep.hidden = !open;
+    lineParts.probe.abandon.hidden = !open;
+    lineParts.probe.abandon.classList.toggle("is-flagged", anyBroken);
+    lineParts.tip.textContent = open ? LINE_PROBE_TIP : LINE_TIP;
+    lineDialog.classList.toggle("is-probing", open);
     const { done, undone } = player.getHistory();
     lineParts.action.undo.setAttribute("aria-disabled", String(done.length === 0));
     lineParts.action.redo.setAttribute("aria-disabled", String(undone.length === 0));
   }
 
   // The mini board: the whole board, the focused line outlined.
-  function drawMini(shown) {
+  function drawMini(shown, members = new Set()) {
     // An SVG of the whole board: one rect per decided cell, classed by its
     // state, so every colour is admin.css's (a themed page draws a themed
     // map) and the drawing scales with no pixel arithmetic here.
@@ -3378,6 +3441,12 @@ function wireMarking(container, player) {
           parts.push(`<rect class="player-line-mini-${kind}" x="${col}" y="${row}" width="1" height="1"/>`);
         }
       }
+    }
+    // CARD-442: the open probe's cells, outlined (a dashed edge, as on the
+    // board, would be noise at a map's few pixels a cell).
+    for (const key of members) {
+      const [row, col] = key.split(",");
+      parts.push(`<rect class="player-line-mini-probe" x="${col}" y="${row}" width="1" height="1"/>`);
     }
     const rules = [];
     for (let k = 5; k < width; k += 5) rules.push(`M${k} 0V${height}`);
@@ -3506,6 +3575,17 @@ function wireMarking(container, player) {
         refresh();
       });
     }
+    // CARD-442: the probe's three actions, the bar's own functions.
+    lineParts.probe.open.addEventListener("click", () => {
+      if (lineGesture !== null || lineParts.probe.open.getAttribute("aria-disabled") === "true") return;
+      if (openProbe()) lineParts.probe.keep.focus({ preventScroll: true });
+    });
+    lineParts.probe.keep.addEventListener("click", () => {
+      if (lineGesture === null && keepProbe()) lineParts.probe.open.focus({ preventScroll: true });
+    });
+    lineParts.probe.abandon.addEventListener("click", () => {
+      if (lineGesture === null && wrongGuess()) lineParts.probe.open.focus({ preventScroll: true });
+    });
     for (const name of ["undo", "redo"]) {
       lineParts.action[name].addEventListener("click", () => {
         if (gesture || lineGesture) return;
