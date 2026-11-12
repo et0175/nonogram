@@ -619,6 +619,11 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
         "solver.js), a context request listener and four page listeners, and "
         "reloads; none of that is undone by navigating",
     ),
+    "test_puzzle_solver_line.py": (
+        "own-page",
+        "opens its own touch context per test (a phone, landscape or desktop "
+        "one), and reads back the localStorage save its marks write",
+    ),
     "test_puzzle_solver_maybe.py": (
         "own-page",
         "sets the viewport and installs a page listener, and carries the "

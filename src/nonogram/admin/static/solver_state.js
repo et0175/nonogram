@@ -1684,3 +1684,58 @@ export function deserializeState(text, payload) {
   for (let k = 0; k < undone.length; k += 1) history = undo(history);
   return history;
 }
+
+// ---------------------------------------------------------------------------
+// Line focus (CARD-439, owner request 2026-11-12: "a solve line/column mode
+// ... a small picture on top and a line presenting the selected line or
+// column, clues above"). A view of ONE line of the board, drawn large, for a
+// big board on a phone whose cells are smaller than a fingertip. It is a
+// view only: every mark made in it is an ordinary stroke recorded into the
+// ordinary history (solver.js), so nothing here is saved or recorded either.
+// The helpers below are its pure half.
+
+// The axes a focused line can lie along — HINT_AXES' two names, so a line
+// value here and a hint line are the same {axis, index} shape.
+export const LINE_AXES = HINT_AXES;
+
+// The cell states of one line of `board`: row `index` left to right, or
+// column `index` top to bottom. Frozen.
+export function lineOf(board, axis, index) {
+  if (!LINE_AXES.includes(axis)) throw new RangeError(`"${axis}" is not an axis (${LINE_AXES.join(", ")})`);
+  const length = axis === "row" ? board.width : board.height;
+  const count = axis === "row" ? board.height : board.width;
+  if (!Number.isInteger(index) || index < 0 || index >= count) {
+    throw new RangeError(`${axis} ${index} is outside a ${board.width} x ${board.height} board`);
+  }
+  return Object.freeze(Array.from({ length }, (_, k) => (axis === "row"
+    ? cellAt(board, index, k) : cellAt(board, k, index))));
+}
+
+// The board position of the `k`-th cell of a line, as [row, col].
+export function linePosition(axis, index, k) {
+  return axis === "row" ? [index, k] : [k, index];
+}
+
+// The line that crosses `axis` `index` at its `k`-th cell (the long-press
+// "pivot"): a row's k-th cell lies on column k, and the pivot lands on that
+// column at the row it came from — and the other way round.
+export function crossingLine(axis, index, k) {
+  return axis === "row" ? { axis: "column", index: k, at: index } : { axis: "row", index: k, at: index };
+}
+
+// The longest line the focus view draws in ONE strip; a longer line is split
+// in two (the owner's ruling of 2026-11-12, over a single strip that
+// scrolls). Fifteen cells across a 390 px phone are ~23 px each.
+export const LINE_STRIP_MAX = 15;
+
+// How a line of `length` cells is split into strips: one strip when it fits
+// LINE_STRIP_MAX, otherwise two, the first a whole number of fives (the
+// board's heavy every-fifth rule then falls on the same cells in the strip)
+// as close to half as fives allow — 30 is 15 + 15, 25 is 15 + 10, 20 is
+// 10 + 10, 22 is 10 + 12. Frozen array of strip lengths, summing to `length`.
+export function lineStrips(length) {
+  if (!Number.isInteger(length) || length < 1) throw new RangeError(`a line of ${length} cells`);
+  if (length <= LINE_STRIP_MAX) return Object.freeze([length]);
+  const first = Math.min(LINE_STRIP_MAX, 5 * Math.max(1, Math.round(length / 10)));
+  return Object.freeze([first, length - first]);
+}
