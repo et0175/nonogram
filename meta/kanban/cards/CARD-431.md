@@ -1,6 +1,6 @@
 # CARD-431: The puzzle's title is 20 px in the compact portrait layout, not 30
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c (0.25d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** card/431-title-size
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-431
+**Branch:** —
+**Worktree:** —
 **Source:** owner 2026-11-12 (project thread): "in landscape mode the title looks much smaller. Maybe it makes sense to make it smaller in the Portrait mode?"; proposed 20 px (portrait was 30, landscape 16); "yes please".
 **Idea:** —
 **Wave:** 79
@@ -18,11 +18,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css
-**Review score:** —
+**Review score:** — (no review cycle; merged on the gates)
 **Started:** 2026-11-12T11:45Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-12T12:09Z
+**Actual:** one owner session (wall clock excluded, owner ruling)
+**Merge commit:** 408839b8
 **Blocked by:** —
 
 ## What to implement
