@@ -518,6 +518,19 @@ Not observed: a real phone. The 4 px gaps between the toolbar's 44 px buttons ar
 
 **What this publish leaves owed.** **CARD-432** (the board hands its scroll to the page; 104 px of board unreachable at 175% zoom) is still `ready`, still P1, still unstarted — a live defect on the site this publish just updated. **CARD-433, 434, 435, 436 and 438** are `ready` and unstarted. **CARD-439's line mode is live and its gestures have never met a human finger**: the long press and the strip drag could not be driven by this session's probe (the handler takes pointer capture, which dispatched events cannot provide), and the card carries no review score by design — its own 15 real-touch tests pass, which is not the same thing.
 
+**The ringed-clue publish, 2026-11-12 (the day's seventh).** Published from `main` at `e8f3e7d5`, same curated bundle. One card, **CARD-441**: two things the owner saw in the line view on the live site. (Two records above both call themselves the day's fifth; counting the publishes, line-polish was the fifth and stale-book the sixth.) The promote waited for the owner's "yes, publish".
+
+| Step | What was observed |
+| --- | --- |
+| What changed | `admin.css` `3ce59ee8f375` → **`018ec8027da4`**, and nothing else: a settled number in the line view wears a grid-ink ring (round, a pill for two digits) instead of a strike, and a black cell beside a heavy every-fifth rule keeps a paper gap as wide as the rule, so the rule no longer vanishes between two black cells. Before building, every other served file of the tree was compared with production and matched. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261112f`, no `--analytics`. 160 puzzles, one book landing. The five copied files, `how-to-solve.js` and `player.css` byte-identical to their sources; 160/160 puzzle files with exactly the five served fields; no goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-73fuwfcdu`**. Hashes matched, five doors 200, `/nope` 404. |
+| Behaviour, on the preview and repeated on the live domain | 390x844 touch, `/play/52603b6dee`, row 13 (clue `11 6`): marking its first eleven cells black and the twelfth white circles exactly one number; it computes `text-decoration-line: none`, a `rgb(28, 35, 51)` border and a 22px radius. Cells 10 and 9 (either side of the 10\|11 rule) carry a 2 px inset paper stripe on the rule's side. No page error. |
+| Production | Production was checked first: still `nonogram-studio-kejf343ry` (the stale-book publish), so the promote replaced nothing newer. `vercel promote <the preview URL> --scope et0175s-projects --yes` created **`nonogram-studio-bdkctcc4v`**; the live `admin.css` read `018ec8027da4` on the third check, about 20 s after the command returned. |
+| Rollback target | `nonogram-studio-kejf343ry` still Ready. |
+
+Not observed: a real phone. Whether the paper-ink-paper rule reads as "the fifth" at arm's length is the owner's call.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
