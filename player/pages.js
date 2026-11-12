@@ -476,9 +476,20 @@ export function continueTarget(entries, progress) {
 // `renderBook` throws away with `list.replaceChildren`. Without the carry-over
 // a repaint re-closes a section the reader opened by hand, which on a
 // 160-puzzle book is every return from a puzzle (CARD-437). It returns an
-// empty map before the first paint, so the defaults below are untouched; a
-// section nobody has touched reads back AT its default and so is carried over
-// unchanged.
+// empty map before the first paint, so the defaults below are untouched.
+// AFTER that it covers EVERY rendered section — there is nothing on the page
+// recording which ones the reader touched, only what state they are in — so
+// `?? byDefault` never falls through on a repaint and the carried state wins
+// over the computed default, including over a default that MOVED. The one
+// case where that is visible: the Continue target walking into a section the
+// reader had closed leaves it closed. That is deliberate (a hand-set state is
+// an instruction, a default is a heuristic) and it costs nothing reachable —
+// the Continue card is outside [data-pages-list], survives replaceChildren
+// and is repainted with the new target, and the closed section's own header
+// still repaints its count. Measured in review cycle 2, which refuted the
+// earlier wording of this comment: it claimed an untouched section still took
+// its default, which is true only while that default has not moved. Recording
+// the TOUCH rather than the state is what would restore it (CARD-437 F-201).
 function openSections(page) {
   const held = new Map();
   for (const grid of page.querySelectorAll(".book-squares")) held.set(grid.id, !grid.hidden);
