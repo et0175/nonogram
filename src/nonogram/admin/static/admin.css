@@ -464,7 +464,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    cell side is computed here from the board's size and clue depth (set as
    custom properties by solver.js), so the largest board — limits.MAX_SIZE per
    side — fits a laptop screen; below the floor the board scrolls inside
-   .player-stage and the page never does. */
+   .player-stage, and overscroll-behavior (on the rule below) keeps that
+   scroll there — a gesture that starts on the board never reaches the page,
+   whether the stage still has room or has already spent it. The page itself
+   does scroll: the player page overflows the viewport by the height of what
+   stands BELOW the stage (the "How to play" line and .main's bottom
+   padding), which --player-above does not count. */
 .player-head { align-items: center; margin-bottom: var(--space-4); }
 .player-head .badge { font-size: var(--text-sm); }
 .player-stage {
@@ -499,6 +504,17 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      landscape phone, or the admin's nav wrapping on a small window). */
   max-height: max(calc(100svh - var(--player-above)), 5rem);
   overflow: auto;
+  /* CARD-432 (owner, 2026-11-12: "why it still scrolls out of inertia when
+     I already stopped scrolling?"). Measured at 390 x 844 on the 30 x 30 at
+     300%: the gesture IS dispatched here — repeated touch drags take the
+     stage from 0 to its last pixel — but the surplus then CHAINED out of
+     the stage into the page's 23 px of slack, so a finger that had asked
+     the board to scroll moved the page, and the page kept gliding after the
+     finger lifted. contain stops the chaining without stopping the stage's
+     own fling (the deceleration itself is the platform's and is wanted).
+     Same declaration, same reason, as the landscape tool strip's
+     (CARD-402) and the Line sheet's (CARD-439). */
+  overscroll-behavior: contain;
 }
 .player-fallback { color: var(--color-text-secondary); font-style: italic; }
 .player-board {
