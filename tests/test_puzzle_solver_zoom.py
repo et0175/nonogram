@@ -463,9 +463,10 @@ class TestSolverZoom_HundredPercentIsTheFittedSize:
 # ==========================================================================
 
 
-#: CARD-428: the zoom group's three boxes in DOM order (out, readout, in),
-#: in viewport coordinates, rounded to a tenth — the reading the owner's
-#: finding is about ("zoom button gets awkwardly in 2 lines").
+#: CARD-428: the zoom group's three boxes, keyed by member and read in
+#: viewport coordinates, rounded to a tenth — the reading the owner's
+#: finding is about ("zoom button gets awkwardly in 2 lines"). The DOM order
+#: is out, in, readout (CARD-429); this reading does not depend on it.
 _ZOOM_BOXES = """() => {
   const group = document.querySelector('#puzzle-player-controls .player-zoom');
   const box = (el) => { const b = el.getBoundingClientRect();
@@ -475,6 +476,59 @@ _ZOOM_BOXES = """() => {
            readout: box(group.querySelector('[data-player-zoom-readout]')),
            in: box(group.querySelector('[data-player-zoom-action="in"]')) };
 }"""
+
+
+#: CARD-429: the group's three members named in DOM order, in DRAWN order,
+#: and the ones a Tab sequence can reach. Reading order, not a sort on the
+#: top edge: at desktop and in portrait the readout's shorter box is centred
+#: against the steppers (measured at 390 x 844: tops 308.1, 317.7, 308.1), so
+#: "the row below" is a box that CLEARS another's bottom edge, which is what
+#: the landscape grid draws and a flex row never does. ``focusable`` is a
+#: state, not an inventory: the readout is a control only while there is a
+#: Fit to go to (solver.js's syncZoom gives it role=button and tabindex
+#: then, and takes both away otherwise), so a board that fits at 100% has a
+#: two-member sequence and one that does not has three.
+_ZOOM_ORDER = """() => {
+  const group = document.querySelector('#puzzle-player-controls .player-zoom');
+  const name = (el) => el.dataset.playerZoomAction || 'readout';
+  const members = [...group.children];
+  const drawn = [...members].sort((a, b) => {
+    const A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
+    if (A.bottom <= B.top + 1) return -1;
+    if (B.bottom <= A.top + 1) return 1;
+    return A.left - B.left; });
+  return { dom: members.map(name), drawn: drawn.map(name),
+           focusable: members.filter((el) => el.tabIndex >= 0).map(name) };
+}"""
+
+#: The focused member's name, or null once focus has left the group.
+_ZOOM_FOCUSED = """() => {
+  const el = document.activeElement;
+  const group = el && el.closest('#puzzle-player-controls .player-zoom');
+  return group ? (el.dataset.playerZoomAction || 'readout') : null;
+}"""
+
+
+def _zoom_tab_order(page) -> list[str]:
+    """The order Tab visits the zoom group's focusable members.
+
+    Starts on the first of them and presses Tab until focus leaves the
+    group, which is the sequence a keyboard user walks through it. That no
+    member precedes the one it starts on is ``_ZOOM_ORDER``'s ``dom``
+    reading, asserted beside this one.
+    """
+    page.evaluate(
+        """() => { const group = document.querySelector('#puzzle-player-controls .player-zoom');
+             if (document.activeElement) document.activeElement.blur();
+             [...group.children].find((el) => el.tabIndex >= 0).focus(); }""")
+    walked: list[str] = []
+    for _ in range(4):  # the three members, and the press that leaves them
+        here = page.evaluate(_ZOOM_FOCUSED)
+        if here is None or here in walked:
+            break
+        walked.append(here)
+        page.keyboard.press("Tab")
+    return walked
 
 
 @pytest.mark.browser
@@ -488,14 +542,29 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
     landscape phone CARD-402's strip is ``grid-template-columns: repeat(2,
     44px)`` and ``.player-zoom`` was ``display: contents``, so its THREE
     children flowed into a TWO-column grid and wrapped 2 + 1 — the readout
+    (which stood between the steppers in the DOM until CARD-429 moved it)
     beside ``-``, and ``+`` orphaned on the next row, which is the two
-    members of one stepper on different rows. The shape here is the card's
-    D1 default (unanswered by the owner): the pair side by side on one row,
-    the readout — also the Fit control, and the member already
-    full-width-friendly, as the brush slot and the counters are in that same
-    block — spanning both columns below. Plant: drop admin.css's
+    members of one stepper on different rows. The shape here is the card's D1 default (unanswered by
+    the owner): the pair side by side on one row, the readout — also the Fit
+    control, and the member already full-width-friendly, as the brush slot
+    and the counters are in that same block — spanning both columns below.
+    Plant (re-run 2026-11-12, after CARD-429): drop admin.css's
     ``.player-zoom`` grid rules from the landscape block and the pair's two
-    tops part again.
+    tops part again — all three stack in one 44 px column, at x 312 with
+    tops 292, 340 and 388 at 844 x 390.
+
+    CARD-429 (owner ruling 2026-11-11, "Accept − + 100% everywhere") adds
+    the order arm, and retires with it the claim the markup made until that
+    date: that the readout stands BETWEEN the steppers, which is what made
+    the drawn order here (``-`` ``+`` on one row, the readout below) differ
+    from the DOM order and so from the Tab order — the zigzag CARD-428's
+    review found. The readout now follows the pair in the DOM, the owner
+    having accepted ``− + 100%`` at desktop and portrait too (focus order is
+    DOM order; CSS cannot reorder it, and a positive ``tabindex`` is an
+    anti-pattern), so one order is drawn everywhere and focus follows it.
+    This cell's landscape geometry is unchanged by that move and is asserted
+    unchanged: the boxes CARD-428 recorded, re-measured at both landscape
+    viewports, are the same to a tenth of a pixel.
 
     The cell below keeps the node id CARD-217's recording holds
     (``test_zoom_buttons_and_300_percent_cells_are_at_least_24px``) although
@@ -517,12 +586,16 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
     def test_zoom_buttons_and_300_percent_cells_are_at_least_24px(
         self, browser_page, live
     ) -> None:
-        """AC-11's tap-target floor, and — since CARD-428 — the landscape shape.
+        """AC-11's tap-target floor, the landscape shape, and the ruled order.
 
         CARD-428 (owner play-test 2026-11-11, item 5) adds the second arm:
         at 844x390 and 874x402 the ``-`` and ``+`` steppers share a row and
         are adjacent, and the readout takes the row below, spanning them.
-        The node id stays as recorded; see the class docstring.
+        CARD-429 (owner ruling 2026-11-11) adds the third: at those two
+        viewports and at 390x844, 1280x720 and 1440x900 the three members
+        are drawn ``-``, ``+``, readout, and Tab visits the ones it can
+        reach in that same order. The node id stays as recorded; see the
+        class docstring.
         """
         puzzle_id = live.store(_unique_grid(15, 15, seed=19518))
         browser_page.set_viewport_size({"width": 390, "height": 844})
@@ -558,6 +631,22 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
             assert len({round(b["y"]) for b in boxes.values()}) == 2, where
             for name, box in boxes.items():
                 assert box["w"] >= 44 and box["h"] >= 44, (name, where)
+
+        # CARD-429, AC-1 and AC-2: the ruled order, and focus following it,
+        # at every viewport this group is drawn at. One node, a loop inside
+        # it (net 0 added node ids).
+        for width, height in ((844, 390), (874, 402), (390, 844), (1280, 720), (1440, 900)):
+            browser_page.set_viewport_size({"width": width, "height": height})
+            _open(browser_page, live, puzzle_id)
+            order = browser_page.evaluate(_ZOOM_ORDER)
+            walked = _zoom_tab_order(browser_page)
+            where = (width, height, order, walked)
+            assert order["dom"] == ["out", "in", "readout"], where
+            assert order["drawn"] == ["out", "in", "readout"], where
+            # Focus order IS DOM order, so this is what the owner's ruling
+            # buys: the walk visits the members it can reach in the order
+            # they are drawn, with no step back up the group.
+            assert walked == [m for m in order["drawn"] if m in order["focusable"]], where
 
 
 # ==========================================================================
