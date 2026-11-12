@@ -1918,7 +1918,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* solver.js's compactQuery (CARD-407's opening at Fit) repeats this
    condition; change the two together. */
 @media (max-width: 600px), (max-height: 500px) {
-  .player-head h1 { font-size: var(--text-xl); }
+  /* CARD-431 (owner 2026-11-12): 20 px rather than 30, closer to the landscape strip's 16 and giving the board the height back. */
+  .player-head h1 { font-size: var(--text-lg); }
   .player-toolbar { gap: var(--space-2); }
   .player-toolbar .btn { min-height: 44px; }
   /* CARD-424 (owner ruling 2026-11-11, D1: "44 px, like the rest"). The rule
