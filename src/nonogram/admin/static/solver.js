@@ -2132,7 +2132,7 @@ const REGION_ANNOUNCEMENT = {
 
 // CARD-439: the line focus view's markup (see LINE FOCUS in wireMarking),
 // built once for a board that can be offered it. Returns the dialog and the
-// Line button, which joins the probe line after Probe.
+// Line button, which joins the toolbar just before Hint (CARD-440).
 const LINE_ICONS = {
   // _icons.html's arrow-left, arrow-right and undo, and a strip of cells.
   left: "M13 8H3M7 4L3 8l4 4",
@@ -2174,8 +2174,13 @@ function buildLineView(probeBar, stage) {
     "aria-haspopup": "dialog", "aria-controls": "puzzle-player-line", "aria-expanded": "false",
     title: "Line", hidden: "",
   }, [lineElement("span", { class: "player-compact-icon" }, [lineIcon("line")]), lineLabel("Line")]);
+  // CARD-440 (owner 2026-11-12: "I'd place the button before hints"): the
+  // Line button sits in the toolbar's history group, just before Hint; the
+  // probe line is only the fallback for a page with no Hint button.
+  const hint = document.querySelector('.player-history [data-player-action="hint"]');
   const probe = probeBar.querySelector("[data-player-probe]");
-  if (probe !== null) probe.after(lineOpen);
+  if (hint !== null) hint.before(lineOpen);
+  else if (probe !== null) probe.after(lineOpen);
   else probeBar.prepend(lineOpen);
   const brush = [["filled", "Black"], ["empty", "White"], ["maybe", "Maybe"], ["unknown", "Clear"]].map(
     ([state, name]) => lineButton({ "data-player-line-tool": state, "aria-pressed": "false", title: name },
@@ -3220,7 +3225,7 @@ function wireMarking(container, player) {
   // in a dialog over the page (#puzzle-player-line), for a big board on a
   // phone whose cells are smaller than a fingertip:
   //
-  //   entry     the Line button on the probe line, shown only while the
+  //   entry     the Line button, before Hint (CARD-440), shown only while the
   //             compact query matches AND the board is at least LINE_MIN_SIDE
   //             on its longer side AND the board is not solved. It opens the
   //             row of the last cell touched on the board (row 1 before any).

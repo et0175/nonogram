@@ -261,7 +261,7 @@ body {
 }
 /* -------------------------------------------------- /how-to-solve
  *
- * CARD-419. One page for the whole site: a five-step wizard with two small
+ * CARD-419. One page for the whole site: a six-step wizard with two small
  * boards. The marks are drawn the way the player draws them (admin.css's
  * .player-cell rules): black is --grid-ink, white is a grey dot of 28%,
  * maybe is a "?" in the accent, and a probe's members wear a dashed edge in

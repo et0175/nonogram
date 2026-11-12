@@ -37,6 +37,7 @@ const STEP_NAMES = [
   "Squeeze from both ends",
   "What every arrangement agrees on",
   "Probe, and watch it break",
+  "Big puzzles on a phone",
   "Levels and the promise",
 ];
 
