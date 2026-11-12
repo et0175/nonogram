@@ -527,7 +527,7 @@ _SETTLED = """async () => {
 _SEEN_REGIONS = (
     ("board", ".player-board"),
     ("toolbar", "#puzzle-player-controls"),
-    ("line", "#puzzle-player-explain"),  # CARD-409: read as a band of the stage, see _shots
+    ("line", "#puzzle-player-explain"),  # CARD-427: read as a band of the viewport, see _shots
 )
 
 
@@ -536,12 +536,18 @@ def _shots(page):
     asserted settled — review cycle 1's own instrument, which is how F-2 was
     measured rather than argued."""
     assert page.evaluate(_SETTLED) == 0, "an animation is still running: a reading taken now is not a measurement"
-    # CARD-409 (owner finding 2026-11-07): the answer line is a strip OVER the
-    # board's bottom edge, drawn only while it holds a sentence. So the board
-    # and toolbar are read with the strip out of the way (what lies under it
-    # is the board's own question), and the line is read as a fixed band of
-    # the page — the stage's bottom 64 px, where the strip appears — so an
-    # empty strip and a written one are two pictures of the same size.
+    # RETIRED BAND, 2026-11-11 (CARD-427, owner ruling "just appear the center
+    # of the screen"): the stage's bottom 64 px, which is where CARD-409's
+    # strip was drawn. The answer is a box CENTRED IN THE VIEWPORT now, so the
+    # band that must hold it is the viewport's own middle.
+    #
+    # The box is drawn only while it holds a sentence, so the board and the
+    # toolbar are still read with it out of the way (what lies under it is the
+    # board's own question — and centred it covers rather more of the board
+    # than the strip did), and the line is still read as a FIXED band, 128 px
+    # about the viewport's vertical centre, so an empty box and a written one
+    # are two pictures of the same size. Read from clientWidth/clientHeight,
+    # which is the box a `position: fixed` element is centred in.
     strip = "document.getElementById('puzzle-player-explain')"
     page.evaluate(f"() => {{ {strip}.style.visibility = 'hidden'; }}")
     try:
@@ -549,9 +555,9 @@ def _shots(page):
                  for name, selector in _SEEN_REGIONS if name != "line"}
     finally:
         page.evaluate(f"() => {{ {strip}.style.visibility = ''; }}")
-    stage = page.locator(".player-stage").bounding_box()
-    band = {"x": stage["x"], "y": stage["y"] + stage["height"] - 64, "width": stage["width"], "height": 64}
-    shots["line"] = page.screenshot(clip=band)
+    view = page.evaluate("() => [document.documentElement.clientWidth, document.documentElement.clientHeight]")
+    shots["line"] = page.screenshot(
+        clip={"x": 0, "y": view[1] / 2 - 64, "width": view[0], "height": 128})
     return shots
 
 
@@ -1610,29 +1616,35 @@ GRID_BIG = _unique_grid(20, 12, seed=2124)
 _DRAWN_BOARDS = "performance.getEntriesByName('nonogram-player-board-draw').length"
 
 
-#: Whether the answer strip lies over a hinted line's cell or the revealed
-#: cell (CARD-409's AC-3; review cycles 1 and 2).
-#: Review cycle 3, F-201: also true when the revealed cell (or a hinted
-#: ROW — a column runs the board's height) is out of the
-#: stage's box or above the column clues' bottom, or when the strip itself
-#: starts above the column clues' bottom (it would cover a clue).
-_STRIP_COVERS = """() => { const s = document.getElementById('puzzle-player-explain').getBoundingClientRect();
-  const v = document.querySelector('.player-stage').getBoundingClientRect();
-  const clues = document.querySelector('.player-board thead').getBoundingClientRect().bottom;
-  if (s.top < clues - 0.5) return true;
-  const line = [...document.querySelectorAll('td.player-cell.is-hint-line')];
-  const oneRow = new Set(line.map((c) => c.dataset.row)).size === 1 ? line : [];
-  const hidden = [...document.querySelectorAll('td.player-cell.is-hinted'), ...oneRow].some((c) => {
-    const b = c.getBoundingClientRect();
-    return b.top < Math.max(v.top, clues) - 0.5 || b.bottom > v.bottom + 1.5; });
-  return hidden || [...document.querySelectorAll('td.player-cell.is-hint-line, td.player-cell.is-hinted')].some((c) => {
-    const b = c.getBoundingClientRect();
-    return b.bottom > s.top && b.top < s.bottom && b.right > s.left && b.left < s.right; }); }"""
+#: RETIRED, 2026-11-11 (CARD-427, owner ruling "let it disappear. just appear
+#: the center of the screen on some background"): ``_STRIP_COVERS`` — whether
+#: the answer strip lay over a hinted line's cell or the revealed cell — and
+#: ``_SET_BOARD``, which existed only to drive it (it built the board whose
+#: hint the strip was most likely to cover). The box is centred in the
+#: VIEWPORT now, so it MAY lie over the cells the sentence names; that is
+#: accepted under the same ruling, because the next pointer-down clears it,
+#: and the stage-relative placement it measured is deleted from solver.js.
+#: The claim that replaces it is the centred, contained geometry asserted in
+#: ``test_the_line_moves_neither_the_toolbar_nor_the_board`` below.
 
-#: Replace the board with a flat list of cell states (row-major).
-_SET_BOARD = """(cells) => {
-  const { width, height } = window.puzzlePlayer.payload;
-  window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells: Object.freeze(cells) }));
+#: The centred box's geometry against the viewport it is centred in, plus the
+#: board's width — AC-1's instrument (CARD-427). Read from
+#: ``documentElement.clientWidth/Height``, which is what a ``position: fixed``
+#: box is centred in (the viewport less any classic scrollbar), and not from
+#: ``innerWidth``, which counts the scrollbar the box cannot reach.
+_BOX_IN_THE_VIEWPORT = """() => {
+  const e = document.getElementById('puzzle-player-explain');
+  const b = e.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+  const style = getComputedStyle(e);
+  return {
+    dx: (b.left + b.right) / 2 - vw / 2, dy: (b.top + b.bottom) / 2 - vh / 2,
+    width: b.width, height: b.height, vw: vw, vh: vh,
+    board: document.querySelector('.player-board').getBoundingClientRect().width,
+    position: style.position, font: parseFloat(style.fontSize),
+    clipped: e.scrollWidth > e.clientWidth || e.scrollHeight > e.clientHeight,
+    inside: b.left >= -0.5 && b.right <= vw + 0.5 && b.top >= -0.5 && b.bottom <= vh + 0.5,
+  };
 }"""
 
 
@@ -2722,16 +2734,32 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
         """RETIRED CLAIM, 2026-11-07 (CARD-409, owner finding: "the hint text
         right by the board"): the answer line in the page-head row, one line
         box tall while empty, and the 4.187 px arithmetic that put it there.
-        The name is kept (a rename moves a recorded node id); the claim is now
-        CARD-409's AC-3/AC-4: the sentence is a strip over the board's bottom
-        edge — not drawn while empty, inside the stage's box when written,
-        12 px or more, not clipped — and nothing (head, board, toolbar,
-        counters) moves between empty, full and dismissed; the next
-        pointer-down away from Hint clears it. Measured at a phone, a
-        landscape phone and the two desktop widths this test always held."""
+
+        RETIRED CLAIM, 2026-11-11 (CARD-427, owner ruling "let it disappear.
+        just appear the center of the screen on some background", answering
+        the play-test finding that the message is hard to notice and runs
+        longer than the puzzle): CARD-409's "a strip over the board's bottom
+        edge, inside the stage's box, never over the cells the sentence
+        names". The stage-relative placement is deleted from solver.js; the
+        box MAY now lie over those cells, which the same ruling accepts
+        because the next pointer-down clears it.
+
+        The name is kept (a rename moves a recorded node id). The claim is now
+        CARD-427's AC-1/AC-4 over CARD-409's surviving AC-3: the sentence is a
+        box CENTRED IN THE VIEWPORT — ``position: fixed``, its centre within
+        two pixels of the viewport's on both axes, whole inside the viewport,
+        and CONTAINED: a gutter each side at every size, well short of the
+        page from the landscape phone up, and no wider than the board
+        wherever the board is drawn at 100% (the three bounds are measured
+        beside the code that checks them, including why the two Fit-scaled
+        sizes cannot carry the third) — not drawn while empty, 12 px or more,
+        not clipped; nothing (head, board, toolbar, counters, progress) moves
+        between empty, full and dismissed; and the next pointer-down away
+        from Hint, or Escape, clears it. Measured at a phone, a landscape
+        phone and the three desktop sizes the ruling named."""
         puzzle = live.store(GRID)
-        checked, moved, outside, small = 0, [], [], []
-        for width, height in ((390, 844), (844, 390), (1280, 900), (1440, 900)):
+        checked, moved, outside, small, roomy = 0, [], [], [], []
+        for width, height in ((390, 844), (844, 390), (1280, 720), (1280, 900), (1440, 900)):
             context = browser.new_context(viewport={"width": width, "height": height})
             page = context.new_page()
             try:
@@ -2745,56 +2773,69 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                 assert page.evaluate(_SETTLED) == 0
                 full = page.evaluate(_BOXES_AROUND_THE_LINE)
                 assert " — " in _explained(page), width
-                strip = page.evaluate("""() => { const e = document.getElementById('puzzle-player-explain');
-                  const b = e.getBoundingClientRect(); const s = document.querySelector('.player-stage').getBoundingClientRect();
-                  return { inside: b.left >= s.left - 0.5 && b.right <= s.right + 0.5 && b.top >= s.top - 0.5 && b.bottom <= s.bottom + 0.5,
-                           font: parseFloat(getComputedStyle(e).fontSize), clipped: e.scrollWidth > e.clientWidth }; }""")
-                # The hinted cells are not under the strip (review cycle 1,
-                # F-001: it moves to the stage's top when they would be).
-                page.wait_for_timeout(50)
-                covered = page.evaluate(_STRIP_COVERS)
+                box = page.evaluate(_BOX_IN_THE_VIEWPORT)
+                # AC-1: centred in the VIEWPORT, not against the board — the
+                # ruling is the screen's centre, so the measurement is too.
+                assert box["position"] == "fixed", (width, height, box)
+                assert abs(box["dx"]) <= 2 and abs(box["dy"]) <= 2, (width, height, box)
+
                 if (width, height) == (844, 390):
                     page.keyboard.press("Escape")  # AC-3: Escape dismisses too
                 else:
                     page.locator(".page-head h1").click()  # a pointer-down away from Hint
                 dismissed = _explained(page)
                 after = page.evaluate(_BOXES_AROUND_THE_LINE)
-                # Review cycle 2, F-102/F-101: the hint the strip is most
-                # likely to cover — every row solved but one, so the hint
-                # must land on that row: the last at 390 and 1440 (under the
-                # bottom strip), row 3 at 844 x 390 (where the stage is too
-                # short for either edge to be clear, so the STAGE scrolls — after
-                # the boxes above are measured). Pressed to rung 3, the
-                # revealed cell is not under the strip either.
-                only = 1 if (width, height) == (844, 390) else SIDE - 1
-                if (width, height) in ((390, 844), (844, 390), (1440, 900)):
-                    page.evaluate(_SET_BOARD, [U if r == only else F if GRID[r][c] else E
-                                               for r in range(SIDE) for c in range(SIDE)])
-                    for _ in range(3):  # every rung, not only the last (F-201)
-                        _hint(page).click()
-                        page.wait_for_timeout(50)
-                        covered = covered or page.evaluate(_STRIP_COVERS)
-                    hinted_row = page.evaluate("() => [...document.querySelectorAll('td.player-cell.is-hinted')].map((c) => Number(c.dataset.row))")
-                    assert hinted_row == [only], (width, height, hinted_row)
-                    covered = covered or page.evaluate(_STRIP_COVERS)
             finally:
                 context.close()
             checked += 1
-            if not strip["inside"] or strip["clipped"]:
-                outside.append((width, height, strip))
-            if strip["font"] < 12:
-                small.append((width, height, strip["font"]))
+            if not box["inside"] or box["clipped"]:
+                outside.append((width, height, box))
+            if box["font"] < 12:
+                small.append((width, height, box["font"]))
+            # AC-1, the other half: CONTAINED — the finding was a 1360 px
+            # strip against a 698 px board, 94% of the page. Three bounds,
+            # each measured here rather than carried:
+            #  * every size: a 16 px gutter each side, so it is never
+            #    page-wide (on the phone that is the binding one: 358 px);
+            #  * from the landscape phone up: well short of the page
+            #    (measured 480 px — 56.9% at 844, 37.5% at 1280, 33.3% at
+            #    1440 — against the finding's 94%);
+            #  * where the board is drawn at 100%: no wider than the board
+            #    the sentence is about. That is the heights of 900 here
+            #    (board 592.45 px at both 1280 and 1440) and the phone
+            #    (358 px box, 364.09 px board). At 844 x 390 and 1280 x 720
+            #    the board is scaled DOWN to Fit (364.09 px and 444.02 px)
+            #    and the box is capped by its reading measure instead: a
+            #    message narrower than a shrunk board would be unreadable,
+            #    and the finding's complaint — a box twice the board and
+            #    nearly the whole page — does not come back at 480 px.
+            # Cycle 1's second minor, recorded rather than left implicit: at
+            # 844 x 390 and 1280 x 720 the THIRD bound does not apply (its
+            # guard is `height == 900 or width == 390`), so the only live
+            # width bound at those two sizes is the 60%-of-page one — a box
+            # of 768 px would be 1.7x the 444.02 px board at 1280 x 720 and
+            # this cell would still pass. It does not happen because the cap
+            # is ONE global `min(30rem, calc(100vw - 2 * var(--space-4)))`,
+            # so any regression that widens the box here also widens it at
+            # 1280 x 900, where bound 3 does bind and reds. That is a guard
+            # by COUPLING, not by assertion: it holds only while the cap
+            # stays global. A per-viewport cap would break the coupling
+            # silently, so whoever introduces one owes this cell a real
+            # per-size board bound.
+            if box["width"] > box["vw"] - 32 + 0.5:
+                roomy.append((width, height, box))
+            elif width >= 844 and box["width"] > 0.6 * box["vw"]:
+                roomy.append((width, height, box))
+            elif (height == 900 or width == 390) and box["width"] > box["board"] + 0.5:
+                roomy.append((width, height, box))
             assert dismissed == "", (width, dismissed)
-            assert not covered, (width, height, "the strip covers the hinted line")
-            # Review cycle 2, F-101: on the landscape phone neither edge of the
-            # short stage is clear, so the STAGE scrolls the hinted row above
-            # the strip — the board moves inside the stage there, by design.
-            # Review cycle 3, F-204: there the board is compared in STAGE
+            # Review cycle 3, F-204 (CARD-409): the board is compared in STAGE
             # coordinates (its top plus the stage's scroll), so a real layout
-            # move of the board is still caught.
+            # move of the board is still caught even where the stage scrolls.
             for name in ("head", "board", "toolbar", "counters", "progress"):
                 if not (empty[name] == full[name] == after[name]):
                     moved.append((width, name, empty[name], full[name], after[name]))
-        assert checked == 4
+        assert checked == 5
         assert moved == [], moved
         assert outside == [] and small == [], (outside, small)
+        assert roomy == [], roomy

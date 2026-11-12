@@ -178,8 +178,8 @@
   prefers-reduced-motion.
 
   Both controls also WRITE WHAT THEY SAY ON THE PAGE, in
-  #puzzle-player-explain (.player-explain) — since CARD-409 a strip over the
-  board (see the CARD-409 comment at the stage). CARD-269's review cycle 1 measured, by SHA-256 of element
+  #puzzle-player-explain (.player-explain) — since CARD-427 a box centred in
+  the viewport (see the comment at the stage below). CARD-269's review cycle 1 measured, by SHA-256 of element
   screenshots with getAnimations() settled, that rung 2's board and toolbar
   were indistinguishable from rung 1's: the only channel every rung had was
   #puzzle-player-announce, which is 1 x 1 and clipped, so the rung whose job
@@ -198,13 +198,16 @@
   and showProgress's hint branch), so the hidden channel cannot drift from
   the seen one.
 
-  Where it is drawn changed in CARD-409 (owner finding 2026-11-07: "the hint
-  text right by the board"): it is no longer a line in the title row but a
-  strip over the stage's bottom edge, or its top below the column clues when
-  the hint's target would be under it; when neither edge is clear the stage
-  scrolls the target above the strip (solver.js placeExplain). It moves
-  nothing around the stage, and the next pointer-down away from Hint or
-  Check, or Escape, clears it.
+  Where it is drawn changed twice. CARD-409 (owner finding 2026-11-07: "the
+  hint text right by the board") took it out of the title row and made it a
+  strip over the stage's bottom edge, tracking the hint's target between that
+  edge and the stage's top. CARD-427 (owner ruling 2026-11-11: "let it
+  disappear. just appear the center of the screen on some background") drops
+  the tracking: it is a contained box CENTRED IN THE VIEWPORT, on a tinted
+  ground with an accent edge, over whatever is beneath it — it may cover the
+  cells the sentence names, which that ruling accepts because the next
+  pointer-down away from Hint or Check, or Escape, clears it. It moves
+  nothing on the page, then or when it goes.
 
   Zoom (CARD-195): a third toolbar group, after History and before the
   counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,
@@ -313,14 +316,14 @@
     </div>
 </div>
 
-{# CARD-409 (owner finding 2026-11-07: "the hint text right by the board"):
-   the visible answer line is a strip over the stage's bottom edge (or its
-   top, below the sticky column band, when the hint's target would be under
-   it — solver.js placeExplain), not a line in the title row; it moves
-   nothing (it is absolutely positioned in this
-   wrapper). It is empty, and so not drawn, until a rung or Check writes it;
-   the next pointer-down or Escape clears it. aria-hidden as before: the live
-   region #puzzle-player-announce says every sentence once. #}
+{# CARD-427 (owner ruling 2026-11-11: "let it disappear. just appear the
+   center of the screen on some background"), superseding CARD-409's strip at
+   the stage's bottom edge: the visible answer line is a contained box centred
+   in the VIEWPORT, on a tinted ground (admin.css .player-explain). It moves
+   nothing — it is fixed, so it is in no flow at all, and this wrapper no
+   longer positions it. It is empty, and so not drawn, until a rung or Check
+   writes it; the next pointer-down or Escape clears it. aria-hidden as
+   before: the live region #puzzle-player-announce says every sentence once. #}
 <div class="player-stage-wrap">
 <div class="player-stage" id="puzzle-player">
     <p class="player-fallback" data-player-fallback>
@@ -331,8 +334,9 @@
 <p class="player-explain" id="puzzle-player-explain" aria-hidden="true" hidden></p>
 {# CARD-412 (owner ruling 2026-11-07: "Your first guess was wrong, so that
    cell must be white. Mark it?"): after Wrong guess on a probe whose first
-   stroke was one dark or white cell, the offer — in the same strip over the
-   board as the hint's sentence, so one place talks to the player. It asks and
+   stroke was one dark or white cell, the offer — in the same centred box as
+   the hint's sentence (it carries .player-explain), so one place talks to
+   the player. It asks and
    never marks by itself; the next pointer-down elsewhere or Escape closes it.
    The sentence is also written to the live region. #}
 <div class="player-explain player-offer" id="puzzle-player-offer" role="group" aria-label="Wrong guess" hidden><span class="player-offer-text"></span><button type="button" class="btn btn-outline-secondary" data-player-offer="mark">Mark it</button><button type="button" class="btn btn-outline-secondary" data-player-offer="dismiss">No thanks</button></div>
