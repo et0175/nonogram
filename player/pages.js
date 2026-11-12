@@ -504,30 +504,37 @@ function renderBook(page, entries, progress, slug) {
     }
   }
 
-  const jump = page.querySelector("[data-pages-jump]");
-  if (jump !== null && entries.length > 0) {
-    const input = jump.querySelector("[data-pages-jump-number]");
-    const hint = jump.querySelector("[data-pages-jump-hint]");
-    input.placeholder = `1–${entries.length}`;
-    const say = () => {
-      const index = jumpTarget(input.value, entries);
-      if (input.value.trim() === "") hint.textContent = "Type the number printed above the grid.";
-      else if (index === null) hint.textContent = `This book has puzzles 1 to ${entries.length}.`;
-      else {
-        const tier = entries[index].tier;
-        hint.textContent = `Opens puzzle ${index + 1}${tier === "" ? "" : ` (${TIER_NAMES[tier]})`}.`;
-      }
-      return index;
-    };
-    input.addEventListener("input", say);
-    jump.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const index = say();
-      if (index !== null) window.location.assign(`/play/${entries[index].key}${bookQuery(slug)}`);
-    });
-    show(jump, true);
-  }
   return entries.map((entry) => entry.key);
+}
+
+// The "Which puzzle are you on?" box. Separate from renderBook, and called
+// ONCE, because nothing in it reads progress: it is wired to the document's
+// own elements (the box is outside the list renderBook replaces), so
+// re-wiring it on CARD-437's repaint would add a second copy of both
+// listeners on every return from a puzzle.
+function wireJump(page, entries, slug) {
+  const jump = page.querySelector("[data-pages-jump]");
+  if (jump === null || entries.length === 0) return;
+  const input = jump.querySelector("[data-pages-jump-number]");
+  const hint = jump.querySelector("[data-pages-jump-hint]");
+  input.placeholder = `1–${entries.length}`;
+  const say = () => {
+    const index = jumpTarget(input.value, entries);
+    if (input.value.trim() === "") hint.textContent = "Type the number printed above the grid.";
+    else if (index === null) hint.textContent = `This book has puzzles 1 to ${entries.length}.`;
+    else {
+      const tier = entries[index].tier;
+      hint.textContent = `Opens puzzle ${index + 1}${tier === "" ? "" : ` (${TIER_NAMES[tier]})`}.`;
+    }
+    return index;
+  };
+  input.addEventListener("input", say);
+  jump.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const index = say();
+    if (index !== null) window.location.assign(`/play/${entries[index].key}${bookQuery(slug)}`);
+  });
+  show(jump, true);
 }
 
 // --------------------------------------------------------------------------
@@ -655,14 +662,62 @@ async function load() {
     // CARD-420: the book's theme on the page's root, before its squares draw.
     const theme = readTheme(data);
     if (theme !== "") document.documentElement.dataset.theme = theme;
-    const progress = await readProgress(entries);
-    const shown = renderBook(page, entries, progress, slug);
-    if (theme === "christmas") {
-      decorate(page.querySelectorAll(".book-jump, .book-continue, .book-section-head"));
-    }
-    const announce = page.querySelector("[data-pages-announce]");
-    const count = page.querySelector("[data-pages-count]");
-    if (announce !== null && count !== null) announce.textContent = count.textContent;
+    let progress = await readProgress(entries);
+    let shown;
+    // One paint of the book from `progress`: the squares and their counts,
+    // the Continue card, the decorations and the live region's echo of the
+    // count. The jump box is NOT in here (see wireJump).
+    const paint = () => {
+      shown = renderBook(page, entries, progress, slug);
+      if (theme === "christmas") {
+        // `decorate` PREPENDS — a garland to the body and a drift to each
+        // panel it is handed — and is documented as called once, so a
+        // repaint takes the old decorations away first rather than laying a
+        // second garland over the first. Redrawing is safe and cheap: the
+        // bough comes from a fixed seed, so it is the same bough.
+        for (const old of page.ownerDocument.querySelectorAll(".decor-garland, .decor-snow")) {
+          old.remove();
+        }
+        decorate(page.querySelectorAll(".book-jump, .book-continue, .book-section-head"));
+      }
+      const announce = page.querySelector("[data-pages-announce]");
+      const count = page.querySelector("[data-pages-count]");
+      if (announce !== null && count !== null) announce.textContent = count.textContent;
+    };
+    paint();
+    wireJump(page, entries, slug);
+    // CARD-437: progress is read again when the page is SHOWN again, not
+    // only when it is first loaded.
+    //
+    // The only route back to a book is the browser's Back — the play page
+    // has no link out of it (CARD-436) — and Back onto this page is a
+    // back/forward-cache RESTORE: the document is handed back intact and
+    // this module is not re-run, so the squares kept the state they had
+    // before the reader played. Measured on production 2026-11-12: a save
+    // written, read back, and the tile still "new" until an explicit
+    // reload. The restore itself was then confirmed by hand in Chrome
+    // against the assembled site — the `pageshow` after Back carries
+    // `persisted` true, while the navigation entry still reads "navigate"
+    // because it is the ORIGINAL entry handed back. A restore's one
+    // observable is this event, so this is where the re-read belongs; the
+    // suite's own Chromium cannot produce a restore at all, which is what
+    // tests/test_public_player_pages.py's `_restore` records.
+    //
+    // `persisted` is checked rather than ignored: a fresh load fires
+    // `pageshow` too, and re-reading there would cost a second
+    // `deserializeState` per entry — 160 of them on a full book — for a
+    // Map that was just built. For the same reason there is no
+    // `visibilitychange` listener: a tab switch is not a play (CARD-437
+    // item 4).
+    //
+    // It keeps every property the first read has, because it IS the first
+    // read: `readProgress` fetches nothing, writes nothing, and answers
+    // "not started" for a save it cannot read.
+    window.addEventListener("pageshow", async (event) => {
+      if (!event.persisted) return;
+      progress = await readProgress(entries);
+      paint();
+    });
     window.playerPages = {
       entries: Object.freeze(entries.map((entry) => Object.freeze({ ...entry }))),
       getShown: () => shown,
