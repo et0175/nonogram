@@ -373,6 +373,45 @@ def _open_pages(page, url: str, path: str) -> None:
     )
 
 
+#: How long a cell waits before asserting that a restore did **not** repaint.
+#: A negative check needs a bound, and this is a tenth of the positive one;
+#: what it has to outlast is one ``deserializeState`` per entry over the
+#: fixture book's four puzzles.
+PAGES_INERT_MS = PAGES_SETTLE_MS // 10
+
+
+def _restore(page, persisted: bool = True) -> None:
+    """Deliver a back/forward-cache restore as a page can observe one (CARD-437).
+
+    **This is not a restore; it is the event a restore fires**, and the
+    difference was measured rather than assumed. In this harness Chromium
+    never restores a document: after ``page.go_back()`` a ``pageshow``
+    listener registered before leaving is gone along with every other
+    ``window`` property, and
+    ``performance.getEntriesByType('navigation')[0].type`` reads
+    ``"back_forward"`` — a document re-created from the history entry.
+    CARD-437's production reproduction read ``"navigate"`` after the same
+    Back, which is what a RESTORED entry reports (the original entry's type
+    survives with the document). Playwright hardcodes
+    ``--disable-back-forward-cache`` in its Chromium switches, and launching
+    without it (``ignore_default_args``) gave those same two readings, so
+    the flag is not the only thing in the way and no fixture here can
+    produce the real thing.
+
+    So the cells pin the page's HANDLER instead: the one observable a
+    restore gives a page is this event with ``persisted`` true, and that is
+    what is dispatched. ``persisted=False`` is the control — a fresh show
+    fires ``pageshow`` too, and a handler that ignored the flag would
+    re-read progress on every load (one ``deserializeState`` per entry over
+    a 160-puzzle book), which CARD-437 item 4 refuses. The real restore path
+    is NOT covered by the suite; it was verified by hand (card notes).
+    """
+    page.evaluate(
+        "(persisted) => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted}))",
+        persisted,
+    )
+
+
 # ==========================================================================
 # The three acceptance criteria (browser)
 # ==========================================================================
@@ -597,6 +636,17 @@ def test_the_listing_pages_only_get_and_write_nothing(browser_page, pages_host) 
     count this body deliberately does not assert — and a node id is the
     string a gate log and a check ref quote, so it has to state the
     measurement rather than a stronger nearby property (cycle 1, F-011).
+
+    CARD-437 AC-3 is the last clause, and it REFUTES that card's premise.
+    The library is served by the same module as the book landing and was
+    expected to need the same repaint on a restore; it does not, because it
+    shows no progress at all — its tiles are ``tileFor``'s (extent and
+    tier), ``readProgress`` is never called for it, and nothing on it is
+    read from the device. So a restore has nothing to refresh there, and the
+    clause says exactly that, plus the thing that would break if a future
+    fix refreshed it the lazy way: re-running the page's whole ``load`` on
+    ``pageshow`` would re-fetch ``index.json`` and throw away the filter the
+    reader had chosen.
     """
     url, report, keys, slug = pages_host
     seen: list[tuple[str, str]] = []
@@ -614,6 +664,26 @@ def test_the_listing_pages_only_get_and_write_nothing(browser_page, pages_host) 
     browser_page.locator("[data-pages-clear]").click()
     assert sorted(_tiles(browser_page)) == sorted(keys.values())
     assert seen[loaded:] == [], seen[loaded:]
+
+    # CARD-437 AC-3 — the library across a restore. No tile of it carries a
+    # progress state in the first place, so there is nothing stale on it;
+    # and the restore leaves the reader's filter, the shown tiles and the
+    # request log untouched.
+    assert browser_page.evaluate(
+        "() => [...document.querySelectorAll('.tile')].every(t => t.dataset.progress === undefined)"
+    ), "a library tile carries a progress state, so CARD-437 AC-3 is not vacuous after all"
+    browser_page.locator("select[data-pages-filter='tier']").select_option("easy")
+    before = _tiles(browser_page)
+    chosen = len(seen)
+    _restore(browser_page)
+    browser_page.wait_for_timeout(PAGES_INERT_MS)
+    assert _tiles(browser_page) == before
+    assert browser_page.evaluate("() => window.playerPages.getFilters()") == {
+        "tier": "easy",
+        "size": "",
+    }
+    assert seen[chosen:] == [], seen[chosen:]
+    browser_page.locator("[data-pages-clear]").click()
 
     for method, requested in seen:
         assert method == "GET", (method, requested)

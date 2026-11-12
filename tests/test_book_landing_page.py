@@ -29,6 +29,22 @@ CARD-420 (a book's Christmas theme, owner 2026-11-10):
         (the assembler's reduction); test_player_bundle's provenance scan
   AC-2  test_the_served_book_carries_series_and_authors_and_no_picture
   AC-3, AC-4  test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it
+
+CARD-437 (coming back from a puzzle shows what you just did, 2026-11-12):
+  AC-1, AC-2, AC-4  test_progress_comes_from_this_device_and_draws_the_readers_own_picture,
+        which now takes every reading after the first load across a RESTORE
+        (``_restore``) rather than across a reload — the reload path is the
+        one that never broke. ``_restore``'s docstring records what this
+        harness can and cannot produce.
+  AC-3  tests/test_public_player_pages.py's
+        test_the_listing_pages_only_get_and_write_nothing, where it refutes
+        the card's premise: the library shows no progress at all
+  (and the repaint's two accumulation hazards, both measured as mutants:
+   the decorations, in the Christmas cell above, and the jump box's
+   listeners, counted in the progress cell; plus the one thing the repaint
+   must NOT recompute — the sections the reader opened or closed by hand,
+   guarded in test_a_long_book_is_cut_into_level_sections_that_open_and_close,
+   the only cell whose book is long enough to have closed sections at all)
 """
 
 from __future__ import annotations
@@ -44,9 +60,11 @@ from tests.test_public_player_pages import (  # noqa: F401 — fixtures used by 
     BOOK_TITLE_SERVED,
     PAGE_GRIDS,
     PAGE_TIERS,
+    PAGES_INERT_MS,
     PAGES_SETTLE_MS,
     _leaky_title,
     _open_pages,
+    _restore,
     _tiles,
     assembler,
     browser_page,
@@ -83,6 +101,23 @@ def _plant(page, url: str, key: str, cells: list[tuple[int, int]]) -> None:
 
 def _black(grid) -> list[tuple[int, int]]:
     return [(r, c) for r, row in enumerate(grid) for c, black in enumerate(row) if black]
+
+
+def _restored(page, key: str, state: str) -> None:
+    """CARD-437: a restore, waited out until ``key``'s square reads ``state``.
+
+    The repaint is asynchronous (it re-imports the player's own reader and
+    rebuilds every square), so the wait is on the page's own rendered
+    attribute rather than on a sleep. ``_restore``'s docstring says what
+    this harness can and cannot produce.
+    """
+    _restore(page)
+    page.wait_for_function(
+        "({key, state}) =>"
+        " document.querySelector(`.tile[data-key='${key}']`)?.dataset.progress === state",
+        arg={"key": key, "state": state},
+        timeout=PAGES_SETTLE_MS,
+    )
 
 
 @pytest.mark.browser
@@ -147,6 +182,21 @@ def test_a_long_book_is_cut_into_level_sections_that_open_and_close(browser_page
     assert heads.nth(0).get_attribute("aria-expanded") == "false"
     assert not grids.nth(0).is_visible()
 
+    # CARD-437: and that is the READER's state, so coming back from a puzzle
+    # keeps it. The repaint rebuilds the list from `entries`, which cannot
+    # carry "Easy closed, Medium open" — on this 30-puzzle book recomputing
+    # the default would hand back ["true", "false", "false"], re-closing the
+    # section they just opened. The wait is on the repaint having happened:
+    # the marked section node is one `replaceChildren` discards.
+    page.evaluate("() => { document.querySelector('.book-section').dataset.beforeRestore = '1'; }")
+    _restore(page)
+    page.wait_for_function(
+        "() => document.querySelector('.book-section')?.dataset.beforeRestore === undefined",
+        timeout=PAGES_SETTLE_MS,
+    )
+    assert [heads.nth(i).get_attribute("aria-expanded") for i in range(3)] == ["false", "true", "false"]
+    assert [grids.nth(i).is_visible() for i in range(3)] == [False, True, False]
+
     # The short fixture book opens every section: nothing to save by closing.
     book_file.write_text(json.dumps(served), encoding="utf-8")
     _open_pages(page, url, f"/b/{slug}")
@@ -160,9 +210,24 @@ def test_a_long_book_is_cut_into_level_sections_that_open_and_close(browser_page
 def test_progress_comes_from_this_device_and_draws_the_readers_own_picture(
     browser_page, pages_host
 ) -> None:
+    """CARD-418 AC-C, and CARD-437 AC-1/AC-2/AC-4 — across a RESTORE, not a reload.
+
+    The page is opened ONCE. Every reading after that first load is taken
+    across a back/forward-cache restore (``_restore``), because the reload
+    path is the one that never broke: CARD-437's reproduction on production
+    had a save written, read back true, and the tile still showing "new"
+    until the reader reloaded by hand — and the only route back to the book
+    the product offers is the browser's Back. This cell used to re-open the
+    page between the plant and the assertions, which is why the defect
+    survived CARD-418's review: it passed against the broken page.
+    """
     url, _, keys, slug = pages_host
     page = browser_page
     first, second = BOOK_ORDER[0], BOOK_ORDER[1]
+    errors: list[str] = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    asked: list[str] = []
+    page.on("request", lambda request: asked.append(request.url))
     _open_pages(page, url, f"/b/{slug}")
     assert page.locator("[data-pages-continue]").is_hidden()
     assert set(page.evaluate("() => Object.values(window.playerPages.getProgress())")) == {"new"}
@@ -170,7 +235,33 @@ def test_progress_comes_from_this_device_and_draws_the_readers_own_picture(
     # Puzzle 1 solved (every black cell of its grid), puzzle 2 started (one cell).
     _plant(page, url, keys[first], _black(PAGE_GRIDS[first]))
     _plant(page, url, keys[second], _black(PAGE_GRIDS[second])[:1])
-    _open_pages(page, url, f"/b/{slug}")
+
+    # The control (CARD-437 item 4): a fresh show fires ``pageshow`` as well,
+    # and a handler that re-read progress on every one of them — rather than
+    # on a restore — would repaint here.
+    _restore(page, persisted=False)
+    page.wait_for_timeout(PAGES_INERT_MS)
+    assert page.evaluate("() => window.playerPages.getProgress()")[keys[first]] == "new"
+
+    # AC-1 and AC-2: the restore repaints, new -> started and new -> solved.
+    quiet = len(asked)
+    kept = page.evaluate("() => ({...window.localStorage})")
+    # The jump box hangs off elements the repaint does NOT replace (it is
+    # outside the squares' list), so a repaint that re-wired it would stack a
+    # second copy of both its listeners on every return from a puzzle —
+    # invisible from the outside, which is why it is counted here.
+    page.evaluate(
+        """() => {
+          window.__wired = 0;
+          const jump = document.querySelector('[data-pages-jump]');
+          for (const node of [jump, jump.querySelector('[data-pages-jump-number]')]) {
+            const real = node.addEventListener.bind(node);
+            node.addEventListener = (...args) => { window.__wired += 1; return real(...args); };
+          }
+        }"""
+    )
+    _restored(page, keys[second], "started")
+    assert page.evaluate("() => window.__wired") == 0
 
     progress = page.evaluate("() => window.playerPages.getProgress()")
     assert progress[keys[first]] == "solved"
@@ -204,13 +295,17 @@ def test_progress_comes_from_this_device_and_draws_the_readers_own_picture(
     )
     assert counts[0] == "1 of 1 solved"
 
-    # A damaged save is "not started", never an error.
+    # AC-4: the repaint read the device and nothing else — it asked the site
+    # for nothing (the player's own reader is already in this document's
+    # module map) and left storage byte for byte as the player wrote it.
+    assert asked[quiet:] == [], asked[quiet:]
+    assert page.evaluate("() => ({...window.localStorage})") == kept
+
+    # A damaged save is "not started", never an error — on the restore path too.
     page.evaluate(
         "([k]) => localStorage.setItem(k, '{not json')", [SAVE_PREFIX + keys[first]]
     )
-    errors: list[str] = []
-    page.on("pageerror", lambda error: errors.append(str(error)))
-    _open_pages(page, url, f"/b/{slug}")
+    _restored(page, keys[first], "new")
     assert page.evaluate("() => window.playerPages.getProgress()")[keys[first]] == "new"
     assert errors == []
     # The page never writes storage: what was planted is still exactly there.
@@ -293,6 +388,18 @@ GRID_PAPER = "rgb(255, 253, 248)"
 
 _ROOT_THEME = "() => document.documentElement.dataset.theme ?? null"
 
+#: The landing's decorations as counts — read twice by the Christmas cell,
+#: before and after a restore (CARD-437), so it is a constant rather than
+#: two copies of one expression.
+_DECOR = """() => ({
+  garlands: document.querySelectorAll('.decor-garland').length,
+  panels: document.querySelectorAll('.book-jump, .book-continue, .book-section-head').length,
+  snowed: document.querySelectorAll(':is(.book-jump, .book-continue, .book-section-head) > .decor-snow').length,
+  hidden: [...document.querySelectorAll('.decor-garland, .decor-snow')].every((d) =>
+    d.getAttribute('aria-hidden') === 'true' && getComputedStyle(d).pointerEvents === 'none'),
+  needles: document.querySelectorAll('.decor-garland line').length,
+})"""
+
 
 @pytest.mark.browser
 def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
@@ -345,18 +452,18 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     assert look["links"] == [f"/play/{keys[name]}?book={slug}" for name in BOOK_ORDER]
     # CARD-421: the garland at the top and snow on every panel, hidden from
     # assistive technology and never in a tap's way.
-    decor = page.evaluate(
-        """() => ({
-          garlands: document.querySelectorAll('.decor-garland').length,
-          panels: document.querySelectorAll('.book-jump, .book-continue, .book-section-head').length,
-          snowed: document.querySelectorAll(':is(.book-jump, .book-continue, .book-section-head) > .decor-snow').length,
-          hidden: [...document.querySelectorAll('.decor-garland, .decor-snow')].every((d) =>
-            d.getAttribute('aria-hidden') === 'true' && getComputedStyle(d).pointerEvents === 'none'),
-          needles: document.querySelectorAll('.decor-garland line').length,
-        })"""
-    )
+    decor = page.evaluate(_DECOR)
     assert decor["garlands"] == 1 and decor["snowed"] == decor["panels"] > 0, decor
     assert decor["hidden"] and decor["needles"] > 0, decor
+
+    # CARD-437: the repaint on a restore replaces the section heads, so the
+    # decorations are drawn again — and `decorate` PREPENDS, so a repaint
+    # that did not take the old ones away first would hang a second garland
+    # over the first and lay a second drift on the box and the Continue
+    # card. After a restore there is still exactly one of each.
+    _plant(page, url, keys[BOOK_ORDER[1]], _black(PAGE_GRIDS[BOOK_ORDER[1]])[:1])
+    _restored(page, keys[BOOK_ORDER[1]], "started")
+    assert page.evaluate(_DECOR) == decor, page.evaluate(_DECOR)
 
     # A tile opens its puzzle wearing the book's theme, on the board's own paper.
     page.click(f'.tile[data-key="{first}"]')
