@@ -466,6 +466,18 @@ Not observed: **a real phone, still.** Three publishes in two days and every beh
 
 **What this publish leaves owed.** **CARD-432** (the board hands its scroll to the page — the fling that carries on, and 104 px of board unreachable at 175% zoom) is `ready`, P1, and unstarted: it is a live defect on the site this publish just updated. **CARD-437** (the book page showing stale progress after a Back) is mid-review and NOT in this publish, so returning from a puzzle still shows the book as it was before you played. **CARD-433 to CARD-436 and CARD-438** are `ready` and unstarted — the four rulings of 2026-11-12 (Region sticky while the board fits; circles needing a closed run; the probe silent until Hint; the way back to the book) plus the two-row portrait toolbar.
 
+**The line-focus publish, 2026-11-12 — asked for, and found already live.** The request was to publish `main` for **CARD-439** (line focus mode: a big puzzle solved one row or column at a time on a phone). Before assembling, the check found nothing to publish: merge `1192a889` is an ancestor of `a10c5145`, so CARD-439 went out **with the joined-zoom publish above**, and the only commit on `main` since is that publish's own record. No new deployment was made — a promote of identical bytes would add a production deployment and change nothing.
+
+| Step | What was observed |
+| --- | --- |
+| What production serves | `https://nonogram.adverax.io` → **`nonogram-studio-1196mrvzr`** (Ready, created 15:47 +0200, the joined-zoom promote). Live hashes equal the sources on `main`: `solver.js` `baa34f4eac8c` (carries `buildLineView`), `solver_state.js` `171451de779f`, `admin.css` `9d310cb2f3cc`, `tokens.css` `41cd8c918f84`, `base.css` `3f02fa5cd666`; the live `/play/<key>` and `/library` pages equal `build/site-20261112d`'s byte for byte. |
+| Doors | `/library`, `/play/<key>`, `/b/<slug>`, `/how-to-solve`, `/puzzle/<key>.json` all 200; `/nope` 404. |
+| Behaviour on the live domain | Headless Chromium, 390x844, touch, on the 30x30 `/play/52603b6dee`: one **Line** button, 44x44, visible; tapping it opens the `#puzzle-player-line` dialog (`aria-expanded` true) titled "Row 1 of 30", with the row's clue, the mini-map, the two 15-cell strips and the brush tools; no page error. At 1440x900 the button stays hidden. |
+
+**A correction to the joined-zoom record above.** Its "What changed" row says `solver.js` and `solver_state.js` were unchanged, so the publish was "one stylesheet". Both had changed — `solver.js` `e1baf6066c0e` → `baa34f4eac8c`, `solver_state.js` `1ea4d93d17c2` → `171451de779f` (read from `build/site-20261112c`) — because that tree carried CARD-439. The hashes it lists were right; the "unchanged" was carried from the publish before rather than compared against it.
+
+Not observed: a real phone, for the fifth publish record running — and line focus is the feature most about the hand: the long-press to open a line and a drag along the strip.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
