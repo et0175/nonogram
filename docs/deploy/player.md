@@ -531,6 +531,19 @@ Not observed: a real phone. The 4 px gaps between the toolbar's 44 px buttons ar
 
 Not observed: a real phone. Whether the paper-ink-paper rule reads as "the fifth" at arm's length is the owner's call.
 
+**The line-probe publish, 2026-11-12 (the day's eighth).** Published from `main` at `0b666a45`, same curated bundle. One card, **CARD-442**: the probe inside the line view, both when the view opens with a probe already open and started from the view. The promote waited for the owner's "yes, publish".
+
+| Step | What was observed |
+| --- | --- |
+| What changed | `solver.js` `71eee5594642` → **`f9bd2bf3b335`** (the probe bar's three transitions become shared functions; the view gets Probe, which becomes Keep and Wrong guess while one is open; probe cells painted in the strip and on the map; the broken line's clue flagged); `admin.css` `018ec8027da4` → **`33f4aed7f179`** (the view's probe row, the dashed marker on strip cells, the map outline, and every `.player-explain` — the CARD-412 offer among them — lifted above the open view). The tutorial's step 5 gains one sentence; `how-to-solve.js`, `player.css`, `solver_state.js`, `tokens.css`, `base.css` unchanged. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261112g`, no `--analytics`. 160 puzzles, one book landing. The five copied files, `how-to-solve.js` and `player.css` byte-identical to their sources; 160/160 puzzle files with exactly the five served fields; no goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-nktpelxtt`**. Hashes matched, five doors 200, `/nope` 404. |
+| Behaviour, on the preview and repeated on the live domain | 390x844 touch, `/play/52603b6dee`. Probe opened on the board, one cell marked, then Line: Keep and Wrong guess shown, Probe hidden, the cell dashed in the strip, on the board and on the map (1 each); two more marks in the view joined it (3 each); Keep in the view closed it everywhere and the board's Probe came back. Probe started in the view, cell 21 marked, Wrong guess: the cell back to unknown, the offer visible and the topmost element at its centre, the cell outlined in the strip; Mark it marked it white with the view still open and focus on the view's Probe. `scrollWidth` 390 throughout; no page error. At 844x390 the probe group sits in the tools row beside the brushes. |
+| Production | Checked first: still `nonogram-studio-bdkctcc4v` (the ringed-clue publish). `vercel promote <the preview URL> --scope et0175s-projects --yes` created **`nonogram-studio-35yxlp6ad`**; both changed hashes live on the second check. |
+| Rollback target | `nonogram-studio-bdkctcc4v` still Ready. |
+
+Not observed: a real phone.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
