@@ -1,6 +1,6 @@
 # CARD-441: The line view reads like the board — a settled number is ringed, and the heavy fifth rule shows between black cells
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** bug
 **Estimate:** 0.5c (0.1d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_line.py
 **Review score:** — (no review cycle; owner request, 2026-11-12)
 **Started:** 2026-11-12T18:20Z
-**Closed:** —
+**Closed:** 2026-11-12T19:00Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** e8f3e7d5
 **Blocked by:** —
 
 ## Why
