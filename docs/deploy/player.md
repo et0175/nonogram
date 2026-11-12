@@ -434,6 +434,21 @@ Not observed, and this is the publish where it matters most: **a real phone, and
 
 **What this publish leaves owed.** CARD-429 (the zoom readout moves after `+`, so landscape focus order follows the eye, at the cost of `− 100% +` becoming `− + 100%` everywhere) is `ready` and unblocked. Findings 6 and 7 stay uncarded pending the owner's reproduction steps.
 
+**The zoom-order publish, 2026-11-12 (the day's third, and the wave's last).** Published from `main` at `aa3243c4`, same curated bundle. One card, **CARD-429**, which the publish above listed as owed. **All six cards of the play-test wave are now live.**
+
+| Step | What was observed |
+| --- | --- |
+| What changed | `admin.css` `2f68f772a86c` → **`bf012406cb33`** — **comment-only**; the behaviour is in the two templates, which the assembler renders at build time. `solver.js`, `tokens.css`, `base.css`, `solver_state.js` and the bundle are unchanged. The `.player-zoom-readout` span now follows the `in` button in `puzzle_solve.html` **and** in `puzzle_edit.html`, which carried the byte-identical group. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261112c`, no `--analytics`. 160 puzzles, one book landing. All five copied files byte-identical to their sources; **the rendered `play/index.html` carries the group in the order `out, in, readout`**, which is the move reaching the public tree. 160/160 puzzle files with exactly the five served fields, no `solution` anywhere, no goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-12n2b6l8w`**. Five hashes matched, five doors 200, `/nope` 404. |
+| Behaviour, on the preview and repeated on the live domain | At **844x390, 874x402, 390x844 and 1440x900**: DOM order and drawn order are both `out, in, readout` — they agree at every viewport, which is the whole point of the card, since focus order follows DOM order and CSS cannot change it. Landscape geometry is unchanged (out at x 40, in at x 92, both y 240; readout spanning at y 292), so the steppers stay the pair CARD-428 made them. Desktop and portrait now read `− + 100%`, which is the cost the owner accepted when told that the readout could not move in one layout without moving in the other. |
+| Production | `vercel promote <the preview URL> --scope et0175s-projects --yes` created **`nonogram-studio-fh3vjj9o9`**. The live `admin.css` served the previous hash for the first few seconds after the promote returned — worth knowing: **the promote command returning is not the deployment being live**, and the first verification pass caught the old bytes. Re-checked until the hash matched, then every figure above reproduced on `https://nonogram.adverax.io`. |
+| Rollback target | `nonogram-studio-6obyc8p6m` (the second play-test publish) still Ready. It serves the same bundle with the retired zoom order. |
+
+Not observed: **a real phone, still.** Three publishes in two days and every behavioural figure in all of them is emulated geometry. The things most worth a human eye remain the ones drawn over the picture — the centred message and the solve celebration — and now also whether `− + 100%` reads naturally to the owner on a desktop, since that order changed on a layout nobody complained about.
+
+**What this publish leaves owed.** Nothing from the carded wave. Findings 6 and 7 of the owner's Google Doc — the board jumping when the clues are scrolled, and "Contradict" discarding a mark with no confirmation when it has scrolled out of view — stay **uncarded** pending the owner's own reproduction steps: neither reproduced under emulation, and handing an author a sentence to re-derive is how a card gets written against a defect nobody has seen.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
