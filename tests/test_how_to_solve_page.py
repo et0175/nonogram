@@ -1,6 +1,6 @@
 """CARD-419 — the site-wide ``/how-to-solve`` page (COMP-011, FR-045).
 
-One lesson page for every book: a five-step wizard with a guided 5x5 ("Try
+One lesson page for every book: a six-step wizard with a guided 5x5 ("Try
 one") and a probe demo built the way the player's Probe / Keep /
 Contradiction transaction works (CARD-268). The page's script declares its two
 grids, the probe square and the probe chain as JSON-shaped constants; this
@@ -316,7 +316,7 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     _open(page, url)
     assert _visible_step(page) == [1]
     assert page.locator("[data-hts-back]").is_hidden()
-    assert page.locator("[data-hts-caption]").inner_text() == "Step 1 of 5 · The rules"
+    assert page.locator("[data-hts-caption]").inner_text() == "Step 1 of 6 · The rules"
 
     page.locator("[data-hts-next]").click()
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)
@@ -332,8 +332,13 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)
     assert _visible_step(page) == [2]
 
+    # CARD-440: step 5 is the phone's line view, so the levels are step 6.
     _open(page, url, "/how-to-solve#5")
     assert _visible_step(page) == [5]
+    assert page.locator("[data-hts-step='5'] h2").inner_text() == "Big puzzles on a phone"
+    assert page.locator("[data-hts-next]").inner_text() == "Next: Levels and the promise"
+    _open(page, url, "/how-to-solve#6")
+    assert _visible_step(page) == [6]
     assert page.locator("[data-hts-next]").is_hidden()
     assert page.locator("[data-hts-back]").is_visible()
     # A fragment out of range is step 1, not a blank page.

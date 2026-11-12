@@ -8,7 +8,7 @@
   the reader came from when the referrer is one on this site, and to
   /library otherwise (how-to-solve.js, homeHref).
 
-  A wizard of five steps, one screen each. The step is the URL fragment
+  A wizard of six steps, one screen each. The step is the URL fragment
   (#1..#5), so the browser's Back button walks the steps and a step can be
   linked to. Everything the steps draw is built by how-to-solve.js from two
   grids it declares (TRY_GRID, PROBE_GRID); every clue on the page is derived
@@ -44,9 +44,10 @@
       <button type="button" class="hts-dot" data-hts-goto="2" aria-label="Step 2: Squeeze from both ends"></button>
       <button type="button" class="hts-dot" data-hts-goto="3" aria-label="Step 3: What every arrangement agrees on"></button>
       <button type="button" class="hts-dot" data-hts-goto="4" aria-label="Step 4: Probe, and watch it break"></button>
-      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: Levels and the promise"></button>
+      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: Big puzzles on a phone"></button>
+      <button type="button" class="hts-dot" data-hts-goto="6" aria-label="Step 6: Levels and the promise"></button>
     </div>
-    <p class="hts-caption" data-hts-caption>Step 1 of 5 · The rules</p>
+    <p class="hts-caption" data-hts-caption>Step 1 of 6 · The rules</p>
   </nav>
 
   <section class="hts-step" data-hts-step="1" data-hts-name="The rules">
@@ -124,7 +125,21 @@
     </div>
   </section>
 
-  <section class="hts-step" data-hts-step="5" data-hts-name="Levels and the promise" hidden>
+  <section class="hts-step" data-hts-step="5" data-hts-name="Big puzzles on a phone" hidden>
+    <h2>Big puzzles on a phone</h2>
+    <p>On a puzzle 20 squares or more on a side, the squares on a phone are
+      smaller than a fingertip. Press <b>Line</b>, beside <b>Hint</b>, to open
+      one row or column in big squares, with its clue above it.</p>
+    <p>Tap the small board, or use the arrows, to pick a line, and
+      <b>Rows</b> / <b>Cols</b> to switch direction. A long line is split into
+      two strips. Tap or drag along a strip to mark it, with the same Black,
+      White and Maybe as the board. Press and hold a square to jump to the
+      line that crosses it there.</p>
+    <p>Every mark goes straight onto the board, and Undo works as usual.
+      Press <b>Board</b> to go back to the whole puzzle.</p>
+  </section>
+
+  <section class="hts-step" data-hts-step="6" data-hts-name="Levels and the promise" hidden>
     <h2>What the levels mean</h2>
     <dl class="hts-levels">
       <dt><span class="hts-level" data-tier="easy" aria-hidden="true"></span>Easy</dt>

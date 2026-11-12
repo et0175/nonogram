@@ -2088,6 +2088,17 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    screen only, so every rule below is only ever seen there. Colours are the
    page's tokens, so a themed page draws a themed view. */
 .player-line-open[hidden] { display: none; }
+/* CARD-440 (owner 2026-11-12: "I'd place the button before hints"): Line now
+   sits in the history group, and on a portrait phone that row is 3 px too wide
+   at 390 px (16 + 101 brush/Region + 8 + five 44 px buttons and four 8 px gaps
+   = 377 against 374), so the whole group wrapped and pushed the board 52 px
+   down. While Line is offered the row's gaps are 4 px: it fits from a 364 px
+   viewport up (375 and 390 measured) and, narrower, wraps rather than
+   overflowing, as before. Landscape's two-column strip keeps its gaps. */
+@media (max-width: 600px) {
+  .player-toolbar:has(.player-line-open:not([hidden])) { column-gap: var(--space-1); }
+  .player-history:has(> .player-line-open:not([hidden])) { gap: var(--space-1); }
+}
 .player-line {
   position: fixed; inset: 0; z-index: 1050;
   display: flex; flex-direction: column; gap: var(--space-3);
@@ -2121,7 +2132,9 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
 .player-line-mini-paper { fill: var(--grid-paper); }
 .player-line-mini-filled { fill: var(--grid-ink); }
 .player-line-mini-empty { fill: color-mix(in srgb, var(--color-border-strong) 28%, var(--grid-paper)); }
-.player-line-mini-maybe { fill: color-mix(in srgb, var(--color-accent) 45%, var(--grid-paper)); }
+/* CARD-440 (owner 2026-11-12): a "?" cell was the accent green of the focus band,
+   so it read as the selected line; it is amber, a hue the band never uses. */
+.player-line-mini-maybe { fill: color-mix(in srgb, var(--color-warning) 55%, var(--grid-paper)); }
 .player-line-mini-rule { fill: none; stroke: color-mix(in srgb, var(--grid-ink) 35%, var(--grid-paper)); stroke-width: 1px; vector-effect: non-scaling-stroke; }
 .player-line-mini-focus { fill: color-mix(in srgb, var(--color-accent) 22%, transparent); stroke: var(--color-accent); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .player-line-clue { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin: var(--space-1) 0 0; min-height: 44px; }
