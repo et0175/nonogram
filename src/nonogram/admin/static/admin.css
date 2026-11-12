@@ -2144,8 +2144,12 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
   font-family: var(--font-num); font-size: 1.5rem; font-weight: 600; line-height: 1;
   background: var(--color-surface); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-control);
 }
-/* A number the marks have settled — the board's circle, said as a strike. */
-.player-line-num.is-circled { color: var(--color-text-secondary); background: transparent; border-color: var(--color-border); text-decoration: line-through; }
+/* A number the marks have settled wears the board's ring (CARD-441, owner
+   2026-11-12: "we circle around the solved cue number, not crossing it"): a
+   grid-ink ring, round for one digit and a pill for two, the digit keeping
+   its ink as on the board. The extra ring width is an inset shadow, so
+   settling moves nothing. */
+.player-line-num.is-circled { border-color: var(--grid-ink); border-radius: 22px; box-shadow: inset 0 0 0 var(--border-width) var(--grid-ink); }
 /* The strips: one width for every strip of a line (the longer one's cells),
    so a 15 + 10 split keeps one cell size, both strips flush left. */
 .player-line-strips {
@@ -2163,6 +2167,13 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
 .player-line-cell + .player-line-cell { border-left: var(--border-width) solid color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
 .player-line-cell.is-major { border-left: var(--player-rule-major, 2px) solid var(--grid-ink); }
 .player-line-cell[data-state="filled"] { background: var(--grid-ink); }
+/* CARD-441 (owner 2026-11-12: no divider between two black cells at the
+   fifth): the heavy rule is ink, so beside a black cell it vanished. A black
+   cell on either side of it keeps a paper gap as wide as the rule, so the
+   rule reads as ink between two paper lines, heavier than the ordinary thin
+   divider, which already shows between black cells. */
+.player-line-cell.is-major[data-state="filled"] { box-shadow: inset var(--player-rule-major, 2px) 0 0 var(--grid-paper); }
+.player-line-cell[data-state="filled"]:has(+ .is-major) { box-shadow: inset calc(-1 * var(--player-rule-major, 2px)) 0 0 var(--grid-paper); }
 .player-line-cell[data-state="empty"]::after { content: ""; position: absolute; inset: 0; width: 7px; height: 7px; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 .player-line-cell[data-state="maybe"]::after { content: "?"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 600; line-height: 1; color: var(--color-accent); }
 .player-line-cell.is-pivot { outline: 3px solid var(--color-warning); outline-offset: -2px; z-index: 1; }

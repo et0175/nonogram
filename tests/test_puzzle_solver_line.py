@@ -293,6 +293,48 @@ class TestSolverLine_TheLineIsSplitInTwo:
 
 
 @pytest.mark.browser
+class TestSolverLine_ReadsLikeTheBoard:
+    """CARD-441 — a settled number is ringed, not struck; two black cells
+    either side of the heavy fifth rule stay two cells."""
+
+    def test_ring_and_divider(self, browser, live) -> None:
+        context, page = _open_phone(browser, live, BIG)
+        try:
+            row, k = next((r, k) for r, line in enumerate(BIG) for k in (5, 10, 20, 25)
+                          if line[k - 1] and line[k])
+            other = next(r for r in range(30) if r != row and any(BIG[r]))
+            page.evaluate(
+                """async ([grid, other, col]) => {
+                  const m = await import('/static/solver_state.js');
+                  window.puzzlePlayer.setBoard(m.withCell(m.boardOfGrid(grid), other, col, m.UNKNOWN));
+                }""",
+                [BIG, other, BIG[other].index(True)],
+            )
+            free = BIG[row].index(False)
+            page.locator(".player-board tbody tr").nth(row).locator("td.player-cell").nth(free).tap()
+            page.locator('[data-player-action="undo"]').tap()
+            _open_line(page)
+            assert _title(page) == f"Row {row + 1} of 30"
+            nums = page.eval_on_selector_all(".player-line-num", """els => els.map((e) => {
+              const s = getComputedStyle(e);
+              return {circled: e.classList.contains('is-circled'), line: s.textDecorationLine,
+                      ring: s.borderTopColor, radius: parseFloat(s.borderTopLeftRadius), h: e.offsetHeight};
+            })""")
+            ink = page.evaluate("getComputedStyle(document.querySelector('.player-line-cell[data-state=filled]')).backgroundColor")
+            assert nums and all(n["circled"] for n in nums)
+            assert all(n["line"] == "none" and n["ring"] == ink and n["radius"] >= n["h"] / 2 for n in nums)
+            cell = page.eval_on_selector(_cell(k), """e => ({major: e.classList.contains('is-major'),
+              state: e.dataset.state, bg: getComputedStyle(e).backgroundColor, shadow: getComputedStyle(e).boxShadow})""")
+            assert cell["major"] and cell["state"] == F
+            before = page.eval_on_selector(_cell(k - 1), "e => getComputedStyle(e).boxShadow")
+            # A paper gap inside each black cell, either side of the ink rule.
+            for shadow in (cell["shadow"], before):
+                assert shadow != "none" and cell["bg"] not in shadow
+        finally:
+            context.close()
+
+
+@pytest.mark.browser
 class TestSolverLine_ALongPressOpensTheCrossingLine:
     """AC-5."""
 
