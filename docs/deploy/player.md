@@ -505,6 +505,19 @@ Not observed: a real phone, for the fifth publish record running — and line fo
 
 Not observed: a real phone. The 4 px gaps between the toolbar's 44 px buttons are the thing to try with a thumb, and the step-5 wording is the owner's to judge.
 
+**The stale-book publish, 2026-11-12 (the day's fifth).** Published from `main` at `b80dfcb3`, same curated bundle. **One card, CARD-437**, and genuinely one file this time — the claim the record above had to retract.
+
+| Step | What was observed |
+| --- | --- |
+| What changed, read BEFORE promoting | Every top-level served asset was fetched from the live domain and compared with the assembled tree **first** — the check the joined-zoom record was corrected for missing. Exactly one differed: `pages.js` **`64443952c123` → `09c185467a0e`**. `admin.css` `3ce59ee8f375`, `solver.js` `71eee5594642`, `solver_state.js` `171451de779f`, `tokens.css` `41cd8c918f84`, `base.css`, `player.css`, `decor.css`, `decor.js`, `how-to-solve.js`: all already live and unchanged. Main's other cards had been published by the other session in between. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261112e`, no `--analytics`. 160 puzzles, one book landing. Four copied files byte-identical to their sources and `pages.js` identical to `player/pages.js`; 160/160 puzzle files with exactly the five served fields and **no puzzle file carrying a `solution` key** (the narrower check the correction above defines, run as a key test rather than a string grep); no goatcounter, no `.vercel/`, marker present. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-c4zxyp1s3`**. Four hashes matched the tree, five doors 200, `/nope` 404. |
+| Production | `vercel promote <the preview URL> --scope et0175s-projects --yes`. **The first read of the live domain still served `64443952c123`**, the old bytes, and the second served the new — the promote-is-not-live lag this page has now recorded three times. Verified by polling the domain, never by the command's return. |
+| Behaviour — the check the SUITE CANNOT DO | CARD-437's own review named this: no harness here can produce a back/forward-cache restore, because Playwright hardcodes `--disable-back-forward-cache`, so the card's tests pin the handler with a synthetic `pageshow` and say so. The real gesture was driven in **real Chrome on production** instead: tile `33fa80994c` read `new`; the puzzle was opened by clicking its tile; one stroke was recorded; **browser Back**. The `pageshow` listener registered before leaving **survived with `persisted: true`** — so the document really was restored from the bfcache and not re-created — `performance.navigation.type` stayed `navigate` (no reload), and the tile read **`started`**, with the book's counts moving from 4 started to 5. Before this card the same sequence left the tile reading `new`. The test save was then removed; the owner's seven real saves were counted before and after and are untouched. |
+| Rollback target | The production deployment before it (serving `pages.js` `64443952c123`) still Ready. It serves the same bundle with the stale-book defect. |
+
+**What this publish leaves owed.** **CARD-432** (the board hands its scroll to the page; 104 px of board unreachable at 175% zoom) is still `ready`, still P1, still unstarted — a live defect on the site this publish just updated. **CARD-433, 434, 435, 436 and 438** are `ready` and unstarted. **CARD-439's line mode is live and its gestures have never met a human finger**: the long press and the strip drag could not be driven by this session's probe (the handler takes pointer capture, which dispatched events cannot provide), and the card carries no review score by design — its own 15 real-touch tests pass, which is not the same thing.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
