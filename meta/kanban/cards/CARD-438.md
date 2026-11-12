@@ -42,7 +42,7 @@ Probe is one 44 px button on a row of its own, and row 2 has 160 px of dead spac
 
 ## Read this before measuring again
 
-The figures above are from **production**, which does not yet carry CARD-430 (the compact zoom as one joined pill): that card is merged on main and unpublished. The pill changes the zoom group's width, which is one of the two numbers the free space is computed from. **Re-measure on main before implementing**, and record both sets in the notes. Taking the table above as current is the mistake this paragraph exists to prevent.
+The figures above are from **production as it stood at the moment they were taken**, and production has moved twice since. They do **not** include CARD-430 (the compact zoom as one joined pill), which changes the zoom group's width — one of the two numbers the free space is computed from — and they do **not** include **CARD-439's `Line` button**, a TWELFTH control added to this very toolbar on 2026-11-12, which the table above does not list at all. Both are live now. A twelfth control plausibly changes the row layout this card is built on, so the three-row reading, the 160 px of dead space and the 314 px on the Probe row are all suspect. The pill changes the zoom group's width, which is one of the two numbers the free space is computed from. **Re-measure on main before implementing**, and record both sets in the notes. Taking the table above as current is the mistake this paragraph exists to prevent.
 
 ## What to implement
 
@@ -62,3 +62,4 @@ How the rows are divided is the implementer's, informed by the re-measurement: t
 **Net test count: 0 added** — every cell above exists; this card re-pins figures and tightens one assertion.
 
 ## Worktree notes
+- **[Note, 2026-11-12, orchestrator]** The control inventory in AC-2 says "the same twelve controls" by counting the table above; that table was measured before `Line` existed, so the real inventory at implementation time is **thirteen** — re-derive it from `tests/test_puzzle_solver_phone.py`'s `_LABELLED + _UNLABELLED`, which is now the maintained list and was itself corrected at CARD-437's close after CARD-439 landed the control without it. Do not count the table in this card.
