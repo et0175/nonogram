@@ -1,6 +1,6 @@
 # CARD-439: A big puzzle on a phone can be solved one row or column at a time, in big cells
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (0.75d)
@@ -18,11 +18,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/templates/_icons.html, tests/test_puzzle_solver_line.py, tests/test_puzzle_solver_page.py (PAGE_ISOLATION row)
-**Review score:** —
+**Review score:** — (no review cycle; merged on the owner's go-ahead, 2026-11-12)
 **Started:** 2026-11-12T12:30Z
-**Closed:** —
+**Closed:** 2026-11-12T13:42Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 1192a889
 **Blocked by:** —
 
 ## Why
