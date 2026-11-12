@@ -1,6 +1,6 @@
 # CARD-430: The compact zoom is one joined control: a pill on a phone, a block across the landscape strip
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.25d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** card/430-zoom-pill
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-430
+**Branch:** —
+**Worktree:** —
 **Source:** owner 2026-11-12 (project thread): "can you propose a different design for a zoom button when it's small?"; of three mockups chose "option A" (a joined pill), "but in the landscape mode we have 2 columns of buttons, probably your long side fits better".
 **Idea:** —
 **Wave:** 79
@@ -18,11 +18,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-428, CARD-429
 **Touches:** src/nonogram/admin/static/admin.css
-**Review score:** —
+**Review score:** — (no review cycle; merged on the gates)
 **Started:** 2026-11-12T11:05Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-12T11:23Z
+**Actual:** one owner session (wall clock excluded, owner ruling)
+**Merge commit:** cabe4c50
 **Blocked by:** —
 
 ## What to implement
