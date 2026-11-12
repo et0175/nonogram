@@ -970,7 +970,21 @@ class TestSolverPhone_MirroredGutterSticks:
 # ==========================================================================
 
 #: The labelled toolbar buttons, by accessible name. Check is admin-only.
-_LABELLED = ("Undo", "Redo", "Reset", "Hint", "Check", "Probe")
+#: CARD-439 (owner request, 2026-11-12) added **"Line"**, which opens the
+#: one-row-or-column-at-a-time view. It is drawn only for a board at least
+#: ``LINE_MIN_SIDE`` (20) cells on its longer side, only on a compact screen,
+#: and not while the board is solved — so it is in this census only because
+#: the cell below drives ``BIG``, a 30x30. A cell driving a smaller board will
+#: not see it: the same state-pin caveat ``_CONTROLS`` already carries below,
+#: not a new kind of exception.
+#: Added at the CLOSE OF CARD-437, which is when it was caught: CARD-439
+#: landed the control without this row and reddened
+#: ``test_icons_only_when_compact`` at BOTH compact viewports, on main, for
+#: every card whose gate ran after it. The row is the measurement and not a
+#: guess — the red printed the box (``label: 1, icon: 16, button: 44``), the
+#: shape of a LABELLED control, so "Line" belongs in this tuple and not in
+#: ``_UNLABELLED``.
+_LABELLED = ("Undo", "Redo", "Reset", "Hint", "Check", "Probe", "Line")
 
 #: CARD-423: the five controls that carry no ``.player-btn-label`` and so were
 #: outside the width assertion entirely — the brush trigger, Region, the two
@@ -1042,7 +1056,8 @@ class TestSolverPhone_CompactToolbar:
 
     CARD-423 (owner ruling 2026-11-11, D1) retires the "at least 44 px wide"
     claim this class used to make: the floor is **44 px in both dimensions**,
-    for the eleven controls AC-1 enumerates — the ones ``_CONTROLS`` names
+    for the eleven controls AC-1 enumerates — twelve since CARD-439 added
+    Line, see ``_LABELLED`` — the ones ``_CONTROLS`` names
     and this cell measures — at every compact viewport. It is NOT a claim
     about every ``<button>`` inside ``.player-toolbar``, and it is still not
     one: the brush menu's four options (``.player-tool-item``) are buttons
@@ -1056,7 +1071,9 @@ class TestSolverPhone_CompactToolbar:
     in the same compact block**, held where the menu is driven open, in
     ``tests/test_puzzle_solver_brush_menu.py``'s
     ``TestSolverBrushMenu_RegionIsItsOwnToggle``. Nothing here measures them:
-    ``_CONTROLS`` is the eleven, and this cell is held to the eleven. The old
+    ``_CONTROLS`` was the eleven and is twelve since CARD-439; this cell is
+    held to whatever the tuple names, which is why to read it and not this
+    sentence's number. The old
     one-dimensional rule was satisfied by nine portrait controls under 44 px
     tall — seven at 36 px, where the height fell through to
     ``.player-toolbar .btn``'s ``min-height: var(--control-h)`` = 36 px, and
