@@ -1,6 +1,6 @@
 # CARD-432: The board hands its scroll to the page — the fling carries on after the finger stops, and 104 px of board is unreachable
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** bug
 **Estimate:** 1c (0.5d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/432-board-scroll-containment
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-432
 **Source:** owner question, 2026-11-12: *"why it still scrolls out of inertia when I already stopped scrolling?"* — asked after the wave's three publishes, and traced the same day. Very probably also the content of the owner's play-test **finding 6** of 2026-11-11 (*"When we scroll on the clues - the puzzle jumps down and up"*), which could not be reproduced when the findings were carded and was deliberately left uncarded for want of a reproduction.
 **Idea:** —
 **Wave:** 79
@@ -20,7 +20,7 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_zoom.py
 <!-- Derived 2026-11-12. `.player-stage`'s rule and its preceding comment block are in admin.css; `tests/test_puzzle_solver_zoom.py` owns `TestSolverZoom_TheBoardScrollsInsideItsStage`, which is where a scroll-containment claim belongs. `tests/test_puzzle_solver_clues.py`, `_hint.py` and `_phone.py` also read `scrollTop`/`scrollLeft` and are the modules most likely to move — name them in the brief and re-derive rather than assume. Nothing under `player/`: admin.css is in COPIED_FROM_ADMIN. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-12T14:05:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -76,3 +76,5 @@ The **effect** is measured: the page takes the gesture, the board does not move,
 ## Worktree notes
 
 —
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`, so no `min_version` comparison exists to make. Start gate `decision: gate` (command from `review.test_command`); fork point interactive/target tip. Pin, drift and state-table gates all not applicable.
+- **[Stale figures, read this first]** Every figure in this card's `## Why this card exists` was measured on production on 2026-11-12 **before four cards landed on the same surface**: CARD-430 (the zoom group became one joined pill), CARD-431 (the portrait title went 30 px → 20 px, explicitly "giving the board the height back"), CARD-439 (a twelfth control, Line, joined the compact toolbar) and CARD-437. Three of those four change the toolbar's height or width, and `.player-stage`'s cap is `max-height: max(calc(100svh - var(--player-above)), 5rem)` — i.e. it is computed FROM the height above it. So the stage's 319 px of scroll room, the page's 23 px of slack, the 215/319 the drag reached and the 104 px unreachable are all **suspect and must be re-measured before anything is changed**. The DEFECT is not in doubt — the page taking a gesture that starts over the board is a mechanism, not a figure — but every number attached to it is.
