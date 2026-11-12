@@ -460,6 +460,20 @@ Not observed: **a real phone, still.** Three publishes in two days and every beh
 | Production | `vercel promote <the preview URL> --scope et0175s-projects --yes`. Verified on `https://nonogram.adverax.io` rather than trusting the command's return (the publish above is why): live `admin.css` reads `9d310cb2f3cc`, the stylesheet carries three `CARD-430`/`CARD-431` comments, and the four doors answer 200. |
 | Rollback target | `nonogram-studio-fh3vjj9o9` (the zoom-order publish) still Ready. It serves the same bundle with the three zoom controls separate and the 30 px portrait title. |
 
+**CORRECTION to this record, written 2026-11-12 within the hour, by its own author.** This record said "Two cards" and "this publish is one stylesheet". **Both are false.** The publish also carried **CARD-439** — *"A big puzzle on a phone can be solved one row or column at a time, in big cells"*, the owner's own project-thread request of the same day, merged on their go-ahead (`1192a889`) with no review cycle — which the other session landed on `main` shortly before I assembled. It is 1080 added lines across `admin.css` (+87), `solver.js` (+460) and `solver_state.js` (+55), so the publish shipped a whole new mode, not a stylesheet.
+
+The real before/after, measured after the fact against the rollback deployment `nonogram-studio-fh3vjj9o9`:
+
+| File | before this publish | after |
+| --- | --- | --- |
+| `admin.css` | `bf012406cb33` | `9d310cb2f3cc` |
+| `solver.js` | **`e1baf6066c0e`** | **`baa34f4eac8c`** |
+| `solver_state.js` | **`1ea4d93d17c2`** | **`171451de779f`** |
+
+**How the error was made, because the shape of it matters more than the figures.** Every check in the table above compared a file in the assembled tree with its source in the repo, and then with the same file on the preview — i.e. it proved the COPY was faithful, which is what `COPIED_FROM_ADMIN` needs. Only `admin.css` was also compared **before-and-after on the live domain**. For `solver.js` and `solver_state.js` the word "unchanged" was asserted from the local hashes alone, and a local hash cannot say what production was serving an hour earlier. A faithful copy of a changed file is still a changed file. **The check that was missing is the cheap one:** read the live hashes BEFORE promoting, not only after.
+
+CARD-439 is live and was verified present (seven `CARD-439` references in the served `solver.js`, its marker in the served stylesheet) but **its behaviour was not exercised by this session at all** — no tap, drag or long-press of the new line mode, on any viewport. It carries no review score by design (merged on the owner's go-ahead), so nothing upstream of the publish exercised it either.
+
 **A correction to the publish records above, not to the tree.** Three of them state "no `solution` anywhere" or "no served file holding the string `solution`" among the pre-publish checks. That sentence is **over-broad as written** and will raise a false alarm for the next person who runs it as a check: the assembled tree has always held the *identifier* `solution` in five files — `solver_state.js` (73 occurrences) and `solver.js` (42), which derive the solution from the clues at runtime because that is how Hint works; `how-to-solve.js` and `how-to-solve/index.html`, which ship their own tutorial puzzle; and one mention in `pages.js`. The property actually worth checking, and the one verified at every publish including this one, is narrower: **no puzzle data file carries a solution** — all 160 `puzzle/<key>.json` hold exactly the five served fields. Nothing about the tree changed; the check's wording did.
 
 **Not observed: a real phone, for the fourth publish running.** Every behavioural figure above is emulated geometry, and the two cards in this publish are purely about how something looks in the hand. Whether a 22 px pill reads as one control, and whether a 20 px title still reads as a title, are questions a screenshot answers badly.
