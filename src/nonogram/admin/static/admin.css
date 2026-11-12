@@ -1926,8 +1926,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      BY SEVERAL DECLARATIONS, not one selector that covers them — counted in
      this block: min-height: 44px appears three times (.player-toolbar .btn
      above, this rule, and .player-zoom-readout[role="button"] below) and
-     min-width: 44px three more, and the literal 44px occurs 14 times in this
-     file. That is CARD-423's established precedent and is deliberate: see
+     min-width: 44px three more. File-wide, the literal stands in 14
+     DECLARATIONS — `grep -o 44px admin.css | wc -l`, the command the card's
+     note cites, returns 18, because it also counts this comment's own four
+     mentions of the token: the census was counting itself while it reported
+     14 as that command's output (CARD-424 review cycle 2, F-009).
+     That is CARD-423's established precedent and is deliberate: see
      .player-region's own comment, which says the same thing about the pair
      it names — the toggle and these options agree at a compact viewport
      because two declarations say 44, not because one reaches both. No token

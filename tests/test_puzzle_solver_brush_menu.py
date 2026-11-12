@@ -1152,18 +1152,32 @@ _MENU_HIT_TEST = """() => {
 #: ``document.activeElement`` **where the assertion is a NEGATIVE one**. The
 #: restore is a task queued behind the mousedown's own focus default
 #: (``solver.js``'s dismissal), so it has not run when Playwright's
-#: ``mouse.up`` returns: measured at 1440x900, "" on the immediate read and
-#: the trigger 5.5-6.0 ms later (3 trials). 100 is that measurement with
-#: room, not a guess at a frame.
+#: ``mouse.up`` returns.
+#:
+#: **What 100 is measured against** (CARD-424 review cycle 2, F-008 — three
+#: instruments had given three figures and the comment quoted the narrowest
+#: as THE measurement). The baseline is named: ``pointerdown`` →
+#: ``focusin`` on the trigger, read off a logged event trajectory at
+#: 1440x900 with a mouse. Six trials over two rounds span **10-38 ms**
+#: (9.9 / 38.4 / 16.7 in the cycle-2 fix round, 16.2 / 23.8 / 16.5 in the
+#: reviewer's), median ~17 ms. A coarser instrument — polling
+#: ``activeElement`` from after ``mouse.up`` returns, which starts the clock
+#: later and samples — gave 0 / 12 / 12 ms in the implementation round and
+#: 5.5-6.0 ms in fix round 1; those are the same event, measured from a
+#: nearer baseline, and are NOT a second answer.
 #:
 #: **The asymmetry, stated rather than left as a habit** (CARD-424 review
 #: cycle 1, F-002): a fixed settle is the only instrument a NEGATIVE read
 #: has — "focus did NOT move onto the trigger" is not a condition anything
 #: can wait for, so the board-tap control below sleeps this long and then
-#: reads, and its margin (~17x over the measured restore) is what makes it
-#: an honest control rather than a race the blanket-restore mutant could
-#: slip through. A POSITIVE read has an exact equivalent that cannot flake
-#: at all and is faster — ``page.wait_for_function`` on the id — so the
+#: reads, and its margin — ~2.6x over the slowest of those six trajectories
+#: and ~6x over their median — is what makes it an honest control rather
+#: than a race the blanket-restore mutant could slip through. (Thin enough
+#: to be worth re-measuring if it ever flakes; it is a measured margin and
+#: not a comfortable one.) A POSITIVE read has an exact equivalent that
+#: cannot flake at all and is faster — ``page.wait_for_function`` on the id
+#: (bounded, since cycle 2's F-007, at 2000 ms rather than Playwright's
+#: 30 s default) — so the
 #: chrome block uses that and this constant deliberately does NOT reach it.
 #: Do not "simplify" the two back together: the swap costs a positive read
 #: nothing and costs a negative read its whole meaning.
@@ -1216,8 +1230,9 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
 
     **ADDED CLAIM, 2026-11-11 (CARD-424, carrying CARD-426 review cycle 2's
     two minors — both about this menu, which that card was already
-    changing).** A chrome dismissal made with a POINTER — a mouse or a pen —
-    now puts focus back on the trigger.
+    changing).** A chrome dismissal made with a MOUSE now puts focus back on
+    the trigger. (A mouse, not "a pointer": the pen path has never been
+    measured on either side of this claim, so it is not named.)
     ``openMenu()`` focuses the checked option, so hiding the menu around it
     left ``document.activeElement`` on ``BODY`` where ``pick()`` and Escape
     both end with ``trigger.focus()`` — a keyboard user losing their place to
@@ -1228,23 +1243,38 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
     minor — the exemption selector, scoped to the box — is in the retired
     claim below, beside the selector it narrows.
 
-    **The claim stops at the pointer path, and that boundary is measured,
-    not conceded.** ``solver.js`` queues the restore behind the mousedown's
-    own focus default and guards it on focus having actually been lost
-    (``document.activeElement`` being ``<body>`` or ``null``) — and that
-    premise is MADE TRUE by that default. A touch tap runs no such default
-    before the queued task fires, so the guard sees whatever Chromium's own
-    focus fixup left and skips. Measured in this worktree at 390x844 with
-    ``has_touch=True``, using ``_tapper``'s own CDP touch shape on the box's
-    padding ring: the menu closes and ``document.activeElement`` ends on the
-    **Undo** button (``data-player-action="undo"``), never the trigger —
-    polled for 2000 ms, three trials identical — where the same tap with a
-    mouse restores the trigger in 5.5-6.0 ms. So the focus assertion below
-    is desktop-only for TWO reasons, not one: Chromium's touch-adjustment
-    retarget (which is what the ``if not touch:`` guard was written for) and
-    this. Not a regression — touch was equally unrestored before — and
-    making it work on touch is new behaviour, an owner call and a card of
-    its own, never a wider sentence here.
+    **The claim stops at the mouse path, and that boundary is measured —
+    the OUTCOME firmly, the MECHANISM as the race it turned out to be.**
+
+    The outcome, 3 of 3: on touch ``document.activeElement`` ends on the
+    **Undo** button (``data-player-action="undo"``) and the trigger is never
+    seen. Measured in this worktree at 390x844 with ``has_touch=True``, using
+    ``_tapper``'s own CDP touch shape on ``_MENU_HIT_TEST``'s first chrome
+    point, logging the whole trajectory (pointerdown / mousedown / focusin /
+    focusout) and reading ``activeElement`` 2000 ms on.
+
+    The mechanism is NOT "a touch tap runs no mousedown default, so the guard
+    correctly skips" — that sentence stood here for one cycle and the
+    trajectory refutes it. A touch tap **does** dispatch a compat
+    ``mousedown`` carrying the same focus default; it is DEFERRED (the
+    option's ``focusout`` lands 27-47 ms after the pointerdown, not in the
+    same tick, Chromium's touch adjustment and gesture detection running
+    first) and RETARGETED onto a neighbouring control — the Undo button, not
+    the unfocusable chrome under the finger. ``solver.js``'s queued restore
+    therefore RACES it, and both branches were observed in three trials:
+    twice the task ran first, found the hidden option still focused and so
+    skipped (the guard's premise being neither ``<body>`` nor ``null``);
+    once it ran after the option's ``focusout``, called ``trigger.focus()``
+    for real, and the compat mousedown took focus to Undo 0.5-0.7 ms later.
+    Either way focus ends off the trigger. That second branch is also why
+    restoring unconditionally would not buy touch anything.
+
+    So the focus assertion below is desktop-only for TWO reasons, not one:
+    Chromium's touch-adjustment retarget (which is what the ``if not touch:``
+    guard was written for) and this race. Not a regression — touch was
+    equally unrestored before — and making it work on touch is new
+    behaviour, an owner call and a card of its own, never a wider sentence
+    here.
 
     RETIRED CLAIM, 2026-11-11 (CARD-426, the owner's ruling "chrome should
     swallow the tap"): "``admin.css`` takes the pointer off the BOX, leaving
@@ -1306,6 +1336,11 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
         the box acts, and the box answers the hit test for itself) in one
         cell — the owner's test
         budget of 2026-11-07: change or reuse a cell rather than add four."""
+        # Local, as every playwright import in this family is (the module
+        # must import where the browser stack is absent; the fixture is what
+        # fails loudly then). Used by the chrome block's bounded wait below.
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
         for width, height, touch in ((390, 844, True), (1440, 900, False)):
             context = browser.new_context(viewport={"width": width, "height": height}, has_touch=touch)
             page = context.new_page()
@@ -1391,16 +1426,21 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                 # desktop-only for a SECOND, unrelated reason, and saying so
                 # here is the point — the retarget above is about the
                 # close/mark half, so a reader would otherwise take the focus
-                # half to be verified where it is in fact FALSE. solver.js's
-                # restore is queued behind the mousedown's own focus default
-                # and guarded on focus having been lost; a touch tap runs no
-                # such default, so the guard sees Chromium's focus fixup and
-                # skips. Measured at 390x844 with has_touch=True and this
-                # module's own CDP tap shape on the box's padding ring: focus
-                # ends on the Undo button, never the trigger (polled 2000 ms,
-                # three trials identical). Restoring it on touch is new
-                # behaviour and a card of its own, not a widening of the
-                # claim in this class's docstring.
+                # half to be verified where it is in fact FALSE. The OUTCOME
+                # is measured 3 of 3 at 390x844 with has_touch=True, this
+                # module's own CDP tap shape on _MENU_HIT_TEST's first chrome
+                # point: focus ends on the Undo button, the trigger never
+                # seen. The MECHANISM is a race, not a clean skip: a touch tap
+                # DOES dispatch a compat mousedown with the same focus default
+                # — deferred (the option's focusout lands 27-47 ms after the
+                # pointerdown) and retargeted onto the Undo button — so
+                # solver.js's queued restore either loses to it (the guard
+                # finds the hidden option still focused and skips: 2 of 3
+                # trials) or wins and is undone 0.5-0.7 ms later (1 of 3).
+                # Restoring it on touch is new behaviour and a card of its
+                # own — and would not work unconditionally either, that losing
+                # branch being the one already observed. See this class's
+                # docstring for the full trajectory.
                 if not touch:
                     brush, marked = _trigger(page).get_attribute("aria-label"), _marked(_states(page))
                     for point in hits["chromePoints"]:
@@ -1423,19 +1463,36 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
                         # must leave focus where it was. The wait is not
                         # decoration: the restore is QUEUED behind the
                         # mousedown's own focus default (see solver.js), so it
-                        # has not run when mouse.up returns — measured at
-                        # 1440x900, where the id reads "" immediately after
-                        # the tap and "puzzle-player-tool-trigger" 5.5-6.0 ms
-                        # on (3 trials). This read is POSITIVE, so it waits on
-                        # the condition itself rather than on a clock: the
-                        # wait returns the moment focus lands and cannot flake
-                        # under load, where a fixed settle only has margin.
-                        # Its negative twin — the board tap above — cannot be
-                        # written this way and keeps _FOCUS_SETTLE_MS; see
-                        # that constant's own comment for the asymmetry.
-                        page.wait_for_function(
-                            "document.activeElement && document.activeElement.id === 'puzzle-player-tool-trigger'"
-                        )
+                        # has not run when mouse.up returns — see
+                        # _FOCUS_SETTLE_MS for the measured trajectory and the
+                        # instruments it was taken with. This read is
+                        # POSITIVE, so it waits on the condition itself rather
+                        # than on a clock: the wait returns the moment focus
+                        # lands and cannot flake under load, where a fixed
+                        # settle only has margin. Its negative twin — the
+                        # board tap above — cannot be written this way and
+                        # keeps _FOCUS_SETTLE_MS; see that constant's own
+                        # comment for the asymmetry.
+                        #
+                        # CARD-424 review cycle 2, F-007: the timeout is
+                        # EXPLICIT and the failure keeps its context. Left to
+                        # Playwright's 30 s default this cell reported a
+                        # dropped restore in 32 s with a bare TimeoutError
+                        # naming neither the viewport nor the chrome point,
+                        # and the assertion's implicit time bound loosened
+                        # from 100 ms to 30 s — a restore arriving seconds
+                        # late would have passed. 2000 ms is ~50x the slowest
+                        # trajectory measured (38 ms) and still reds in
+                        # seconds; the timeout falls through to the assert
+                        # below, which is what reports (where, point) and the
+                        # id actually focused.
+                        try:
+                            page.wait_for_function(
+                                "document.activeElement && document.activeElement.id === 'puzzle-player-tool-trigger'",
+                                timeout=2000,
+                            )
+                        except PlaywrightTimeoutError:
+                            pass
                         assert page.evaluate("document.activeElement.id") == "puzzle-player-tool-trigger", (where, point)
             finally:
                 context.close()

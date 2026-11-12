@@ -2758,10 +2758,12 @@ function wireMarking(container, player) {
   //    dismissing the menu. "#puzzle-player-tool-menu .player-tool-item" says
   //    what was meant — the options of THIS menu — and the trigger keeps its
   //    own id, which is unique already.
-  // 2. A chrome dismissal made with a POINTER — a mouse or a pen — puts focus
-  //    back on the trigger. The path qualifier is load-bearing and is not
-  //    decoration: on a touch screen the restore does NOT apply, measured,
-  //    and the paragraph after next is why. openMenu() focuses
+  // 2. A chrome dismissal made with a MOUSE puts focus back on the trigger.
+  //    The path qualifier is load-bearing and is not decoration: on a touch
+  //    screen focus does NOT end on the trigger, measured, and the paragraph
+  //    after next is why. (A MOUSE, not "a pointer": the pen path has never
+  //    been measured on either side of this, so it is deliberately not
+  //    named.) openMenu() focuses
   //    the checked option, so closing the menu around it (hidden="" on an
   //    ancestor of document.activeElement) dropped focus to <body>: measured
   //    at 1440x900, where pick() and Escape both end with trigger.focus() and
@@ -2785,21 +2787,44 @@ function wireMarking(container, player) {
   //    focus having actually been lost, so it can never take focus from
   //    whatever else may have claimed it in between.
   //
-  //    WHICH IS ALSO WHY IT IS A POINTER-PATH BEHAVIOUR ONLY. The guard's
-  //    premise — "focus was actually lost", i.e. document.activeElement is
-  //    <body> or null — is MADE TRUE by that same mousedown default: the
-  //    default is what puts focus on nothing, and the queued task then finds
-  //    it there. A touch tap runs no such default before the task fires, so
-  //    the guard sees whatever Chromium's own focus fixup left behind and
-  //    correctly skips. Measured at 390x844 with touch emulated on, using the
-  //    brush-menu test module's CDP tap shape on the box's padding ring: the
-  //    menu closes and document.activeElement ends on the Undo button, never
-  //    the trigger — polled 2000 ms, three trials identical — while the same
-  //    tap with a mouse restores the trigger in 5.5-6.0 ms. This is NOT a
-  //    regression: focus was equally unrestored on touch before this handler
-  //    learned to restore it at all. Making it work on touch would be new
-  //    behaviour — an owner call and a card of its own — and not a reason to
-  //    widen the sentence above.
+  //    WHICH IS ALSO WHY IT IS A MOUSE-PATH BEHAVIOUR ONLY — and the OUTCOME
+  //    and the MECHANISM are two different grades of evidence, so they are
+  //    written here as two different sentences.
+  //
+  //    THE OUTCOME, measured 3 of 3: on touch, document.activeElement ends on
+  //    the Undo button and the trigger is never seen. Trajectory logged at
+  //    390x844 with has_touch=true, the brush-menu test module's own CDP tap
+  //    shape on the box's first chrome point, capturing pointerdown /
+  //    mousedown / focusin / focusout and reading activeElement 2000 ms on.
+  //
+  //    THE MECHANISM is a RACE, not a clean skip, and both of its branches
+  //    were observed. A touch tap DOES dispatch a compat mousedown carrying
+  //    the same focus default — the difference is that the mousedown is
+  //    DEFERRED (Chromium's touch adjustment and gesture detection run first:
+  //    the option's focusout lands 27-47 ms after the pointerdown rather than
+  //    in the same tick) and RETARGETED onto a neighbouring control
+  //    ([data-player-action=undo], not the unfocusable chrome under the
+  //    finger). So the queued restore and that deferred mousedown race:
+  //      - 2 of 3 trials — the task runs FIRST, while the hidden option still
+  //        holds focus, so activeElement is neither <body> nor null and the
+  //        guard skips;
+  //      - 1 of 3 trials — the task runs AFTER the option's focusout, so
+  //        trigger.focus() DOES run; the compat mousedown then takes focus to
+  //        Undo 0.5-0.7 ms later.
+  //    Either way focus ends off the trigger, which is why the outcome is
+  //    stable while "the guard correctly skips" is not true as a mechanism.
+  //    The second branch is also why restoring UNCONDITIONALLY would not buy
+  //    touch anything: that is the branch already observed, and the mousedown
+  //    undoes it.
+  //
+  //    With a mouse the same mousedown is synchronous with the pointerdown,
+  //    so the default has already fired when the task runs and the guard's
+  //    premise ("focus was actually lost") is MADE TRUE by it; the trigger
+  //    takes focus 10-38 ms after the pointerdown (6 trials, two rounds).
+  //    This is NOT a regression: focus was equally unrestored on touch before
+  //    this handler learned to restore it at all. Making it work on touch
+  //    would be new behaviour — an owner call and a card of its own — and not
+  //    a reason to widen the sentence above.
   document.addEventListener("pointerdown", (event) => {
     const at = event.target instanceof Element ? event.target : null;
     if (at !== null
