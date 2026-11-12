@@ -407,11 +407,18 @@ export function squareFor(item, progress, slug = null) {
   return tile;
 }
 
+// A section's grid id. It is derived from the section's first PRINT number,
+// so it names the same section across a repaint: a repaint re-reads progress
+// and leaves `entries` alone, and the numbers come from `entries`.
+function sectionId(section) {
+  return `book-section-${section.from}`;
+}
+
 function sectionFor(section, progress, open, slug) {
   const box = document.createElement("section");
   box.className = "book-section";
   box.dataset.tier = section.tier;
-  const id = `book-section-${section.from}`;
+  const id = sectionId(section);
   const head = document.createElement("button");
   head.type = "button";
   head.className = "book-section-head";
@@ -463,7 +470,22 @@ export function continueTarget(entries, progress) {
   return null;
 }
 
-function renderBook(page, entries, progress, slug) {
+// The sections' open/closed state as the reader left it, keyed by grid id.
+// Read BEFORE a repaint, because that state lives in exactly the pair the
+// head's click handler flips — `grid.hidden` and `aria-expanded` — on nodes
+// `renderBook` throws away with `list.replaceChildren`. Without the carry-over
+// a repaint re-closes a section the reader opened by hand, which on a
+// 160-puzzle book is every return from a puzzle (CARD-437). It returns an
+// empty map before the first paint, so the defaults below are untouched; a
+// section nobody has touched reads back AT its default and so is carried over
+// unchanged.
+function openSections(page) {
+  const held = new Map();
+  for (const grid of page.querySelectorAll(".book-squares")) held.set(grid.id, !grid.hidden);
+  return held;
+}
+
+function renderBook(page, entries, progress, slug, held = new Map()) {
   const list = page.querySelector("[data-pages-list]");
   const count = page.querySelector("[data-pages-count]");
   const empty = page.querySelector("[data-pages-empty]");
@@ -478,14 +500,12 @@ function renderBook(page, entries, progress, slug) {
   const opened = firstEasy === -1 ? 0 : firstEasy;
   const all = entries.length <= OPEN_ALL_UP_TO;
   list.replaceChildren(
-    ...sections.map((section, k) =>
-      sectionFor(
-        section,
-        progress,
-        all || k === opened || (resume !== null && resume + 1 >= section.from && resume + 1 <= section.to),
-        slug
-      )
-    )
+    ...sections.map((section, k) => {
+      const byDefault =
+        all || k === opened || (resume !== null && resume + 1 >= section.from && resume + 1 <= section.to);
+      // What the reader set by hand wins over the default; see openSections.
+      return sectionFor(section, progress, held.get(sectionId(section)) ?? byDefault, slug);
+    })
   );
   if (count !== null) count.textContent = entries.length === 1 ? "1 puzzle" : `${entries.length} puzzles`;
   show(empty, entries.length === 0);
@@ -666,9 +686,12 @@ async function load() {
     let shown;
     // One paint of the book from `progress`: the squares and their counts,
     // the Continue card, the decorations and the live region's echo of the
-    // count. The jump box is NOT in here (see wireJump).
+    // count. The jump box is NOT in here (see wireJump), and neither is the
+    // sections' open/closed state: that is the reader's, so a repaint reads
+    // it off the page it is about to replace (see openSections) instead of
+    // recomputing it.
     const paint = () => {
-      shown = renderBook(page, entries, progress, slug);
+      shown = renderBook(page, entries, progress, slug, openSections(page));
       if (theme === "christmas") {
         // `decorate` PREPENDS — a garland to the body and a drift to each
         // panel it is handed — and is documented as called once, so a

@@ -41,7 +41,10 @@ CARD-437 (coming back from a puzzle shows what you just did, 2026-11-12):
         the card's premise: the library shows no progress at all
   (and the repaint's two accumulation hazards, both measured as mutants:
    the decorations, in the Christmas cell above, and the jump box's
-   listeners, counted in the progress cell)
+   listeners, counted in the progress cell; plus the one thing the repaint
+   must NOT recompute — the sections the reader opened or closed by hand,
+   guarded in test_a_long_book_is_cut_into_level_sections_that_open_and_close,
+   the only cell whose book is long enough to have closed sections at all)
 """
 
 from __future__ import annotations
@@ -178,6 +181,21 @@ def test_a_long_book_is_cut_into_level_sections_that_open_and_close(browser_page
     heads.nth(0).click()
     assert heads.nth(0).get_attribute("aria-expanded") == "false"
     assert not grids.nth(0).is_visible()
+
+    # CARD-437: and that is the READER's state, so coming back from a puzzle
+    # keeps it. The repaint rebuilds the list from `entries`, which cannot
+    # carry "Easy closed, Medium open" — on this 30-puzzle book recomputing
+    # the default would hand back ["true", "false", "false"], re-closing the
+    # section they just opened. The wait is on the repaint having happened:
+    # the marked section node is one `replaceChildren` discards.
+    page.evaluate("() => { document.querySelector('.book-section').dataset.beforeRestore = '1'; }")
+    _restore(page)
+    page.wait_for_function(
+        "() => document.querySelector('.book-section')?.dataset.beforeRestore === undefined",
+        timeout=PAGES_SETTLE_MS,
+    )
+    assert [heads.nth(i).get_attribute("aria-expanded") for i in range(3)] == ["false", "true", "false"]
+    assert [grids.nth(i).is_visible() for i in range(3)] == [False, True, False]
 
     # The short fixture book opens every section: nothing to save by closing.
     book_file.write_text(json.dumps(served), encoding="utf-8")
