@@ -1,6 +1,6 @@
 # CARD-440: Line mode polish — the button before Hint, "?" apart from the selected line, and a tutorial step
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.25d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, player/how-to-solve.html, player/how-to-solve.js, player/player.css (comment), tests/test_how_to_solve_page.py
 **Review score:** — (no review cycle; owner request, merged on the owner's go-ahead, 2026-11-12)
 **Started:** 2026-11-12T14:05Z
-**Closed:** —
+**Closed:** 2026-11-12T14:40Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** dd75ac68
 **Blocked by:** —
 
 ## Why
