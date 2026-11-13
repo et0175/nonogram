@@ -544,6 +544,20 @@ Not observed: a real phone. Whether the paper-ink-paper rule reads as "the fifth
 
 Not observed: a real phone.
 
+**The scroll-containment publish, 2026-11-13.** Published from `main` at `0ed37325`, same curated bundle. **One card, CARD-432** — the owner's P1, the board handing its scroll to the page. CARD-442 was already live, published by the other session, so this publish is one card and one file.
+
+| Step | What was observed |
+| --- | --- |
+| Pre-flight | A **fail-fast** script this time, not a list of printed checks: every clause `exit 1`s, because the previous publish's own guard printed `MISSING/DIFFERENT` and the `&&` after it ran anyway. It asserted the four `COPIED_FROM_ADMIN` files and `pages.js` byte-identical to their sources; 160 puzzle files each carrying **exactly** `clues`, `height`, `key`, `tier`, `width` and no `solution` key; no goatcounter, no `.vercel/`, marker present; and that CARD-432's scoped rule reached the served stylesheet **and** that the rendered `play/index.html` carries `.player-stage-wrap`, without which the rule cannot match. |
+| What changed, read BEFORE promoting | Ten served assets fetched from the live domain and compared first. Exactly one differed: `admin.css` **`33f4aed7f179` → `e44a3f691468`**. `solver.js` `f9bd2bf3b335`, `pages.js` `09c185467a0e`, `solver_state.js`, `tokens.css`, `player.css`, `base.css`, `decor.js`, `decor.css`, `how-to-solve.js`: all already live. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-hv63psltc`**. Its `admin.css` matched the tree, four doors 200, `/nope` 404. |
+| Production | `vercel promote … --yes`. **Two polls of the domain read the old bytes before the third read the new** — the fourth time this page has recorded that the promote returning is not the deployment being live. |
+| Behaviour, on the live domain, with a REAL input event | At 390x844 on the 30x30 zoomed past fit: `.player-stage` computes `overscroll-behavior: contain`, the wrapper selector matches, the stage holds 337 px of room and the page 22. With the stage put at its stop and the page at its origin, **six wheel notches with the pointer inside the stage leave `scrollY` at 0** — and the pointer's position was *proven* inside the stage with `elementFromPoint` (`TD.player-cell`, `stage.contains(hit)`) rather than assumed. **Control: the same wheel over `.player-head` moves the page 0 → 22**, so the page can still scroll and the containment is specific to the board rather than a freeze. |
+| A correction to this row, made before it was written | The FIRST reading of that check said `scrollY` went 0 → 22, i.e. the fix had failed. It had not: the probe aimed at `board.y + 80`, which after the stage was scrolled fell **outside** the stage box (y 192–828), so the wheel went to the page because the pointer was never over the board. Re-measured with the pointer verified by hit-test. The figure was not reported until the instrument was. |
+| Rollback target | The production deployment before it (serving `admin.css` `33f4aed7f179`) still Ready. It serves the same bundle with the board's scroll chaining into the page. |
+
+**What this publish leaves owed.** **CARD-433, 434, 435, 436 and 438** are the remaining cards of the owner's 2026-11-12 play-test and are unstarted (434 is being picked up by the other session as this is written). **CARD-438's figures are stale** and the card says so. And the standing gap is unchanged by five publishes: **nothing in this product has been touched by a human finger** — every behavioural figure in every publish record on this page is emulated Chromium, and CARD-439's line mode is live with its long-press and strip-drag never exercised outside its own tests.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
