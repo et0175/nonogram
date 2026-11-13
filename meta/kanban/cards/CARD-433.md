@@ -1,6 +1,6 @@
 # CARD-433: Region stays armed while the whole board is in view, and goes back to one-shot once it is zoomed in
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/433-region-sticky-while-it-fits
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-433
 **Source:** owner's play-test doc "Гра - тест", 2026-11-12, items 1 and 2: *"when we select a new brash (black\white…) select also 'Region'"* and *"In 100% or Fit mode select 'region' by default (the same as for the desktop)"*. Ruled the same day, asked as one question because both are about when Region is armed: **"Sticky only at 100%/Fit"** — armed and sticky while the whole board is in view; today's one-shot behaviour once it is zoomed in, where a drag is also how you pan.
 **Idea:** —
 **Wave:** 79
@@ -20,7 +20,7 @@
 **Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_maybe.py
 <!-- Derived 2026-11-12. The region flag, its arming and its post-drag disarm are all in solver.js (see its header, "region"); solver_state.js's nextRegion carries the independence note and may need its comment corrected but holds no zoom state. tests/test_puzzle_solver_brush_menu.py holds three of the five references to #puzzle-player-region and is where the brush/Region coupling is asserted; tests/test_puzzle_solver_maybe.py::TestSolverMaybe_DragPaintsMaybe drives a region drag. Re-derive with scripts/impact_set.py --gate rather than trusting this list: tests/test_puzzle_solver_marking.py and tests/test_puzzle_solver_zoom.py both drive drags and are likely in scope. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-13T08:10:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -65,3 +65,6 @@ So there are two candidate predicates:
 **Net test count: 0 added** — three existing cells change. If the fit predicate needs a cell of its own, that is **one** added, and the number is reported at the gate.
 
 ## Worktree notes
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`, so no `min_version` comparison exists. Start gate `decision: gate` (command from `review.test_command`); fork point interactive/target tip. Pin, drift and state-table gates not applicable; no dependencies.
+- **[Concurrency]** CARD-434 is `ready` and being picked up by another session. Checked rather than assumed before dispatching beside it: 434 touches `src/nonogram/admin/static/solver_state.js` + `tests/test_puzzle_solver_clues.py`, this card touches `solver.js` + `tests/test_puzzle_solver_brush_menu.py` + `tests/test_puzzle_solver_maybe.py`. No shared path, so no serialization needed — but `solver.js` imports from `solver_state.js`, so if 434 changes an exported signature the two meet at the rebase, not in the editor.
+- **[Written before CARD-439 existed, read this before implementing]** This card was cut on 2026-11-12 and **CARD-439's line mode landed and shipped afterwards**. That matters here specifically, not generally: the line view is a second surface on which a drag paints, its strips "always mark (there is nothing to scroll)" by its own card's rule 3, and its brushes set the board's own brush. So a ruling about *when a drag paints* now has two places to be true, and the line view's rule is already unconditional. Derive what Region means inside the line view before changing anything, and say in the notes whether this card's predicate applies there, is irrelevant there, or needs a ruling.
