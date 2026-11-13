@@ -263,9 +263,13 @@
 //             brush, the run is aria-hidden, and the button's name comes
 //             from an aria-label the template carries (the text that used to
 //             name it is gone). Pressing it arms Region; it disarms
-//             again when pressed a second time, and the flag's own
-//             transition table is solver_state.js nextRegion, so this file
-//             only says which event happened.
+//             again when pressed a second time, and THOSE TWO EVENTS — a
+//             press and a recorded drag — are solver_state.js nextRegion's
+//             transition table, so for them this file only says which event
+//             happened. The view-driven changes below (CARD-433: the load's
+//             default, a brush pick, a board that leaves view) are this
+//             file's own, because they are readings of the DOM and that
+//             module is handed none — setRegion's note names all three.
 //             WHEN IT DISARMS ITSELF, and whether a brush pick arms it,
 //             BOTH depend on one reading of the view (CARD-433, owner's
 //             play-test ruling of 2026-11-12, "Sticky only at 100%/Fit"):
@@ -282,17 +286,23 @@
 //                 the owner's decision of 2026-10-14 (CARD-211), which made
 //                 the brush and Region independent in both directions, by
 //                 the owner's own later ruling with the product in hand —
-//                 not drift. nextRegion's note in solver_state.js still
-//                 states the 2026-10-14 rule and is stale; CARD-433 could
-//                 not correct it (CARD-434 held that file) and says so in
-//                 its worktree notes.
+//                 not drift. nextRegion's note in solver_state.js records
+//                 BOTH rulings in sequence — CARD-433 rewrote that
+//                 paragraph, and it quotes the sentence it replaces with
+//                 the dates that sentence was true between. nextRegion
+//                 ITSELF is unchanged by this card and still refuses a
+//                 "brush" event: the arming lives in pick() below, where
+//                 the view can be read.
 //               * NOT IN VIEW: exactly what CARD-194 shipped — off at load,
 //                 armed only by its own button, and one-shot, disarming the
 //                 instant a drag is recorded (#7). This is what keeps
 //                 CARD-432's gesture available: there a drag is how the
 //                 reader reaches the rest of their own board. A board that
 //                 was in view and stops being one (a zoom in, a window
-//                 shrunk) disarms for the same reason (syncRegionToFit).
+//                 shrunk) disarms for the same reason (syncRegionToFit) —
+//                 but only once the layout has SETTLED: a window shrunk
+//                 around a board at Fit re-fits it and the board never
+//                 leaves view, so nothing disarms (review cycle 1, F-001).
 //               * EITHER WAY a press of Region OFF wins: the brush picks
 //                 that follow leave it off until the next load (rule 4, the
 //                 one rule of that card not in the owner's words — without
@@ -314,8 +324,11 @@
 //             never saved, so a load re-reads the view rather than
 //             remembering anything. While it is
 //             armed the board carries .is-region, which is how admin.css
-//             drops .player-cell's touch-action to none; the toggle is the
-//             only thing that sets that class.
+//             drops .player-cell's touch-action to none; nothing writes that
+//             class but refresh(), from the flag — so every way the flag
+//             moves (the toggle, a drag, and since CARD-433 the load's
+//             default, a brush pick and a board leaving view) carries it,
+//             and none of them touches the class itself.
 //   history   [data-player-action] undo / redo / reset; aria-disabled="true"
 //             while there is nothing to do — pressing one then leaves the
 //             board as it is, because undo/redo with an empty stack and a
@@ -1558,6 +1571,11 @@ function start() {
       // force two layouts per pinch move (review cycle 2, F-103).
       if (!measuringFit && marking.getZoom() <= ZOOM_MIN) measureFit();
     },
+    // CARD-433 (review cycle 1, F-001): is a fit measurement RUNNING? The
+    // same flag `zoomed` reads above, published because wireMarking's
+    // syncRegionToFit must not answer to the layouts fitTheFloor passes
+    // through on its way to the settled one — see its note there.
+    measuringFit: () => measuringFit,
   });
   // CARD-267: the crosshair's own pointer listeners, on the same stage and
   // wired once for the same reason. Constructed before the first redraw()
@@ -2458,7 +2476,21 @@ function wireMarking(container, player) {
       player.zoomed();
       // CARD-433: a zoom is the one thing that changes whether the whole
       // board is in view without changing the board — see syncRegionToFit.
-      syncRegionToFit();
+      //
+      // Not while a fit measurement is running (review cycle 1, F-001).
+      // fitTheFloor applies its first floor estimate BEFORE the overshoot
+      // loop corrects it, and setFloor re-enters here for a board that was
+      // at Fit — so during a measurement this reads layouts that exist for
+      // one task and that the reader never sees. Measured: a 390 x 844
+      // phone at Fit resized to 390 x 700 scrolls by 7 px against a 269 px
+      // stage in between, enough to disarm a Region whose board never left
+      // view. fitTheFloor calls syncRegionToFit itself once it has settled,
+      // so nothing is lost; the guard is at the CALL and not inside, which
+      // is what keeps that settled call working and mirrors zoomed()'s own
+      // `!measuringFit`. A zoom ABOVE 100% is not a measurement at all
+      // (zoomed() skips measureFit there, CARD-271 review cycle 2, F-103),
+      // so that case still arrives here.
+      if (!player.measuringFit()) syncRegionToFit();
     }
     syncZoom();
   }
@@ -2551,8 +2583,29 @@ function wireMarking(container, player) {
   // The two agree wherever the board really is in view (a 10 x 10 at
   // 390 x 844: "100%", 0 x 0; and every board at Fit, which the overshoot
   // loop in fitTheFloor shrinks until nothing scrolls) and diverge on every
-  // board bigger than its stage, so the geometry is what is read. The
-  // measurements are in CARD-433's worktree notes.
+  // board bigger than its stage, so the geometry is what is read.
+  //
+  // EVERY figure above names its board, because stage overflow is a property
+  // of the particular grid and not of its size: the x overflow follows the
+  // deepest ROW clue and the y overflow the deepest COLUMN clue, so two
+  // 30 x 30s differ (review cycle 1, F-003 — _unique_grid(30, 30,
+  // seed=19330) gives 346 x 170 at 390 x 844 where seed=40601 gives
+  // 346 x 185). The boards, and the instrument, re-derived 2026-11-13:
+  //   * 30 x 30 = _unique_grid(30, 30, seed=19330), the suite's
+  //     tests/test_puzzle_solver_clues.GRID_30x30 — 346 x 170 at 390 x 844,
+  //     0 x 133 at 1280 x 720 (the desktop figure this whole predicate
+  //     rests on: a board that READS "100%" with 133 px out of view);
+  //   * 15 x 30 = _unique_grid(15, 30, seed=433), SCROLLING_GRID in
+  //     tests/test_puzzle_solver_brush_menu.py — 6 x 170 at 390 x 844,
+  //     0 x 133 at 1280 x 720, which is the pair that file's _overflow
+  //     helper asserts outright in
+  //     TestSolverBrushMenu_Region::test_picking_a_brush_leaves_region_armed;
+  //   * 10 x 10 = _unique_grid(10, 10, seed=40701), the "phone small" arm of
+  //     TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only
+  //     — 0 x 0 at 390 x 844 and at 1280 x 720.
+  // The instrument is that same _overflow expression (the stage's
+  // scrollWidth/scrollHeight less its client box) at the zoom whose readout
+  // says "100%"; CARD-433's worktree notes hold the whole A-vs-B table.
   function boardFits() {
     return container.scrollWidth <= container.clientWidth
       && container.scrollHeight <= container.clientHeight;
@@ -2595,9 +2648,24 @@ function wireMarking(container, player) {
   // The TRANSITION, not the state: a Region the reader armed by its own
   // button on a board that was already scrolling survives a resize and a
   // zoom exactly as it did before this card, because `fittedLast` was
-  // already false. Called from applyZoom (every zoom change, buttons, pinch
-  // and Fit) and from fitTheFloor (a resize, which can change the overflow
-  // with no zoom at all).
+  // already false.
+  //
+  // And only SETTLED readings, which is what makes that true (review cycle
+  // 1, F-001). Two callers:
+  //   * fitTheFloor, at the end of every fit measurement — after the
+  //     opening zoom and after the overshoot loop, so the overflow it reads
+  //     is the one the reader is looking at. This is the caller that covers
+  //     a resize, which can take a board out of view with no zoom at all.
+  //   * applyZoom, for every zoom change (buttons, pinch, Fit) that is NOT
+  //     inside a fit measurement — `!player.measuringFit()` there. Above
+  //     100% that is the only caller, because zoomed() deliberately skips
+  //     measureFit (CARD-271 review cycle 2, F-103); at or below 100% the
+  //     measurement has already run by the time applyZoom asks, so this
+  //     call re-reads the same settled layout and finds nothing to do.
+  // Without that guard the mid-measurement layouts answer instead: 7 px of
+  // overflow that exists for one task disarmed a Region on a board that
+  // never left view (measured, 390 x 844 -> 390 x 700 at Fit) — which is
+  // what this paragraph had claimed could not happen.
   function syncRegionToFit() {
     const fits = boardFits();
     const was = fittedLast;
