@@ -2560,11 +2560,19 @@ function wireMarking(container, player) {
   // A no-op call writes nothing — rewriting the same announcement would make
   // it read out again. This function never decides a transition itself: the
   // flag's own two events (a press, a recorded drag) are decided by
-  // solver_state.js nextRegion, and the three callers that pass a value
-  // straight in — pick, syncRegionToFit and settleRegion's write below — are
-  // CARD-433's readings of the VIEW, which is this file's business and not
-  // that pure module's (it is handed no DOM). The one caller that does not
-  // come through here is settleRegion, deliberately: see its note.
+  // solver_state.js nextRegion, and the TWO callers that pass a value
+  // straight in — pick and syncRegionToFit — are CARD-433's readings of the
+  // VIEW, which is this file's business and not that pure module's (it is
+  // handed no DOM). So setRegion has four callers in all: those two, plus
+  // the toggle and the recorded drag, which both pass nextRegion's answer.
+  // The one place that moves the flag WITHOUT coming through here is
+  // settleRegion, deliberately — it assigns `region` and aria-pressed itself
+  // so a board restored already-armed announces nothing; see its note.
+  // (Cycle 2's F-009: this paragraph used to say "three callers … pick,
+  // syncRegionToFit and settleRegion's write below" and then, four lines on,
+  // that settleRegion is the one caller that does NOT come through — both
+  // cannot be true, and settleRegion was the wrong one to list. Corrected by
+  // reading every setRegion call site, not by choosing a side.)
   function setRegion(armed) {
     if (armed === region) return;
     region = armed;
