@@ -1,6 +1,6 @@
 # CARD-443: The probe's marker a bit more visible — on the board, in the strip and on the map
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5c (0.1d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, player/player.css (the lesson's probe edge, pinned to the player's), tests/test_admin_design_tokens.py, tests/test_puzzle_solver_probe.py
 **Review score:** — (no review cycle; owner request, 2026-11-13)
 **Started:** 2026-11-13T12:15Z
-**Closed:** —
+**Closed:** 2026-11-13T12:45Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** f0b04af2
 **Blocked by:** —
 
 ## Why
