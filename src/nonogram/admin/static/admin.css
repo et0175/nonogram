@@ -1747,15 +1747,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    replace: a probe is provisional, which is what that hue says and what
    neither the crosshair's "the pointer is here" nor the hint line's "the
    answer you pressed for" can say while also meaning what they already mean.
-   --player-probe is 86 % of it into the paper — rgb(150, 115, 35), a dark
-   amber for the three LIGHT states — and --player-probe-ink is 42 % into the
-   paper, rgb(204, 186, 144), a light amber for a FILLED cell. The dark ring
-   does NOT vanish on a filled cell's --grid-ink ground, and the sentence that
-   used to say so here was never measured: it is 3.57:1, which is just past
-   WCAG 2.2 1.4.11's 3:1 floor and is the worst pairing anywhere on this
-   board. The light variant takes that same pairing to 8.22:1, which is why
-   the second rule exists — a doubling of the worst case, not a rescue from
-   invisibility. --color-warning against
+   --player-probe is the warning token itself since CARD-443 (owner
+   2026-11-13: "a bit more visible"; it was 86 % of it into the paper,
+   rgb(150, 115, 35), 4.33:1 on paper) — rgb(133, 93, 0), a dark amber for
+   the three LIGHT states, 5.80:1 on paper — and --player-probe-ink is 42 %
+   into the paper, rgb(204, 186, 144), a light amber for a FILLED cell. On
+   a filled cell's --grid-ink ground the dark ring would be 2.66:1, under
+   WCAG 2.2 1.4.11's 3:1 floor (it was 3.57:1 at 86 %), so the second rule
+   is what makes a filled member readable at all: the light variant is
+   8.22:1 on the ink. CARD-443 also widened the ring from the heavy rule
+   to one and a half of it (3 px; the strip's from 2 to 4 px), inside the
+   cell as before, so nothing moves — except on a FILLED board cell, which
+   keeps the heavy rule's width: at a phone's 12-14 px cell a 3 px light ring
+   left a black centre small enough to read as the amber, not as black. --color-warning against
    --grid-paper is 5.80:1, re-derived (tokens.css's own comment says 5.6:1 on
    surface and 5.0:1 on its tint; the "6.6:1" this paragraph used to claim was
    no pairing of anything, and a hex spelling cannot stand in a comment here
@@ -1817,9 +1821,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 [data-player-probe-action="keep"] .player-probe-glyph { color: var(--color-success); }
 [data-player-probe-action="abandon"] .player-probe-glyph { color: var(--color-danger); }
 .player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
-.player-stage, .player-line { --player-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
-.player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }
-.player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
+.player-stage, .player-line { --player-probe: var(--color-warning); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
+.player-cell[data-probe] { outline: calc(1.5 * var(--player-rule-major)) dashed var(--player-probe); outline-offset: calc(-1.5 * var(--player-rule-major)); }
+.player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); outline-width: var(--player-rule-major); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
 /* CARD-410 (owner finding 2026-11-07): a clue the open probe broke is red —
    the danger tint pushed toward the danger colour, numerals in the danger
@@ -2231,12 +2235,13 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
 .player-line-probe .btn { gap: var(--space-1); min-height: 44px; }
 .player-line-probe .btn[hidden] { display: none; }
 @media (max-width: 600px) { .player-line-probe { flex-basis: 100%; justify-content: center; } }
-.player-line-cell[data-probe] { outline: calc(2 * var(--border-width)) dashed var(--player-probe); outline-offset: calc(-4 * var(--border-width)); }
+.player-line-cell[data-probe] { outline: calc(4 * var(--border-width)) dashed var(--player-probe); outline-offset: calc(-6 * var(--border-width)); }
 .player-line-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
 .player-line-cell.is-offered { outline: 3px solid var(--color-accent); outline-offset: -3px; z-index: 1; }
 .player-line-clue.is-broken .player-line-num { background: var(--player-broken); color: var(--color-danger-hover); }
-.player-line-mini-probe { fill: none; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
-.player-line-mini-probe { stroke: var(--player-probe-ink); }
+.player-line-mini-probe { fill: none; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.player-line-mini-probe { stroke: var(--player-probe); }
+.player-line-mini-probe[data-state="filled"] { stroke: var(--player-probe-ink); }
 .is-line-open .player-explain { z-index: 1060; }
 /* A landscape phone: the map on the left, the line and its tools on the right. */
 @media (max-height: 500px) and (orientation: landscape) {
