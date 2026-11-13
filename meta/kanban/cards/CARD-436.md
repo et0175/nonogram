@@ -1,6 +1,6 @@
 # CARD-436: A puzzle opened from a book offers the way back to it — today the play page has no links at all
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.25d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/436-way-back-to-the-book
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-436
 **Source:** owner's play-test doc "Гра - тест", 2026-11-12, item 5: *"When we have 'solved' puzzle - have get back to book"*.
 **Idea:** —
 **Wave:** 79
@@ -20,7 +20,7 @@
 **Touches:** player/assemble.py, tests/test_public_player.py
 <!-- Derived 2026-11-12. The public play page is RENDERED by player/assemble.py (puzzle_solve.html plus the wrapper script that reads ?book= and fetches the book file). The owning test module must be resolved before the brief is acted on: tests/test_public_player.py, tests/test_public_player_pages.py and tests/test_player_bundle.py all drive the public play page and the first is a guess, not a derivation. Run scripts/impact_set.py --gate. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-13T09:30:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -67,3 +67,6 @@ Should the way back be there **the whole time**, not only once solved? The owner
 **Net test count: 0 added if the solved-state cell exists; otherwise 1, reported at the gate.** Resolve which before writing — the owner's budget of 2026-11-07 is to change existing cells, not add.
 
 ## Worktree notes
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`, so no `min_version` comparison exists. Start gate `decision: gate`; fork point interactive/target tip `199a2671`. Pin, drift and state-table gates not applicable; no dependencies.
+- **[Premise re-verified before dispatch]** The card's measurement is from 2026-11-12 and five cards have shipped since, so it was re-run on production today: `/play/33fa80994c?book=0a958d036e` still has **`document.querySelectorAll('a').length === 0`** — no links at all — and still carries `?book=0a958d036e`. The premise holds exactly.
+- **[Owner ruling, 2026-11-13] ALWAYS VISIBLE.** The card asked, as its one open question, whether the way back should appear only on solve (the owner's original words, "when we have 'solved' puzzle") or the whole time. Put to them with the re-verified measurement — zero links, so an unsolved reader is equally stranded and a QR arrival from a printed book has no Back entry at all — and the ruling is **always visible**: a quiet link from the moment the puzzle opens, plus a prominent one in the solved state. They declined "only when solved" and the narrower "always, but only from a book". **AC-1 therefore widens** from the solved state to the whole session, and the card's `## The question to put to the owner before merging` section is answered rather than still open.
