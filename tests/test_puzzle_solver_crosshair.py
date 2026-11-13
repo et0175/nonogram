@@ -458,7 +458,14 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             # Region on: a touch drag marks only while it is armed (CARD-194
             # target behaviour #8/#10), and AC-4 asks for the marking to be
             # exactly today's as well as for the crosshair.
-            page.get_by_role("button", name="Region", exact=True).tap()
+            # Since CARD-433 (owner's ruling of 2026-11-12) it is armed FROM
+            # THE LOAD here, because this 15 x 15 at 1024 x 768 is wholly in
+            # view (no stage overflow in either axis). Tapping the toggle
+            # would now turn it OFF — measured: the drag is then cancelled by
+            # the browser's own pan recognition after three cells, and the
+            # crosshair stops with it.
+            assert page.get_by_role(
+                "button", name="Region", exact=True).get_attribute("aria-pressed") == "true"
             (x0, y0) = _centre(page, 1, 2)
             (x1, _y1) = _centre(page, 1, 6)
 
