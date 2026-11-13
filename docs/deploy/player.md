@@ -571,6 +571,21 @@ Not observed: a real phone.
 
 Not observed: a real phone.
 
+**The sticky-Region publish, 2026-11-13 (the day's second).** Published from `main` at `a196f0aa`, same curated bundle. **One card, CARD-433** — Region stays armed while the whole board is in view.
+
+| Step | What was observed |
+| --- | --- |
+| Pre-flight | Fail-fast as before, plus one check specific to this card: that `measuringFit` and `boardFits` really reached the served `solver.js` and the corrected `nextRegion` paragraph reached the served `solver_state.js`. A publish whose behaviour did not reach the bundle would otherwise verify green on hashes alone. |
+| What changed, read BEFORE promoting | Ten served assets compared with the live domain first. Exactly two differed: `solver.js` **`75c74918891a` → `8ad9005897e8`** and `solver_state.js` **`171451de779f` → `432304aa1738`**. The other eight already live. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-kxocbntao`**; both changed files matched the tree, three doors 200, `/nope` 404. |
+| Production | `vercel promote … --yes`. First poll of the domain read the old `solver.js`, the second the new — the fifth time this page records that the promote returning is not the deployment being live. |
+| Behaviour, on the live domain | At 390x844, reading `(stage overflow, aria-pressed, zoom readout)` as one tuple. **Board that fits (14x14):** at load `[0,0] / true / 100%` — armed by default, which is the card's whole point; after a brush pick, still `true`; **after a resize that keeps it in view, still `true`** — the Critical cycle 1 found, confirmed fixed on production. **Board zoomed out of view (30x25):** opens at Fit `[0,0] / true`; one zoom step → `[211,0] / false`; through 125/150/175% → stays `false`; **a brush pick while out of view does NOT arm it** — so the predicate really is the geometry and not the label. |
+| Rollback target | The production deployment before it (`solver.js` `75c74918891a`) still Ready. |
+
+**A gap the live check found, and it is an owner question, not a defect.** Pressing the readout to return to **Fit** leaves Region **off**: measured `[0,0] / false / Fit` at step 7 of the sequence above. Region is armed by the *load* when the board fits, and by a brush pick while it fits, but **entering Fit later never re-arms it**. That is narrower than the owner's words — *"In 100% or Fit mode select 'region' by default"* — and it was already filed as cycle 2's non-gating Minor F-008 ("needs an owner word"); the live run reproduces it exactly. So on a big board the practical sequence is: open (armed at Fit) → zoom in (disarmed, correctly, because a drag is how you pan) → zoom back to Fit (**still disarmed**, until you press Region or reload). Not carded: it is a ruling, not a bug.
+
+**Still not observed, after seven publishes: a human finger.** Every behavioural figure on this page is emulated Chromium. This card changes what *every* drag on the board does on a phone, and CARD-439's line mode remains live with its long-press and strip-drag exercised only by its own tests.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
