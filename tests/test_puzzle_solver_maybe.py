@@ -821,6 +821,15 @@ def _glyph_box(page, cells, r, c, width):
     blank[r * width + c] = U
     marked = list(cells)
     marked[r * width + c] = M
+    # Let the page stop moving before the pair of screenshots: the diff below
+    # is the ONE cell's glyph, and any transition still running lands in it as
+    # well. Measured (CARD-433): on a board wholly in view Region is now armed
+    # at load, and the Region toggle's 150 ms colour transition into its
+    # pressed look put 226 x 440 px of difference on the toolbar — the
+    # 15x15@1440 case failed on it, with the glyph's own rectangle outside the
+    # bounding box of a diff that was not the glyph at all. Same wait, and the
+    # same reason, as test_player_base_css.py's ``_settle``.
+    page.wait_for_timeout(300)
     _set(page, blank)
     before = Image.open(io.BytesIO(page.screenshot())).convert("RGB")
     _set(page, marked)

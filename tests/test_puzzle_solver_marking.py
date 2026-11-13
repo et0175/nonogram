@@ -777,15 +777,39 @@ class TestSolverMarking_DragMarksOneLine:
 
     def test_a_touch_drag_marks_one_line(self, browser, live) -> None:
         """Real touch input through Chromium's input pipeline (CDP touch events).
-        CARD-194: a touch drag only marks with Region on, so Region is
-        armed first — through its own toggle since CARD-211
-        (TestSolverRegion_UnarmedTouchDragStillScrolls covers the Region-off
-        case, where the same drag scrolls and marks nothing)."""
+
+        CARD-433 AC-1 (owner ruling 2026-11-12, "Sticky only at 100%/Fit").
+        A touch drag still only marks with Region armed — ``gesturePaints``
+        is unchanged — but on this board Region is armed from the load and
+        STAYS armed across a recorded drag, because the whole board is in
+        view: the 15 x 15 at 1024 x 768 has no scrollable overflow in either
+        axis (measured 0 x 0), so no drag of the reader's is needed to pan
+        and there is nothing for the one-shot disarm to protect. So there is
+        no ``_region(page)`` press here any more, and the SECOND drag marks
+        on the same terms as the first.
+
+        Before this card the same cell armed Region by hand and got one
+        drag for it (CARD-194's target behaviour #7). What replaces that
+        claim on an overflowing board is
+        ``TestSolverRegion_ArmedDragMarksThenDisarms`` in
+        test_puzzle_solver_brush_menu.py, which now runs on a board that
+        really scrolls (CARD-433 AC-3); the Region-off case is
+        ``TestSolverRegion_UnarmedTouchDragStillScrolls`` there.
+
+        Mutant: restoring the unconditional ``setRegion(nextRegion(region,
+        "drag"))`` in solver.js's pointerup leaves the second drag marking
+        nothing at all."""
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
-            _region(page)
+            # The board really is wholly in view: the predicate this card
+            # arms Region on, read off the stage itself rather than assumed.
+            assert page.evaluate(
+                """() => { const s = document.querySelector('.player-stage');
+                     return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+            ) == [0, 0]
+            assert _region_pressed(page) == "true"  # armed at load, no press
             page.evaluate("window.__types = []; document.addEventListener('pointermove', (e) => window.__types.push(e.pointerType))")
             cdp = context.new_cdp_session(page)
             (x0, y0), (x1, y1) = _centre(page, 1, 2), _centre(page, 1, 6)
@@ -800,6 +824,19 @@ class TestSolverMarking_DragMarksOneLine:
             assert _marked(_states(page)) == {(1, c): F for c in range(2, 7)}
             assert set(page.evaluate("window.__types")) == {"touch"}
             assert page.evaluate("scrollX === 0 && scrollY === 0")
+            assert _region_pressed(page) == "true"  # sticky: the drag did not disarm it
+
+            # The second drag, with nothing pressed in between (AC-1).
+            (x0, y0), (x1, _) = _centre(page, 7, 2), _centre(page, 7, 6)
+            cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x0, "y": y0}]})
+            for k in range(1, 9):
+                x = x0 + (x1 - x0) * k / 8
+                cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": y0}]})
+            cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+
+            assert _marked(_states(page)) == {
+                **{(1, c): F for c in range(2, 7)}, **{(7, c): F for c in range(2, 7)}}
+            assert _region_pressed(page) == "true"
         finally:
             context.close()
 

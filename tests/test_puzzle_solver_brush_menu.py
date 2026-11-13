@@ -86,6 +86,28 @@ box swallowed taps aimed at the board under it. Both halves are below, in
 ``TestSolverBrushMenu_AnOutsidePointerDownDismissesIt``, together with that
 card's one interaction decision — the dismissing tap also acts.
 
+CARD-433 reverses half of CARD-211's independence decision (owner's
+play-test ruling of 2026-11-12, "Sticky only at 100%/Fit"): while the whole
+board is IN VIEW, Region is armed at load, stays armed across a recorded
+drag, and is armed by a brush pick. Everything CARD-194 and CARD-211 pinned
+is still true — on a board that is NOT wholly in view, which is where the
+one-shot disarm earns its keep, because there a drag is also how the reader
+pans (CARD-432's gesture). So the Region cells below are split by BOARD, and
+the board is the premise of each claim rather than a detail of its setup:
+
+* ``GRID`` (15 x 15) has no stage overflow at any viewport this file uses,
+  so it is the board IN VIEW — CARD-433's new behaviour.
+* ``SCROLLING_GRID`` (15 x 30, defined below) overflows its stage at 100% at
+  every one of them, so it is the board NOT in view — CARD-194's and
+  CARD-211's behaviour, unchanged, and every assertion the moved cells make
+  is the assertion they made before, on a board whose premise now holds.
+
+Nothing was renamed or deleted in the move, and the two cells that genuinely
+flip are named in CARD-433's ACs:
+``TestSolverBrushMenu_Region.test_picking_a_brush_leaves_region_armed`` (AC-2
+and AC-4) and, in test_puzzle_solver_marking.py,
+``test_a_touch_drag_marks_one_line`` (AC-1).
+
 Fixtures (real Chromium refusing loudly when absent, ADR-0038/R8; a loopback
 Flask panel over a temp SQLite store) are CARD-160's, imported below, same as
 every other puzzle-player test file.
@@ -121,12 +143,12 @@ from tests.test_puzzle_solver_marking import (
 )
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _open,
+    _unique_grid,
     browser_page,
     browser_type,
     live,
 )
 from tests.test_puzzle_solver_progress import (
-    LONG_RUN,
     _is_solved_shown,
     _set,
     _solution_cells,
@@ -144,6 +166,46 @@ def _touch_drag_row_1_cols_2_to_6(context, page):
         x = x0 + (x1 - x0) * k / 8
         cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": y0}]})
     cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+
+
+#: CARD-433: a board that does NOT fit its stage, so that a drag is still
+#: how the reader pans it and Region keeps the one-shot behaviour CARD-194
+#: shipped (AC-3). **15 wide**, like ``GRID``, so every ``_marked``/``_at``
+#: reading in this file keeps working off ``SIDE``; 30 rows, which is what
+#: makes it overflow. Measured stage overflow at 100% (x, y): 0 x 133 at
+#: this file's default 1280 x 720, 0 x 95 at the 1024 x 768 the touch
+#: contexts use, and 6 x 170 at 390 x 844 — and 0 x 0 at Fit at all three,
+#: which is the transition :meth:`TestSolverBrushMenu_Region.test_picking_a_brush_leaves_region_armed`
+#: walks through.
+SCROLLING_GRID = _unique_grid(SIDE, 30, seed=433)
+
+#: A run of at least two filled cells in SCROLLING_GRID, derived exactly as
+#: test_puzzle_solver_progress.py's LONG_RUN is derived from GRID (that one
+#: is GRID's and does not fit this board).
+SCROLLING_LONG_RUN = next(
+    (r, c, e)
+    for r in range(30) for c in range(SIDE) for e in range(c + 1, SIDE)
+    if all(SCROLLING_GRID[r][c:e + 1])
+    and (c == 0 or not SCROLLING_GRID[r][c - 1])
+    and (e + 1 == SIDE or not SCROLLING_GRID[r][e + 1])
+)
+
+
+def _overflow(page):
+    """``.player-stage``'s scrollable overflow, [x, y] — CARD-433's fit
+    predicate read off the stage itself. ``[0, 0]`` is "the whole board is in
+    view", whatever the zoom readout's label says."""
+    return page.evaluate(
+        """() => { const s = document.querySelector('.player-stage');
+             return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+    )
+
+
+def _zoom_out(page):
+    """One step down the zoom range. From 100% that is Fit (CARD-406: Fit is
+    one step below 100%), which is how a reader brings a board that does not
+    fit into view."""
+    page.locator('[data-player-zoom-action="out"]').click(force=True)
 
 
 def _announced(page):
@@ -420,10 +482,16 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
     role), reachable by Tab in the toolbar's order right after the trigger
     and before Undo, and wearing the toolbar's own button pattern
     (``.btn.btn-outline-secondary``, like the history buttons) so it keeps a
-    tap target on a 390 px phone."""
+    tap target on a 390 px phone.
+
+    Two of these cells read the toggle's state at load and when pressed, so
+    they are on ``SCROLLING_GRID`` (see the module note): the state a load
+    starts in is CARD-433's, and "unpressed, then pressed" is the sequence a
+    board that is not wholly in view gives. The other two are about the
+    element and its place in the toolbar, which no board changes."""
 
     def test_it_is_a_pressed_state_button_outside_the_menu(self, browser_page, live) -> None:
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
 
         toggle = browser_page.get_by_role("button", name="Region", exact=True)
         assert toggle.count() == 1
@@ -460,7 +528,7 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         """A native <button>, so both keys arrive as a click, and focus stays
         on the toggle — a mode control does not move focus when pressed (the
         brush trigger, which opens a menu, is the one that does)."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region_toggle(browser_page).focus()
 
         browser_page.keyboard.press("Space")
@@ -767,7 +835,7 @@ class TestSolverRegion_KeepsItsAccessibleNameAndPressedState:
     ) -> None:
         from playwright.sync_api import expect
 
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         toggle = _region_toggle(browser_page)
 
         assert browser_page.get_by_role("button", name="Region", exact=True).count() == 1
@@ -801,14 +869,22 @@ class TestSolverRegion_ArmedDragMarksThenDisarms:
     current brush, and the toggle reads ``aria-pressed="false"`` again
     afterwards: Region is one-shot, exactly as CARD-194 shipped it.
 
+    CARD-433 AC-3. On ``SCROLLING_GRID``, because that is the board this
+    claim is now ABOUT: the one-shot disarm gives the pan gesture back after
+    one marking drag, so it applies while the whole board is not in view and
+    not while it is (where the mode is sticky instead — CARD-433 AC-1,
+    ``test_a_touch_drag_marks_one_line`` in test_puzzle_solver_marking.py).
+    Every assertion here is the one it made before that card; only the board
+    changed, from a 15 x 15 that had nothing to scroll to a 15 x 30 that does.
+
     Mutant: dropping the ``setRegion(nextRegion(region, "drag"))`` call from
     solver.js's pointerup leaves ``aria-pressed="true"`` in all three tests
-    here (and makes the mode sticky, which is a separate owner decision)."""
+    here; making it unconditional again fails CARD-433 AC-1's cell."""
 
     def test_mouse_drag_with_black_marks_the_row_then_disarms(self, browser_page, live) -> None:
         """AC-3's own scenario: the default Black brush, Region pressed, a
         mouse drag along row 4 (index 3), columns 2 to 6 (indexes 1..5)."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region(browser_page)
         assert _region_pressed(browser_page) == "true"
 
@@ -825,7 +901,7 @@ class TestSolverRegion_ArmedDragMarksThenDisarms:
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
-            _open(page, live, live.store(GRID))
+            _open(page, live, live.store(SCROLLING_GRID))
             _tool(page, "White")
             _region(page)
 
@@ -844,7 +920,7 @@ class TestSolverRegion_ArmedDragMarksThenDisarms:
         """CARD-194 target behaviour #7 — "a drag ended", not "a cell
         changed": Clear dragged over already-undecided cells records a
         stroke that marks nothing, and Region still turns itself off."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _tool(browser_page, "Clear")
         _region(browser_page)
 
@@ -866,13 +942,20 @@ class TestSolverRegion_UnarmedTouchDragStillScrolls:
     in test_puzzle_solver_marking.py). The cells' ``touch-action`` is what
     makes that possible, and it is keyed to ``.player-board.is-region``,
     which since this card only the toggle sets (the computed values
-    themselves are measured in test_puzzle_solver_phone.py)."""
+    themselves are measured in test_puzzle_solver_phone.py).
+
+    On ``SCROLLING_GRID`` (see the module note), and that is a strengthening
+    as well as a fix: the claim is "the browser is free to scroll", and the
+    15 x 15 this read before has nothing to scroll INSIDE the stage at
+    1024 x 768 (measured 0 x 0), so only the page could pan. The 15 x 30 has
+    95 px of stage overflow, which is the situation the gesture exists for —
+    and the situation in which Region is off at load at all (CARD-433)."""
 
     def test_touch_drag_without_region_scrolls_and_marks_nothing(self, browser, live) -> None:
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
-            _open(page, live, live.store(GRID))
+            _open(page, live, live.store(SCROLLING_GRID))
             assert _region_pressed(page) == "false"
             assert page.evaluate("document.querySelectorAll('.player-board.is-region').length") == 0
             page.evaluate(
@@ -905,9 +988,14 @@ class TestSolverRegion_DoesNotChangeTheBrush:
 
     The other direction was NOT independent when this class was written —
     picking a brush turned Region off, CARD-194 target behaviour #3 — and the
-    owner reversed that on 2026-10-14, so it is independent now too:
-    TestSolverBrushMenu_Region::test_picking_a_brush_leaves_region_armed
-    below is this class's mirror.
+    owner reversed that on 2026-10-14 — and CARD-433 reversed THAT on
+    2026-11-12, so the other direction is coupled again: while the whole
+    board is in view, picking a brush ARMS Region
+    (TestSolverBrushMenu_Region::test_picking_a_brush_leaves_region_armed
+    below, which is no longer this class's mirror but its complement). THIS
+    class's claim is untouched by either ruling — Region never reaches the
+    brush — and it runs on ``SCROLLING_GRID`` (see the module note) so that
+    "press it, press it again" is still the arm/disarm pair it reads as.
 
     Mutant: having the Region handler write ``tool`` — or having ``pick``
     still treat "region" as a name it may receive, as CARD-194's menu did —
@@ -915,7 +1003,7 @@ class TestSolverRegion_DoesNotChangeTheBrush:
 
     @pytest.mark.parametrize("brush", ["Black", "White", "Maybe", "Clear"])
     def test_pressing_and_releasing_region_keeps_the_brush(self, browser_page, live, brush) -> None:
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _tool(browser_page, brush)
 
         _region(browser_page)
@@ -936,7 +1024,7 @@ class TestSolverRegion_DoesNotChangeTheBrush:
         """The flip side of the label claim: arming Region does not quietly
         reset the brush to Black either — a region drag after picking Maybe
         paints "?"."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _tool(browser_page, "Maybe")
         _region(browser_page)
 
@@ -960,11 +1048,19 @@ class TestSolverRegion_AnnouncesItsState:
     region drag is announced too — otherwise a user who cannot see the
     toggle would be left believing the mode is still armed.
 
+    On ``SCROLLING_GRID`` (see the module note): these cells read the live
+    region from a load with Region OFF through a press, a drag and the
+    automatic disarm, which is the sequence a board that is not wholly in
+    view gives. CARD-433's one addition to this contract is that the load's
+    own default — Region armed, where the whole board IS in view — writes no
+    line at all: it is an initial state and not a change, and the element
+    carries a restored solved board's banner at that moment.
+
     Mutant: dropping the ``announce.textContent`` write from solver.js's
     setRegion leaves the live region empty through all of this."""
 
     def test_pressing_and_unpressing_are_announced(self, browser_page, live) -> None:
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         assert _announced(browser_page) == ""
 
         _region(browser_page)
@@ -978,7 +1074,7 @@ class TestSolverRegion_AnnouncesItsState:
         #puzzle-player-announce, which is already role=status and present
         from the first paint (a region that only appears is not reliably
         read — see the template's comment block)."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region(browser_page)
 
         assert browser_page.evaluate(
@@ -993,7 +1089,7 @@ class TestSolverRegion_AnnouncesItsState:
               "says": "Region on: the next drag marks with the brush.", "unnamed": 0}
 
     def test_the_brush_label_never_mentions_region(self, browser_page, live) -> None:
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region(browser_page)
 
         assert _trigger(browser_page).get_attribute("aria-label") == "Brush: Black"
@@ -1001,7 +1097,7 @@ class TestSolverRegion_AnnouncesItsState:
         assert "Region" not in _trigger(browser_page).text_content()
 
     def test_the_automatic_disarm_is_announced(self, browser_page, live) -> None:
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region(browser_page)
 
         _drag(browser_page, [(3, 1), (3, 5)])
@@ -1013,12 +1109,12 @@ class TestSolverRegion_AnnouncesItsState:
         """The two writers of the one live region, ordered: solver.js
         announces the disarm BEFORE committing the stroke, so when that
         stroke solves the board the solved banner — the more important of the
-        two messages — is what the user is left hearing. (LONG_RUN is a run
+        two messages — is what the user is left hearing. (SCROLLING_LONG_RUN is a run
         of two or more solution-filled cells on one row, so the two cells
         this drag fills both want Black.)"""
-        row, first, _last_col = LONG_RUN
-        _open(browser_page, live, live.store(GRID))
-        cells = _solution_cells(GRID, E)
+        row, first, _last_col = SCROLLING_LONG_RUN
+        _open(browser_page, live, live.store(SCROLLING_GRID))
+        cells = _solution_cells(SCROLLING_GRID, E)
         cells[row * SIDE + first] = U
         cells[row * SIDE + first + 1] = U
         _set(browser_page, cells)
@@ -1508,57 +1604,100 @@ class TestSolverBrushMenu_AnOutsidePointerDownDismissesIt:
 class TestSolverBrushMenu_Region:
     """CARD-194 AC-9 / AC-12 still holding with the toggle in place of the
     menu item (a tap while Region is on, and what a reload starts with), plus
-    the one place CARD-211 deliberately DIVERGES from CARD-194: picking a
-    brush leaves Region armed.
+    the place where the brush and Region are COUPLED again.
 
-    The two tests below were written the other way round in CARD-211's first
-    implementation, where they pinned CARD-194's target behaviour #3 (a brush
-    pick disarms Region) as shipped. The owner reversed that on 2026-10-14:
-    behaviour #3 made sense only while Region was a fifth
-    role="menuitemradio" in the brush menu, where the menu's own radio
-    exclusivity forced it, and two separate controls that silently switch
-    each other off is wrong. They are kept here, asserting the new behaviour,
-    rather than deleted — this is the mirror of
-    TestSolverRegion_DoesNotChangeTheBrush (AC-5), which covers the other
-    direction, and together the two classes are what "independent in both
-    directions" means in tests.
+    The coupling has been ruled on twice, in opposite directions, and the
+    second ruling is the live one:
 
-    Mutant: restoring ``setRegion(nextRegion(region, "brush"))`` in
-    solver.js's ``pick`` (with the "brush" event back in nextRegion's table)
-    fails both tests below — the first on the pressed state, the
-    announcement AND the drag that follows it, the second on the pressed
-    state."""
+    * **2026-10-14 (CARD-211)** made the two controls independent in both
+      directions — picking a brush left Region exactly as it was. CARD-194
+      had shipped the opposite (its target behaviour #3, a brush pick
+      *disarms* Region), which made sense only while Region was a fifth
+      role="menuitemradio" in the brush menu, where the menu's own radio
+      exclusivity forced it.
+    * **2026-11-12 (CARD-433, owner play-test doc "Гра - тест" item 1,
+      ruled "Sticky only at 100%/Fit")** reverses half of that: while the
+      whole board is in view, *picking a brush ARMS Region* if it is off,
+      and never disarms it. The other half stands — arming Region still
+      never changes the brush (TestSolverRegion_DoesNotChangeTheBrush,
+      CARD-211 AC-5) — so "independent in both directions" is no longer
+      what these two classes mean together. What they mean now is: the
+      brush reaches Region, Region does not reach the brush.
+
+    Only while the board is in view, because a drag is also how the reader
+    pans a board that does not fit (CARD-432's gesture): on an overflowing
+    board a brush pick still leaves Region alone and still cannot arm it,
+    which is the first half of
+    :meth:`test_picking_a_brush_leaves_region_armed` below.
+
+    Mutant: dropping the ``setRegion(true)`` from solver.js's ``pick`` fails
+    the arming half of the first test; making it unconditional fails that
+    test's overflowing half and its ``regionOff`` half (CARD-433 AC-4)."""
 
     def test_picking_a_brush_leaves_region_armed(self, browser_page, live) -> None:
-        """The owner's decision of 2026-10-14 — Region on, then a brush
-        picked from the menu with no drag involved: Region stays armed, and
-        the drag that follows marks with the brush just picked. Only a
-        recorded drag disarms it (target behaviour #7, exercised by
-        TestSolverRegion_ArmedDragMarksThenDisarms above), so the live region
-        says nothing new when the brush changes — the announcement of the
-        disarm comes later, with the drag.
+        """CARD-433 AC-2 and AC-4, in the one cell, flipped by the owner's
+        ruling of **2026-11-12** ("Sticky only at 100%/Fit") from the
+        2026-10-14 decision it used to assert (a brush pick leaves Region
+        exactly as it was — see this class's own note).
 
-        Both halves matter: a stale ``aria-pressed="true"`` over a flag that
-        was really cleared would pass the attribute check alone, so the drag
-        is what proves Region is still ARMED and not merely still labelled
-        so."""
-        _open(browser_page, live, live.store(GRID))
-        _region(browser_page)
-        assert _region_pressed(browser_page) == "true"
-        assert _trigger_text(browser_page) == "Black"  # no composite label any more
-        assert _announced(browser_page) == "Region on: the next drag marks with the brush."
+        One page, walked through the three states the ruling distinguishes,
+        on the board that can be in all three: SCROLLING_GRID at this file's
+        default 1280 x 720, where 100% overflows the stage by 0 x 133 px and
+        Fit has no overflow at all (both measured — the assertions below read
+        the stage rather than trusting the zoom readout's label, which is the
+        point CARD-433 had to settle: "100%" and "the whole board is in view"
+        are not the same property, here or on a phone, where the same board
+        reads "100%" with 6 x 170 px of scroll).
 
+        1. **overflowing** — Region is off at load and a brush pick does not
+           arm it (AC-3: today's behaviour, where a drag is how the reader
+           pans).
+        2. **in view, Region off** — stepping to Fit brings the whole board
+           into view. Becoming fit does not arm Region by itself; the next
+           brush pick does (AC-2), and says so through the live region.
+        3. **in view, Region pressed off** — the press wins. A brush pick
+           does not bring it back, and the unchanged "Region off." is not
+           written again (AC-4, AC-5).
+
+        A stale ``aria-pressed="true"`` over a flag that was really clear
+        would pass an attribute check alone; what proves the flag itself is
+        a touch drag, the pointer type Region exists for, and that is AC-1's
+        cell (``test_a_touch_drag_marks_one_line`` in
+        test_puzzle_solver_marking.py, on a board in view) and
+        TestSolverRegion_ArmedDragMarksThenDisarms below (on one that
+        scrolls)."""
+        _open(browser_page, live, live.store(SCROLLING_GRID))
+
+        # 1. The board does not fit: 133 px of vertical stage overflow at 100%.
+        assert _overflow(browser_page) == [0, 133]
+        assert _region_pressed(browser_page) == "false"
+        assert _announced(browser_page) == ""
         _tool(browser_page, "White")
-
         assert _trigger_text(browser_page) == "White"
-        assert _region_pressed(browser_page) == "true"
-        # Unchanged, so nothing is re-read: setRegion is never called at all.
+        assert _region_pressed(browser_page) == "false"  # a brush pick cannot arm it here
+        assert _announced(browser_page) == ""
+
+        # 2. Fit: the whole board in view, and still off until a brush is picked.
+        _zoom_out(browser_page)
+        assert _overflow(browser_page) == [0, 0]
+        assert _region_pressed(browser_page) == "false"
+
+        _tool(browser_page, "Maybe")
+
+        assert _trigger_text(browser_page) == "Maybe"
+        assert _region_pressed(browser_page) == "true"  # AC-2
         assert _announced(browser_page) == "Region on: the next drag marks with the brush."
 
-        _drag(browser_page, [(3, 1), (3, 5)])
+        # 3. Pressed off, and a brush pick does not undo that (AC-4).
+        _region(browser_page)
+        assert _region_pressed(browser_page) == "false"
+        assert _announced(browser_page) == "Region off."
 
-        assert _marked(_states(browser_page)) == {(3, c): E for c in range(1, 6)}
-        assert _region_pressed(browser_page) == "false"  # the drag disarms it, not the pick
+        _tool(browser_page, "Black")
+
+        assert _trigger_text(browser_page) == "Black"
+        assert _region_pressed(browser_page) == "false"
+        # Unchanged, so nothing is re-read (AC-5).
         assert _announced(browser_page) == "Region off."
 
     def test_re_picking_the_same_brush_also_leaves_region_armed(self, browser_page, live) -> None:
@@ -1566,7 +1705,7 @@ class TestSolverBrushMenu_Region:
         chosen (the reading CARD-194's `lastClick` reset follows) — so
         re-picking it does not disarm Region either, and the drag that
         follows still marks."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region(browser_page)
 
         _tool(browser_page, "Black")
@@ -1586,7 +1725,7 @@ class TestSolverBrushMenu_Region:
         "a non-drag input is a click" rule, independent of pointer type):
         the cell reads black and Region is still on, because only a *drag*
         is what disarms it."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _region(browser_page)
 
         _cell(browser_page, 9, 9).click()
@@ -1601,7 +1740,7 @@ class TestSolverBrushMenu_Region:
         trigger reads "Brush: Black" and the toggle is unpressed, regardless
         of what was picked before (brush and Region are UI state, never
         saved — G-3)."""
-        _open(browser_page, live, live.store(GRID))
+        _open(browser_page, live, live.store(SCROLLING_GRID))
         _tool(browser_page, "White")
         _region(browser_page)
         _drag(browser_page, [(2, 0), (2, 3)])
@@ -1704,7 +1843,13 @@ class TestSolverBrushMenu_Pen:
     after real movement — this is exactly the gap a drag that moves but
     never paints must still not fall back to "click the start cell" for
     (solver.js pointerup's `done.paints` branch, whose rule is
-    solver_state.js gesturePaints since CARD-211)."""
+    solver_state.js gesturePaints since CARD-211).
+
+    On ``SCROLLING_GRID`` (see the module note): both cells here are about a
+    pen drag with Region OFF and with Region ARMED BY ITS BUTTON, which is
+    the pair a board that is not wholly in view gives. ``gesturePaints``
+    itself is unchanged by CARD-433 — what that card changed is when the flag
+    it reads is set."""
 
     @staticmethod
     def _pen_drag(context, page, start, end, steps=8):
@@ -1728,7 +1873,7 @@ class TestSolverBrushMenu_Pen:
         context = browser.new_context(viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
-            _open(page, live, live.store(GRID))
+            _open(page, live, live.store(SCROLLING_GRID))
             page.evaluate(
                 "window.__types = []; document.addEventListener('pointerdown', (e) => window.__types.push(e.pointerType));"
             )
@@ -1747,7 +1892,7 @@ class TestSolverBrushMenu_Pen:
         context = browser.new_context(viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
-            _open(page, live, live.store(GRID))
+            _open(page, live, live.store(SCROLLING_GRID))
             _tool(page, "White")
             _region(page)
 

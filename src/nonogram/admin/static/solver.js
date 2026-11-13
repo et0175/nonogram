@@ -202,7 +202,9 @@
 //             Region is on (`gesture.paints` below) — the board's cells set
 //             touch-action accordingly (.player-board.is-region, admin.css),
 //             and Region turns itself off once such a drag is recorded, even
-//             one that changes no cell (CARD-194 target behaviour #7): a
+//             one that changes no cell (CARD-194 target behaviour #7) — but
+//             only while the whole board is NOT in view, which is the one
+//             state that disarm is for (CARD-433, see "region" below): a
 //             region drag never lands as two tool picks in the undo history,
 //             only as the one dragStroke. With Region off, a touch or pen
 //             pointerdown does not call setPointerCapture or preventDefault,
@@ -261,26 +263,72 @@
 //             brush, the run is aria-hidden, and the button's name comes
 //             from an aria-label the template carries (the text that used to
 //             name it is gone). Pressing it arms Region; it disarms
-//             again when pressed a second time and, one-shot, the instant a
-//             drag is recorded (#7) — the flag's whole transition table is
-//             solver_state.js nextRegion, so this file only says which event
-//             happened. Picking a brush leaves Region exactly as it was: a
-//             DELIBERATE divergence from CARD-194's target behaviour #3,
-//             decided by the owner on 2026-10-14 (CARD-211) once Region
-//             stopped being a fifth item in the brush menu — see
-//             nextRegion's own note in solver_state.js. So the two controls
-//             are independent in both directions; arming Region never
-//             changes the brush either, and never clears
+//             again when pressed a second time, and THOSE TWO EVENTS — a
+//             press and a recorded drag — are solver_state.js nextRegion's
+//             transition table, so for them this file only says which event
+//             happened. The view-driven changes below (CARD-433: the load's
+//             default, a brush pick, a board that leaves view) are this
+//             file's own, because they are readings of the DOM and that
+//             module is handed none — setRegion's note names all three.
+//             WHEN IT DISARMS ITSELF, and whether a brush pick arms it,
+//             BOTH depend on one reading of the view (CARD-433, owner's
+//             play-test ruling of 2026-11-12, "Sticky only at 100%/Fit"):
+//             is the WHOLE BOARD IN VIEW — the stage with no scrollable
+//             overflow in either axis, so that no drag of the reader's is
+//             needed to pan (boardFits in wireMarking; the owner's "100% or
+//             Fit" names the zoom readout's LABEL, which on a phone is a
+//             different property — see boardFits's own note for the
+//             measurements).
+//               * WHOLE BOARD IN VIEW: Region is ARMED AT LOAD and STAYS
+//                 armed when a drag is recorded, so a reader who wants to
+//                 paint three runs drags three times (rule 1); and picking a
+//                 brush ARMS it if it is off (rule 2). This REVERSES half of
+//                 the owner's decision of 2026-10-14 (CARD-211), which made
+//                 the brush and Region independent in both directions, by
+//                 the owner's own later ruling with the product in hand —
+//                 not drift. nextRegion's note in solver_state.js records
+//                 BOTH rulings in sequence — CARD-433 rewrote that
+//                 paragraph, and it quotes the sentence it replaces with
+//                 the dates that sentence was true between. nextRegion
+//                 ITSELF is unchanged by this card and still refuses a
+//                 "brush" event: the arming lives in pick() below, where
+//                 the view can be read.
+//               * NOT IN VIEW: exactly what CARD-194 shipped — off at load,
+//                 armed only by its own button, and one-shot, disarming the
+//                 instant a drag is recorded (#7). This is what keeps
+//                 CARD-432's gesture available: there a drag is how the
+//                 reader reaches the rest of their own board. A board that
+//                 was in view and stops being one (a zoom in, a window
+//                 shrunk) disarms for the same reason (syncRegionToFit) —
+//                 but only once the layout has SETTLED: a window shrunk
+//                 around a board at Fit re-fits it and the board never
+//                 leaves view, so nothing disarms (review cycle 1, F-001).
+//               * EITHER WAY a press of Region OFF wins: the brush picks
+//                 that follow leave it off until the next load (rule 4, the
+//                 one rule of that card not in the owner's words — without
+//                 it the control cannot be switched off while the board is
+//                 in view). And a pick never DISARMS Region anywhere, which
+//                 is CARD-194's target behaviour #3 still reversed; "brush"
+//                 is still not one of nextRegion's events.
+//             The other half of 2026-10-14 stands: arming Region never
+//             changes the brush, and never clears
 //             `lastClick` (#4). Every change — including the automatic
 //             disarm — is written to #puzzle-player-announce, so a screen
 //             reader hears "Region on"/"Region off" without re-reading a
 //             label; an unchanged value is never rewritten (the live region
-//             would announce it again). The flag is UI state like
+//             would announce it again). The load's own default is the one
+//             thing not announced — it is an initial state and not a change,
+//             and the announce element carries a restored board's banner at
+//             that moment (settleRegion). The flag is UI state like
 //             `lastClick` and `zoom`: never a cell state, never recorded,
-//             never saved, so every load starts with Region off. While it is
+//             never saved, so a load re-reads the view rather than
+//             remembering anything. While it is
 //             armed the board carries .is-region, which is how admin.css
-//             drops .player-cell's touch-action to none; the toggle is the
-//             only thing that sets that class.
+//             drops .player-cell's touch-action to none; nothing writes that
+//             class but refresh(), from the flag — so every way the flag
+//             moves (the toggle, a drag, and since CARD-433 the load's
+//             default, a brush pick and a board leaving view) carries it,
+//             and none of them touches the class itself.
 //   history   [data-player-action] undo / redo / reset; aria-disabled="true"
 //             while there is nothing to do — pressing one then leaves the
 //             board as it is, because undo/redo with an empty stack and a
@@ -1351,6 +1399,15 @@ function start() {
       floor = Math.max(FIT_MIN, Math.min(floor - 1, Math.floor(floor * ratio)));
       marking.setFloor(floor);
     }
+    // CARD-433: the first settled measurement is also where Region's load
+    // default is decided — after the opening zoom above and after the loop
+    // that makes Fit really fit, so the reading is of the view the reader is
+    // looking at. settleRegion is one-shot inside wireMarking (every later
+    // call is a no-op); syncRegionToFit runs on every measurement, because a
+    // resize can take a board out of view with no zoom change at all. In
+    // that order: the first reading must not be read as a transition.
+    marking.syncRegionToFit();
+    marking.settleRegion();
   }
 
   function keepCluesInView() {
@@ -1514,6 +1571,11 @@ function start() {
       // force two layouts per pinch move (review cycle 2, F-103).
       if (!measuringFit && marking.getZoom() <= ZOOM_MIN) measureFit();
     },
+    // CARD-433 (review cycle 1, F-001): is a fit measurement RUNNING? The
+    // same flag `zoomed` reads above, published because wireMarking's
+    // syncRegionToFit must not answer to the layouts fitTheFloor passes
+    // through on its way to the settled one — see its note there.
+    measuringFit: () => measuringFit,
   });
   // CARD-267: the crosshair's own pointer listeners, on the same stage and
   // wired once for the same reason. Constructed before the first redraw()
@@ -2270,6 +2332,20 @@ function wireMarking(container, player) {
   const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
   let region = false; // armed? (see "region" above) — never a cell state, never saved
+  // CARD-433: the reader pressed Region OFF. A brush pick arms Region while
+  // the board is in view, and without this latch the control could not be
+  // switched off there at all — the next brush pick would undo the press.
+  // Cleared by a press that arms it again, and never saved, so a load starts
+  // with the press forgotten (rule 4; the one rule of this card that is not
+  // in the owner's words — see "region" above).
+  let regionOff = false;
+  // CARD-433: the load's default is taken once, after the fit measurement and
+  // the CARD-407 opening zoom have settled (settleRegion, called from
+  // fitTheFloor). `fittedLast` is the previous reading of boardFits(), which
+  // is what makes syncRegionToFit answer to the TRANSITION and not to the
+  // state (see it below).
+  let regionSettled = false;
+  let fittedLast = null;
   // The hint ladder (CARD-269, see LADDER above). `rung` is the rung the
   // NEXT Hint press will show, 1..3, and `ladderLine` is the line currently
   // carrying `.is-hint-line` — a {axis, index} VALUE and not the elements
@@ -2398,6 +2474,23 @@ function wireMarking(container, player) {
       // CARD-271: the clue band scales with the cell, so a zoom changes
       // whether either axis can still afford to keep its gutter in view.
       player.zoomed();
+      // CARD-433: a zoom is the one thing that changes whether the whole
+      // board is in view without changing the board — see syncRegionToFit.
+      //
+      // Not while a fit measurement is running (review cycle 1, F-001).
+      // fitTheFloor applies its first floor estimate BEFORE the overshoot
+      // loop corrects it, and setFloor re-enters here for a board that was
+      // at Fit — so during a measurement this reads layouts that exist for
+      // one task and that the reader never sees. Measured: a 390 x 844
+      // phone at Fit resized to 390 x 700 scrolls by 7 px against a 269 px
+      // stage in between, enough to disarm a Region whose board never left
+      // view. fitTheFloor calls syncRegionToFit itself once it has settled,
+      // so nothing is lost; the guard is at the CALL and not inside, which
+      // is what keeps that settled call working and mirrors zoomed()'s own
+      // `!measuringFit`. A zoom ABOVE 100% is not a measurement at all
+      // (zoomed() skips measureFit there, CARD-271 review cycle 2, F-103),
+      // so that case still arrives here.
+      if (!player.measuringFit()) syncRegionToFit();
     }
     syncZoom();
   }
@@ -2446,8 +2539,10 @@ function wireMarking(container, player) {
   // function writes both, and every brush change goes through it (start() and
   // pick() are its only callers). The toggle's own NAME is not touched here —
   // it is a fixed aria-label on the button, because Region's name does not
-  // change with the brush (CARD-211: the brush and Region are independent,
-  // and the flip is announced through the live region, never by relabelling).
+  // change with the brush (CARD-211: Region's name says what the control
+  // does, and the flip is announced through the live region, never by
+  // relabelling — so a pick that ARMS Region, since CARD-433, relabels
+  // nothing either).
   function syncTrigger() {
     const label = BRUSH_LABEL[tool];
     trigger.setAttribute("aria-label", `Brush: ${label}`);
@@ -2463,14 +2558,127 @@ function wireMarking(container, player) {
   // aria-pressed, the board's .is-region class (through refresh(), which is
   // also what re-applies it after a mirror redraw) and one live-region line.
   // A no-op call writes nothing — rewriting the same announcement would make
-  // it read out again. Every caller goes through solver_state.js nextRegion,
-  // so this function never decides the transition itself.
+  // it read out again. This function never decides a transition itself: the
+  // flag's own two events (a press, a recorded drag) are decided by
+  // solver_state.js nextRegion, and the TWO callers that pass a value
+  // straight in — pick and syncRegionToFit — are CARD-433's readings of the
+  // VIEW, which is this file's business and not that pure module's (it is
+  // handed no DOM). So setRegion has four callers in all: those two, plus
+  // the toggle and the recorded drag, which both pass nextRegion's answer.
+  // The one place that moves the flag WITHOUT coming through here is
+  // settleRegion, deliberately — it assigns `region` and aria-pressed itself
+  // so a board restored already-armed announces nothing; see its note.
+  // (Cycle 2's F-009: this paragraph used to say "three callers … pick,
+  // syncRegionToFit and settleRegion's write below" and then, four lines on,
+  // that settleRegion is the one caller that does NOT come through — both
+  // cannot be true, and settleRegion was the wrong one to list. Corrected by
+  // reading every setRegion call site, not by choosing a side.)
   function setRegion(armed) {
     if (armed === region) return;
     region = armed;
     regionToggle.setAttribute("aria-pressed", String(region));
     announce.textContent = REGION_ANNOUNCEMENT[String(region)];
     refresh();
+  }
+
+  // CARD-433's predicate: is the WHOLE BOARD IN VIEW — i.e. does the stage
+  // have no scrollable overflow in either axis, so that no drag of the
+  // reader's is needed to pan? The owner's words were "100% or Fit", which
+  // name the zoom readout's LABEL, and the label is not this property: at
+  // 390 x 844 a 30 x 30 at 100% reads "100%" with 346 x 170 px of stage
+  // scroll, and a 15 x 30 reads "100%" with 6 x 170 — the very case CARD-432
+  // is about, where a drag is how the reader reaches the rest of the board.
+  // The two agree wherever the board really is in view (a 10 x 10 at
+  // 390 x 844: "100%", 0 x 0; and every board at Fit, which the overshoot
+  // loop in fitTheFloor shrinks until nothing scrolls) and diverge on every
+  // board bigger than its stage, so the geometry is what is read.
+  //
+  // EVERY figure above names its board, because stage overflow is a property
+  // of the particular grid and not of its size: the x overflow follows the
+  // deepest ROW clue and the y overflow the deepest COLUMN clue, so two
+  // 30 x 30s differ (review cycle 1, F-003 — _unique_grid(30, 30,
+  // seed=19330) gives 346 x 170 at 390 x 844 where seed=40601 gives
+  // 346 x 185). The boards, and the instrument, re-derived 2026-11-13:
+  //   * 30 x 30 = _unique_grid(30, 30, seed=19330), the suite's
+  //     tests/test_puzzle_solver_clues.GRID_30x30 — 346 x 170 at 390 x 844,
+  //     0 x 133 at 1280 x 720 (the desktop figure this whole predicate
+  //     rests on: a board that READS "100%" with 133 px out of view);
+  //   * 15 x 30 = _unique_grid(15, 30, seed=433), SCROLLING_GRID in
+  //     tests/test_puzzle_solver_brush_menu.py — 6 x 170 at 390 x 844,
+  //     0 x 133 at 1280 x 720, which is the pair that file's _overflow
+  //     helper asserts outright in
+  //     TestSolverBrushMenu_Region::test_picking_a_brush_leaves_region_armed;
+  //   * 10 x 10 = _unique_grid(10, 10, seed=40701), the "phone small" arm of
+  //     TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only
+  //     — 0 x 0 at 390 x 844 and at 1280 x 720.
+  // The instrument is that same _overflow expression (the stage's
+  // scrollWidth/scrollHeight less its client box) at the zoom whose readout
+  // says "100%"; CARD-433's worktree notes hold the whole A-vs-B table.
+  function boardFits() {
+    return container.scrollWidth <= container.clientWidth
+      && container.scrollHeight <= container.clientHeight;
+  }
+
+  // The load's default (CARD-433 rule 1), taken ONCE and only after the fit
+  // measurement has settled — on a compact screen a board that does not fit
+  // at 100% opens at Fit (CARD-407), where it DOES fit, so a reading taken
+  // before that would arm the opposite of what the reader is looking at.
+  // fitTheFloor calls this at the end of its first run, after its overshoot
+  // loop; later runs (a resize, a zoom) find it done, and nothing re-arms
+  // Region by itself after that — the reader's own off stays off (rule 4),
+  // and a board brought into view later is re-armed by the next brush pick
+  // (rule 2, in pick below).
+  //
+  // Not through setRegion, deliberately: this is the flag's INITIAL value and
+  // not a transition, so it writes no live-region line. #puzzle-player-announce
+  // carries what just CHANGED, it is written at load by showProgress (a
+  // restored solved board's banner), and "Region on" there would both
+  // overwrite that banner and read out a state the reader never changed. The
+  // state is on the toggle, in aria-pressed, from the first paint.
+  function settleRegion() {
+    if (regionSettled) return;
+    regionSettled = true;
+    if (region || !boardFits()) return;
+    region = true;
+    regionToggle.setAttribute("aria-pressed", "true");
+    refresh();
+  }
+
+  // A board that WAS wholly in view and no longer is disarms Region (CARD-433
+  // rule 3). Without this, the commonest phone flow breaks CARD-432's
+  // gesture: a big board opens at Fit (CARD-407) with Region armed, the
+  // reader taps + to look closer, and the drag they make to pan the board
+  // they can now only see part of paints a run instead. Rule 3 says that
+  // while the board does not fit Region is "armed only by its own button",
+  // and an arm carried in from a view where the whole board fitted is not
+  // that.
+  //
+  // The TRANSITION, not the state: a Region the reader armed by its own
+  // button on a board that was already scrolling survives a resize and a
+  // zoom exactly as it did before this card, because `fittedLast` was
+  // already false.
+  //
+  // And only SETTLED readings, which is what makes that true (review cycle
+  // 1, F-001). Two callers:
+  //   * fitTheFloor, at the end of every fit measurement — after the
+  //     opening zoom and after the overshoot loop, so the overflow it reads
+  //     is the one the reader is looking at. This is the caller that covers
+  //     a resize, which can take a board out of view with no zoom at all.
+  //   * applyZoom, for every zoom change (buttons, pinch, Fit) that is NOT
+  //     inside a fit measurement — `!player.measuringFit()` there. Above
+  //     100% that is the only caller, because zoomed() deliberately skips
+  //     measureFit (CARD-271 review cycle 2, F-103); at or below 100% the
+  //     measurement has already run by the time applyZoom asks, so this
+  //     call re-reads the same settled layout and finds nothing to do.
+  // Without that guard the mid-measurement layouts answer instead: 7 px of
+  // overflow that exists for one task disarmed a Region on a board that
+  // never left view (measured, 390 x 844 -> 390 x 700 at Fit) — which is
+  // what this paragraph had claimed could not happen.
+  function syncRegionToFit() {
+    const fits = boardFits();
+    const was = fittedLast;
+    fittedLast = fits;
+    if (was === true && !fits && region) setRegion(false);
   }
 
   function closeMenu() {
@@ -2502,14 +2710,24 @@ function wireMarking(container, player) {
 
   // A menu pick (mouse click, or Enter/Space on a focused item — items are
   // native <button>s, so those keys already fire "click"). Every item is a
-  // brush since CARD-211, and picking one restarts the click sequence but
-  // leaves Region alone: CARD-194's target behaviour #3 (a brush pick
-  // disarms Region) was reversed by the owner on 2026-10-14, so there is no
-  // setRegion call here and no "brush" event in nextRegion's table — see
-  // nextRegion's divergence note in solver_state.js.
+  // brush since CARD-211, and picking one restarts the click sequence.
+  //
+  // WHAT IT DOES TO REGION (CARD-433 rule 2, owner's play-test ruling of
+  // 2026-11-12 "Sticky only at 100%/Fit", reversing half of the 2026-10-14
+  // decision this used to carry): while the whole board is in view, a brush
+  // pick ARMS Region if it is off, and never disarms it. On a board that is
+  // NOT wholly in view it changes nothing at all, which is CARD-194's target
+  // behaviour #3 still reversed — a pick never disarms Region anywhere
+  // (rule 3 is why it does not ARM it there either), and there is still no
+  // "brush" event in nextRegion's table (that name stays refused; the
+  // transition here is not one of the flag's own two events, it is this
+  // file's reading of the view).
+  //
+  // `regionOff` is the reader's own press winning over the pick (rule 4).
   function pick(name) {
     tool = name;
     lastClick = null;
+    if (!region && !regionOff && boardFits()) setRegion(true);
     syncTrigger();
     closeMenu();
     trigger.focus();
@@ -2781,7 +2999,15 @@ function wireMarking(container, player) {
       // Announced BEFORE the commit on purpose: a drag that solves the board
       // lets showProgress overwrite this line with the solved banner, which
       // is the more important of the two.
-      setRegion(nextRegion(region, "drag"));
+      //
+      // ONLY WHILE THE BOARD DOES NOT FIT (CARD-433 rules 1 and 3, owner's
+      // ruling of 2026-11-12). The one-shot disarm exists to give the pan
+      // gesture back after one marking drag; with the whole board in view
+      // there is nothing to pan to, so the mode is sticky instead and a
+      // reader who wants to paint three runs drags three times. The reading
+      // is taken here, per drag, rather than remembered from the load: the
+      // same page can be zoomed in and out between two drags.
+      if (!boardFits()) setRegion(nextRegion(region, "drag"));
       commit(record(history, dragStroke(done.start, done.path, done.tool)));
       return;
     }
@@ -3005,7 +3231,12 @@ function wireMarking(container, player) {
   // Enter and Space already arrive as "click" — no keydown handler of its
   // own, and no focus move: pressing it leaves focus on it, the way a toggle
   // should. It never touches `tool` or `lastClick`.
-  regionToggle.addEventListener("click", () => setRegion(nextRegion(region, "toggle")));
+  // CARD-433 rule 4: a press OFF is remembered, so the brush picks that
+  // follow leave it off (and a press back ON forgets it again).
+  regionToggle.addEventListener("click", () => {
+    setRegion(nextRegion(region, "toggle"));
+    regionOff = !region;
+  });
 
   // The probe's three controls (CARD-268, see PROBE above). Native <button>s,
   // so Enter and Space already arrive as "click"; none of them moves focus,
@@ -3678,7 +3909,8 @@ function wireMarking(container, player) {
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
   // Check and the explain line.
   if (probeBar !== null) probeBar.hidden = false;
-  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt, offerRedrawn };
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt,
+    offerRedrawn, settleRegion, syncRegionToFit };
 }
 
 start();

@@ -408,14 +408,32 @@ def step_each_brush(value):
 
 
 def step_region(page, ctx):
+    """CARD-433 (owner's ruling of 2026-11-12, "Sticky only at 100%/Fit").
+
+    This sweep's board is a 10 x 8 and its stage has no scrollable overflow at
+    the zoom the steps before this one leave behind — asserted, because it is
+    the premise of everything below: with the whole board in view Region is
+    armed from the load, a recorded drag leaves it armed (it is the *panning*
+    gesture the one-shot disarm gives back, and there is nothing to pan), and
+    only the reader's own press turns it off. The disarm-after-one-drag that
+    this step used to drive is CARD-194's behaviour on a board that scrolls,
+    which this one does not; it is pinned in
+    test_puzzle_solver_brush_menu.py's TestSolverRegion_ArmedDragMarksThenDisarms.
+    """
     toggle = page.locator("[data-player-region]")
-    assert toggle.get_attribute("aria-pressed") == "false"
+    assert page.evaluate(
+        """() => { const s = document.querySelector('.player-stage');
+             return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+    ) == [0, 0], "this step is about a board wholly in view"
+    assert toggle.get_attribute("aria-pressed") == "true", "armed at load, with the board in view"
+    drag(page, [(5, 0), (5, 1), (5, 2), (5, 3), (5, 4)])
+    assert toggle.get_attribute("aria-pressed") == "true", "sticky: the drag does not disarm it"
+    toggle.click()
+    assert toggle.get_attribute("aria-pressed") == "false", "the reader's own press wins"
+    tool(page, "Black")
+    assert toggle.get_attribute("aria-pressed") == "false", "and a brush pick does not undo it"
     toggle.click()
     assert toggle.get_attribute("aria-pressed") == "true"
-    drag(page, [(5, 0), (5, 1), (5, 2), (5, 3), (5, 4)])
-    assert toggle.get_attribute("aria-pressed") == "false", "Region disarms itself after its drag"
-    toggle.click()
-    toggle.click()  # on and off again with no drag
 
 
 def step_undo(page, ctx):

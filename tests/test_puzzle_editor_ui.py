@@ -2056,16 +2056,41 @@ class TestPuzzleEditor_Accessibility:
 
     def test_region_keeps_its_announced_toggle_state(self, browser_page, live) -> None:
         """CARD-211's control, on the editor's page too — the editor reuses
-        the player's markup, so it must keep the player's accessibility."""
+        the player's markup, so it must keep the player's accessibility.
+
+        CARD-433 moved the state a load STARTS in, and edit mode is NOT an
+        exception to it: the rule is about the view, not about the page, and
+        the editor's board here is wholly in view (the stage has no
+        scrollable overflow — asserted below), so Region is armed from the
+        load exactly as it is in the player. Nothing was added to the
+        ``editing`` contract for this, deliberately — see that contract's own
+        count in test_the_edit_mode_contract_counts_its_own_branches, which
+        is still six reads.
+
+        So the pair this cell reads is press-off/press-on rather than
+        press-on/press-off: what it is about is unchanged, that the toggle
+        carries its state in ``aria-pressed`` and announces every change
+        through the player's one live region.
+        """
         puzzle_id = _seed_live(live)
         _open_editor(browser_page, live, puzzle_id)
         toggle = browser_page.locator("[data-player-region]")
+        announce = browser_page.locator("#puzzle-player-announce")
+        assert browser_page.evaluate(
+            """() => { const s = document.querySelector('.player-stage');
+                 return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+        ) == [0, 0], "this board is in view, which is why Region starts armed"
+        assert toggle.get_attribute("aria-pressed") == "true"
+
+        toggle.click()
+
         assert toggle.get_attribute("aria-pressed") == "false"
+        assert "Region off" in announce.text_content()
 
         toggle.click()
 
         assert toggle.get_attribute("aria-pressed") == "true"
-        assert "Region on" in browser_page.locator("#puzzle-player-announce").text_content()
+        assert "Region on" in announce.text_content()
 
 
 @pytest.mark.browser

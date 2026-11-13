@@ -33,6 +33,10 @@ import re
 import pytest
 
 from tests.test_puzzle_solver_brush_menu import _touch_drag_row_1_cols_2_to_6
+# CARD-433: a board that does not fit at 100%, the stage's own overflow (the
+# fit predicate, read off the stage rather than off the zoom readout's label)
+# and the player's one live region.
+from tests.test_puzzle_solver_brush_menu import SCROLLING_GRID, _announced, _overflow
 # CARD-271: the "is it in view?" reading, and CARD-212's own doubled board.
 from tests.test_puzzle_solver_clues import GRID_30x25 as _GRID_30x25
 from tests.test_puzzle_solver_clues import STICK_MAX_SHARE, GUTTER_PAINTS
@@ -46,6 +50,7 @@ from tests.test_puzzle_solver_marking import (
     _drag,
     _marked,
     _region,
+    _region_pressed,
     _states,
     _tool,
 )
@@ -454,7 +459,12 @@ class TestSolverZoom_PinchCancelsTheStrokeInProgress:
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
-            _region(page)  # CARD-211: Region is its own toggle now
+            # No Region press: this 15 x 15 has no stage overflow at
+            # 1024 x 768, so the whole board is in view and Region is armed
+            # from the load (CARD-433, owner's ruling of 2026-11-12). Pressing
+            # it here would now turn it OFF and the drag below would preview
+            # nothing — which the assertion after it catches.
+            assert _region_pressed(page) == "true"
             before = _states(page)
 
             cdp = context.new_cdp_session(page)
@@ -518,8 +528,15 @@ class TestSolverZoom_OneFingerDragIsUnchangedByZoom:
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
-            _region(page)  # CARD-211: Region is its own toggle now
+            # The zoom FIRST, then Region. At 200% this board no longer fits
+            # its stage, and a board that stops being wholly in view disarms
+            # Region (CARD-433 rule 3: there a drag is how the reader pans,
+            # so the mode is armed only by its own button). So the press has
+            # to come after the zoom — which is also the order a reader
+            # works in: zoom to where the cells are big enough, then arm.
             _zoom_to(page, 200)
+            _region(page)  # CARD-211: Region is its own toggle now
+            assert _region_pressed(page) == "true"
             page.evaluate("() => document.querySelector('td.player-cell[data-row=\"1\"][data-col=\"4\"]').scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'})")  # CARD-404: the capped bands now stick at every zoom, so a cell is brought to the stage's middle, clear of them, before it is touched
             page.wait_for_timeout(150)  # the scroll event is async: let it land before the pointer does
 
@@ -1685,6 +1702,47 @@ class TestSolverZoom_Fit:
                 context.close()
         assert seen == {"phone big": ("Fit", True), "desktop big": ("100%", False),
                         "phone small": ("100%", True)}, seen
+
+    def test_a_resize_at_fit_leaves_region_armed_while_the_board_stays_in_view(
+        self, browser_page, live
+    ) -> None:
+        """CARD-433 rule 1 across a resize, added by review cycle 1 (F-001).
+
+        Rule 1 is "while the whole board is in view, Region is armed by
+        default and STAYS armed"; rule 3 disarms it only when the board
+        *stops* being wholly in view. A resize is where the two meet, and
+        nothing in the suite resized a board sitting at Fit with Region
+        armed — which is how this shipped broken.
+
+        The board here is ``SCROLLING_GRID`` (15 x 30, 6 x 170 px of stage
+        overflow at 100% on this phone), so it opens at Fit (CARD-407), where
+        it fits: ``keep_opening_zoom=True`` is what leaves it there. Shrinking
+        the viewport to 390 x 700 re-runs the fit measurement, which lands on
+        a smaller floor at which the board STILL fits — the overflow is
+        ``[0, 0]`` on both sides of the resize and the readout says "Fit"
+        throughout, so the reader never sees the board leave view and rule 3
+        has nothing to fire on. The shrinking direction is the one that
+        matters: a resize that grows the viewport never overshoots.
+
+        Plant (run 2026-11-13, against the code this cell was written for):
+        letting ``applyZoom``'s ``syncRegionToFit`` answer during the fit
+        measurement — i.e. dropping the ``!player.measuringFit()`` guard —
+        reds this cell with ``aria-pressed="false"`` and "Region off." in the
+        live region, because ``fitTheFloor`` applies its first floor estimate
+        before the overshoot loop corrects it and the stage scrolls by 7 px
+        for one task in between."""
+        page = browser_page
+        page.set_viewport_size({"width": 390, "height": 844})
+        _open(page, live, live.store(SCROLLING_GRID), keep_opening_zoom=True)
+        page.wait_for_timeout(300)  # the opening fit measurement settles
+        assert (_overflow(page), _zoom_readout(page), _region_pressed(page),
+                _announced(page)) == ([0, 0], "Fit", "true", "")
+
+        page.set_viewport_size({"width": 390, "height": 700})
+        page.wait_for_timeout(700)  # RESIZE_SETTLE (150 ms) and the redraw after it
+
+        assert (_overflow(page), _zoom_readout(page), _region_pressed(page),
+                _announced(page)) == ([0, 0], "Fit", "true", "")
 
 
 # ==========================================================================

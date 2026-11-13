@@ -1280,8 +1280,22 @@ export const REGION_EVENTS = Object.freeze(["toggle", "drag"]);
 // separate toggle, and two independent-looking controls that silently switch
 // each other off is the wrong behaviour; so there is no "brush" event any
 // more and picking a brush leaves Region exactly as the user left it. The
-// two controls are now independent in BOTH directions. This is a decision,
-// not drift: anything still saying a brush pick disarms Region is stale.
+// two controls were then independent in BOTH directions.
+// SUPERSEDED IN ONE DIRECTION, owner ruling 2026-11-12 (CARD-433), after they
+// play-tested it: "sticky only at 100%/Fit". While the whole board is in view,
+// picking a brush ARMS Region, and Region stays armed across drags instead of
+// disarming itself after one. Once the board does not fit its stage, the
+// behaviour described above is still exactly what happens — off at load,
+// armed only by its own button, disarmed after one drag — because there a drag
+// is also how the reader pans, which CARD-432 (the board's scroll containment)
+// is the other half of. The direction CARD-211 decided that still holds:
+// arming Region never changes the brush.
+// nextRegion itself is UNCHANGED by that ruling and still has no "brush"
+// event; the arming lives in solver.js's pick(), which is where the fit
+// predicate can be read. This paragraph records two owner decisions in
+// sequence, not drift — the sentence it replaces ("the two controls are now
+// independent in BOTH directions ... anything still saying a brush pick
+// disarms Region is stale") was true from 2026-10-14 to 2026-11-12.
 // Any other `event` is refused with RangeError (like stepZoom's direction):
 // a typo must not silently read as "leave it as it was" — and "brush", the
 // name CARD-194's rule went by, is deliberately one of the refused names, so
