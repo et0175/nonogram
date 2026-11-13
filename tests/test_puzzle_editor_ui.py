@@ -3994,7 +3994,42 @@ class TestBookedEdit_TheSplitPairIsWordedAsAWarning:
 # but F-001's defect was in the branch a board small on BOTH sides takes, so a
 # 30 x 30 cannot exercise it. The marker census and the load-time equality
 # stay on the 30 x 30 (the reported case); the resize goes to a 15 x 15.
+#
+# CARD-432 (review cycle 1, F-001) extends the first cell with the other thing
+# the editor shares with the player through .player-stage: that stage is a
+# SCROLL container on both pages, and the containment CARD-432 gave the solve
+# page's stage is scoped away from this one by the owner's ruling of
+# 2026-11-12. The cell that already reads this stage's computed overflow is
+# where that boundary is pinned, so no cell is added for it.
 # ==========================================================================
+
+
+#: The editor's stage as a SCROLL container: what it computes for the one
+#: property that decides whether a gesture over the board may reach the page,
+#: and the two scrollers' positions and remaining room. CARD-432 gave the
+#: SOLVE page's stage ``overscroll-behavior: contain``; the owner's ruling of
+#: 2026-11-12 keeps the editor out of it, so the figures here are the editor's
+#: own and are read on the editor page.
+_EDITOR_CHAINING = """() => {
+  const stage = document.querySelector('.player-stage');
+  return {
+    overscroll: getComputedStyle(stage).overscrollBehavior,
+    top: Math.round(stage.scrollTop),
+    room: stage.scrollHeight - stage.clientHeight,
+    scrollY: Math.round(window.scrollY),
+    pageRoom: document.documentElement.scrollHeight - window.innerHeight,
+    centre: (({left, top, width, height}) => [left + width / 2, top + height / 2])(
+      stage.getBoundingClientRect()),
+  };
+}"""
+
+#: Put the board's own scroll at its stop, and the page at its origin, so what
+#: the wheel below does afterwards is chaining and nothing else.
+_SPEND_THE_EDITORS_STAGE = """() => {
+  const stage = document.querySelector('.player-stage');
+  stage.scrollTop = stage.scrollHeight - stage.clientHeight;
+  window.scrollTo(0, 0);
+}"""
 
 
 @pytest.mark.browser
@@ -4004,6 +4039,13 @@ class TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule:
     #: 1280 x 720, cells under CARD-212's doubling bar.
     GRID = _unique_grid(30, 30, seed=27130)
     WIDE = {"width": 1280, "height": 720}
+
+    #: The laptop window CARD-432's review cycle 1 measured the editor's loss
+    #: at (229 px of page scroll silenced by a wheel over the board), and a
+    #: zoom that makes the 30 x 30 outgrow the stage there, so the wheel has a
+    #: spent board to chain out of.
+    LAPTOP = {"width": 1024, "height": 600}
+    CHAINING_ZOOM = 300
 
     #: And, for F-001's path only, a board small on BOTH sides — the branch
     #: the defect was in. Measured on this host, Chromium, on the EDITOR page:
@@ -4049,6 +4091,36 @@ class TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule:
         # player's numbers, which would only say the two pages agree.
         at_load = _room(page)
         assert at_load["keeping"] == _verdict(at_load), at_load
+
+        # CARD-432 (review cycle 1, F-001; owner ruling 2026-11-12): the same
+        # stage is a scroll container on BOTH pages, and the containment that
+        # card gave the solve page's stage must stop at this one. Its rule is
+        # .player-stage-wrap > .player-stage and puzzle_edit.html has no
+        # wrapper, so the editor keeps the chaining — measured here rather
+        # than read off the selector, because a selector that stops matching
+        # is exactly what this is a control for.
+        page.set_viewport_size(self.LAPTOP)
+        _settled(page)
+        _zoom(page, self.CHAINING_ZOOM)
+        page.evaluate(_SPEND_THE_EDITORS_STAGE)
+        before = page.evaluate(_EDITOR_CHAINING)
+        # The premises, without which the wheel below would prove nothing:
+        # the board's own scroll really is spent, and the page really has
+        # somewhere left to go.
+        assert before["room"] > 0 and before["pageRoom"] > 0, before
+        assert (before["top"], before["scrollY"]) == (before["room"], 0), before
+        assert before["overscroll"] != "contain", before
+
+        page.mouse.move(*before["centre"])
+        page.mouse.wheel(0, 240)
+        for _ in range(20):
+            after = page.evaluate(_EDITOR_CHAINING)
+            if after["scrollY"] > 0:
+                break
+            page.wait_for_timeout(50)
+        # The page took the surplus, and the board stayed at its stop.
+        assert after["scrollY"] > 0, (before, after)
+        assert after["top"] == after["room"], (before, after)
 
     def test_a_resize_after_a_zoom_re_measures_the_editors_room(
         self, browser_page, live

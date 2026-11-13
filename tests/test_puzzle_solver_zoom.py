@@ -292,11 +292,18 @@ class TestSolverZoom_TheBoardScrollsInsideItsStage:
     What was measured before the fix, at 390x844 on the 30x30 at 300%: the
     gesture IS dispatched to .player-stage — repeated drags take scrollTop
     from 0 to its maximum — and the page then takes the surplus by scroll
-    CHAINING out of the stage, which .player-stage's overscroll-behavior
-    (auto, until this card) permitted. So the page's 23 px of slack moved
-    under a finger that had asked the board to scroll, and kept gliding
-    after the finger lifted. The last assertion below names the declaration
-    that stops it, because it is the one line whose removal reddens AC-1.
+    CHAINING out of the stage, which this stage's overscroll-behavior (auto,
+    until this card) permitted. So the page's 23 px of slack moved under a
+    finger that had asked the board to scroll, and kept gliding after the
+    finger lifted. The last assertion below names the declaration that stops
+    it, because it is the one line whose removal reddens AC-1. It reads the
+    computed value rather than a selector on purpose: review cycle 1's F-001
+    scoped that declaration to .player-stage-wrap > .player-stage, this page
+    only (the editor's stage keeps the chaining, pinned by
+    tests/test_puzzle_editor_ui.py::
+    TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule::
+    test_the_editors_gutters_obey_the_room_condition), and a narrowing that
+    stopped matching THIS page would red here.
     """
 
     def test_300_percent_scrolls_the_stage_both_ways_never_the_page(self, browser_page, live) -> None:
