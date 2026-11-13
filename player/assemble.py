@@ -506,6 +506,12 @@ _SHARED_UI_HOOKS: tuple[str, ...] = (
     'id="puzzle-player-hint"',
     'class="player-tier"',
     "data-player-solved-name",
+    # CARD-436: the solved banner itself, which the way back is promoted by
+    # (the loader observes its `hidden`). A template that renamed it while
+    # keeping the name hook above would leave the loader throwing before the
+    # payload exists, which is a page with NO BOARD — so it is refused here
+    # instead.
+    'id="puzzle-player-solved"',
     'id="puzzle-player"',
     "data-player-fallback",
 )
@@ -560,6 +566,94 @@ function fail(message) {
   document.querySelector("[data-player-fallback]").textContent = message;
 }
 
+// CARD-436 — THE WAY BACK TO THE BOOK, AND WHY IT IS HERE AND NOT IN
+// solver.js. The standing rule (CARD-386/399, owner 2026-11-07) is that the
+// admin's solver.js IS the play surface and this tree only copies it, so a
+// difference between the two trees is normally drift. This one is not: the
+// ADMIN player has no book — no /b/<slug> to return to, no ?book= parameter
+// and nothing to name — so there is nothing for the shared file to carry.
+// It belongs to the public wrapper, beside the theme code above that reads
+// the same parameter and applies the same validity test.
+//
+// Measured before it was built (production, 2026-11-12 and again 2026-11-13):
+// document.querySelectorAll("a").length === 0. The page had NO link at all,
+// so a reader who arrived by QR code from a printed book had no Back entry
+// either. The owner's ruling of 2026-11-13 is both of these, not one: a
+// quiet link from the moment the puzzle opens, AND a prominent one in the
+// solved state.
+//
+// ONE ELEMENT, PROMOTED — and that was a measurement, not a preference.
+// The obvious second element is a child of the solved banner
+// (#puzzle-player-solved), which admin.css already shows at exactly the right
+// moment and which the template calls the box the hidden tools keep. It was
+// built that way first and RENDERED: the banner's box is `contain:
+// inline-size`, so it is only as wide as .player-tools — 208 px at 1280 x 720
+// and about 100 px at 390 x 844 — and a link in it overflows that box onto
+// the History buttons beside it (and, at 1280, wrapped the banner's own
+// "Solved!" and pushed the board down 12.8 px). There is exactly ONE place on
+// this page that can hold a line of text for free, and admin.css's own
+// comment says so and measured it: the .page-head.player-head row, beside the
+// title. flex: 1 1 0 with min-width: 0 means it never forces that row to wrap
+// or widen; nowrap means it is always one line, shorter than the h1 that
+// already sets the row's height. So the way back lives there, and the solve
+// PROMOTES it in place: quiet grey while the puzzle is unsolved, the solved
+// banner's own colours — the success edge and tint, in a pill — once it is
+// solved. The board loses nothing in either state
+// (tests/test_player_shared_ui_site.py reads the stage's height and its top
+// at 390 x 844, playing and solved, with the book and without).
+//
+// The pill is on an inner <span> rather than on the <a>, because the <a> is
+// the flex item: with flex-basis 0 it is as wide as the row's free space
+// (which is what keeps the row from wrapping), and a background there would
+// be a band across that whole space instead of a pill around the words.
+//
+// What tells it the board is solved is the banner's own `hidden` attribute,
+// observed — not a second copy of "is this solved?" here. The banner is
+// solver.js's, it is un-hidden on a solve AND on a resume of a solved save,
+// and an observer is the only way the public wrapper can read that without
+// either editing the shared file or re-deriving the predicate.
+//
+// Both states are the same real <a href>, so the way back works with no
+// script of ours navigating and can be opened in a new tab. The styling is
+// inline because this page links no stylesheet but the admin's three (a
+// fourth would be a request this card must not add, and there is no override
+// layer by design); every value is a tokens.css custom property, never a
+// second copy of a colour.
+//
+// The name's own box is what is clipped, not the <a> around it: with the
+// ellipsis on the <a>, the solved pill's right edge was cut off at the
+// viewport (rendered at 390 x 844). max-width: 100% keeps the pill inside the
+// link and puts the ellipsis inside the pill.
+const BOOK_LINK_NAME = "display:inline-block;max-width:100%;overflow:hidden;"
+  + "white-space:nowrap;text-overflow:ellipsis;vertical-align:middle;";
+const BOOK_LINK_QUIET = BOOK_LINK_NAME
+  + "color:var(--color-text-secondary);text-decoration:underline";
+const BOOK_LINK_SOLVED = BOOK_LINK_NAME + "color:var(--color-text);font-weight:600;"
+  + "padding:0 var(--space-2);background:var(--color-success-tint);"
+  + "border:var(--border-width) solid var(--color-success);"
+  + "border-radius:var(--radius-control);text-decoration:none";
+
+function wayBack(slug, title) {
+  const named = typeof title === "string" && title.trim() !== "" ? title.trim() : "the book";
+  const link = document.createElement("a");
+  link.href = `/b/${slug}`;
+  link.dataset.playerBook = "quiet";
+  link.setAttribute("style", "flex:1 1 0;min-width:0;overflow:hidden;white-space:nowrap;"
+    + "text-align:right;font-size:var(--text-sm);text-decoration:none");
+  const name = document.createElement("span");
+  name.textContent = `\\u2190 ${named}`;
+  name.setAttribute("style", BOOK_LINK_QUIET);
+  link.append(name);
+  document.querySelector(".player-head").append(link);
+  const banner = document.querySelector("#puzzle-player-solved");
+  const follow = () => {
+    link.dataset.playerBook = banner.hidden ? "quiet" : "solved";
+    name.setAttribute("style", banner.hidden ? BOOK_LINK_QUIET : BOOK_LINK_SOLVED);
+  };
+  new MutationObserver(follow).observe(banner, { attributes: true, attributeFilter: ["hidden"] });
+  follow();
+}
+
 async function main() {
   const key = location.pathname.split("/").filter((segment) => segment !== "").at(-1);
   if (key === undefined || !KEY.test(key)) {
@@ -610,9 +704,17 @@ async function main() {
   // "Solved!" and the solve's count.
   document.querySelector("[data-player-solved-name]").remove();
   const shelved = await shelf;
-  if (shelved !== null && typeof shelved === "object" && THEMES.includes(shelved.theme)
+  // CARD-420's validity test, now read twice (the theme below and CARD-436's
+  // way back): the book file loaded, it is an object, and it really holds
+  // THIS key. A missing, malformed or unrelated book fails it, which is what
+  // keeps either from following whatever slug a URL happens to carry.
+  const holds = shelved !== null && typeof shelved === "object"
       && Array.isArray(shelved.puzzles)
-      && shelved.puzzles.some((entry) => entry !== null && typeof entry === "object" && entry.key === key)) {
+      && shelved.puzzles.some((entry) => entry !== null && typeof entry === "object" && entry.key === key);
+  // CARD-436: the way back is the BOOK's, not the theme's — a book the site
+  // draws no look for still gets its link.
+  if (holds) wayBack(book, shelved.title);
+  if (holds && THEMES.includes(shelved.theme)) {
     document.documentElement.dataset.theme = shelved.theme;
     // CARD-422: and its decorations (the garland; the board is left as it is).
     // Their stylesheet is attached here, so a puzzle outside a Christmas book
