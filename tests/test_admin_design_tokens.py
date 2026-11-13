@@ -694,8 +694,8 @@ def test_the_probe_tint_comes_from_tokens() -> None:
     The filled rule is asserted to EXIST, not merely to be clean, for the
     crosshair's and the hint line's reason, restated for a ring and measured
     rather than asserted: the three light states' dark amber ring on a
-    ``--grid-ink`` ground is 3.57:1, the worst pairing anywhere on this board,
-    and the light variant the filled rule installs takes it to 8.22:1. The
+    ``--grid-ink`` ground is 2.66:1 since CARD-443 made it the warning token
+    itself (3.57:1 at 86 % before), under WCAG's 3:1, and the light variant the filled rule installs takes it to 8.22:1. The
     dE76 floor in ``tests/test_puzzle_solver_probe.py`` does NOT bind there
     (the dark ring is dE 69 from the ink, because dE76 is dominated by the
     lightness difference), so this existence assertion is one of exactly two
@@ -730,17 +730,19 @@ def test_the_probe_tint_comes_from_tokens() -> None:
         '.player-cell[data-probe][data-state="filled"]',
         ".player-cell.is-hinted[data-probe]",
         # CARD-442: the same marker in the line view's strip (a cell, and a
-        # filled cell for the same 3.57:1 reason), and the map's outline
+        # filled cell for the same 2.66:1 reason), and the map's outline
         # colour (its geometry is a rule of its own, as the bar's layout is).
         ".player-line-cell[data-probe]",
         '.player-line-cell[data-probe][data-state="filled"]',
         ".player-line-mini-probe",
+        # CARD-443: the map's edge classed by state, light amber on a black cell.
+        '.player-line-mini-probe[data-state="filled"]',
     ], rules
     assert any(
         rule.startswith('.player-cell[data-probe][data-state="filled"]') for rule in rules
     ), ("a probed FILLED cell has no rule of its own, so the three light "
         "states' dark amber ring is what is drawn on a --grid-ink ground: "
-        "3.57:1, the worst pairing on the board, where the light variant is "
+        "2.66:1 (3.57:1 before CARD-443), under WCAG's 3:1, where the light variant is "
         "8.22:1")
     assert any(
         rule.startswith(".player-cell.is-hinted[data-probe]") for rule in rules

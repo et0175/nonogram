@@ -885,12 +885,19 @@ class TestSolverProbe_MarksCarryTheTint:
         luma = {state: _luma(look[state]["background"]) for state in look}
         assert len({round(luma[state], 4) for state in (U, E, M)}) == 1, luma
         # And the marker itself is the SAME ring on all four, which is what
-        # makes it membership and not a fifth look: one dashed style and one
-        # width everywhere, and one colour per ground (the three light states
-        # share theirs; a filled cell's own ink ground needs the light one).
+        # makes it membership and not a fifth look: one dashed style
+        # everywhere, and one colour and one width per ground (the three light
+        # states share theirs; a filled cell's own ink ground needs the light
+        # colour). Until CARD-443 the width was one width on all four; since
+        # it widened the light states' ring to 3 px, a filled cell keeps the
+        # heavy rule's 2 px, because a 3 px light ring on a 12-14 px phone
+        # cell left too little black to read as black — so its ring is
+        # NARROWER than the light states', never wider.
         rings = {state: look[state]["outline"] for state in look}
         assert {ring[0] for ring in rings.values()} == {"dashed"}, rings
-        assert len({ring[1] for ring in rings.values()}) == 1, rings
+        assert len({rings[state][1] for state in (U, E, M)}) == 1, rings
+        width = lambda state: float(rings[state][1].removesuffix("px"))
+        assert 0 < width(F) < width(U), rings
         assert len({rings[state][2] for state in (U, E, M)}) == 1, rings
         assert rings[F][2] != rings[U][2], rings
         # Each mark that has a paint of its own is apart from the tint it sits

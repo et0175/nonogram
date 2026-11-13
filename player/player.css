@@ -273,7 +273,7 @@ body {
 
 .hts-page {
   --hts-cell: 2.75rem;
-  --hts-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper));
+  --hts-probe: var(--color-warning); /* CARD-443: was 86 % into the paper, as the player's was */
   --hts-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper));
   --hts-lit: var(--color-warning-tint);
   max-width: 40rem;
@@ -449,11 +449,12 @@ body {
 }
 
 .hts-cell[data-probe] {
-  outline: var(--player-rule-major) dashed var(--hts-probe);
-  outline-offset: calc(-1 * var(--player-rule-major));
+  outline: calc(1.5 * var(--player-rule-major)) dashed var(--hts-probe);
+  outline-offset: calc(-1.5 * var(--player-rule-major));
 }
 
-.hts-cell[data-probe][data-state="filled"] { outline-color: var(--hts-probe-ink); }
+/* CARD-443: a black cell keeps the heavy rule's width, as on the board. */
+.hts-cell[data-probe][data-state="filled"] { outline-color: var(--hts-probe-ink); outline-width: var(--player-rule-major); outline-offset: calc(-1 * var(--player-rule-major)); }
 
 .hts-cell[data-target] {
   outline: 3px solid var(--color-accent);

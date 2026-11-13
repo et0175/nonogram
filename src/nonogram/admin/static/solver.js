@@ -3445,8 +3445,11 @@ function wireMarking(container, player) {
     // CARD-442: the open probe's cells, outlined (a dashed edge, as on the
     // board, would be noise at a map's few pixels a cell).
     for (const key of members) {
-      const [row, col] = key.split(",");
-      parts.push(`<rect class="player-line-mini-probe" x="${col}" y="${row}" width="1" height="1"/>`);
+      const [row, col] = key.split(",").map(Number);
+      // CARD-443: classed by state, so a black cell's edge is the light amber
+      // and every other cell's the dark one, as on the board.
+      const filled = shown.cells[row * width + col] === FILLED ? ' data-state="filled"' : "";
+      parts.push(`<rect class="player-line-mini-probe"${filled} x="${col}" y="${row}" width="1" height="1"/>`);
     }
     const rules = [];
     for (let k = 5; k < width; k += 5) rules.push(`M${k} 0V${height}`);
