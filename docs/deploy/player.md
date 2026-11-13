@@ -558,6 +558,19 @@ Not observed: a real phone.
 
 **What this publish leaves owed.** **CARD-433, 434, 435, 436 and 438** are the remaining cards of the owner's 2026-11-12 play-test and are unstarted (434 is being picked up by the other session as this is written). **CARD-438's figures are stale** and the card says so. And the standing gap is unchanged by five publishes: **nothing in this product has been touched by a human finger** — every behavioural figure in every publish record on this page is emulated Chromium, and CARD-439's line mode is live with its long-press and strip-drag never exercised outside its own tests.
 
+**The probe-marker publish, 2026-11-13.** Published from `main` at `f0b04af2`, same curated bundle. One card, **CARD-443** (owner: "make contradiction-probing cells a bit more visible"). The promote waited for the owner's "yes, publish", about four hours after the preview; production and `main` were both re-checked as unchanged first.
+
+| Step | What was observed |
+| --- | --- |
+| What changed | `solver.js` `f9bd2bf3b335` → **`75c74918891a`** (the map's probe edge classed by state); `admin.css` `e44a3f691468` → **`c06ad981a402`**; `player.css` `4f902f571108` → **`d8e0df05392f`** (the lesson's probe edge follows the player's). The marker stays an outline: the light-cell ring is the warning token itself, rgb(133, 93, 0) (was rgb(150, 115, 35)), 3 px on the board (was 2); a black cell keeps the light amber at 2 px; the strip ring is 4 px (was 2); the map's edge 2 px, dark on light cells and light on black (was light everywhere at 1.5). Before building, every other served file was compared with production and matched. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261113b`, no `--analytics`. 160 puzzles, one book landing. The five copied files, `how-to-solve.js` and `player.css` byte-identical to their sources; 160/160 puzzle files with exactly the five served fields; no goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-5qtvm7dlb`**. Hashes matched, five doors 200, `/nope` 404. |
+| Behaviour, on the preview and repeated on the live domain | 390x844 touch, `/play/52603b6dee`, a probe with one black and one white cell: board rings `dashed 2px` light amber on the black cell, `dashed 3px rgb(133, 93, 0)` on the white; strip rings 4 px; map edges light amber on the black cell, dark on the white. No page error. |
+| Production | Checked first: still `nonogram-studio-ikp03flyp`. `vercel promote <the preview URL> --scope et0175s-projects --yes` created **`nonogram-studio-luz4sw7u0`**; the three changed hashes live on the third check. |
+| Rollback target | `nonogram-studio-ikp03flyp` still Ready. |
+
+Not observed: a real phone.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
