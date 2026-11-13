@@ -79,6 +79,7 @@ from tests.test_player_public_mode import (  # noqa: F401 - fixtures are used by
 from tests.test_public_player import REPO_ROOT, _bundle_payload, _leaky_title, assembler
 from tests.test_public_player_pages import (
     BOOK_ORDER,
+    BOOK_TITLE_SERVED,
     COPIED_JS_RESIDUE,
     PAGE_GRIDS,
     PAGES_SETTLE_MS,
@@ -164,6 +165,64 @@ def tree_bytes(root: Path) -> dict[str, bytes]:
 def open_play(page, url: str, key: str) -> None:
     page.goto(f"{url}/play/{key}", timeout=PAGES_SETTLE_MS)
     page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
+
+
+def open_play_at(page, url: str, address: str) -> None:
+    """CARD-436: ``open_play`` for an address that carries a query string."""
+    page.goto(f"{url}{address}", timeout=PAGES_SETTLE_MS)
+    page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
+
+
+#: CARD-436 requirement 5: what the board would lose if anything above it
+#: grew. The stage's own height is what the board is drawn into, and its top
+#: is what solver.js's measureStageTop writes to --player-stage-top, so the
+#: two together say whether a row above the board cost it anything. Rounded
+#: to 1/100 px: the layout engine's own rounding is 1/64.
+_ROOM = """() => {
+  const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+  const round = (n) => Math.round(n * 100) / 100;
+  const stage = box('.player-stage');
+  return {
+    stage: round(stage.height),
+    top: round(stage.top + window.scrollY),
+    head: round(box('.player-head').height),
+    toolbar: round(box('.player-toolbar').height),
+  };
+}"""
+
+#: CARD-436: what the reader actually sees of the way back, so "promoted" is
+#: a measurement and not an attribute that claims it. The look is read off the
+#: inner span, which is where the pill is; the three BOXES are read beside it,
+#: because cycle 1 of this card's review found two things no attribute and no
+#: ``inner_text()`` can see:
+#:
+#: * ``link`` vs ``words`` — the <a>'s own rectangle against its span's. The
+#:   first implementation put the row's ``flex: 1 1 0`` on the <a> itself, so
+#:   the anchor was as wide as the row's free space (875 px for 221 px of
+#:   words at 1280 x 720) and ~654 px of apparently empty header navigated
+#:   away from the board. The geometry is on a non-clickable slot <span> now,
+#:   and ``slot`` is that box, so the slack and the hit area are separable;
+#: * ``whole`` vs ``painted`` — ``scrollWidth`` against ``clientWidth``.
+#:   ``inner_text()`` returns the string whether or not it is painted, so it
+#:   passes identically against ``text-overflow: ellipsis``; these two say
+#:   how much of the book's name the reader actually sees.
+_LOOK = """() => {
+  const link = document.querySelector('[data-player-book]');
+  const name = link.querySelector('span');
+  const style = getComputedStyle(name);
+  const round = (n) => Math.round(n * 100) / 100;
+  return {
+    weight: style.fontWeight,
+    background: style.backgroundColor,
+    border: style.borderTopColor + ' ' + style.borderTopWidth,
+    link: round(link.getBoundingClientRect().width),
+    words: round(name.getBoundingClientRect().width),
+    slot: round(link.parentElement.getBoundingClientRect().width),
+    painted: name.clientWidth,
+    whole: name.scrollWidth,
+    ellipsis: getComputedStyle(name).textOverflow,
+  };
+}"""
 
 
 class Opened:
@@ -328,6 +387,154 @@ class TestSharedUi_ThePageRuns:
         assert said == "Solved!" and key not in said, said
         for name, grid in PAGE_GRIDS.items():
             assert _leaky_title(grid) not in browser_page.content()
+
+    def test_a_puzzle_opened_from_a_book_offers_the_way_back_and_no_other_page_does(
+        self, browser_page, preview_host
+    ) -> None:
+        """CARD-436 AC-1/AC-2/AC-3 — the way back to the book, and the cost.
+
+        The card measured the live page at zero anchors (``document
+        .querySelectorAll('a').length === 0``), and its AC-1 asked only for
+        the solved state. **The owner's ruling of 2026-11-13 widened it**: a
+        quiet link from the moment the puzzle opens, PLUS a prominent one in
+        the solved state. Both are held here.
+
+        The three negatives are the point of the cell, not its tail: no
+        ``?book=``, a malformed slug, and a valid slug for a book that does
+        NOT hold this key. An implementation that linked to whatever slug the
+        URL carried would pass the positive arm alone, and the third negative
+        is the one only the membership test catches — the same validity test
+        CARD-420 applies for the theme. Each is measured as the card's own
+        instrument, ``a`` count zero, which is stronger than "no link of
+        mine": a page that grew some other anchor would red here too.
+
+        The cost (requirement 5) is measured, not argued, at the 390 x 844 the
+        card names: the stage's height, its top (what ``measureStageTop``
+        writes to ``--player-stage-top``) and the two rows above it are read
+        from the same puzzle with the book and without, and must be equal.
+        The link's SLOT is the third item of ``.page-head.player-head``, where
+        ``admin.css``'s own comment measured that a line of text is free, and
+        the solve promotes the link inside it rather than drawing a second one
+        — see ``assemble.py``'s comment for the render that decided that.
+
+        Two more things are measured rather than asserted off an attribute or
+        off ``inner_text()``, both from cycle 1's findings (see ``_LOOK``):
+        the <a>'s own rectangle against its words' at 1280 x 720, where the
+        row has slack — an anchor wider than its words is blank clickable
+        header above the board — and the name's ``scrollWidth`` against its
+        ``clientWidth``, which is the only instrument that can see
+        ``text-overflow: ellipsis``. The second one holds a DECLARATION, not
+        a repair: the name is clipped at 390 x 844 and whole at 1280 x 720,
+        and both states are asserted so neither can change in silence.
+        """
+        url, report, keys, slug = preview_host
+        page = browser_page
+        watch = Watch(page)
+        page.set_viewport_size({"width": 390, "height": 844})
+        key = keys["e10"]  # in the fixture book, and its smallest board
+        outside = keys["sweep"]  # published, and in no book
+
+        # Without a book: the page as it is today — no link at all.
+        open_play(page, url, key)
+        assert page.evaluate("() => document.querySelectorAll('a').length") == 0
+        bare = page.evaluate(_ROOM)
+        # What the page FETCHED, the document itself left out (its own address
+        # is the one thing the two arms cannot share).
+        def fetched(seen: list[str]) -> set[str]:
+            paths = {u.removeprefix(url) for u in seen}
+            return {path for path in paths if not path.startswith("/play/")}
+
+        asked, no_book = len(watch.urls), fetched(watch.urls)
+
+        # From the book: the quiet link, from the moment the puzzle opens.
+        open_play_at(page, url, f"/play/{key}?book={slug}")
+        # AC-3's request count: the book page fetches the puzzle file and the
+        # book file, and nothing the bookless page did not fetch. The way back
+        # is drawn from what CARD-420 already fetched for the theme.
+        assert fetched(watch.urls[asked:]) == no_book | {f"/book/{slug}.json"}, sorted(
+            fetched(watch.urls[asked:])
+        )
+        back = page.locator("[data-player-book]")
+        assert back.is_visible()
+        assert back.get_attribute("href") == f"/b/{slug}", "a real href, openable in a new tab"
+        assert BOOK_TITLE_SERVED in back.inner_text()
+        assert back.get_attribute("data-player-book") == "quiet"
+        quiet = page.evaluate(_LOOK)
+        # F-002: ``inner_text()`` is the string, not the painted glyphs, so the
+        # line above passes identically whether the reader sees the book's name
+        # or "← Winter Pictu…". The RENDERED extent is asserted beside it, and
+        # at THIS viewport the declaration is that the name does NOT fit: about
+        # 41% of it is ellipsised (251 px of name in 148 px of row). That is
+        # declared and held rather than styled away — the header's width is a
+        # product decision about what this row shows, not a defect of this
+        # card — so a later change that makes the name fit reds here and has to
+        # re-state the declaration instead of silently retiring it.
+        assert quiet["whole"] > quiet["painted"], quiet
+        # Cycle 2, M6: scrollWidth/clientWidth is blind to HOW the overflow is
+        # hidden, so the clipping pair above survives dropping text-overflow
+        # entirely — and the card DECLARES the residual as reading "<- W...".
+        # A declared residual with no instrument is the thing ADR-0039/R4 is
+        # about, so the declaration is pinned here rather than trusted.
+        assert quiet["ellipsis"] == "ellipsis", quiet
+        # And the board lost nothing to it (requirement 5).
+        assert page.evaluate(_ROOM) == bare, (page.evaluate(_ROOM), bare)
+
+        # Solved: the same element, promoted — and promoted in FACT, not by an
+        # attribute that says so. The attribute is read, and so is what the
+        # reader sees: the solved banner's own success edge and tint, and a
+        # heavier weight, none of which the quiet state has.
+        solve_to_the_end(page, PAGE_GRIDS["e10"])
+        assert page.locator("#puzzle-player-solved").is_visible()
+        assert back.is_visible()
+        assert back.get_attribute("href") == f"/b/{slug}"
+        assert BOOK_TITLE_SERVED in back.inner_text()
+        assert back.get_attribute("data-player-book") == "solved"
+        loud = page.evaluate(_LOOK)
+        assert loud["weight"] != quiet["weight"], (loud, quiet)
+        assert loud["background"] != quiet["background"] and loud["border"] != quiet["border"]
+        assert quiet["background"] == "rgba(0, 0, 0, 0)", quiet
+        solved = page.evaluate(_ROOM)
+
+        # The SOLVED state's cost, measured against the same solved board with
+        # no book — the player's own save resumes it, and no link is drawn.
+        # This arm is not ceremony: the FIRST implementation put the solved
+        # way back inside the banner, where this comparison measured the board
+        # pushed down 2 px here and 12.8 px at 1280 x 720 (and a render showed
+        # the banner overflowing its box onto the History buttons).
+        open_play(page, url, key)
+        assert page.locator("#puzzle-player-solved").is_visible(), "the save resumed a solved board"
+        assert page.evaluate("() => document.querySelectorAll('a').length") == 0
+        assert page.evaluate(_ROOM) == solved, (page.evaluate(_ROOM), solved)
+
+        # A malformed slug and a real book that does not hold this key: no
+        # link at all either, exactly as today (AC-2; the no-book arm is the
+        # two ``a``-count zeros above).
+        for address in (f"/play/{key}?book=nope", f"/play/{outside}?book={slug}"):
+            open_play_at(page, url, address)
+            assert page.evaluate("() => document.querySelectorAll('a').length") == 0, address
+
+        # F-001: the way back's HIT AREA is its words, not the row's free
+        # space. At 390 x 844 the two are one box — the name fills the slot —
+        # so the only viewport that can tell them apart is one with slack, and
+        # this is the viewport the defect was measured at. The first
+        # implementation put the row's ``flex: 1 1 0`` on the <a> itself: 875
+        # px of anchor for 221 px of words, i.e. ~654 px of apparently empty
+        # header, directly above the board, that left the puzzle when tapped,
+        # on a page that had no anchor at all before this card. Both lines
+        # below are red against that construction.
+        page.set_viewport_size({"width": 1280, "height": 720})
+        open_play_at(page, url, f"/play/{key}?book={slug}")
+        page.wait_for_selector('[data-player-book="solved"]', timeout=PAGES_SETTLE_MS)
+        wide = page.evaluate(_LOOK)
+        assert wide["slot"] - wide["link"] > 100, wide  # the row really has slack here
+        assert wide["link"] - wide["words"] <= 1, wide  # and the anchor is only its words
+        # The other half of F-002, at the viewport where the row is wide
+        # enough: given the space, the whole name IS painted. So "clipped at
+        # 390 x 844" above is a statement about the row, not about the string.
+        assert wide["whole"] <= wide["painted"], wide
+
+        # Nothing threw along any of it — the observer included.
+        assert watch.problems() == []
 
     def test_the_usage_line_is_true_for_the_public_player(self, browser_page, preview_host) -> None:
         """F-2: the admin's text describes Check, which does not exist here.
@@ -720,6 +927,7 @@ class TestSharedUi_TheShellRefusesAFragmentItCannotTrust:
     @pytest.mark.parametrize("damage, why", [
         (lambda f: f.replace('id="puzzle-player-data"', 'id="other"'), "no payload element"),
         (lambda f: f.replace("data-player-solved-name", "data-x"), "no banner name hook"),
+        (lambda f: f.replace('id="puzzle-player-solved"', 'id="x"'), "no solved banner (CARD-436)"),
         (lambda f: f.replace('class="player-tier"', 'class="x"'), "no tier hook"),
         (lambda f: f.replace('id="puzzle-player"', 'id="x"'), "no stage"),
     ])

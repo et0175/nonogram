@@ -585,11 +585,19 @@ What is left is held to EC-048 by two statements that do different work:
   capacity is strictly below `MIN_SIZE * MIN_SIZE` bits.
 
 A **book's** `title` is a different field and is *not* removed: the owner granted it
-R2's third exemption on 2026-10-28 (`EXEMPT_LISTING_FIELDS`), scoped to
-`/b/<slug>`, with its residual declared rather than bounded — R2's own text
-measures it at 100 of 100 cells recoverable if an owner writes a base-64 grid into
-a book title. "This script removes the free-text channel" is therefore false as a
-sentence about the whole site, and `assemble.py` says so about itself.
+R2's third exemption on 2026-10-28 (`EXEMPT_LISTING_FIELDS`), scoped to the served
+`book/<slug>.json` schema and to no other, with its residual declared rather than
+bounded — R2's own text measures it at 100 of 100 cells recoverable if an owner
+writes a base-64 grid into a book title. "This script removes the free-text channel"
+is therefore false as a sentence about the whole site, and `assemble.py` says so
+about itself.
+
+The scope is that **schema**, not the set of pages the string is shown on: R2's
+2026-10-28(b) amendment struck its own "and nowhere else" clause. The title is shown
+on `/b/<slug>`'s `h1` and, since CARD-436, in the header of a `/play/<key>` opened
+from that book, where it names the way back. That page already fetches
+`book/<slug>.json` for CARD-420's theme, so this adds no served field, no request and
+no character — the declared residual above is unchanged.
 
 ## Three doors, one document each
 

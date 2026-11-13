@@ -76,8 +76,10 @@ any implementation of ADR-0041 at all.
 ADR-0041/R2 forbids any public asset from carrying "a solution grid or data
 from which any solution cell is recoverable, for any puzzle, on any export
 path" — subject, since the 2026-10-28 amendment, to the owner's third
-exemption: a book's own display title on ``/b/<slug>`` and nowhere else,
-exempt by SCOPE rather than by safety (:data:`EXEMPT_LISTING_FIELDS`). CARD-282 shipped the exporter and then *measured
+exemption: a book's own display title, served in ``book/<slug>.json`` and in
+no other served schema, exempt by SCOPE rather than by safety
+(:data:`EXEMPT_LISTING_FIELDS` states that scope, where the string is SHOWN,
+and what it costs). CARD-282 shipped the exporter and then *measured
 a path straight through it*: the owner renames a puzzle to the base-64 of its
 own packed grid, the exporter writes that string into the bundle's declared
 ``title`` field, every one of CARD-282's guards passes (the value's provenance
@@ -256,8 +258,8 @@ What this script does not reach, named rather than left to look covered
     bundle clause was not an argument for serving the field; it is only the
     reason the exporter has the field at all. The rule was amended instead:
     R2 now exempts the title **by scope rather than by safety**, served
-    verbatim on ``/b/<slug>`` and nowhere else, with the residual declared
-    and no reachable character cap claimed as a bound —
+    verbatim in ``book/<slug>.json`` and in no other served schema, with the
+    residual declared and no reachable character cap claimed as a bound —
     :data:`EXEMPT_LISTING_FIELDS`. Why the owner granted it: ``/b/<slug>``
     is a book customer's first contact with the product seconds after a
     scan, and the card's body (line 31) always required the title there.
@@ -506,6 +508,12 @@ _SHARED_UI_HOOKS: tuple[str, ...] = (
     'id="puzzle-player-hint"',
     'class="player-tier"',
     "data-player-solved-name",
+    # CARD-436: the solved banner itself, which the way back is promoted by
+    # (the loader observes its `hidden`). A template that renamed it while
+    # keeping the name hook above would leave the loader throwing before the
+    # payload exists, which is a page with NO BOARD — so it is refused here
+    # instead.
+    'id="puzzle-player-solved"',
     'id="puzzle-player"',
     "data-player-fallback",
 )
@@ -560,6 +568,124 @@ function fail(message) {
   document.querySelector("[data-player-fallback]").textContent = message;
 }
 
+// CARD-436 — THE WAY BACK TO THE BOOK, AND WHY IT IS HERE AND NOT IN
+// solver.js. The standing rule (CARD-386/399, owner 2026-11-07) is that the
+// admin's solver.js IS the play surface and this tree only copies it, so a
+// difference between the two trees is normally drift. This one is not: the
+// ADMIN player has no book — no /b/<slug> to return to, no ?book= parameter
+// and nothing to name — so there is nothing for the shared file to carry.
+// It belongs to the public wrapper, beside the theme code above that reads
+// the same parameter and applies the same validity test.
+//
+// Measured before it was built (production, 2026-11-12 and again 2026-11-13):
+// document.querySelectorAll("a").length === 0. The page had NO link at all,
+// so a reader who arrived by QR code from a printed book had no Back entry
+// either. The owner's ruling of 2026-11-13 is both of these, not one: a
+// quiet link from the moment the puzzle opens, AND a prominent one in the
+// solved state.
+//
+// ONE ELEMENT, PROMOTED — and that was a measurement, not a preference.
+// The obvious second element is a child of the solved banner
+// (#puzzle-player-solved), which admin.css already shows at exactly the right
+// moment and which the template calls the box the hidden tools keep. It was
+// built that way first and RENDERED: the banner's box is `contain:
+// inline-size`, so it is only as wide as .player-tools — 208 px at 1280 x 720
+// and about 100 px at 390 x 844 — and a link in it overflows that box onto
+// the History buttons beside it (and, at 1280, wrapped the banner's own
+// "Solved!" and pushed the board down 12.8 px). There is exactly ONE place on
+// this page that can hold a line of text for free, and admin.css's own
+// comment says so and measured it: the .page-head.player-head row, beside the
+// title. flex: 1 1 0 with min-width: 0 means it never forces that row to wrap
+// or widen; nowrap means it is always one line, shorter than the h1 that
+// already sets the row's height. So the way back lives there, and the solve
+// PROMOTES it in place: quiet grey while the puzzle is unsolved, the solved
+// banner's own colours — the success edge and tint, in a pill — once it is
+// solved. The board loses nothing in either state
+// (tests/test_player_shared_ui_site.py reads the stage's height and its top
+// at 390 x 844, playing and solved, with the book and without).
+//
+// THREE boxes, and which of them is clickable is the whole point of the
+// shape. The ROW geometry — flex: 1 1 0 with min-width: 0, nowrap,
+// right-aligned — is on a plain <span> SLOT that is not a link. It was on
+// the <a> itself for one round, and that is a defect: a flex item with
+// flex-basis 0 is as wide as the row's free space, so the HIT AREA was the
+// free space too — 875 px of anchor for 221 px of words at 1280 x 720, i.e.
+// ~654 px of apparently empty header, directly above the board, that left
+// the puzzle when tapped. The <a> inside the slot is display: inline-block
+// with max-width: 100%, so it shrink-wraps its words and can never be wider
+// than the slot; the pill is on an inner <span> so that a background is a
+// pill around the words rather than a band across the row. The anchor's own
+// box is measured against its words' in
+// tests/test_player_shared_ui_site.py at 1280 x 720, which is where the row
+// has slack for the two to differ.
+//
+// What tells it the board is solved is the banner's own `hidden` attribute,
+// observed — not a second copy of "is this solved?" here. The banner is
+// solver.js's, it is un-hidden on a solve AND on a resume of a solved save,
+// and an observer is the only way the public wrapper can read that without
+// either editing the shared file or re-deriving the predicate.
+//
+// Both states are the same real <a href>, so the way back works with no
+// script of ours navigating and can be opened in a new tab. The styling is
+// inline because this page links no stylesheet but the admin's three (a
+// fourth would be a request this card must not add, and there is no override
+// layer by design); every value is a tokens.css custom property, never a
+// second copy of a colour.
+//
+// The name's own box is what is clipped, not the <a> around it: with the
+// ellipsis on the <a>, the solved pill's right edge was cut off at the
+// viewport (rendered at 390 x 844). max-width: 100% keeps the pill inside the
+// link and puts the ellipsis inside the pill.
+//
+// A DECLARED residual, measured and not fixed here: a long book name does not
+// fit this row on a phone. At 390 x 844 the name's scrollWidth is 251 px
+// against a clientWidth of 148 — about 41% of "Winter Pictures - Volume Two"
+// is ellipsised — and at 844 x 390 the head row is admin.css's 96 px
+// landscape column, so the link is 47.67 px wide and reads about "← W…". The
+// href, the accessible name and the stage's height are unaffected in both
+// (requirement 5 measures the last of those). Making the whole name fit is a
+// layout decision about what the header shows, not a repair, so it is
+// declared and asserted rather than styled away: the test reads
+// scrollWidth/clientWidth off this span at both viewports, so the day the
+// header is redesigned the declaration reds instead of quietly rotting.
+const BOOK_LINK_NAME = "display:inline-block;max-width:100%;overflow:hidden;"
+  + "white-space:nowrap;text-overflow:ellipsis;vertical-align:middle;";
+const BOOK_LINK_QUIET = BOOK_LINK_NAME
+  + "color:var(--color-text-secondary);text-decoration:underline";
+const BOOK_LINK_SOLVED = BOOK_LINK_NAME + "color:var(--color-text);font-weight:600;"
+  + "padding:0 var(--space-2);background:var(--color-success-tint);"
+  + "border:var(--border-width) solid var(--color-success);"
+  + "border-radius:var(--radius-control);text-decoration:none";
+// The row's free space: a <span>, so none of it is clickable.
+const BOOK_LINK_SLOT = "flex:1 1 0;min-width:0;overflow:hidden;white-space:nowrap;"
+  + "text-align:right";
+// The link's own box: as wide as its words, never wider than the slot.
+const BOOK_LINK_BOX = "display:inline-block;max-width:100%;"
+  + "font-size:var(--text-sm);text-decoration:none";
+
+function wayBack(slug, title) {
+  const named = typeof title === "string" && title.trim() !== "" ? title.trim() : "the book";
+  const slot = document.createElement("span");
+  slot.setAttribute("style", BOOK_LINK_SLOT);
+  const link = document.createElement("a");
+  link.href = `/b/${slug}`;
+  link.dataset.playerBook = "quiet";
+  link.setAttribute("style", BOOK_LINK_BOX);
+  const name = document.createElement("span");
+  name.textContent = `\\u2190 ${named}`;
+  name.setAttribute("style", BOOK_LINK_QUIET);
+  link.append(name);
+  slot.append(link);
+  document.querySelector(".player-head").append(slot);
+  const banner = document.querySelector("#puzzle-player-solved");
+  const follow = () => {
+    link.dataset.playerBook = banner.hidden ? "quiet" : "solved";
+    name.setAttribute("style", banner.hidden ? BOOK_LINK_QUIET : BOOK_LINK_SOLVED);
+  };
+  new MutationObserver(follow).observe(banner, { attributes: true, attributeFilter: ["hidden"] });
+  follow();
+}
+
 async function main() {
   const key = location.pathname.split("/").filter((segment) => segment !== "").at(-1);
   if (key === undefined || !KEY.test(key)) {
@@ -610,9 +736,17 @@ async function main() {
   // "Solved!" and the solve's count.
   document.querySelector("[data-player-solved-name]").remove();
   const shelved = await shelf;
-  if (shelved !== null && typeof shelved === "object" && THEMES.includes(shelved.theme)
+  // CARD-420's validity test, now read twice (the theme below and CARD-436's
+  // way back): the book file loaded, it is an object, and it really holds
+  // THIS key. A missing, malformed or unrelated book fails it, which is what
+  // keeps either from following whatever slug a URL happens to carry.
+  const holds = shelved !== null && typeof shelved === "object"
       && Array.isArray(shelved.puzzles)
-      && shelved.puzzles.some((entry) => entry !== null && typeof entry === "object" && entry.key === key)) {
+      && shelved.puzzles.some((entry) => entry !== null && typeof entry === "object" && entry.key === key);
+  // CARD-436: the way back is the BOOK's, not the theme's — a book the site
+  // draws no look for still gets its link.
+  if (holds) wayBack(book, shelved.title);
+  if (holds && THEMES.includes(shelved.theme)) {
     document.documentElement.dataset.theme = shelved.theme;
     // CARD-422: and its decorations (the garland; the board is left as it is).
     // Their stylesheet is attached here, so a puzzle outside a Christmas book
@@ -1110,9 +1244,10 @@ def served_puzzle(payload: object, stem: str) -> tuple[dict[str, object], list[s
 #   be scanned for an encoded grid, so the channel is removed rather than
 #   filtered. What a tile shows instead is the extent and the tier, the same
 #   two values the ``/play/<key>`` header already shows;
-# * a **book's** display title IS served, on ``/b/<slug>`` and nowhere else,
-#   under ADR-0041/R2's third exemption (owner decision, 2026-10-28). See
-#   :data:`EXEMPT_LISTING_FIELDS` for the exemption, its scope and its cost.
+# * a **book's** display title IS served, in ``book/<slug>.json`` and in no
+#   other served schema, under ADR-0041/R2's third exemption (owner decision,
+#   2026-10-28). See :data:`EXEMPT_LISTING_FIELDS` for the exemption, the
+#   scope, where the string is SHOWN, and its cost.
 #
 # So "no title is served, on either listing" — what this comment used to say
 # — is false, and the sentence that replaced it names which field each half
@@ -1223,9 +1358,24 @@ TITLE_CODE_POINTS = sys.maxunicode + 1 - 2048
 #:   and is not an enumeration anything can fail to be named in. Nor could
 #:   FR-045's bundle clause have narrowed a mandatory rule — a lower
 #:   artefact cannot. R2 was amended rather than reinterpreted, and it
-#:   exempts the title BY SCOPE rather than by safety: served verbatim on
-#:   ``/b/<slug>`` and nowhere else, residual declared, no reachable
-#:   character cap claimed as a bound.
+#:   exempts the title BY SCOPE rather than by safety: served verbatim in
+#:   ``book/<slug>.json`` and in no other served schema, residual declared,
+#:   no reachable character cap claimed as a bound.
+#:
+#: **The scope is the served SCHEMA, not the set of pages the string is
+#: painted on**, and this module said otherwise in four places for one round.
+#: R2's own 2026-10-28(b) amendment struck "and nowhere else" as false, so
+#: those sentences restated a RETRACTED clause; they are corrected above
+#: rather than argued with. Where the title is served:
+#: :data:`SERVED_BOOK_SCHEMA` alone, which :func:`check_listing_capacity`
+#: enforces against the other three schemas. Where it is SHOWN: the ``h1`` of
+#: ``/b/<slug>``, and — since CARD-436 — the header of a ``/play/<key>``
+#: opened from that book, which offers the way back to it by name. That page
+#: already fetched ``book/<slug>.json`` for CARD-420's theme, so showing the
+#: title adds no served field, no request and no character: the residual
+#: arithmetic below is unchanged by it, and
+#: ``tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+#: is the instrument that says so.
 #:
 #: What the exemption costs, derived rather than asserted:
 #: :func:`book_title_residual_bits` is ``SERVED_TITLE_MAX_CHARS *
