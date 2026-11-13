@@ -220,6 +220,7 @@ _LOOK = """() => {
     slot: round(link.parentElement.getBoundingClientRect().width),
     painted: name.clientWidth,
     whole: name.scrollWidth,
+    ellipsis: getComputedStyle(name).textOverflow,
   };
 }"""
 
@@ -469,6 +470,12 @@ class TestSharedUi_ThePageRuns:
         # card — so a later change that makes the name fit reds here and has to
         # re-state the declaration instead of silently retiring it.
         assert quiet["whole"] > quiet["painted"], quiet
+        # Cycle 2, M6: scrollWidth/clientWidth is blind to HOW the overflow is
+        # hidden, so the clipping pair above survives dropping text-overflow
+        # entirely — and the card DECLARES the residual as reading "<- W...".
+        # A declared residual with no instrument is the thing ADR-0039/R4 is
+        # about, so the declaration is pinned here rather than trusted.
+        assert quiet["ellipsis"] == "ellipsis", quiet
         # And the board lost nothing to it (requirement 5).
         assert page.evaluate(_ROOM) == bare, (page.evaluate(_ROOM), bare)
 
