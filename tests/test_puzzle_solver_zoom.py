@@ -140,6 +140,39 @@ def _dispatch_touch(cdp, kind, points):
     cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [{"x": x, "y": y} for x, y in points]})
 
 
+#: CARD-432: where both scrollers stand, read together so a reading can never
+#: attribute one gesture's travel to the wrong one. ``room`` is re-read on
+#: every reading because the stage's cap is computed FROM the height above it
+#: (--player-above), so a page that scrolls changes the stage's own room.
+_SCROLLERS = """() => {
+  const stage = document.querySelector('.player-stage');
+  const se = document.scrollingElement;
+  return { top: Math.round(stage.scrollTop), room: stage.scrollHeight - stage.clientHeight,
+           scrollY: Math.round(window.scrollY), pageRoom: se.scrollHeight - innerHeight,
+           overscroll: getComputedStyle(stage).overscrollBehavior };
+}"""
+
+_STAGE_BOX = """() => { const r = document.querySelector('.player-stage').getBoundingClientRect();
+  return { left: r.left, top: r.top, width: r.width, height: r.height }; }"""
+
+
+def _drag_up_over_the_board(cdp, box, steps=20):
+    """One finger planted on the board, swept up almost the stage's own height.
+
+    CDP touch, never a synthetic pointer sequence: which scroller a gesture
+    reaches is decided by the touch pipeline (touch-action is read on the
+    compositor thread before any JS runs), and the board's own marking
+    handler takes setPointerCapture, which dispatched pointer events cannot
+    provide.
+    """
+    x = box["left"] + box["width"] / 2
+    y0, y1 = box["top"] + box["height"] - 20, box["top"] + 20
+    _dispatch_touch(cdp, "touchStart", [(x, y0)])
+    for i in range(1, steps + 1):
+        _dispatch_touch(cdp, "touchMove", [(x, y0 + (y1 - y0) * i / steps)])
+    _dispatch_touch(cdp, "touchEnd", [])
+
+
 def _undo_disabled(page) -> bool:
     return page.locator('[data-player-action="undo"]').get_attribute("aria-disabled") == "true"
 
@@ -240,25 +273,97 @@ class TestSolverZoom_ChangingZoomChangesNoSolveState:
 
 
 # ==========================================================================
-# AC-4 — the stage scrolls both ways at 300%, the page never does
+# AC-4 — the stage scrolls both ways at 300%, and (CARD-432, measured by a
+# finger rather than by the geometry alone) a gesture that starts on the board
+# never scrolls the page, however much room the page itself has
 # ==========================================================================
 
 
 @pytest.mark.browser
 class TestSolverZoom_TheBoardScrollsInsideItsStage:
-    """AC-4."""
+    """AC-4, and CARD-432's AC-1/AC-2/AC-4.
+
+    The geometry half is CARD-195's: at 300% the stage overflows both ways
+    and still ends inside the viewport. The gesture half is CARD-432's: a
+    real touch drag that starts over the board must give every pixel of the
+    board's scroll room to the board (AC-2) and none of it to the page
+    (AC-1), including the drag that arrives with the stage already spent.
+
+    What was measured before the fix, at 390x844 on the 30x30 at 300%: the
+    gesture IS dispatched to .player-stage — repeated drags take scrollTop
+    from 0 to its maximum — and the page then takes the surplus by scroll
+    CHAINING out of the stage, which this stage's overscroll-behavior (auto,
+    until this card) permitted. So the page's 23 px of slack moved under a
+    finger that had asked the board to scroll, and kept gliding after the
+    finger lifted. The last assertion below names the declaration that stops
+    it, because it is the one line whose removal reddens AC-1. It reads the
+    computed value rather than a selector on purpose: review cycle 1's F-001
+    scoped that declaration to .player-stage-wrap > .player-stage, this page
+    only (the editor's stage keeps the chaining, pinned by
+    tests/test_puzzle_editor_ui.py::
+    TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule::
+    test_the_editors_gutters_obey_the_room_condition), and a narrowing that
+    stopped matching THIS page would red here.
+    """
 
     def test_300_percent_scrolls_the_stage_both_ways_never_the_page(self, browser_page, live) -> None:
-        browser_page.set_viewport_size({"width": 390, "height": 844})
-        _open(browser_page, live, live.store(BIG))
+        page = browser_page
+        page.set_viewport_size({"width": 390, "height": 844})
+        # The gesture half drives CDP touch on this fixture's OWN context
+        # (no has_touch context of its own): Input.dispatchTouchEvent reaches
+        # the renderer either way, the precedent being
+        # test_puzzle_solver_brush_menu.py's touch drags, and keeping the
+        # fixture keeps this cell's node id, which the browser-family census
+        # records.
+        cdp = page.context.new_cdp_session(page)
+        _open(page, live, live.store(BIG))
 
-        _zoom_to(browser_page, 300)
-        fit = browser_page.evaluate(_STAGE_FIT)
+        _zoom_to(page, 300)
+        fit = page.evaluate(_STAGE_FIT)
 
         assert fit["stageScrollWidth"] > fit["stageClientWidth"], fit
         assert fit["stageScrollHeight"] > fit["stageClientHeight"], fit
         assert fit["pageWidth"] <= 390, fit
         assert fit["stageClientHeight"] <= 844, fit
+
+        # A zoom anchors the stage's scroll on the view's centre, so put
+        # both scrollers back at their origin before the finger lands.
+        page.evaluate(
+            """() => { const s = document.querySelector('.player-stage');
+              s.scrollTop = 0; s.scrollLeft = 0; window.scrollTo(0, 0); }"""
+        )
+        box = page.evaluate(_STAGE_BOX)
+        at = page.evaluate(_SCROLLERS)
+        # The premise of AC-1: the page HAS somewhere to go. Without this
+        # the "window.scrollY stayed 0" assertions below would hold for
+        # a page that simply cannot scroll, and would stop testing this
+        # defect the day the slack is removed at its source.
+        assert at["pageRoom"] > 0, at
+        assert (at["top"], at["scrollY"]) == (0, 0), at
+
+        # AC-2 — every pixel of the board's scroll room is reachable by
+        # dragging. Each drag sweeps the stage's own height, so a stage
+        # with N px of room needs about N / height drags; the cap is a
+        # loop guard, not a figure.
+        seen = []
+        for _ in range(12):
+            _drag_up_over_the_board(cdp, box)
+            at = page.evaluate(_SCROLLERS)
+            seen.append((at["top"], at["room"], at["scrollY"]))
+            if at["top"] >= at["room"]:
+                break
+        assert at["top"] == at["room"], seen
+
+        # AC-1 — and the page did not take a pixel of that journey, nor
+        # of the drag that arrives with the board already at its stop.
+        _drag_up_over_the_board(cdp, box)
+        spent = page.evaluate(_SCROLLERS)
+        assert [y for _top, _room, y in seen] == [0] * len(seen), seen
+        assert (spent["scrollY"], spent["top"]) == (0, spent["room"]), (seen, spent)
+
+        # AC-4 — and the declaration that makes the two above true is
+        # the one the comment above .player-stage now points at.
+        assert spent["overscroll"] == "contain", spent
 
 
 # ==========================================================================

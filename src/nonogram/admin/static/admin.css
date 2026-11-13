@@ -464,7 +464,16 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    cell side is computed here from the board's size and clue depth (set as
    custom properties by solver.js), so the largest board — limits.MAX_SIZE per
    side — fits a laptop screen; below the floor the board scrolls inside
-   .player-stage and the page never does. */
+   .player-stage, and on the SOLVE page overscroll-behavior keeps that scroll
+   there — a gesture that starts on the board never reaches the page, whether
+   the stage still has room or has already spent it. That rule is its own, on
+   .player-stage-wrap > .player-stage below, because .player-stage is also the
+   admin editor's board container, which keeps the chaining (CARD-432, F-001).
+   The page itself does scroll: the solve page overflows the viewport by the
+   part of what stands BELOW the stage that --player-above does NOT reserve —
+   its --space-4 term reserves 16 px of air there, and the "How to play" line
+   plus .main's bottom padding are 39, so the slack is 23 px (measured at
+   390 x 844; see the instrument note on that rule). */
 .player-head { align-items: center; margin-bottom: var(--space-4); }
 .player-head .badge { font-size: var(--text-sm); }
 .player-stage {
@@ -500,6 +509,34 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   max-height: max(calc(100svh - var(--player-above)), 5rem);
   overflow: auto;
 }
+/* CARD-432 (owner, 2026-11-12: "why it still scrolls out of inertia when I
+   already stopped scrolling?"). INSTRUMENT, for every figure in this comment:
+   emulated Chromium driven from pytest — touch via CDP
+   Input.dispatchTouchEvent, the wheel via Playwright — never a real device.
+   At 390 x 844 on the 30 x 30 at 300% the gesture IS dispatched to the stage
+   (repeated touch drags take it from 0 to its last pixel), but the surplus
+   then CHAINED out of the stage into the page's 23 px of slack, so a finger
+   that had asked the board to scroll moved the page, and the page kept
+   gliding after the finger lifted. contain stops that chaining. It leaves the
+   stage's own fling alone — that is the CSS spec (only `none` additionally
+   suppresses the overscroll affordance, and neither value touches inertia),
+   not a reading taken here: a CDP drag carries no timing and so produces no
+   fling to measure, and no test pins one.
+   The selector is the solve page's stage and NOT .player-stage, by the owner's
+   ruling of 2026-11-12 on review cycle 1's measurements: the property governs
+   the WHEEL as well as touch, and .player-stage is also the admin editor's
+   board container (puzzle_edit.html), where containment took 229 px (wheel,
+   1024 x 600) and 331 px (touch, 390 x 844) of page scroll away from a
+   gesture over the board. .player-stage-wrap is on puzzle_solve.html only —
+   the id #puzzle-player is on BOTH templates, so it cannot be the
+   discriminator — so this rule reaches the solve page and the public player
+   page assembled from that template, and leaves the editor as it was. On the
+   solve page it stays contained with "How to play" open too (there 277 px
+   wheel / 349 px touch), which the owner accepted: the help text, the toolbar
+   and the header are all still page-scroll surfaces.
+   Same declaration, same reason, as the landscape tool strip's (CARD-402) and
+   the Line sheet's (CARD-439). */
+.player-stage-wrap > .player-stage { overscroll-behavior: contain; }
 .player-fallback { color: var(--color-text-secondary); font-style: italic; }
 .player-board {
   /* The cell (CARD-196). Its floor is the wider of the stage's floor and the
