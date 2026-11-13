@@ -191,15 +191,35 @@ _ROOM = """() => {
 }"""
 
 #: CARD-436: what the reader actually sees of the way back, so "promoted" is
-#: a measurement and not an attribute that claims it. Read off the inner span,
-#: which is where the pill is (the <a> is the flex item that keeps the row
-#: from wrapping; see assemble.py's comment).
+#: a measurement and not an attribute that claims it. The look is read off the
+#: inner span, which is where the pill is; the three BOXES are read beside it,
+#: because cycle 1 of this card's review found two things no attribute and no
+#: ``inner_text()`` can see:
+#:
+#: * ``link`` vs ``words`` — the <a>'s own rectangle against its span's. The
+#:   first implementation put the row's ``flex: 1 1 0`` on the <a> itself, so
+#:   the anchor was as wide as the row's free space (875 px for 221 px of
+#:   words at 1280 x 720) and ~654 px of apparently empty header navigated
+#:   away from the board. The geometry is on a non-clickable slot <span> now,
+#:   and ``slot`` is that box, so the slack and the hit area are separable;
+#: * ``whole`` vs ``painted`` — ``scrollWidth`` against ``clientWidth``.
+#:   ``inner_text()`` returns the string whether or not it is painted, so it
+#:   passes identically against ``text-overflow: ellipsis``; these two say
+#:   how much of the book's name the reader actually sees.
 _LOOK = """() => {
-  const style = getComputedStyle(document.querySelector('[data-player-book] span'));
+  const link = document.querySelector('[data-player-book]');
+  const name = link.querySelector('span');
+  const style = getComputedStyle(name);
+  const round = (n) => Math.round(n * 100) / 100;
   return {
     weight: style.fontWeight,
     background: style.backgroundColor,
     border: style.borderTopColor + ' ' + style.borderTopWidth,
+    link: round(link.getBoundingClientRect().width),
+    words: round(name.getBoundingClientRect().width),
+    slot: round(link.parentElement.getBoundingClientRect().width),
+    painted: name.clientWidth,
+    whole: name.scrollWidth,
   };
 }"""
 
@@ -391,10 +411,20 @@ class TestSharedUi_ThePageRuns:
         card names: the stage's height, its top (what ``measureStageTop``
         writes to ``--player-stage-top``) and the two rows above it are read
         from the same puzzle with the book and without, and must be equal.
-        The link is the third item of ``.page-head.player-head``, where
+        The link's SLOT is the third item of ``.page-head.player-head``, where
         ``admin.css``'s own comment measured that a line of text is free, and
-        the solve promotes it there rather than drawing a second one — see
-        ``assemble.py``'s comment for the render that decided that.
+        the solve promotes the link inside it rather than drawing a second one
+        — see ``assemble.py``'s comment for the render that decided that.
+
+        Two more things are measured rather than asserted off an attribute or
+        off ``inner_text()``, both from cycle 1's findings (see ``_LOOK``):
+        the <a>'s own rectangle against its words' at 1280 x 720, where the
+        row has slack — an anchor wider than its words is blank clickable
+        header above the board — and the name's ``scrollWidth`` against its
+        ``clientWidth``, which is the only instrument that can see
+        ``text-overflow: ellipsis``. The second one holds a DECLARATION, not
+        a repair: the name is clipped at 390 x 844 and whole at 1280 x 720,
+        and both states are asserted so neither can change in silence.
         """
         url, report, keys, slug = preview_host
         page = browser_page
@@ -429,6 +459,16 @@ class TestSharedUi_ThePageRuns:
         assert BOOK_TITLE_SERVED in back.inner_text()
         assert back.get_attribute("data-player-book") == "quiet"
         quiet = page.evaluate(_LOOK)
+        # F-002: ``inner_text()`` is the string, not the painted glyphs, so the
+        # line above passes identically whether the reader sees the book's name
+        # or "← Winter Pictu…". The RENDERED extent is asserted beside it, and
+        # at THIS viewport the declaration is that the name does NOT fit: about
+        # 41% of it is ellipsised (251 px of name in 148 px of row). That is
+        # declared and held rather than styled away — the header's width is a
+        # product decision about what this row shows, not a defect of this
+        # card — so a later change that makes the name fit reds here and has to
+        # re-state the declaration instead of silently retiring it.
+        assert quiet["whole"] > quiet["painted"], quiet
         # And the board lost nothing to it (requirement 5).
         assert page.evaluate(_ROOM) == bare, (page.evaluate(_ROOM), bare)
 
@@ -465,6 +505,26 @@ class TestSharedUi_ThePageRuns:
         for address in (f"/play/{key}?book=nope", f"/play/{outside}?book={slug}"):
             open_play_at(page, url, address)
             assert page.evaluate("() => document.querySelectorAll('a').length") == 0, address
+
+        # F-001: the way back's HIT AREA is its words, not the row's free
+        # space. At 390 x 844 the two are one box — the name fills the slot —
+        # so the only viewport that can tell them apart is one with slack, and
+        # this is the viewport the defect was measured at. The first
+        # implementation put the row's ``flex: 1 1 0`` on the <a> itself: 875
+        # px of anchor for 221 px of words, i.e. ~654 px of apparently empty
+        # header, directly above the board, that left the puzzle when tapped,
+        # on a page that had no anchor at all before this card. Both lines
+        # below are red against that construction.
+        page.set_viewport_size({"width": 1280, "height": 720})
+        open_play_at(page, url, f"/play/{key}?book={slug}")
+        page.wait_for_selector('[data-player-book="solved"]', timeout=PAGES_SETTLE_MS)
+        wide = page.evaluate(_LOOK)
+        assert wide["slot"] - wide["link"] > 100, wide  # the row really has slack here
+        assert wide["link"] - wide["words"] <= 1, wide  # and the anchor is only its words
+        # The other half of F-002, at the viewport where the row is wide
+        # enough: given the space, the whole name IS painted. So "clipped at
+        # 390 x 844" above is a statement about the row, not about the string.
+        assert wide["whole"] <= wide["painted"], wide
 
         # Nothing threw along any of it — the observer included.
         assert watch.problems() == []
