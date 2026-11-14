@@ -8,7 +8,7 @@
   the reader came from when the referrer is one on this site, and to
   /library otherwise (how-to-solve.js, homeHref).
 
-  A wizard of six steps, one screen each. The step is the URL fragment
+  A wizard of seven steps, one screen each. The step is the URL fragment
   (#1..#5), so the browser's Back button walks the steps and a step can be
   linked to. Everything the steps draw is built by how-to-solve.js from two
   grids it declares (TRY_GRID, PROBE_GRID); every clue on the page is derived
@@ -44,10 +44,11 @@
       <button type="button" class="hts-dot" data-hts-goto="2" aria-label="Step 2: Squeeze from both ends"></button>
       <button type="button" class="hts-dot" data-hts-goto="3" aria-label="Step 3: What every arrangement agrees on"></button>
       <button type="button" class="hts-dot" data-hts-goto="4" aria-label="Step 4: Probe, and watch it break"></button>
-      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: Big puzzles on a phone"></button>
-      <button type="button" class="hts-dot" data-hts-goto="6" aria-label="Step 6: Levels and the promise"></button>
+      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: The buttons"></button>
+      <button type="button" class="hts-dot" data-hts-goto="6" aria-label="Step 6: Big puzzles on a phone"></button>
+      <button type="button" class="hts-dot" data-hts-goto="7" aria-label="Step 7: Levels and the promise"></button>
     </div>
-    <p class="hts-caption" data-hts-caption>Step 1 of 6 · The rules</p>
+    <p class="hts-caption" data-hts-caption>Step 1 of 7 · The rules</p>
   </nav>
 
   <section class="hts-step" data-hts-step="1" data-hts-name="The rules">
@@ -68,6 +69,7 @@
         <button type="button" class="hts-brush" data-hts-brush="filled" aria-pressed="true"><span class="hts-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
         <button type="button" class="hts-brush" data-hts-brush="empty" aria-pressed="false"><span class="hts-swatch" data-state="empty" aria-hidden="true"></span>White</button>
         <button type="button" class="hts-brush" data-hts-brush="maybe" aria-pressed="false"><span class="hts-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
+        <button type="button" class="hts-brush" data-hts-brush="unknown" aria-pressed="false"><span class="hts-swatch" data-state="unknown" aria-hidden="true"></span>Clear</button>
       </div>
       <div class="hts-actions">
         <button type="button" class="btn hts-quiet" data-hts-try-show>Show me</button>
@@ -101,9 +103,10 @@
     <h2>Probe, and watch it break</h2>
     <p>Stuck? Press <b>Probe</b>, make one open square black, and follow what
       it forces. Everything you mark while probing gets a dashed edge. If a
-      line can no longer fit its clue, press <b>Contradiction</b>: all the
-      dashed marks go away, and that square is certainly white. If the probe
-      solves the puzzle instead, press <b>Keep</b>.</p>
+      line can no longer fit its clue, press <b>✗ Wrong guess</b>: all
+      the dashed marks go away, and the page offers to mark that first square
+      the other colour &mdash; press <b>Mark it</b>. If the probe solves the
+      puzzle instead, press <b>✓ Keep</b>.</p>
     <p>This is not guessing: you prove one option impossible, so the other one
       is certain.</p>
 
@@ -114,18 +117,42 @@
       </div>
       <p class="hts-say" data-hts-probe-text aria-live="polite"></p>
       <div class="hts-board" data-hts-probe-board></div>
+      <div class="hts-offer" data-hts-probe-offer hidden>
+        <p data-hts-probe-offer-text></p>
+        <button type="button" class="btn hts-quiet" data-hts-probe-mark>Mark it</button>
+        <button type="button" class="btn hts-quiet" data-hts-probe-dismiss>No thanks</button>
+      </div>
       <div class="hts-actions">
-        <button type="button" class="btn hts-quiet" data-hts-probe-open aria-pressed="false">Probe</button>
+        <button type="button" class="btn hts-quiet" data-hts-probe-open aria-pressed="false"><svg class="hts-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg>Probe</button>
         <button type="button" class="btn hts-go" data-hts-probe-follow hidden>Follow it</button>
-        <button type="button" class="btn hts-quiet" data-hts-probe-keep hidden>Keep</button>
-        <button type="button" class="btn hts-stop" data-hts-probe-contradiction hidden>Contradiction</button>
+        <button type="button" class="btn hts-quiet" data-hts-probe-keep hidden><span aria-hidden="true">✓</span> Keep</button>
+        <button type="button" class="btn hts-quiet hts-wrong" data-hts-probe-abandon hidden><span aria-hidden="true">✗</span> Wrong guess</button>
         <button type="button" class="btn hts-go" data-hts-probe-finish hidden>Finish with line logic</button>
         <button type="button" class="btn hts-quiet" data-hts-probe-reset hidden>Start over</button>
       </div>
     </div>
   </section>
 
-  <section class="hts-step" data-hts-step="5" data-hts-name="Big puzzles on a phone" hidden>
+  <section class="hts-step" data-hts-step="5" data-hts-name="The buttons" hidden>
+    <h2>The buttons</h2>
+    <p>Every puzzle has these, and the same list sits under each board as
+      <b>How to play</b>.</p>
+    <!-- CARD-444: the player's own "How to play" list (puzzle_solve.html's
+         #puzzle-player-hint, less the panel-only Check), word for word, each
+         beside the control it names as the player draws it.
+         tests/test_how_to_solve_page.py holds the words and the two icons'
+         paths equal to the player's, so the two cannot drift apart. -->
+    <ul class="hts-keys" data-hts-keys>
+      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="unknown"></span></span><span><strong>Tap</strong> a cell to fill it. Tap again to cycle: black, white (dot), empty.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span></span><span><strong>Brush</strong> (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span><span class="hts-swatch" data-state="filled"></span></span><span><strong>Region</strong> (the two squares): turn it on, then drag along a row or column to mark many cells at once. With it off, dragging scrolls.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 12.5h4M6.5 14.5h3M5.8 10.5a4.5 4.5 0 114.4 0c-.4.3-.7.8-.7 1.3v.7h-3v-.7c0-.5-.3-1-.7-1.3z"/></svg></span><span><strong>Hint</strong>: press up to three times. First it shows where to look, then why, then it fills the cell.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg></span><span><strong>Probe</strong>: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.</span></li>
+      <li><span class="hts-key" aria-hidden="true">&minus; +</span><span><strong>Zoom</strong>: &minus; / + or Fit to see the whole puzzle.</span></li>
+    </ul>
+  </section>
+
+  <section class="hts-step" data-hts-step="6" data-hts-name="Big puzzles on a phone" hidden>
     <h2>Big puzzles on a phone</h2>
     <p>On a puzzle 20 squares or more on a side, the squares on a phone are
       smaller than a fingertip. Press <b>Line</b>, beside <b>Hint</b>, to open
@@ -140,7 +167,7 @@
       Press <b>Board</b> to go back to the whole puzzle.</p>
   </section>
 
-  <section class="hts-step" data-hts-step="6" data-hts-name="Levels and the promise" hidden>
+  <section class="hts-step" data-hts-step="7" data-hts-name="Levels and the promise" hidden>
     <h2>What the levels mean</h2>
     <dl class="hts-levels">
       <dt><span class="hts-level" data-tier="easy" aria-hidden="true"></span>Easy</dt>

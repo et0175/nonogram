@@ -1,6 +1,6 @@
 """CARD-419 — the site-wide ``/how-to-solve`` page (COMP-011, FR-045).
 
-One lesson page for every book: a six-step wizard with a guided 5x5 ("Try
+One lesson page for every book: a seven-step wizard with a guided 5x5 ("Try
 one") and a probe demo built the way the player's Probe / Keep /
 Contradiction transaction works (CARD-268). The page's script declares its two
 grids, the probe square and the probe chain as JSON-shaped constants; this
@@ -31,6 +31,12 @@ Acceptance criteria (CARD-419, local labels; registry ids at dispatch):
   AC-E  test_the_lesson_is_published_routed_and_names_no_book
   AC-F  test_the_lesson_uses_tokens_and_the_players_probe_colours (and the
         screenshots in the card's worktree notes)
+
+CARD-444 (owner 2026-11-14: the lesson must look and explain like the
+player): test_the_lessons_buttons_are_the_players holds step 5's list to the
+player's own "How to play" list and icons; the try-one test runs the lesson's
+tap rule against the player's clickedState; the probe test walks Wrong guess
+and the "Mark it?" offer.
 """
 
 from __future__ import annotations
@@ -292,6 +298,32 @@ def test_the_lesson_uses_tokens_and_the_players_probe_colours() -> None:
         assert mine.group(1).strip() == player.group(1).strip(), (ours, theirs)
 
 
+def _text(fragment: str) -> str:
+    return " ".join(re.sub(r"<[^>]+>", " ", fragment).split())
+
+
+def test_the_lessons_buttons_are_the_players() -> None:
+    """CARD-444 — step 5 is the player's own "How to play" list, word for
+    word and in order, less the panel-only Check (public mode hides it), and
+    the two icons it draws are the player's own paths, so the lesson cannot
+    drift from the controls a reader actually sees."""
+    template = (REPO_ROOT / "src/nonogram/admin/templates/puzzle_solve.html").read_text(encoding="utf-8")
+    howto = re.search(r'id="puzzle-player-hint".*?<ul>(.*?)</ul>', template, re.S)
+    assert howto
+    player = [_text(li) for li in re.findall(r"<li(?![^>]*data-player-howto-check)[^>]*>(.*?)</li>", howto.group(1), re.S)]
+    html = PAGE.read_text(encoding="utf-8")
+    keys = re.search(r"<ul class=\"hts-keys\" data-hts-keys>(.*?)</ul>", html, re.S)
+    assert keys
+    lesson = [_text(text) for text in re.findall(r"</span><span>(.*?)</span></li>", keys.group(1), re.S)]
+    assert len(player) >= 6 and lesson == player, (lesson, player)
+
+    icons = (REPO_ROOT / "src/nonogram/admin/templates/_icons.html").read_text(encoding="utf-8")
+    for name in ("bulb", "probe"):
+        path = re.search(rf"name == '{name}' %\}}(<path [^>]*/>)", icons)
+        assert path, name
+        assert path.group(1) in keys.group(1), name
+
+
 # ==========================================================================
 # The page, in Chromium
 # ==========================================================================
@@ -316,7 +348,7 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     _open(page, url)
     assert _visible_step(page) == [1]
     assert page.locator("[data-hts-back]").is_hidden()
-    assert page.locator("[data-hts-caption]").inner_text() == "Step 1 of 6 · The rules"
+    assert page.locator("[data-hts-caption]").inner_text() == "Step 1 of 7 · The rules"
 
     page.locator("[data-hts-next]").click()
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)
@@ -332,15 +364,16 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)
     assert _visible_step(page) == [2]
 
-    # CARD-440: step 5 is the phone's line view, so the levels are step 6.
-    _open(page, url, "/how-to-solve#5")
-    assert _visible_step(page) == [5]
-    assert page.locator("[data-hts-step='5'] h2").inner_text() == "Big puzzles on a phone"
+    # CARD-440 put the phone's line view at step 5 and CARD-444 the buttons
+    # before it, so the line view is step 6 and the levels step 7.
+    _open(page, url, "/how-to-solve#6")
+    assert _visible_step(page) == [6]
+    assert page.locator("[data-hts-step='6'] h2").inner_text() == "Big puzzles on a phone"
     # One row of progress segments, one per step (a sixth once wrapped).
     assert page.evaluate("() => new Set([...document.querySelectorAll('[data-hts-goto]')].map(d => d.offsetTop)).size") == 1
     assert page.locator("[data-hts-next]").inner_text() == "Next: Levels and the promise"
-    _open(page, url, "/how-to-solve#6")
-    assert _visible_step(page) == [6]
+    _open(page, url, "/how-to-solve#7")
+    assert _visible_step(page) == [7]
     assert page.locator("[data-hts-next]").is_hidden()
     assert page.locator("[data-hts-back]").is_visible()
     # A fragment out of range is step 1, not a blank page.
@@ -359,8 +392,28 @@ def test_try_one_marks_black_white_and_maybe_and_show_me_solves_it(browser_page,
     _open(page, url)
     cell = lambda: _cell(page, "try", 0, 0)  # noqa: E731
     assert cell().get_attribute("data-state") == "unknown"
+    # CARD-444: the player's cycle, black -> white -> clear (it was
+    # black -> clear here), and its Clear brush.
+    seen = []
+    for _ in range(3):
+        cell().click()
+        seen.append(cell().get_attribute("data-state"))
+    assert seen == ["filled", "empty", "unknown"]
+    # The rule itself, against the player's own, over every input.
+    mismatches = page.evaluate("""async () => {
+      const lesson = await import('/how-to-solve.js');
+      const player = await import('/solver_state.js');
+      const states = ['unknown', 'filled', 'empty', 'maybe'];
+      const out = [];
+      for (const s of states) for (const t of states) for (const repeat of [false, true]) {
+        const a = lesson.tappedState(s, t, repeat), b = player.clickedState(s, t, repeat);
+        if (a !== b) out.push([s, t, repeat, a, b]);
+      }
+      return out;
+    }""")
+    assert mismatches == []
     cell().click()
-    assert cell().get_attribute("data-state") == "filled"
+    page.locator("[data-hts-brush='unknown']").click()
     cell().click()
     assert cell().get_attribute("data-state") == "unknown"
     page.locator("[data-hts-brush='maybe']").click()
@@ -428,11 +481,22 @@ def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) ->
     probed = page.locator("[data-hts-probe-board] .hts-cell[data-probe]")
     assert probed.count() == 1 + sum(len(step["cells"]) for step in chain)
 
+    # The player's flag on Wrong guess while the probe has broken a line.
+    assert "is-flagged" in page.locator("[data-hts-probe-abandon]").get_attribute("class")
     page.locator("[data-hts-probe-keep]").click()
     assert phase() == "kept"
-    page.locator("[data-hts-probe-contradiction]").click()
-    assert phase() == "proved"
+    # CARD-444: Wrong guess, as the player names it, then the player's offer.
+    page.locator("[data-hts-probe-abandon]").click()
+    assert phase() == "offered"
     assert probed.count() == 0
+    assert target().get_attribute("data-state") == "unknown"
+    offer = page.locator("[data-hts-probe-offer]")
+    assert offer.is_visible()
+    assert f"row {r + 1}, column {c + 1} must be white. Mark it?" in offer.inner_text()
+    assert "is-offered" in target().get_attribute("class")
+    page.locator("[data-hts-probe-mark]").click()
+    assert phase() == "proved"
+    assert offer.is_hidden()
     assert target().get_attribute("data-state") == "empty"
 
     page.locator("[data-hts-probe-finish]").click()

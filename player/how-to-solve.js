@@ -37,6 +37,7 @@ const STEP_NAMES = [
   "Squeeze from both ends",
   "What every arrangement agrees on",
   "Probe, and watch it break",
+  "The buttons",
   "Big puzzles on a phone",
   "Levels and the promise",
 ];
@@ -156,6 +157,21 @@ function tryText(step, clues) {
   }
 }
 
+// What a tap does, the player's rule (solver_state.js clickedState),
+// reimplemented here because the lesson ships no player code: a tap paints
+// the brush; tapping the same square again, or a square already holding the
+// brush, steps it on — black, white, clear, black for the colour brushes,
+// maybe and clear for Maybe. tests/test_how_to_solve_page.py runs both over
+// every state, brush and repeat and holds them equal (CARD-444).
+const COLOUR_ORDER = { filled: "empty", empty: "unknown", unknown: "filled" };
+const MAYBE_ORDER = { maybe: "unknown", unknown: "maybe" };
+export function tappedState(state, brush, repeat) {
+  const order = brush === "maybe" ? MAYBE_ORDER : COLOUR_ORDER;
+  if (!Object.hasOwn(order, state)) return brush;
+  if (repeat === true || state === brush) return order[state];
+  return brush;
+}
+
 function setupTry(page) {
   const board = page.querySelector("[data-hts-try-board]");
   if (board === null) return null;
@@ -168,6 +184,7 @@ function setupTry(page) {
   const width = TRY_GRID[0].length;
   let cells;
   let brush = "filled";
+  let lastTap = null; // [r, c, brush] of the last tap, for the repeat rule
 
   const inStep = (step, r, c) => TRY_STEPS[step].rows.includes(r) || TRY_STEPS[step].columns.includes(c);
   const stepDone = (step) => {
@@ -196,7 +213,9 @@ function setupTry(page) {
       badRow: () => false,
       badColumn: () => false,
       tap: (r, c) => {
-        cells[r][c] = cells[r][c] === brush ? "unknown" : brush;
+        const repeat = lastTap !== null && lastTap[0] === r && lastTap[1] === c && lastTap[2] === brush;
+        cells[r][c] = tappedState(cells[r][c], brush, repeat);
+        lastTap = [r, c, brush];
         redraw();
       },
     });
@@ -210,6 +229,7 @@ function setupTry(page) {
 
   function choose(name) {
     brush = name;
+    lastTap = null;
     for (const button of brushes) button.setAttribute("aria-pressed", String(button.dataset.htsBrush === name));
   }
   for (const button of brushes) button.addEventListener("click", () => choose(button.dataset.htsBrush));
@@ -227,6 +247,7 @@ function setupTry(page) {
   });
   const reset = () => {
     cells = Array.from({ length: height }, () => Array(width).fill("unknown"));
+    lastTap = null;
     choose("filled");
     redraw();
   };
@@ -276,7 +297,8 @@ function setupSqueeze(page) {
 }
 
 // --------------------------------------------------------------------------
-// "Try a probe": the player's Probe / Keep / Contradiction, on a real stall
+// "Try a probe": the player's Probe / Keep / Wrong guess, and the "Mark it?"
+// offer a wrong guess on one square makes (CARD-412), on a real stall
 // --------------------------------------------------------------------------
 
 // Line logic alone: repeat "keep what every arrangement agrees on" over every
@@ -353,11 +375,13 @@ function probeText(phase, step, clues) {
       if (step === 0) return "Now follow what that black square forces. Press Follow it.";
       return `${line(PROBE_CHAIN[step - 1])}, so ${describe(PROBE_CHAIN[step - 1].cells)}.`;
     case "broken":
-      return `${line(PROBE_CHAIN.at(-1))}, and it can no longer fit. The probe broke. Keep, or Contradiction?`;
+      return `${line(PROBE_CHAIN.at(-1))}, and it can no longer fit. The probe broke. Keep, or Wrong guess?`;
     case "kept":
-      return "Keep would leave a line that cannot fit its clue, so this probe cannot be right. Press Contradiction.";
+      return "Keep would leave a line that cannot fit its clue, so this probe cannot be right. Press Wrong guess.";
+    case "offered":
+      return "Every dashed mark is gone. Your first square was the guess that broke, so the page offers to mark it the other colour.";
     case "proved":
-      return `Every dashed mark is gone, and ${where} is now white: the probe proved it. Now the lines can move again.`;
+      return `${where[0].toUpperCase()}${where.slice(1)} is now white: the probe proved it. Now the lines can move again.`;
     default:
       return "Solved. That is all a probe is: try one square, follow it, then keep it or take it all back.";
   }
@@ -377,7 +401,9 @@ function setupProbe(page) {
     open: page.querySelector("[data-hts-probe-open]"),
     follow: page.querySelector("[data-hts-probe-follow]"),
     keep: page.querySelector("[data-hts-probe-keep]"),
-    contradiction: page.querySelector("[data-hts-probe-contradiction]"),
+    abandon: page.querySelector("[data-hts-probe-abandon]"),
+    mark: page.querySelector("[data-hts-probe-mark]"),
+    dismiss: page.querySelector("[data-hts-probe-dismiss]"),
     finish: page.querySelector("[data-hts-probe-finish]"),
     reset: page.querySelector("[data-hts-probe-reset]"),
   };
@@ -387,6 +413,7 @@ function setupProbe(page) {
   const blank = Array.from({ length: height }, () => Array(width).fill("unknown"));
   const stalled = lineSolve(PROBE_GRID, blank);
   const [pr, pc] = PROBE_CELL;
+  const where = `row ${ordinal(pr)}, column ${ordinal(pc)}`;
   let phase = "stuck";
   let step = 0;
 
@@ -411,6 +438,7 @@ function setupProbe(page) {
     const cells = board_();
     const showing = phase === "following" && step > 0 ? PROBE_CHAIN[step - 1] : phase === "broken" || phase === "kept" ? PROBE_CHAIN.at(-1) : null;
     const bad = phase === "broken" || phase === "kept";
+    const offer = page.querySelector("[data-hts-probe-offer]");
     const lit = (axis, index) => showing !== null && showing.axis === axis && showing.index === index;
     drawBoard(board, PROBE_GRID, {
       cell: (r, c) => ({ ...cells[r][c], target: (phase === "stuck" || phase === "open") && r === pr && c === pc }),
@@ -432,10 +460,18 @@ function setupProbe(page) {
     buttons.open.setAttribute("aria-pressed", String(open));
     buttons.follow.hidden = phase !== "following";
     buttons.keep.hidden = !(phase === "broken" || phase === "kept");
-    buttons.contradiction.hidden = !(phase === "broken" || phase === "kept");
+    buttons.abandon.hidden = !(phase === "broken" || phase === "kept");
+    // The player flags Wrong guess while the probe has broken a line (CARD-410).
+    buttons.abandon.classList.toggle("is-flagged", bad);
+    offer.hidden = phase !== "offered";
+    page.querySelector("[data-hts-probe-offer-text]").textContent =
+      `Your first guess was wrong, so ${where} must be white. Mark it?`;
     buttons.finish.hidden = phase !== "proved";
     buttons.reset.hidden = phase !== "solved";
     tag.textContent = phase === "solved" ? "Solved" : open ? "Probe open" : "Line logic stuck";
+    // The square the offer names is outlined, as the player outlines it.
+    board.querySelector(`.hts-cell[data-row="${pr}"][data-column="${pc}"]`)
+      ?.classList.toggle("is-offered", phase === "offered");
     text.textContent = probeText(phase, step, clues);
   }
 
@@ -454,9 +490,17 @@ function setupProbe(page) {
     phase = "kept";
     redraw();
   });
-  buttons.contradiction.addEventListener("click", () => {
-    phase = "proved";
+  buttons.abandon.addEventListener("click", () => {
+    phase = "offered";
     step = 0;
+    redraw();
+  });
+  buttons.mark.addEventListener("click", () => {
+    phase = "proved";
+    redraw();
+  });
+  buttons.dismiss.addEventListener("click", () => {
+    phase = "stuck";
     redraw();
   });
   buttons.finish.addEventListener("click", () => {
