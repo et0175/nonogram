@@ -586,6 +586,23 @@ Not observed: a real phone.
 
 **Still not observed, after seven publishes: a human finger.** Every behavioural figure on this page is emulated Chromium. This card changes what *every* drag on the board does on a phone, and CARD-439's line mode remains live with its long-press and strip-drag exercised only by its own tests.
 
+**The way-back publish, 2026-11-14.** Published from `main` at `bdd88c4d`. **One card, CARD-436** — a puzzle opened from a book now offers the way back to it. One file changed: the rendered `play/index.html`, since the card touched only `player/assemble.py`.
+
+| Step | What was observed |
+| --- | --- |
+| Pre-flight | Fail-fast, and **it held on its own new check**: it grepped the built page for `data-player-book` and found nothing. That was the CHECK being wrong, not the feature — the hook is written at runtime by `link.dataset.playerBook`, so it exists only in the live DOM and can never appear in static HTML. Corrected to assert the source tokens the bundle really carries (`wayBack`, `dataset.playerBook`, `flex:1 1 0;min-width:0`), with the runtime attribute left to the behavioural check below. Also asserted that **`index.json` serves no title** while the one book file carries the exempt display title — the serve/show distinction this card had to correct six statements about. |
+| What changed, read BEFORE promoting | Ten assets and the rendered play page compared with the live domain first. All ten assets **unchanged**; `play/index.html` **`d229adc99547` → `faaf26c7d6e0`**. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-qv5fs9vc1`**; the rendered page matched the tree, three doors 200, `/nope` 404. |
+| Production | `vercel promote … --yes`. First poll of the domain read the old page, the second the new — the sixth time this page records that the promote returning is not the deployment being live. |
+| Behaviour, on the live domain | **From a book, phone 390x844:** exactly **one** anchor on the page, `href="/b/0a958d036e"`, state `quiet`, text `← Christmas Nonograms`, `text-overflow: ellipsis`. **From a book, desktop 1280x720:** the anchor is **163.39 px inside a slot of 874.58** — so **711.19 px of header is NOT clickable**, which is the whole of cycle 1's Critical, confirmed fixed on production. **Negatives:** no `?book=` → **0 anchors**; a malformed slug (`?book=nope`) → **0 anchors**. |
+| A finding about the SITE, not the card | The third negative — a valid slug for a book that does **not** hold this key — **cannot be exercised on production at all**: `book/0a958d036e.json` holds **all 160 published puzzles**, so no published key is outside the only published book. The orchestrator's first attempt at that case picked `0978469757`, which **is** in the book, so the link correctly appeared and was briefly misread as a failure. It is covered where it can be: the suite's fixture has a book plus puzzles outside it, and cycle 2's mutation run showed that cell is the **sole** control for the membership clause. Worth knowing before a second book is published. |
+| A residual figure that is kinder in practice than on the card | The card declares 41 % of the title clipped at 390x844 solved, measured on its fixture's longer title. With the **real** book's title the phone reads `painted 150 / whole 163` — about **8 %** — and desktop is `163 / 163`, not clipped at all. The declared worst case stands as the worst case; the owner's actual book is nowhere near it. |
+| Rollback target | The production deployment before it (play page `d229adc99547`) still Ready. |
+
+**What this publish leaves owed.** **CARD-434** (circles need a closed run) and **CARD-435** (the probe silent until Hint) are `ready` and unstarted; **CARD-438**'s figures are stale and the card says so. Two items from CARD-436 are the owner's: whether to fix the portrait clipping (three options costed, none taken), and a backlog card to widen the design-inventory drift guard, which today enumerates `data-pages-*` on two source files and so cannot see a hook on a page whose markup is built by JavaScript.
+
+**Eighth publish, and still not one human finger.** Every behavioural figure on this page is emulated Chromium.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
