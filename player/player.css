@@ -464,6 +464,7 @@ body {
 .hts-brushes {
   display: flex;
   align-self: center;
+  max-width: 100%;
   border: var(--player-rule) solid var(--color-border-strong);
   border-radius: var(--radius-control);
   overflow: hidden;
@@ -473,8 +474,10 @@ body {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   padding: 0 var(--space-4);
+  min-width: 0;
   font: inherit;
   color: var(--color-text);
   background: var(--grid-paper);
@@ -482,9 +485,14 @@ body {
   cursor: pointer;
 }
 
+/* CARD-444: four brushes (Clear joined them) fit a 390 px phone's card. */
+@media (max-width: 480px) { .hts-brush { flex: 1 1 0; gap: var(--space-1); padding: 0 var(--space-1); } }
+
 .hts-brush + .hts-brush { border-left: var(--player-rule) solid var(--color-border-strong); }
 
-.hts-brush[aria-pressed="true"] { background: var(--color-text); color: var(--color-surface); }
+/* CARD-444: the chosen brush looks as the player's chosen menu item does
+   (admin.css .player-tool-item[aria-checked="true"]), not inverted. */
+.hts-brush[aria-pressed="true"] { background: var(--color-accent-tint); color: var(--color-accent); font-weight: 600; }
 
 .hts-brush:focus-visible { outline: var(--player-rule-major) solid var(--color-focus); outline-offset: -2px; }
 
@@ -526,13 +534,33 @@ body {
 
 .hts-go:hover { background: var(--color-accent-hover); }
 
-.hts-stop {
-  flex: 1 1 auto;
-  justify-content: center;
-  font-weight: 600;
-  color: var(--color-on-accent);
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+/* CARD-444: Wrong guess is an outline button like the player's, flagged red
+   while the probe has broken a line (admin.css .is-flagged, CARD-410). */
+.hts-wrong.is-flagged { border-color: var(--color-danger); color: var(--color-danger); box-shadow: 0 0 0 var(--player-rule) var(--color-danger); }
+
+/* The player's icons, drawn as admin.css draws .icon. */
+.hts-icon { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The "Mark it?" offer after a wrong guess (the player's CARD-412 box). */
+.hts-offer {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent-tint);
+  border: var(--player-rule-major) solid var(--color-accent);
+  border-radius: var(--radius-container);
+}
+.hts-offer[hidden] { display: none; }
+.hts-offer p { flex: 1 1 12rem; }
+.hts-cell.is-offered { outline: calc(1.5 * var(--player-rule-major)) solid var(--color-accent); outline-offset: calc(-1.5 * var(--player-rule-major)); }
+
+/* "The buttons": each line of the player's How to play beside its control. */
+.hts-keys { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.hts-keys li { display: flex; align-items: flex-start; gap: var(--space-3); }
+.hts-key {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+  min-width: 44px; height: 44px; padding: 0 var(--space-2);
+  border: var(--player-rule) solid var(--color-border-strong); border-radius: var(--radius-control);
+  background: var(--color-input); font-size: 1.1rem;
 }
 
 .hts-quiet { background: var(--color-input); }
