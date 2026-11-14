@@ -2107,13 +2107,23 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     # F-005: rule 3 names hint strokes and nothing made one inside a probe.
     # F-007: only the air was held in the open-probe state, never the focus
     # scroll the card's first constraint is about.
+    # CARD-268's F-005 entry was
+    # "TestSolverProbe_MarksCarryTheTint::test_a_hint_revealed_inside_a_probe_
+    # belongs_to_it", struck here by CARD-435 in the diff that renamed it, as
+    # the removal half of the rule above: a test a later card added may go,
+    # and its entry goes with it. It is NOT a RENAMED_SINCE_BEFORE move --
+    # that table applies to ids CARD-217 recorded and may only change what is
+    # inside a node id's [...] -- and the id below is its replacement, carried
+    # by the entry that follows rather than by an excuse.
     f"{FAMILY_PREFIX}_probe.py::"
     "TestSolverProbe_MarksCarryTheTint::"
-    "test_a_hint_revealed_inside_a_probe_belongs_to_it": (
-        "CARD-268",
-        "rule 3's last clause (F-005): the ladder's rung-3 reveal, driven by "
-        "three real presses inside an open probe, is a member, wears the "
-        "hint's colour with the probe's dash, and Contradiction takes it back"
+    "test_a_hint_pressed_inside_a_probe_reveals_no_cell": (
+        "CARD-435",
+        "owner ruling 1 (2026-11-14) inverted CARD-268's F-005 cell: inside a "
+        "probe Hint reveals the broken clues instead of a cell, so no hint "
+        "stroke can be recorded there and rule 3's last clause is vacuous. "
+        "Three presses now reveal no cell, record no stroke, leave hintCount "
+        "where it was, and the button says which meaning it is on"
     ),
     f"{FAMILY_PREFIX}_probe.py::"
     "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"

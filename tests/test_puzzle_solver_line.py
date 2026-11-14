@@ -345,11 +345,42 @@ def _probe_state(page) -> dict:
     })""")
 
 
+def _flags(page) -> dict:
+    """CARD-435: the two things the quiet rule governs in THIS view — the
+    focused line's clue and the Wrong guess button — read as the board's own
+    pair is read (``tests/test_puzzle_solver_probe.py``'s ``_BROKEN``)."""
+    return page.evaluate("""() => ({
+      clue: document.querySelector('[data-player-line-clue]').classList.contains('is-broken'),
+      abandon: document.querySelector('[data-player-line-probe="abandon"]').classList.contains('is-flagged'),
+    })""")
+
+
+def _over_long_run(row) -> int:
+    """One more than the row's longest clue number.
+
+    A black run that long cannot be placed whatever the clue says, so marking
+    that many consecutive cells breaks the line FOR CERTAIN — which is the
+    premise CARD-435's arms below need and the reason they do not guess at a
+    wrong mark that may or may not kill a 30-wide row.
+    """
+    runs = [len(run) for run in "".join("#" if v else "." for v in row).split(".") if run]
+    return max(runs) + 1
+
+
 @pytest.mark.browser
 class TestSolverLine_ProbesInTheView:
     """CARD-442 — the probe (CARD-268) inside the line view: a probe already
     open shows when the view opens, and one is started, kept and abandoned
-    from it with the probe bar's own transitions."""
+    from it with the probe bar's own transitions.
+
+    CARD-435 (owner ruling 2, 2026-11-14) added the quiet rule to this
+    surface: the clue a probe has broken and the Wrong guess button wait for
+    Hint here exactly as the board's clue boxes and Contradiction do, because
+    one probe cannot answer one way on the board and another in the view. The
+    asking itself is the BOARD's Hint — this view ships no Hint of its own
+    (buildLineView), so a reader asks by going back to the board, which is
+    what the first cell below drives.
+    """
 
     def test_an_open_probe_shows_and_keep_keeps_it(self, browser, live) -> None:
         context, page = _open_phone(browser, live, BIG)
@@ -363,7 +394,24 @@ class TestSolverLine_ProbesInTheView:
             page.locator(_cell(7)).tap()
             state = _probe_state(page)
             assert state["strip"] == [3, 7] and state["board"] == [3, 7] and state["mini"] == 2
+            # CARD-435 ruling 2 — the quiet rule on this surface. A black run
+            # one longer than the row's longest clue number kills row 1 for
+            # certain, and the view says nothing about it until Hint is
+            # pressed; that the red arrives on the very same marks is what
+            # makes the quiet arm's premise ("there was something to say")
+            # measured rather than assumed.
+            over = _over_long_run(BIG[0])
+            assert over + 8 <= len(BIG[0]), over   # the run clears cells 3 and 7
+            for k in range(len(BIG[0]) - over, len(BIG[0])):
+                page.locator(_cell(k)).tap()
+            assert _flags(page) == {"clue": False, "abandon": False}
+            page.locator('[data-player-line-action="close"]').tap()
+            page.locator('[data-player-action="hint"]').tap()   # the board's Hint: the ask
+            _open_line(page)
+            assert _title(page) == f"Row 1 of {len(BIG)}"       # it reopens on the row asked about
+            assert _flags(page) == {"clue": True, "abandon": True}
             page.locator('[data-player-line-probe="keep"]').tap()
+            assert _flags(page) == {"clue": False, "abandon": False}  # nothing stale
             state = _probe_state(page)
             assert state["buttons"] == {"open": True, "keep": False, "abandon": False}
             assert state["strip"] == [] and state["board"] == []

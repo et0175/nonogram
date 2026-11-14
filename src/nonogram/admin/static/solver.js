@@ -355,6 +355,18 @@
 //             CARD-427 — so every rung changes something a sighted player
 //             can see (review F-2 had measured rung 2's board and toolbar
 //             byte-identical to rung 1's). See showExplain below.
+//             WHILE A PROBE IS OPEN IT MEANS SOMETHING ELSE (CARD-435, owner
+//             ruling 1 of 2026-11-14): it reveals the clues the open probe
+//             has already broken — the flags described under PROBE — instead
+//             of revealing a cell, and says which lines those are. The ladder
+//             is not climbed, no stroke is recorded and hintCount does not
+//             move (a counter that counted a press which revealed nothing
+//             would corrupt the one number the player reads); like Check it
+//             resets the ladder to rung 1. The button's accessible name and
+//             its title say which of the two meanings it is on (HINT_NAME /
+//             HINT_PROBE_NAME, written in refresh). The consequence, named
+//             here rather than discovered: a reader inside a probe cannot
+//             get a cell revealed until they close it.
 //   check     [data-player-action="check"] (CARD-269) answers "is one of my
 //             marks wrong?": it highlights the ROW of the first wrong mark
 //             (the same .is-hint-line) and names it, or says there are none —
@@ -623,9 +635,25 @@
 //             probe's own presses. A drag's PREVIEW is not repainted:
 //             nothing is recorded yet, so those cells become members at the
 //             drag's own commit and not before.
+//   the flags CARD-410: .is-broken on the clue boxes of the lines the probe
+//             has broken (solver_state.js brokenLines) and .is-flagged on
+//             Contradiction while there is one, derived and rewritten with
+//             the markers so a close, an undo or a redraw leaves nothing
+//             stale. CARD-435 (owner ruling of 2026-11-14) made them WAIT TO
+//             BE ASKED: they are painted only after Hint has been pressed
+//             inside this probe, because the page answering "that guess is
+//             already dead" before the reader has worked it out removes the
+//             deduction they opened the probe to make. One flag — the reader
+//             having asked (probeAsked, cleared by setProbe and so by every
+//             path that moves the probe, a recorded change included) — gates
+//             BOTH surfaces: these clue boxes and, since CARD-442, the line
+//             view's own clue and Wrong guess button (ruling 2). The
+//             derivation is untouched: this gates the painting.
 //   the save  while a probe is open the stored entry is the entry as of the
 //             checkpoint (serializeState of checkpointHistory), so a save
 //             never holds a probe stroke and deserializeState is unchanged.
+//             probeAsked is not saved either, like the rung: a reload resumes
+//             with no probe at all, so there is nothing to have asked about.
 //   the look  a DASHED OUTLINE, never a ground tint (review cycle 1 F-001,
 //             owner decision 2026-10-30: the ground the probe shipped with
 //             was dE76 2.55 from CARD-267's crosshair tint, which for two
@@ -1087,7 +1115,11 @@ function start() {
       if (members.has(index)) element.dataset.probe = "true";
       else delete element.dataset.probe;
     });
-    paintBroken(probe);
+    // CARD-435: the markers follow the open probe; the FLAGS follow the probe
+    // the reader has asked about, which is the same value gated by one
+    // question (wireMarking's askedProbe). An unasked probe reaches
+    // paintBroken as null, exactly as no probe at all does.
+    paintBroken(marking.getAskedProbe());
   }
 
   // CARD-410 (owner finding 2026-11-07: "Flag broken lines during a probe.
@@ -1099,6 +1131,13 @@ function start() {
   // Derived and rewritten with paintProbe, so a close (Keep, Contradiction),
   // an undo or a redraw leaves nothing stale. No probe, no flag (and the
   // editor has no probe bar, so it never flags).
+  //
+  // CARD-435 (owner ruling of 2026-11-14) narrowed WHICH probe is handed in,
+  // and nothing else here: the flags wait for a Hint pressed inside the
+  // probe. Keeping the gate at the call site is what keeps this function's
+  // derive-and-rewrite discipline intact — there is still exactly one answer
+  // painted from one derivation on every commit and every redraw, and no
+  // state of its own that a close could fail to clear.
   function paintBroken(probe) {
     const broken = probe === null ? { rows: [], columns: [] }
       : brokenLines(history.board, checkpointHistory(history, probe).board, payload.rows, payload.columns);
@@ -1916,6 +1955,33 @@ function checkText(row) {
   return row === null ? "Check: no wrong marks." : `Check: a mark in row ${row + 1} is wrong.`;
 }
 
+//: CARD-435 (owner ruling 1, 2026-11-14): Hint's two names. Inside a probe it
+//: no longer reveals a cell — it reveals the clues the guess has already
+//: broken — so the button says which of the two it is doing, as its
+//: accessible name AND as its tooltip: a control whose meaning changes
+//: silently is worse than either meaning. The probing name STARTS with the
+//: visible label's own word, which keeps the accessible name a superset of
+//: the label (WCAG 2.5.3 label in name), so "click Hint" still reaches it by
+//: voice. Both literals live here because the plain name is also what the
+//: button goes back to when the probe closes, and one literal cannot be two.
+const HINT_NAME = "Hint";
+const HINT_PROBE_NAME = "Hint: show the clues this guess breaks";
+
+//: What a Hint pressed inside a probe SAYS (CARD-435). The red clues are the
+//: answer for a sighted reader; this is the same answer in words — for a
+//: screen reader, and for the press that finds nothing broken yet, which
+//: would otherwise change nothing anybody can see or hear and be exactly the
+//: dead press CARD-269's review F-2 refused (its standard for the ladder's
+//: own rungs is TestSolverHintLadder_EveryPressChangesSomethingSeen).
+//: 1-based, like every other sentence on this page.
+function probeBrokenText({ rows, columns }) {
+  const named = [...rows.map((index) => `row ${index + 1}`),
+    ...columns.map((index) => `column ${index + 1}`)];
+  return named.length === 0
+    ? "Hint: this guess breaks no row or column yet."
+    : `Hint: this guess breaks ${named.join(", ")}.`;
+}
+
 //: The SEEN half of every sentence above (CARD-269 review F-2, owner decision
 //: 2026-10-30). #puzzle-player-announce is 1 x 1 and clipped, so until this
 //: existed the ladder's whole output went only to a screen reader, and cycle 1
@@ -2363,6 +2429,56 @@ function wireMarking(container, player) {
   // and never a cell state, never recorded and never saved, so a load always
   // starts with no probe open (rule 9).
   let probe = null;
+  // CARD-435 (owner ruling of 2026-11-14): has the reader ASKED about this
+  // probe? CARD-410 flagged the broken clues automatically; the owner
+  // withdrew that — a probe is a guess the reader is testing, and the page
+  // answering "that guess is already dead" before they have worked it out
+  // removes the deduction they opened the probe to make. So the answer waits
+  // for a question, and this flag is the question having been asked. UI state
+  // of the rung's and Region's kind: never a cell state, never recorded,
+  // never saved, so a reload resumes with the probe gone (rule 9) and could
+  // not carry it anyway.
+  //
+  // It is cleared by setProbe BELOW and by nothing else, which is what makes
+  // it impossible to leave behind: every path that moves the probe — open,
+  // Keep, Contradiction, a confirmed reset, and the "change" event every
+  // recorded stroke, undo and redo hands it — assigns through that one
+  // function, and there is no other way to write `probe`. A recorded change
+  // therefore un-asks the question too: the flags answer the board the reader
+  // asked about, not every board after it (the owner declined "ask once, then
+  // stay live for that probe"). A redraw is not an answer and not a change,
+  // so it repaints what was asked for, exactly as refresh() paints the hint
+  // ladder's line back onto a redrawn table.
+  let probeAsked = false;
+  // The ONE place `probe` is written (CARD-435). Every assignment is also the
+  // moment the asked/not-asked state is right to forget.
+  function setProbe(next) {
+    probe = next;
+    probeAsked = false;
+  }
+  // The probe whose broken lines may be PAINTED: the open one once it has
+  // been asked about, and null until then. Both surfaces read the answer
+  // through this one function — the board's clue boxes and Contradiction
+  // (paintBroken, through marking.getAskedProbe) and the line view's clue and
+  // Wrong guess (brokenNow) — so one probe cannot be quiet on one and loud on
+  // the other (owner ruling 2). "Not asked" reaches paintBroken as the same
+  // null "no probe" always did, which is why there is no second code path for
+  // the editor to fall down: it has no probe bar, so its probe is always null
+  // and it still never flags.
+  function askedProbe() {
+    return probeAsked ? probe : null;
+  }
+  // The probe's broken lines as this closure's two readers need them: the
+  // line view's clue flag and the sentence a Hint press inside a probe says.
+  // solver_state.js's brokenLines is unchanged and still derives the whole
+  // answer on every call (CARD-435 gates the painting, not the deriving).
+  function brokenNow() {
+    const which = askedProbe();
+    if (which === null) return { rows: [], columns: [] };
+    const history = player.getHistory();
+    return brokenLines(history.board, checkpointHistory(history, which).board,
+      player.clues.rows, player.clues.columns);
+  }
   // The probe's controls sit in a group of their own on the toolbar's last
   // flex line (admin.css carries the measurements that put them there rather
   // than inside .player-tools). They are read from that bar by their own
@@ -2833,8 +2949,19 @@ function wireMarking(container, player) {
     // Optional since CARD-246: the editor's page has no Hint button (see
     // EDIT MODE). `?.` rather than a mode flag of its own — this function
     // reads the DOM it was given and nothing about why.
+    // CARD-435: inside a probe Hint answers "which clues does this guess
+    // break", a question that always has an answer (sometimes "none yet"), so
+    // "nothing to reveal" is not a reason to disable it there — Check's rule 9
+    // exactly, for the same reason. The lock and the gesture still disable it.
     actions.hint?.setAttribute("aria-disabled", String(locked || gesture !== null
-      || (player.nextHint() === null && !player.speaks())));
+      || (probe === null && player.nextHint() === null && !player.speaks())));
+    // CARD-435 ruling 1: and it says which of its two meanings it is on, as
+    // the accessible name and as the tooltip. Both attributes are written
+    // from one ternary on every refresh — a probe opening, closing or being
+    // reset all reach this line — rather than set on one path and removed on
+    // another.
+    actions.hint?.setAttribute("title", probe === null ? HINT_NAME : HINT_PROBE_NAME);
+    actions.hint?.setAttribute("aria-label", probe === null ? HINT_NAME : HINT_PROBE_NAME);
     // CARD-269 rule 9: Check is disabled by the LOCK alone. It reads the
     // board and never changes it, so "nothing to reveal" (which disables
     // Hint) is not a reason to disable it — on a board with no undecided
@@ -2881,7 +3008,7 @@ function wireMarking(container, player) {
     // to empty, staying open, owning the next mark and refusing a redone
     // pre-probe stroke (rule 6, all of it) all fall out of membership rather
     // than out of a clamp this line would have to get right.
-    probe = nextProbe(probe, next, player.solves(next.board) ? "keep" : "change");
+    setProbe(nextProbe(probe, next, player.solves(next.board) ? "keep" : "change"));
     // And the visible answer line goes with the highlight: a sentence about
     // the board as it was is worse than no sentence (CARD-269 review F-2).
     // Cleared BEFORE player.commit, so rung 3's own reveal — which arrives
@@ -3270,14 +3397,14 @@ function wireMarking(container, player) {
   // each. Each answers whether it acted; the caller moves focus.
   function openProbe() {
     if (gesture || probe !== null || player.locked()) return false;
-    probe = nextProbe(probe, player.getHistory(), "open");
+    setProbe(nextProbe(probe, player.getHistory(), "open"));
     player.probed();
     refresh();
     return true;
   }
   function keepProbe() {
     if (gesture || probe === null) return false;
-    probe = nextProbe(probe, player.getHistory(), "keep");
+    setProbe(nextProbe(probe, player.getHistory(), "keep"));
     player.probed();
     refresh();
     return true;
@@ -3287,7 +3414,7 @@ function wireMarking(container, player) {
     // CARD-412: the verdict is read from the probe BEFORE the abandon undoes it.
     const verdict = probeVerdict(player.getHistory(), probe);
     const back = abandonProbe(player.getHistory(), probe);
-    probe = nextProbe(probe, back, "abandon");
+    setProbe(nextProbe(probe, back, "abandon"));
     commit(back);
     if (verdict !== null && !player.locked()) openOffer(verdict);
     return true;
@@ -3386,6 +3513,33 @@ function wireMarking(container, player) {
   // which is also what puts the ladder back on rung 1.
   actions.hint?.addEventListener("click", () => {
     if (gesture || player.locked()) return;
+    // CARD-435 (owner ruling 1, 2026-11-14): while a probe is open this
+    // button MEANS something else. It reveals the clues the guess has already
+    // broken — the answer CARD-410 used to volunteer — instead of revealing a
+    // cell, which the owner's three readings had as option A and which the
+    // button's own name and title say (refresh below). The consequence is
+    // named rather than discovered: a reader inside a probe cannot get a cell
+    // revealed at all until they close it.
+    //
+    // It is CHECK's kind of press, and is written as one: it records nothing,
+    // reveals nothing, moves no counter (hintCount counts `hint: true`
+    // strokes and this makes none, so the one number the player reads cannot
+    // drift), and it RESETS the ladder, because it has changed what the
+    // reader is looking at. The ladder's own rule is that rungs 1-3 describe
+    // ONE situation (CARD-269 rule 5); a rung climbed across this press
+    // would be answering a question the reader had stopped asking, and
+    // leaving `.is-hint-line` on the board beside the red clues would put two
+    // highlight families on one page saying different things.
+    if (probe !== null) {
+      lastClick = null;       // a press is an input (see the rungs below)
+      rung = nextRung(rung, "change");
+      setLadderLine(null);
+      probeAsked = true;      // and nothing else sets it (see setProbe)
+      player.probed();        // the markers and the flags, repainted together
+      refresh();              // the line view's own pair follows (ruling 2)
+      say(probeBrokenText(brokenNow()));
+      return;
+    }
     const hint = player.nextHint();
     if (hint === null) {
       // Admin: no undecided cell at all, nothing to say (the button is
@@ -3460,7 +3614,7 @@ function wireMarking(container, player) {
     // hypothesis was about is gone, and a reset stroke left INSIDE the probe
     // would make Contradiction un-reset the board — which is the one thing a
     // player who has just confirmed a reset cannot have asked for.
-    probe = nextProbe(probe, player.getHistory(), "keep");
+    setProbe(nextProbe(probe, player.getHistory(), "keep"));
     commit(record(player.getHistory(), resetStroke(player.getHistory().board)));
     player.forget(); // a confirmed reset clears the save (see SAVE)
   });
@@ -3621,10 +3775,14 @@ function wireMarking(container, player) {
     // CARD-442: the open probe, as the board shows it — its members dashed
     // (probeCells), the focused line's clue flagged when the probe broke it
     // (brokenLines), the offered cell outlined after a Wrong guess.
+    // CARD-435 (owner ruling 2, 2026-11-14): the clue flag and the Wrong
+    // guess flag wait for the same Hint the board's pair waits for —
+    // brokenNow() is the gated derivation both read, so one probe cannot be
+    // quiet on the board and loud here. The members are NOT gated: the
+    // dashed marks are what the reader made, not an answer about them.
     const history = player.getHistory();
     const members = new Set(probeCells(history, probe).map(([r, c]) => `${r},${c}`));
-    const broken = probe === null ? { rows: [], columns: [] }
-      : brokenLines(history.board, checkpointHistory(history, probe).board, player.clues.rows, player.clues.columns);
+    const broken = brokenNow();
     const anyBroken = broken.rows.length + broken.columns.length > 0;
     lineParts.clue.classList.toggle("is-broken",
       (axis === "row" ? broken.rows : broken.columns).includes(index));
@@ -3909,7 +4067,11 @@ function wireMarking(container, player) {
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
   // Check and the explain line.
   if (probeBar !== null) probeBar.hidden = false;
-  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe, setFloor, openAt,
+  // getAskedProbe (CARD-435) is getProbe GATED by the reader having asked:
+  // the markers follow getProbe as they always have, and only the flags
+  // follow this one.
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe,
+    getAskedProbe: askedProbe, setFloor, openAt,
     offerRedrawn, settleRegion, syncRegionToFit };
 }
 

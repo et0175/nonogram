@@ -1671,7 +1671,12 @@ MUTANTS = [
     ("admin-save-is-stamped-public", "admin", [("solver_state.js", _STAMP, "  return PUBLIC_GRID;")]),
     ("banner-decided-by-filled-count", "sweep", [("solver.js", _NOW, _NOW.replace("isClueSolved(history.board, payload.rows, payload.columns)", _COUNT.replace("candidate", "history.board")))]),
     ("probe-auto-commit-decided-by-filled-count", "sweep", [("solver.js", _SOLVES, _SOLVES.replace("isClueSolved(candidate, payload.rows, payload.columns)", _COUNT))]),
-    ("hint-disabled-again-where-no-line-decides", "stall", [("solver.js", "(player.nextHint() === null && !player.speaks())", "player.nextHint() === null")]),
+    # CARD-435 re-anchored this mutant's `old`: the disabled condition now
+    # also excuses an open probe (there Hint answers "which clues does this
+    # guess break", a question that always has an answer), so the edit plants
+    # the same defect — public Hint disabled where no line decides — against
+    # the expression as it now reads.
+    ("hint-disabled-again-where-no-line-decides", "stall", [("solver.js", "(probe === null && player.nextHint() === null && !player.speaks())", "player.nextHint() === null")]),
     ("hint-reveals-a-cell-where-no-line-decides", "stall", [("solver.js", "      say(PUBLIC_EXHAUSTED);\n      return;", "      commit(record(player.getHistory(), hintStroke(0, 0, \"filled\")), null);\n      return;")]),
     ("hint-is-silent-where-no-line-decides", "stall", [("solver.js", "      say(PUBLIC_EXHAUSTED);\n      return;", "      return;")]),
     ("hint-counts-where-no-line-decides", "stall", [("solver.js", "      say(PUBLIC_EXHAUSTED);\n      return;", "      say(PUBLIC_EXHAUSTED);\n      commit(record(player.getHistory(), hintStroke(0, 0, \"filled\")), null);\n      return;")]),
