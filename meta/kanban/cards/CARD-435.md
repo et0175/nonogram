@@ -1,26 +1,26 @@
 # CARD-435: A probe keeps quiet until it is asked — the red clues and the flagged Contradiction wait for Hint
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
-**Estimate:** 2c (0.5d)
+**Estimate:** 3c (0.5d) <!-- widened from 2c by the owner's ruling of 2026-11-14: two surfaces, not one. -->
 <!-- Basis: paintBroken already derives the whole answer on every commit; the change is gating when it is PAINTED, plus a new trigger on Hint. The cost is the trigger's semantics (see the open point) and keeping the derive-and-rewrite discipline that makes a close or an undo leave nothing stale. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/435-probe-quiet-until-asked
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-435
 **Source:** owner's play-test doc "Гра - тест", 2026-11-12, item 4: *"I think we'll remove the contradiction-probing red 'contradiction hint', show it only if we press 'Hint' in the contradiction-probe mode"*. Ruled the same day: **"Both, until Hint"** — no red clues and no Contradiction highlight while probing; pressing Hint reveals both.
 **Idea:** —
 **Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_probe.py
+**Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_probe.py, tests/test_puzzle_solver_line.py
 <!-- Derived 2026-11-12. paintBroken and paintProbe are in solver.js; brokenLines is in solver_state.js and is NOT changed by this card (the derivation stays, only its painting is gated). tests/test_puzzle_solver_probe.py::TestSolverProbe_BrokenLinesAreFlagged owns the subject. The Hint button's own behaviour lives with the hint family — tests/test_puzzle_solver_hint.py is in scope the moment the trigger is decided. Re-derive with scripts/impact_set.py --gate. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-14T03:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -62,3 +62,6 @@ The ruling says the reveal is triggered by **Hint, pressed in probe mode**. Hint
 **Net test count: 0 added** — `TestSolverProbe_BrokenLinesAreFlagged` and the module's close/undo cells already own this subject.
 
 ## Worktree notes
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`. Start gate `decision: gate`; fork point interactive/target tip `6151e876`. Pin, drift and state-table gates not applicable; no dependencies.
+- **[Owner ruling 1, 2026-11-14] HINT REVEALS THE BROKEN LINES, NOT A CELL.** The card's `## The open point the implementation must have ruled before it starts` named three readings. The owner chose **A, the literal one**: while a probe is open, Hint changes meaning — it tints the clues the guess has already killed and flags Contradiction, **instead of** revealing a cell. They declined B (Hint keeps one meaning everywhere and additionally paints) and C (ask once, then stay live for that probe). **The consequence this creates, named here so it is handled and not discovered:** a reader inside a probe can no longer get a cell revealed at all until they close it. Hint's accessible name and title must say what it does in probe mode, and `hintCount` must not move for a reveal that revealed no cell — a hint ladder that counts a non-reveal would corrupt the one counter the player reads.
+- **[Owner ruling 2, 2026-11-14] BOTH SURFACES, SAME RULE.** The card predates **CARD-442**, which gave the line view its own probe — `solver.js` now toggles `is-broken` on `lineParts.clue` and `is-flagged` on `lineParts.probe.abandon`, a second pair entirely separate from the board's `paintBroken`. The owner ruled the quiet rule applies to **both**, so the same probe cannot behave one way on the board and another in the line view. This **widens the card**: `Touches:` gains `tests/test_puzzle_solver_line.py` (whose `TestSolverLine_ProbesInTheView` is CARD-442's home for this) and the estimate moves 2c → 3c. They declined "the board only" (which the card as written would have delivered) and "line view only".
