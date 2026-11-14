@@ -1,6 +1,6 @@
 # CARD-444: How to solve looks and explains like the player — its buttons, brushes, tap cycle and probe
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -20,9 +20,9 @@
 **Touches:** player/how-to-solve.html, player/how-to-solve.js, player/player.css, tests/test_how_to_solve_page.py
 **Review score:** — (no review cycle; owner request, 2026-11-14)
 **Started:** 2026-11-14T09:10Z
-**Closed:** —
+**Closed:** 2026-11-14T10:00Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 8325cb54
 **Blocked by:** —
 
 ## Why — the audit (live site, 390x844 and 1280x900)
