@@ -1740,10 +1740,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    reveals a cell at all — it reveals the clues the guess has already broken —
    and that press was the only way a hint stroke could be recorded while a
    probe was open. The rule is left standing deliberately rather than retired
-   here: a declaration in this file is held by tests/test_player_base_css.py's
-   FROZEN computed-style census and by the served tree's byte-identity check,
-   so taking one out is a card of its own, where this paragraph is only a
-   comment and moves neither. What the paragraph used to cite as the test of
+   here: the declaration is held by tests/test_admin_design_tokens.py's
+   test_the_probe_tint_comes_from_tokens, a FROZEN ORDERED SELECTOR census, so
+   taking one out is a card of its own, where this paragraph is only a comment
+   and moves nothing. MEASURED, not reasoned (review cycle 2, F-101, and
+   re-run by the orchestrator): deleting the rule below gives 1 failed / 65
+   passed, and the one red is that selector census. The two guards an earlier
+   draft of this paragraph named — test_player_base_css.py's FROZEN
+   computed-style census and the served tree's byte-identity check — stay
+   GREEN, structurally and not by luck: the computed-style census reads
+   REACHABLE states, which this rule by definition is not, and the byte check
+   compares the served copy against this same repo source, so both sides move
+   together. Naming them was this project's own named defect class — a
+   citation that reads as mechanically held where the instrument does not
+   reach the subject — in the very paragraph written to fix an instance of it. What the paragraph used to cite as the test of
    that cell, test_a_hint_revealed_inside_a_probe_belongs_to_it, was RETIRED
    by the same card and exists nowhere; the claim is now the ABSENCE, and it
    is asserted by the fourth claim of
