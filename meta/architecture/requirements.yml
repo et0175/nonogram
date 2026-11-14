@@ -5138,7 +5138,13 @@ functional:
         kind: boundary
         test: TestSolverHint_CanSolveAndThenLocks
       - id: AC-332
-        given: an unsolved board with no undecided cell (every cell marked, some wrong)
+        # given NARROWED 2026-11-14, by the same ruling and by analogy rather than
+        # by a separate owner answer (recorded so the extension is visible): inside
+        # an open probe "nothing to reveal" no longer disables Hint, because there
+        # the question it answers always has an answer. The owner ruled on AC-334;
+        # this AC has the identical shape and would otherwise be the next one found
+        # untrue in a state its `given` admits.
+        given: an unsolved board with no undecided cell (every cell marked, some wrong) and no contradiction probe open
         when: the controls are read and Hint is pressed
         then: Hint reports aria-disabled="true" and no cell changes
         kind: negative
@@ -5177,7 +5183,13 @@ functional:
         kind: happy
         test: TestSolverHint_PlacesTheButtonAndTheCounter
       - id: AC-334
-        given: the player page
+        # given NARROWED 2026-11-14 by the owner's ruling on CARD-435: inside an
+        # open contradiction probe Hint changes meaning (it reveals the clues the
+        # guess has broken, not a cell) and carries the probing accessible name,
+        # so the `then` below is untrue in a state the bare "the player page"
+        # admitted. The behaviour inside a probe is CARD-435's own cell,
+        # TestSolverProbe_MarksCarryTheTint::test_a_hint_pressed_inside_a_probe_reveals_no_cell.
+        given: the player page with no contradiction probe open
         when: Hint is reached by Tab and operated by Enter and by Space, three times in all
         then: each press reveals one cell, the control's accessible name is "Hint", and the three hints issue no network request
         kind: negative
