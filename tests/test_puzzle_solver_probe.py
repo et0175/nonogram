@@ -783,6 +783,15 @@ def _hint_button(page):
 _HINT_PROBING = "Hint: show the clues this guess breaks"
 _HINT_PLAIN = "Hint"
 
+#: And the RELATION between them, not just the two literals (review cycle 1,
+#: F-006): the probing name must START with the visible label's own word, which
+#: is what keeps the accessible name a superset of the label (WCAG 2.5.3, label
+#: in name) so "click Hint" still reaches the button by voice. Held here rather
+#: than in a cell of its own, so a later card that renames the probing name to
+#: one not containing "Hint" cannot update the literal and silently drop the
+#: property — the two literals above are exactly where that edit is made.
+assert _HINT_PROBING.startswith(_HINT_PLAIN), (_HINT_PROBING, _HINT_PLAIN)
+
 
 def _settle(page):
     """Wait for every running animation to finish before reading a colour.
@@ -1006,19 +1015,52 @@ class TestSolverProbe_MarksCarryTheTint:
         unreachable and the clause it held is vacuous.
 
         What is held here instead is the withdrawal — the thing a later card
-        could undo by accident, and the counter the owner named. Four claims:
+        could undo by accident, and the counter the owner named. Five claims:
         the button SAYS what it does while a probe is open (a meaning that
         changes silently is worse than either meaning); three presses reveal
         no cell, record no stroke and leave the probe's own marks exactly as
         the player made them; ``hintCount`` does not move for a press that
-        revealed nothing; and the press is not a dead press — it says what it
-        found. The flags it paints are AC-2's claim, measured on the clue
-        boxes by ``TestSolverProbe_BrokenLinesAreFlagged``.
+        revealed nothing; the press is not a dead press — it says what it
+        found, in the EXACT words, because both halves of that sentence open
+        alike; and it is Check's kind of press, so it RESETS the ladder —
+        rung 1 again, and no line left highlighted beside the red clues
+        (review cycle 1, F-001 and F-002, which measured that neither the
+        sentence nor the reset could be told from its absence). The flags it
+        paints are AC-2's claim, measured on the clue boxes by
+        ``TestSolverProbe_BrokenLinesAreFlagged``.
         """
         _open(browser_page, live, live.store(GRID))
         before = _states(browser_page)
         hints = browser_page.locator("[data-player-hints]")
+        explain = browser_page.locator("#puzzle-player-explain")
+        lined = browser_page.locator(".is-hint-line")
         assert hints.inner_text() == "0"
+
+        # 5 — the press is CHECK's kind, so it RESETS the ladder: rung 1 again
+        # and no line left highlighted (review cycle 1, F-002, which measured
+        # that nothing in the suite could tell the reset from its absence).
+        # Driven through the state the reset exists for: an ordinary press
+        # lights one line and climbs to rung 2, and OPENING a probe takes
+        # neither away — it records nothing — so without the reset
+        # `.is-hint-line` would stay lit on the board beside the red clues,
+        # two highlight families saying different things, and the next press
+        # would answer a question the reader had stopped asking.
+        _hint_button(browser_page).click()      # rung 1, with no probe open
+        rung1 = explain.inner_text()
+        assert rung1.startswith("Hint: look at the highlighted"), rung1
+        assert lined.count() > 0, "rung 1 highlighted no line, so the premise is gone"
+        _probe(browser_page)
+        assert lined.count() > 0, "the premise: opening a probe leaves the line lit"
+        _hint_button(browser_page).click()      # the probe's press
+        assert lined.count() == 0, "the press left the ladder's line on the board"
+        # Keep closes the probe and records NOTHING, so the rung the press
+        # left is the rung the next press announces from — which is how the
+        # reset is observable at all (every other way out of a probe commits,
+        # and a commit resets the ladder by itself).
+        _keep(browser_page)
+        _hint_button(browser_page).click()
+        assert explain.inner_text() == rung1, "the press did not put the ladder back on rung 1"
+
         _probe(browser_page)
         _cell(browser_page, 8, 8).click()       # the one mark the player made
         marked = _states(browser_page)
@@ -1038,9 +1080,14 @@ class TestSolverProbe_MarksCarryTheTint:
         assert _members(browser_page) == [(8, 8)], _members(browser_page)
         # 3 — the counter the player reads did not move (owner ruling 1).
         assert hints.inner_text() == "0", "a press that revealed no cell counted as a hint"
-        # 4 — and it was not a dead press: it said what it found.
-        assert "this guess breaks" in browser_page.locator(
-            "#puzzle-player-explain").inner_text()
+        # 4 — and it was not a dead press: it said what it found, which with
+        # one mark that kills nothing is "nothing yet". The EXACT sentence
+        # (review cycle 1, F-001): "this guess breaks" is the opening of BOTH
+        # branches, so a substring cannot tell this answer from its opposite,
+        # and this sentence is the whole answer for a screen-reader player.
+        # The other branch is asserted in the same words by
+        # TestSolverProbe_BrokenLinesAreFlagged, over a row the probe killed.
+        assert explain.inner_text() == "Hint: this guess breaks no row or column yet."
 
         _contradiction(browser_page)
         assert _members(browser_page) == []
@@ -2164,6 +2211,14 @@ class TestSolverProbe_BrokenLinesAreFlagged:
         _hint_button(page).click()          # AC-2: asking reveals it
         seen = page.evaluate(_BROKEN)
         assert seen["rows"] == [broke, broke] and seen["flagged"], seen  # both twins; `before` is not the probe's
+        # And it NAMES the line, in the one channel a screen-reader player
+        # has: the exact sentence, 1-based, read before the next pointer-down
+        # wipes the box (review cycle 1, F-001 — both branches of the sentence
+        # open with "this guess breaks", so a substring cannot tell this
+        # answer from "no row or column yet", which is the branch
+        # test_a_hint_pressed_inside_a_probe_reveals_no_cell asserts).
+        assert page.locator("#puzzle-player-explain").inner_text() == (
+            f"Hint: this guess breaks row {broke + 1}."), seen
 
         # AC-3: the red against the grounds a clue box can have, and the ring.
         page.mouse.move(2, 2)

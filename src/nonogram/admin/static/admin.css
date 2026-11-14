@@ -1724,10 +1724,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    the three rules below take the background channel back down to six.
 
    The outline's one existing claimant is .player-cell.is-hinted (CARD-183 /
-   CARD-269), and it is SOLID where this is DASHED. The two cells can be the
-   same cell — rung 3's reveal records its stroke through the same commit, so
-   a cell revealed inside a probe is a member (tested:
-   test_a_hint_revealed_inside_a_probe_belongs_to_it) — and the two rules tie
+   CARD-269), and it is SOLID where this is DASHED. The two cells COULD be the
+   same cell — rung 3's reveal recorded its stroke through the same commit, so
+   a cell revealed inside a probe was a member — and the two rules tie
    on specificity (one class + one attribute against two classes, 0-2-0 both),
    so file order would hand the whole shorthand to the probe and take the
    hint's accent ring away. The third rule below is that cell: it keeps the
@@ -1735,6 +1734,23 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    once, and it is the last of the three so that a filled hinted probe cell
    gets the accent too (which is what a hinted filled cell already looks
    like).
+
+   SINCE CARD-435 (owner ruling 1, 2026-11-14) THAT CELL CANNOT HAPPEN, so the
+   third rule below is UNREACHABLE: inside an open probe Hint no longer
+   reveals a cell at all — it reveals the clues the guess has already broken —
+   and that press was the only way a hint stroke could be recorded while a
+   probe was open. The rule is left standing deliberately rather than retired
+   here: a declaration in this file is held by tests/test_player_base_css.py's
+   FROZEN computed-style census and by the served tree's byte-identity check,
+   so taking one out is a card of its own, where this paragraph is only a
+   comment and moves neither. What the paragraph used to cite as the test of
+   that cell, test_a_hint_revealed_inside_a_probe_belongs_to_it, was RETIRED
+   by the same card and exists nowhere; the claim is now the ABSENCE, and it
+   is asserted by the fourth claim of
+   tests/test_puzzle_solver_probe.py
+   TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround
+   test_the_ring_is_apart_from_the_hints_outline_by_SHAPE (no hinted cell
+   while a probe is open, the member still dashed).
 
    Nothing else on the cell is touched, and that is the point of the channel:
    .is-crossed and .is-hint-line keep their grounds, so a probed cell under
