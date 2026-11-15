@@ -766,6 +766,33 @@ def _click_times(page, row, col, times):
         _cell(page, row, col).click()
 
 
+def _hint_button(page):
+    """The Hint button, by its DATA ATTRIBUTE rather than by its accessible name.
+
+    CARD-435 (owner ruling 1, 2026-11-14): inside a probe Hint changes
+    meaning, and says so — its accessible name and its title are
+    :data:`_HINT_PROBING` there — so ``get_by_role(name="Hint", exact=True)``
+    finds nothing exactly when these cells need to press it. The name itself
+    is asserted where it is the claim
+    (``test_a_hint_pressed_inside_a_probe_reveals_no_cell``).
+    """
+    return page.locator('[data-player-action="hint"]')
+
+
+#: What Hint calls itself while a probe is open, and while none is (CARD-435).
+_HINT_PROBING = "Hint: show the clues this guess breaks"
+_HINT_PLAIN = "Hint"
+
+#: And the RELATION between them, not just the two literals (review cycle 1,
+#: F-006): the probing name must START with the visible label's own word, which
+#: is what keeps the accessible name a superset of the label (WCAG 2.5.3, label
+#: in name) so "click Hint" still reaches the button by voice. Held here rather
+#: than in a cell of its own, so a later card that renames the probing name to
+#: one not containing "Hint" cannot update the literal and silently drop the
+#: property — the two literals above are exactly where that edit is made.
+assert _HINT_PROBING.startswith(_HINT_PLAIN), (_HINT_PROBING, _HINT_PLAIN)
+
+
 def _settle(page):
     """Wait for every running animation to finish before reading a colour.
 
@@ -811,13 +838,14 @@ class TestSolverProbe_MarksCarryTheTint:
        competing class is put on by script and only computed styles are read;
        arm 3's crosshair is driven by a real pointer, because there it is the
        pointer that decides;
-    5. rule 3 names HINT STROKES explicitly (review cycle 1 F-005): the hint
-       ladder's rung 3 reveal, driven to it by three real presses inside an
-       open probe, makes the revealed cell a member, and Contradiction takes
-       it back. That is the one stroke kind with a flag of its own and the one
-       whose cell the player did not choose, and the one cell on which the
-       hint's own accent outline and the probe's ring are the same channel —
-       so the look is read there too.
+    5. rule 3 named HINT STROKES explicitly (review cycle 1 F-005), and
+       CARD-435's owner ruling 1 (2026-11-14) withdrew the only way one could
+       be made inside a probe: Hint no longer reveals a cell while a probe is
+       open, so a hint stroke cannot be recorded there at all and the clause
+       is vacuous. The arm now holds the WITHDRAWAL — three presses inside a
+       probe reveal no cell, record no stroke and move no counter — which is
+       what a later card could undo by accident; the look that was read on the
+       cell which was both hinted and a member is gone with the state.
     """
 
     def test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not(
@@ -971,61 +999,103 @@ class TestSolverProbe_MarksCarryTheTint:
         assert look["lined_blank"]["background"] != look["probe_blank"]["background"]
         assert look["lined_only"]["outline"][0] == "none", look["lined_only"]
 
-    def test_a_hint_revealed_inside_a_probe_belongs_to_it(
+    def test_a_hint_pressed_inside_a_probe_reveals_no_cell(
         self, browser_page, live
     ) -> None:
-        """Rule 3's last clause, which had no test (review cycle 1 F-005).
+        """CARD-435, owner ruling 1 of 2026-11-14 — the ruling that INVERTED
+        this cell.
 
-        The rule names hint strokes among the marks a probe owns. Rung 3 of
-        the ladder (CARD-269) is the one stroke kind with a flag of its own
-        (``hint: true``) and the one whose cell the PLAYER did not choose, so
-        "the player touched it under the hypothesis" — the card's stated
-        reason for membership — is weakest exactly there. It works by reading
-        (the reveal records through the same ``commit`` every other change
-        goes through), and this is the reading made mechanical: a later card
-        that routed the reveal around ``commit`` would red here instead of
-        silently leaving a revealed cell behind on an abandoned board.
+        It was ``test_a_hint_revealed_inside_a_probe_belongs_to_it``: rule 3's
+        last clause (review cycle 1 F-005), the ladder's rung-3 reveal driven
+        by three real presses inside an open probe, a member beside a mark the
+        player made, wearing the hint's accent colour with the probe's dash.
+        The owner ruled that inside a probe Hint reveals the clues the guess
+        has already broken **instead of** revealing a cell, so no hint stroke
+        can be recorded while a probe is open: the state that cell measured is
+        unreachable and the clause it held is vacuous.
 
-        Three claims: the reveal happened and is a member beside a mark the
-        player made; the look on that cell carries BOTH signals (the hint's
-        accent colour, the probe's dash — the one cell in the player where the
-        two share a channel), read against a probe member that is not hinted
-        so that neither colour is spelled here; and Contradiction takes the
-        revealed cell back with the rest, hint ring and all.
+        What is held here instead is the withdrawal — the thing a later card
+        could undo by accident, and the counter the owner named. Five claims:
+        the button SAYS what it does while a probe is open (a meaning that
+        changes silently is worse than either meaning); three presses reveal
+        no cell, record no stroke and leave the probe's own marks exactly as
+        the player made them; ``hintCount`` does not move for a press that
+        revealed nothing; the press is not a dead press — it says what it
+        found, in the EXACT words, because both halves of that sentence open
+        alike; and it is Check's kind of press, so it RESETS the ladder —
+        rung 1 again, and no line left highlighted beside the red clues
+        (review cycle 1, F-001 and F-002, which measured that neither the
+        sentence nor the reset could be told from its absence). The flags it
+        paints are AC-2's claim, measured on the clue boxes by
+        ``TestSolverProbe_BrokenLinesAreFlagged``.
         """
         _open(browser_page, live, live.store(GRID))
         before = _states(browser_page)
+        hints = browser_page.locator("[data-player-hints]")
+        explain = browser_page.locator("#puzzle-player-explain")
+        lined = browser_page.locator(".is-hint-line")
+        assert hints.inner_text() == "0"
+
+        # 5 — the press is CHECK's kind, so it RESETS the ladder: rung 1 again
+        # and no line left highlighted (review cycle 1, F-002, which measured
+        # that nothing in the suite could tell the reset from its absence).
+        # Driven through the state the reset exists for: an ordinary press
+        # lights one line and climbs to rung 2, and OPENING a probe takes
+        # neither away — it records nothing — so without the reset
+        # `.is-hint-line` would stay lit on the board beside the red clues,
+        # two highlight families saying different things, and the next press
+        # would answer a question the reader had stopped asking.
+        _hint_button(browser_page).click()      # rung 1, with no probe open
+        rung1 = explain.inner_text()
+        assert rung1.startswith("Hint: look at the highlighted"), rung1
+        assert lined.count() > 0, "rung 1 highlighted no line, so the premise is gone"
         _probe(browser_page)
-        _cell(browser_page, 8, 8).click()       # a member the ladder did not pick
-        for _ in range(3):                      # rung 1 points, 2 explains, 3 reveals
-            _button(browser_page, "Hint").click()
-        _settle(browser_page)                   # the hinted ring FADES in
+        assert lined.count() > 0, "the premise: opening a probe leaves the line lit"
+        _hint_button(browser_page).click()      # the probe's press
+        assert lined.count() == 0, "the press left the ladder's line on the board"
+        # Keep closes the probe and records NOTHING, so the rung the press
+        # left is the rung the next press announces from — which is how the
+        # reset is observable at all (every other way out of a probe commits,
+        # and a commit resets the ladder by itself).
+        _keep(browser_page)
+        _hint_button(browser_page).click()
+        assert explain.inner_text() == rung1, "the press did not put the ladder back on rung 1"
 
-        revealed = browser_page.evaluate(
-            "[...document.querySelectorAll('td.player-cell.is-hinted')]"
-            ".map((td) => [+td.dataset.row, +td.dataset.col])"
-        )
-        assert len(revealed) == 1, revealed
-        at = (revealed[0][0], revealed[0][1])
-        assert _members(browser_page) == sorted([at, (8, 8)]), _members(browser_page)
+        _probe(browser_page)
+        _cell(browser_page, 8, 8).click()       # the one mark the player made
+        marked = _states(browser_page)
 
-        look = _look(browser_page, {"revealed": list(at), "marked": [8, 8]})
-        assert look["revealed"]["hinted"] and look["revealed"]["probe"] is not None, look
-        assert not look["marked"]["hinted"], look
-        # The probe's DASH on both — one channel, so the reveal did not take
-        # the membership marker away...
-        assert [look[name]["outline"][0] for name in ("revealed", "marked")] == [
-            "dashed", "dashed",
-        ], look
-        assert look["revealed"]["outline"][1] == look["marked"]["outline"][1], look
-        # ...and the hint's own COLOUR on the revealed one, which is the third
-        # of the three rules: the accent ring the hint is, dashed.
-        assert look["revealed"]["outline"][2] != look["marked"]["outline"][2], look
+        # 1 — the button says what it does here, as the name AND the tooltip.
+        assert _hint_button(browser_page).get_attribute("title") == _HINT_PROBING
+        assert browser_page.get_by_role(
+            "button", name=_HINT_PROBING, exact=True).count() == 1
+
+        for _ in range(3):                      # the three presses that were the ladder
+            _hint_button(browser_page).click()
+        _settle(browser_page)                   # the hinted ring used to FADE in
+
+        # 2 — no cell revealed, no stroke recorded, the member set untouched.
+        assert browser_page.locator("td.player-cell.is-hinted").count() == 0
+        assert _states(browser_page) == marked
+        assert _members(browser_page) == [(8, 8)], _members(browser_page)
+        # 3 — the counter the player reads did not move (owner ruling 1).
+        assert hints.inner_text() == "0", "a press that revealed no cell counted as a hint"
+        # 4 — and it was not a dead press: it said what it found, which with
+        # one mark that kills nothing is "nothing yet". The EXACT sentence
+        # (review cycle 1, F-001): "this guess breaks" is the opening of BOTH
+        # branches, so a substring cannot tell this answer from its opposite,
+        # and this sentence is the whole answer for a screen-reader player.
+        # The other branch is asserted in the same words by
+        # TestSolverProbe_BrokenLinesAreFlagged, over a row the probe killed.
+        assert explain.inner_text() == "Hint: this guess breaks no row or column yet."
 
         _contradiction(browser_page)
         assert _members(browser_page) == []
         assert _states(browser_page) == before
-        assert browser_page.locator("td.player-cell.is-hinted").count() == 0
+        # The meaning goes back with the probe.
+        assert _hint_button(browser_page).get_attribute("title") == _HINT_PLAIN
+        assert browser_page.get_by_role(
+            "button", name=_HINT_PLAIN, exact=True).count() == 1
 
 
 # ==========================================================================
@@ -1179,13 +1249,21 @@ class TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround:
         colour distance, which is what made this channel worth moving to
         rather than re-tuning a mix — so the claim held here is the style
         difference, and it is held in both directions: a probe member that
-        the ladder has not revealed is dashed, a revealed cell that is not a
-        member is solid, and the cell that is both is dashed in the hint's own
-        colour (the third of the card's three rules).
+        the ladder has not revealed is dashed, and a revealed cell that is
+        not a member is solid.
+
+        The cell that is BOTH is no longer reachable. CARD-435's owner ruling
+        1 (2026-11-14) made Hint reveal the broken clues instead of a cell
+        while a probe is open, and every other reveal records through
+        ``commit``, which clears ``.is-hinted`` — so no hinted cell can also
+        be a member. The fourth claim is therefore that absence, driven the
+        way the reachable state used to be driven;
+        ``admin.css``'s ``.player-cell.is-hinted[data-probe]`` rule is left
+        standing and is now unreachable (CARD-435's worktree notes).
 
         Four claims, in order: the two premises (there is a revealed cell with
         no probe open, and a probe member the ladder has not revealed), then
-        solid-vs-dashed, then the cell that is both.
+        solid-vs-dashed, then that no press inside the probe makes a cell both.
         """
         _open(browser_page, live, live.store(GRID))
         # A revealed cell with NO probe open: the hint's own look.
@@ -1209,18 +1287,15 @@ class TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround:
             hint_look["outline"], member["outline"])
 
         for _ in range(3):
-            _button(browser_page, "Hint").click()
+            _hint_button(browser_page).click()
         _settle(browser_page)
-        both_at = browser_page.evaluate(
-            "[...document.querySelectorAll('td.player-cell.is-hinted')]"
-            ".map((td) => [+td.dataset.row, +td.dataset.col])"
+        assert browser_page.locator("td.player-cell.is-hinted").count() == 0, (
+            "CARD-435 ruling 1: a press inside a probe reveals no cell, so no "
+            "cell can carry both signals"
         )
-        assert len(both_at) == 1, both_at
-        both = _look(browser_page, {"at": both_at[0]})["at"]
-        assert both["probe"] is not None, both
-        assert both["outline"][0] == "dashed", both
-        assert both["outline"][2] == hint_look["outline"][2], (both, hint_look)
-        assert both["outline"][2] != member["outline"][2], (both, member)
+        still = _look(browser_page, {"at": [8, 8]})["at"]
+        assert still["probe"] is not None and not still["hinted"], still
+        assert still["outline"][0] == "dashed", still
 
 
 # ==========================================================================
@@ -1929,7 +2004,10 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             assert closed == settled, (width, height, "the board never settled")
             _probe(browser_page)
             opened = browser_page.evaluate(_BOARD_TOP)
-            hint = _button(browser_page, "Hint").bounding_box()
+            # By attribute, not by name: a probe is open here and CARD-435
+            # renames Hint while one is (see _hint_button). Its BOX is what
+            # this measurement is about and the rename does not move it.
+            hint = _hint_button(browser_page).bounding_box()
             keep = browser_page.get_by_role("button", name="Keep", exact=True)
             wrong = browser_page.get_by_role("button", name="Wrong guess", exact=True)
             assert keep.is_visible() and wrong.is_visible(), (width, height)
@@ -1969,7 +2047,7 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
           e.style.cssText = 'display:block;height:calc(var(--control-h) - var(--space-3))'; document.body.append(e);
           const h = e.getBoundingClientRect().height; e.remove(); return h; }""")
         line = browser_page.locator(".player-probe").bounding_box()["height"]
-        hint_h = _button(browser_page, "Hint").bounding_box()["height"]
+        hint_h = _hint_button(browser_page).bounding_box()["height"]  # by attribute: see _hint_button
         assert abs(line - hint_h) < 0.5, (line, hint_h)  # a control row: the toolbar's button height
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
         without = browser_page.evaluate(_BOARD_TOP)
@@ -2080,18 +2158,33 @@ _BROKEN = """() => {
 
 @pytest.mark.browser
 class TestSolverProbe_BrokenLinesAreFlagged:
-    """CARD-410 (owner finding 2026-11-07, item 8: "Flag broken lines during a
-    probe. When a row or column can no longer match its clue, tint that clue
-    red and gently highlight the Contradiction button.").
+    """CARD-435 (owner ruling of 2026-11-14), the ruling that INVERTED this
+    cell, over CARD-410 (owner finding 2026-11-07, item 8: "Flag broken lines
+    during a probe. When a row or column can no longer match its clue, tint
+    that clue red and gently highlight the Contradiction button.").
 
-    One cell, the arms in the order a player meets them: a line broken
-    BEFORE the probe is never red (no probe, no flag — AC-5 — and still not
-    red inside one, because the probe did not break it); a wrong mark inside
-    the probe turns its row's clue red on BOTH twins of the doubled row axis
-    and flags Contradiction (AC-2, AC-4); the red is measurably apart from the
-    plain, crossed and hint-line grounds and from the probe's ring, and the
-    numerals on it pass 4.5:1 (AC-3); Contradiction clears every flag, and so
-    does Keep (AC-2). The pure rule is held by
+    CARD-410 flagged AUTOMATICALLY, the moment a mark killed a line. Five days
+    of play later the owner withdrew that: a contradiction probe is a guess
+    the reader is testing, and the page answering "that guess is already dead"
+    before they have worked it out removes the deduction they opened the probe
+    to make. So the flag is not wrong, it is EARLY, and it now waits to be
+    asked: while a probe is open Hint changes meaning and reveals the broken
+    clues **instead of** revealing a cell (ruling 1; the press's own
+    consequences — no cell, no stroke, no counter, and the button saying so —
+    are ``test_a_hint_pressed_inside_a_probe_reveals_no_cell``'s).
+
+    One cell, keeping CARD-410's fixtures and its name, the arms in the order
+    a player meets them: a line broken BEFORE the probe is never red (no
+    probe, no flag — CARD-410's AC-5 — and a Hint press with no probe open
+    paints nothing either, CARD-435's AC-4); a wrong mark inside the probe
+    stays QUIET (AC-1); the press reveals it, on BOTH twins of the doubled row
+    axis, with Contradiction flagged (AC-2, CARD-410's AC-2/AC-4); the red is
+    measurably apart from the plain, crossed and hint-line grounds and from
+    the probe's ring, and the numerals on it pass 4.5:1 (CARD-410's AC-3);
+    then the three ways nothing is left stale (AC-3) — an Undo inside the
+    probe, which also UN-asks the question, Contradiction, and Keep — and a
+    second probe opened after a press, which starts quiet like the first. The
+    pure rule is unchanged and still held by
     test_broken_lines_match_a_brute_force_line_oracle; public mode runs the
     same bytes (TestSharedUi_ByteIdentity) and the rule reads no solution,
     so AC-6 adds no cell (owner test budget, 2026-11-07).
@@ -2105,14 +2198,27 @@ class TestSolverProbe_BrokenLinesAreFlagged:
         assert page.locator(f'th.player-clue.is-row[data-line="{broke}"]').count() == 2  # the premise: doubled
         wrong0 = _GRID_DOUBLED[before].index(False)
         wrong2 = _GRID_DOUBLED[broke].index(False)
+        quiet = {"rows": [], "cols": [], "flagged": False}
 
         _cell(page, before, wrong0).click()  # a row broken before any probe
-        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}  # AC-5
+        assert page.evaluate(_BROKEN) == quiet  # CARD-410's AC-5
+        _hint_button(page).click()           # AC-4: no probe, the press paints nothing
+        assert page.evaluate(_BROKEN) == quiet
 
         _probe(page)
         _cell(page, broke, wrong2).click()  # the probe breaks another row
+        assert page.evaluate(_BROKEN) == quiet, "AC-1: a probe keeps quiet until it is asked"
+        _hint_button(page).click()          # AC-2: asking reveals it
         seen = page.evaluate(_BROKEN)
         assert seen["rows"] == [broke, broke] and seen["flagged"], seen  # both twins; `before` is not the probe's
+        # And it NAMES the line, in the one channel a screen-reader player
+        # has: the exact sentence, 1-based, read before the next pointer-down
+        # wipes the box (review cycle 1, F-001 — both branches of the sentence
+        # open with "this guess breaks", so a substring cannot tell this
+        # answer from "no row or column yet", which is the branch
+        # test_a_hint_pressed_inside_a_probe_reveals_no_cell asserts).
+        assert page.locator("#puzzle-player-explain").inner_text() == (
+            f"Hint: this guess breaks row {broke + 1}."), seen
 
         # AC-3: the red against the grounds a clue box can have, and the ring.
         page.mouse.move(2, 2)
@@ -2131,21 +2237,31 @@ class TestSolverProbe_BrokenLinesAreFlagged:
         assert min(apart.values()) >= _RING_FLOOR, (apart, colours)
         assert _contrast(colours["ink"], colours["red"]) >= 4.5, colours
 
-        # AC-4 "exactly while": an Undo inside the still-open probe takes the
-        # flag off, a Redo puts it back (review cycle 1, F-002).
+        # CARD-410's AC-4 "exactly while": an Undo inside the still-open probe
+        # takes the flag off (review cycle 1, F-002) — and under CARD-435 a
+        # Redo does NOT put it back, because a recorded change un-asks the
+        # question: the flags answer the board the reader asked about, not
+        # every board after it (the owner declined "ask once, then stay live").
+        # Asking again answers again.
         _button(page, "Undo").click()
-        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
+        assert page.evaluate(_BROKEN) == quiet
         assert _probe_pressed(page) == "true"
         _button(page, "Redo").click()
+        assert page.evaluate(_BROKEN) == quiet
+        _hint_button(page).click()
         assert page.evaluate(_BROKEN)["rows"] == [broke, broke]
 
         _contradiction(page)
-        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
+        assert page.evaluate(_BROKEN) == quiet
+        # AC-3's reset arm: the NEXT probe starts quiet, however the last one
+        # ended — a press for one probe is not a press for the next.
         _probe(page)
         _cell(page, broke, wrong2).click()
+        assert page.evaluate(_BROKEN) == quiet, "a second probe starts quiet too"
+        _hint_button(page).click()
         assert page.evaluate(_BROKEN)["flagged"]
         _keep(page)
-        assert page.evaluate(_BROKEN) == {"rows": [], "cols": [], "flagged": False}
+        assert page.evaluate(_BROKEN) == quiet
 
 
 def _contrast(first: str, second: str) -> float:

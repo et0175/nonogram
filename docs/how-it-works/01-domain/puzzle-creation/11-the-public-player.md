@@ -452,10 +452,17 @@ board as it was.
 **Status, 2026-11-06: not on `main`.** `player/play.js`, `play.html` and
 `player.css` contain no probe code; CARD-380 is `in_progress` on
 `card/380-public-probe-mode`, queued behind the hint, which is a real dependency
-rather than a serialisation one — rule 3 below puts hint strokes inside an open
+rather than a serialisation one — rule 3 below put hint strokes inside an open
 probe, so the interaction could not be built or tested before CARD-327 landed. This
 section is the design as decided, so that reading it is not the same as reading the
 shipped page.
+
+**Rule 3's hint-stroke clause is RETIRED, 2026-11-14 (CARD-435, owner ruling 1).**
+Inside an open probe Hint no longer reveals a cell: it reveals the clues the guess
+has already broken, and tints them, instead. That press was the only way a hint
+stroke could be recorded while a probe was open, so the clause below describes a
+state that can no longer be reached. The rule block itself is CARD-268's frozen
+contract and is left as it was recorded; this note is the divergence.
 
 **What a probe is.** A solver who cannot deduce further makes a *group* of marks
 under one hypothesis and then either keeps them all or reverts them all. That is a
