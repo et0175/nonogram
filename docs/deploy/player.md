@@ -603,6 +603,22 @@ Not observed: a real phone.
 
 **Eighth publish, and still not one human finger.** Every behavioural figure on this page is emulated Chromium.
 
+**The how-to-solve publish, 2026-11-15.** Published from `main` at `836d0e93`. **One card, CARD-444** — "How to solve looks and explains like the player" — merged by the other session. **CARD-435 is NOT in this publish**: it was unmerged and its merge gate still running when the owner asked to deploy, which is said here because "deploy it" was asked in the middle of that card and the record must not imply otherwise.
+
+| Step | What was observed |
+| --- | --- |
+| What changed, read BEFORE promoting | Ten assets plus the rendered how-to-solve page compared with the live domain first. **Three** differed, all CARD-444's: `player.css` **`d8e0df05392f` → `e82c1a19b0a0`**, `how-to-solve.js` **`083cba6a0e6d` → `a40055ae2fd4`**, and `how-to-solve/index.html` **`0b6732a4cb64` → `6b5d9baf277f`**. The four `COPIED_FROM_ADMIN` files, `pages.js`, `base.css`, `decor.*` all already live. |
+| Pre-flight | Fail-fast: four copied files byte-identical to their admin sources, `pages.js` and `player.css` identical to their `player/` sources, 160 puzzle files each carrying exactly the five served fields, no goatcounter, no `.vercel/`, marker present. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-5ituh6ncq`**; both changed scripts matched the tree, five doors 200, `/nope` 404. |
+| Production | `vercel promote … --yes`. **Two polls read the old `player.css` before the third read the new** — the seventh time this page records that the promote returning is not the deployment being live. |
+| Behaviour, on the live domain | `/how-to-solve` at 390x844 and 1280x720: **39 visible buttons at both widths, none under 44 px in either dimension**, page horizontal overflow **0**, and **no console errors and no uncaught exceptions** at either viewport. So the page CARD-444 rebuilt to look like the player meets the player's own tap-target floor, which is the claim most worth checking on a phone. |
+| What this check did NOT establish | Two readings came back empty — the brush items and a probe control — and **those selectors were the orchestrator's guesses** (`[data-player-tool-item]`, `.player-probe`), not hooks read from CARD-444's own markup. They are **unverified, not absent**: the card's title says it explains the brushes and the probe, so an empty reading here is far more likely a wrong selector than a missing feature. Recorded as not established rather than as a finding — the same error class this page has logged three times. |
+| Rollback target | The production deployment before it (`player.css` `d8e0df05392f`) still Ready. |
+
+**What this publish leaves owed.** **CARD-435** (the probe quiet until Hint) is mid-gate and unpublished — when it lands it changes `solver.js` and needs its own publish. **CARD-434** (circles need a closed run) and **CARD-438** (two-row portrait toolbar, figures already flagged stale) are `ready` and unstarted, and **CARD-445** (the line view cannot be asked) was cut on 2026-11-14 from the owner's ruling. Still owner's: the portrait title clipping on CARD-436, and a backlog card to widen the design-inventory drift guard.
+
+**Ninth publish, and still not one human finger.** The owner was told on 2026-11-14 which card most needs their own hands — **CARD-439's line mode**, live, carrying no review score by design, with its long-press pivot and strip drag exercised by nothing but its own tests.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
