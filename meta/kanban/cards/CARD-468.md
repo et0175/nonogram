@@ -1,6 +1,6 @@
 # CARD-468: Probe marks read on small cells
 
-**Status:** ready
+**Status:** blocked
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5c (0.1d)
@@ -23,7 +23,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** owner decision: the probe marker is an outline by the owner's fix of 2026-10-30 ("a different CHANNEL rather than a stronger tint")
 
 ## Why
 
@@ -38,3 +38,4 @@ Below a cell-size threshold, probe cells also get a light amber fill.
 - **AC-1**: a probe cell under the threshold has a fill distinct from a kept cell.
 
 ## Worktree notes
+- **[Blocked, 2026-11-17]** Tried: a warm lighter ink on probed blacks (`color-mix(--grid-ink 72%, --player-probe)`). Refused by `TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround` (three ink cases), whose docstring records the owner's 2026-10-30 fix: the marker moved to the outline CHANNEL rather than a ground tint, so a later ground tint cannot collide with it. A fill is exactly that ground tint. Reverted; asks the owner whether to reopen that ruling (or to thicken the outline on small cells instead).
