@@ -39,6 +39,17 @@ body:has(> .decor-garland) > main { padding-top: calc(72px + var(--space-1)); }
 .decor-gold { fill: var(--theme-gold); }
 .decor-gold-line { stroke: var(--theme-gold); stroke-width: 1; }
 .decor-shine { fill: var(--grid-paper); opacity: 0.6; }
+/* CARD-459 (UX review M3): on a phone held sideways the garland took ~60 of
+   the ~360-412 px of height, above a board and a tool strip that the screen
+   is already short of. There it is drawn at 32 px, and the room kept for it
+   shrinks with it. Not lower: decor.js draws a fixed eight tiles, which at
+   32 px reach 960 px, wider than any phone held sideways. */
+@media (max-height: 500px) and (orientation: landscape) {
+  body:has(> .decor-garland) > main { padding-top: calc(32px + var(--space-1)); }
+  .decor-garland { height: 32px; }
+  .decor-garland svg { height: 32px; width: calc(32px * 240 / 64); }
+}
+
 .decor-snow-fill { fill: var(--grid-paper); stroke: var(--color-surface-sunken); stroke-width: 0.6; }
 
 .decor-snow {
