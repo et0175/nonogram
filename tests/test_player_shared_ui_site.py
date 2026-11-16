@@ -489,6 +489,8 @@ class TestSharedUi_ThePageRuns:
         # which the cap DID stop, measures 36 px cells (CARD-462's notes).
         assert fill["share"] >= 0.85 and abs(fill["left"] - fill["right"]) <= 1, fill
         assert fill["cap"] == "36px", fill
+        # CARD-463 (UX review M7): How to play ends with the lesson's link.
+        assert page.locator(".player-howto [data-player-lesson]").get_attribute("href") == "/how-to-solve"
         # CARD-453: the way on is drawn but not shown until the solve.
         assert not page.locator("[data-player-next]").is_visible()
         quiet = page.evaluate(_LOOK)

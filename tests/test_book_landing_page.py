@@ -369,8 +369,14 @@ def test_the_landing_header_and_squares_fit_a_phone(browser_page, pages_host) ->
     for selector in ("[data-pages-jump-number]", "[data-pages-jump] button", ".book-section-head"):
         assert page.locator(selector).first.bounding_box()["height"] >= 44, selector
     # The one link out: the lesson (the owner removed the library link, 2026-11-10).
-    links = page.evaluate("() => [...document.querySelectorAll('.book-foot a')].map(a => a.getAttribute('href'))")
+    links = page.evaluate("() => [...document.querySelectorAll('.book-learn a')].map(a => a.getAttribute('href'))")
     assert links == ["/how-to-solve"]
+    # CARD-463 (UX review M7): and it is under the number box, above the
+    # first section, not the last line of the page.
+    order = page.evaluate("""() => [document.querySelector('[data-pages-jump]'),
+      document.querySelector('.book-learn'), document.querySelector('.book-section-head')]
+      .map((e) => e.getBoundingClientRect().top)""")
+    assert order == sorted(order), order
     # And no puzzle title anywhere on the page.
     text = page.evaluate("() => document.body.innerText")
     for name in BOOK_ORDER:
@@ -455,6 +461,18 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     decor = page.evaluate(_DECOR)
     assert decor["garlands"] == 1 and decor["snowed"] == decor["panels"] > 0, decor
     assert decor["hidden"] and decor["needles"] > 0, decor
+    # CARD-463 (UX review M7): the lesson, opened from this landing, wears the
+    # book's theme and garland; opened from nowhere it keeps the default look.
+    for referer, theme in ((f"{url}/b/{slug}", "christmas"), (None, None)):
+        page.goto(f"{url}/how-to-solve", referer=referer)
+        if theme is not None:
+            page.wait_for_selector(".decor-garland", timeout=PAGES_SETTLE_MS)
+        else:
+            page.wait_for_function("() => window.howToSolve !== undefined", timeout=PAGES_SETTLE_MS)
+        assert page.evaluate(_ROOT_THEME) == theme, referer
+        assert page.locator(".decor-garland").count() == (1 if theme else 0), referer
+    page.goto(f"{url}/b/{slug}")
+    page.wait_for_selector(".decor-garland", timeout=PAGES_SETTLE_MS)
 
     # CARD-437: the repaint on a restore replaces the section heads, so the
     # decorations are drawn again — and `decorate` PREPENDS, so a repaint

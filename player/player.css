@@ -891,15 +891,9 @@ body {
 .book-legend { margin: 0; }
 .book-legend[hidden] { display: none; }
 
-.book-foot {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: var(--player-rule) solid var(--color-border);
-}
-
-.book-foot a { color: var(--color-accent); min-height: 32px; }
+/* CARD-463: the lesson link, under the number box (it was .book-foot). */
+.book-learn { margin: 0; font-size: var(--text-sm); }
+.book-learn a { color: var(--color-accent); display: inline-flex; align-items: center; min-height: 32px; }
 
 /*
  * Book theme "christmas" (CARD-420): the co-author's mockup, in the theme's

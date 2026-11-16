@@ -837,6 +837,20 @@ async function main() {
       (await import("/decor.js")).decorate();
     }
   }
+  // CARD-463 (UX review M7): How to play ends with the way to the full
+  // lesson, on a puzzle opened from a book (the reader the lesson is for;
+  // a puzzle outside a book keeps CARD-436's page with no link at all, and
+  // the admin page has no /how-to-solve).
+  const howtoList = document.querySelector(".player-howto ul");
+  if (holds && howtoList !== null) {
+    const item = document.createElement("li");
+    const lesson = document.createElement("a");
+    lesson.href = "/how-to-solve";
+    lesson.dataset.playerLesson = "";
+    lesson.textContent = "New to nonograms? The 2-minute lesson";
+    item.append(lesson);
+    howtoList.append(item);
+  }
   const data = document.createElement("script");
   data.type = "application/json";
   data.id = "puzzle-player-data";

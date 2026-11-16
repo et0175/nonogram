@@ -15,6 +15,10 @@
 // The drift on a panel's top edge, viewBox 400x22 stretched to the panel.
 const SNOW_PATH = "M0 10 L0 2.7 Q8.3 0.2 16.7 5.8 Q25.0 0.2 33.3 2.7 Q41.7 -0.7 50.0 1.8 Q58.3 -0.7 66.7 3.6 Q75.0 1.1 83.3 4.9 Q91.7 -0.8 100.0 1.7 Q108.3 -1.4 116.7 1.1 Q125.0 -1.4 133.3 4.8 Q141.7 1.1 150.0 3.6 Q158.3 -1.5 166.7 1.0 Q175.0 -1.5 183.3 2.2 Q191.7 -0.3 200.0 5.7 Q208.3 0.4 216.7 2.9 Q225.0 -1.5 233.3 1.0 Q241.7 -1.5 250.0 3.5 Q258.3 1.0 266.7 5.1 Q275.0 -0.4 283.3 2.1 Q291.7 -0.6 300.0 1.9 Q308.3 -0.6 316.7 5.3 Q325.0 2.1 333.3 4.6 Q341.7 -1.5 350.0 1.0 Q358.3 -1.5 366.7 2.7 Q375.0 0.2 383.3 4.9 Q391.7 1.1 400.0 3.6 L400 11 L392 11 Q391 16 385 16 Q379 16 378 11 L337 11 Q336 20 330 20 Q324 20 323 11 L245 11 Q244 17 238 17 Q232 17 231 11 L157 11 Q156 21 150 21 Q144 21 143 11 L62 11 Q61 18 55 18 Q49 18 48 11 L0 11 Z";
 
+// The book themes that draw these decorations (CARD-463: read by the lesson
+// page, which names no theme of its own).
+export const DECORATED_THEMES = Object.freeze(["christmas"]);
+
 // One garland tile: 240x64 units, one swag dipping between its edges.
 const GARLAND_TILE = 240;
 const GARLAND_HEIGHT = 64;
