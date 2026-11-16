@@ -769,7 +769,10 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "CARD-280", "AC-1..AC-6 (owner ruling 2026-11-10): a real solve shows the picture without its worksheet, celebrates once, survives redraw and reload, Show grid toggles it",
     ),
     "tests/test_puzzle_solver_clues.py::TestSolverClues_PinnedNumbersCircle::test_the_owners_line_and_every_short_line_circle_what_the_marks_pin": (
-        "CARD-400", "AC-1/AC-2/AC-3/AC-5 (owner finding 2026-11-07 item 10, ruling 2026-11-10): the owner's line, and every fitting marking of lines up to 7 circles exactly what a brute force calls pinned",
+        "CARD-400", "AC-1/AC-2/AC-3/AC-5 (owner finding 2026-11-07 item 10, ruling 2026-11-10): the owner's line, and every fitting marking of lines up to 7 circles exactly what a brute force calls pinned"
+        " — WITHDRAWN 2026-11-12 (CARD-434, owner ruling): a circle now needs a CLOSED run, so this cell asserts close to the inverse of the sentence above. The reason is left standing because this"
+        " mapping records the justification AT ADDITION, which CARD-400 genuinely was, and because the node id must not change — the guard compares node-id sets, not this text. Rule D's own"
+        " withdrawal figure is 82,668 numbers (46,901 beside a blank, 34,643 beside a '?', 1,124 closed on a repeated value); the 21,316 CARD-400 also reports is what circled ALREADY under rules A/B/C.",
     ),
     "tests/test_puzzle_solver_probe.py::TestSolverProbe_StateIsPureAndStatesAreFour::test_the_wrong_guess_verdict_matches_its_table": (
         "CARD-412", "AC-1 (owner ruling 2026-11-07): probeVerdict offers the other colour only for a single dark/white first stroke, against an independent table",
