@@ -1788,7 +1788,9 @@ class TestPublicMode_LandscapeToolStrip:
         # left Probe and the counters below a landscape phone's edge), and
         # 844 x 340 too — Safari's landscape window with its bars — where
         # every control must still be in the strip's view without scrolling.
-        for width, height in ((844, 390), (852, 393), (874, 402), (844, 340)):
+        # CARD-450: and a Galaxy S9+ on its side, 658 x 320, and 658 x 264
+        # with Chrome's address bar — where Probe sat below the edge.
+        for width, height in ((844, 390), (852, 393), (874, 402), (844, 340), (658, 320), (658, 264)):
             page.set_viewport_size({"width": width, "height": height})
             open_page(page, served)
             idle = _settled(page)
