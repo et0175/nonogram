@@ -1,6 +1,6 @@
 # CARD-447: Anna's QA — Clear never paints, and a quick second tap is not a zoom
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** bug
 **Estimate:** 1c (0.25d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_probe.py (its oracle tracks cells: Clear on blank records nothing)
 **Review score:** — (no review cycle; owner request, 2026-11-16)
 **Started:** 2026-11-16T13:00Z
-**Closed:** —
+**Closed:** 2026-11-16T14:00Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 1ad968af
 **Blocked by:** —
 
 ## Why
