@@ -619,6 +619,22 @@ Not observed: a real phone.
 
 **Ninth publish, and still not one human finger.** The owner was told on 2026-11-14 which card most needs their own hands — **CARD-439's line mode**, live, carrying no review score by design, with its long-press pivot and strip drag exercised by nothing but its own tests.
 
+**The quiet-probe publish, 2026-11-16.** Published from `main` at `fd93d93d`. **Two cards: CARD-435** (a probe keeps quiet until it is asked) and **CARD-446** (How to solve draws like the player), the second merged by the other session between the ask and the assemble.
+
+| Step | What was observed |
+| --- | --- |
+| Pre-flight | Fail-fast, plus two checks specific to CARD-435: that `probeAsked`/`getAskedProbe` and the probing Hint name both reached the served `solver.js`. A publish whose behaviour did not reach the bundle verifies green on hashes alone. |
+| What changed, read BEFORE promoting | Twelve paths compared with the live domain first. Six differed: `solver.js` **`8ad9005897e8` → `ca8cc5d2b1b7`**, `admin.css` **`c06ad981a402` → `5a0034869c26`**, `player.css` **`e82c1a19b0a0` → `4a18bd7f9796`**, `how-to-solve.js` **`a40055ae2fd4` → `40928a43c2d8`**, and the two rendered pages. `solver_state.js`, `tokens.css`, `pages.js`, `base.css`, `decor.*` unchanged. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-qprao5jdb`**; four hashes matched the tree, five doors 200, `/nope` 404. |
+| Production | `vercel promote … --yes`. Two polls read the old `solver.js` before the third read the new — **the eighth time** this page records that the promote returning is not the deployment being live. |
+| Behaviour, end to end on the live domain | The whole of CARD-435, in one sequence at 390 px. **At load:** Hint is named `Hint`, no flags. **Probe opened:** Hint is renamed to **`Hint: show the clues this guess breaks`** — the probing name is live. Flags still absent. **Row 0 filled inside the probe** (10 cells, breaking its clue): **`is-broken` 0, Contradiction unflagged** — *the probe stays quiet*, which is the card's whole point and the behaviour the owner asked for. **Hint pressed:** `is-broken` **1**, Contradiction **flagged**, the explain line reads **"Hint: this guess breaks row 1."**, and the hints counter is **still `0`** — so the press revealed the broken line, revealed no cell, and moved no counter. Every one of the card's four requirements, confirmed on the real site. |
+| Three instrument failures before that reading, all mine | Recorded because each would have been reported as a product defect by a less suspicious run. **(1)** Synthetic pointer events on `#puzzle-player-probe` did nothing — buttons here listen for `click`; the probe never opened and every reading was zero. **(2)** With the probe open, a *loop* of synthetic cell taps marked nothing while a *single* identical tap marked fine — so the loop was wrong, not the product. **(3)** The fix was to use real `mouse.click` throughout, which worked first time. The run that produced the table above asserts after **every** step (`probe_pressed == "true"`, `filled != 0`) and **aborts** rather than continuing, which is why attempts 1 and 2 printed `ABORT: instrument, not a finding` instead of a false failure. |
+| Rollback target | The production deployment before it (`solver.js` `8ad9005897e8`) still Ready. It serves the probe that answers before it is asked. |
+
+**What this publish leaves owed.** **CARD-434** (circles need a closed run — withdraws the owner's rule D of 2026-11-10), **CARD-438** (two-row portrait toolbar, figures flagged stale) and **CARD-445** (the line view cannot be asked) are `ready` and unstarted. `DATABASE_URL` arming still reaches no `db_required` test under the player-card gate ruling — **the wave close owes the full selection.** Still the owner's: CARD-436's portrait title clipping, a backlog card for the design-inventory drift guard, and CARD-433's "entering Fit never re-arms Region".
+
+**Tenth publish, and still not one human finger.** The owner was told on 2026-11-14 which card most needs their hands — CARD-439's line mode, live, carrying no review score by design, its long-press pivot and strip drag exercised by nothing but its own tests.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
