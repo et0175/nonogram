@@ -81,9 +81,15 @@ def _brute_circles(clue, marks):
 
     Number i is circled iff run i covers the same cells in every agreeing
     placement and those cells are all marked dark. A "0" clue is circled iff
-    every cell is white. (Until CARD-400 the cells also had to be a CLOSED
-    run — a white or an edge on both sides; the owner's ruling of 2026-11-10
-    retired that: a number the marks pin down is settled.)
+    every cell is white.
+
+    This is "pinned", with no closedness requirement, and it is deliberately
+    LOOSER than the module: rules A, B and C each need a closed run — a white
+    cell or an edge on both sides. Between CARD-400 (owner ruling 2026-11-10,
+    "circle a number when the marks pin it down") and CARD-434 (owner ruling
+    2026-11-12, "circle clues only if they're surrounded by white (dots)")
+    rule D made the two equal; with rule D withdrawn the brute force once more
+    circles numbers the module does not, which the property below counts.
     """
     clue = tuple(clue)
     placements = [
@@ -110,10 +116,13 @@ def _brute_circles(clue, marks):
 # Calling the pure module
 # --------------------------------------------------------------------------
 
-#: D dark, W white, anything else undecided ("." in the card's table).
+#: D dark, W white, "." unmarked ("." in the card's table) and "?" the Maybe
+#: brush's mark — undecided too, and a cell state in its own right, so the
+#: "beside a ?" half of the 2026-11-12 ruling is read as the player's own mark
+#: rather than as an unmarked cell (CARD-434).
 _NUMBERS = """async (lines) => {
   const S = await import('/static/solver_state.js');
-  const codes = { D: S.FILLED, W: S.EMPTY, '.': S.UNKNOWN };
+  const codes = { D: S.FILLED, W: S.EMPTY, '.': S.UNKNOWN, '?': S.MAYBE };
   return lines.map(([clue, marks]) => {
     const got = S.circledNumbers(clue, Object.freeze([...marks].map((ch) => codes[ch])));
     if (!Object.isFrozen(got)) throw new Error('not frozen');
@@ -147,9 +156,15 @@ class TestSolverClues_RuleExamples:
         ((2, 2), "...WDDW...", [False, False]),  # the owner's example
         ((2, 2), "DDW.......", [True, False]),
         ((2, 2), "WDDWWDDW..", [True, True]),
-        ((2, 2), "DD.DD.....", [True, True]),  # pinned: no other placement (CARD-400; read [False, False], "no white dots, no circle", before)
+        # No white dot either side of either run, so no circle — the owner's
+        # original verdict, restored by CARD-434 (owner ruling 2026-11-12):
+        # CARD-400's rule D read [True, True] here because the marks pin both
+        # runs, and the owner withdrew that after playing with it.
+        ((2, 2), "DD.DD.....", [False, False]),
         ((1, 1), ".WDW.WDW.", [True, True]),  # rule B
-        ((1, 1, 1), "WDWD......", [True, True, False]),  # the second 1 is pinned (CARD-400; read [True, False, False] before)
+        # The second 1 is pinned but open: [True, True, False] under rule D
+        # (CARD-400), back to the first 1 alone since CARD-434.
+        ((1, 1, 1), "WDWD......", [True, False, False]),
         ((3, 1), "DDW....WDW", [False, True]),  # one walk stops, not the other
         # CARD-213 rule C: "3" is unique in "3 1" and one closed run has that
         # length, so the length alone now settles it (this row read
@@ -251,10 +266,13 @@ def test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot(browser_page
     assert fitting >= 3000, fitting
     assert with_circle >= 1000, with_circle
     assert zero_or_white >= 300, zero_or_white
-    # RETIRED CLAIM, 2026-11-10 (CARD-400, owner finding 2026-11-07 item 10, ruling 2026-11-10 "circle a number when the marks pin it down"): the brute force circled
-    # numbers the rules did not (>= 100 such lines); rule D circles every
-    # pinned number, so on a fitting line the two are now EQUAL.
-    assert brute_only == 0, brute_only
+    # The brute force circles numbers the rules do not: it asks only that the
+    # marks PIN the number's run, and rules A, B and C each need that run
+    # CLOSED. CARD-400 (owner ruling 2026-11-10) made the two equal by adding
+    # rule D and this read `== 0`; the owner withdrew rule D on 2026-11-12
+    # (CARD-434, "circle clues only if they're surrounded by white (dots)"), so
+    # the gap is back — 862 such lines in this corpus, held to a floor.
+    assert brute_only >= 100, brute_only
 
 
 # ==========================================================================
@@ -404,58 +422,21 @@ def _walk_in(clue, marks, numbers):
     return circled
 
 
-def _pinned(clue, marks):
-    """Rule D's reference (CARD-400), written apart from solver_state.js's
-    greedy earliest/latest walk: every feasible START of every run, from a
-    memoised feasibility of "runs j.. fit cells i.." and its mirror; a
-    number is pinned when its run has exactly one feasible start and every
-    cell it covers is dark. [] when no placement fits."""
-    from functools import lru_cache
-
-    n, runs = len(marks), [v for v in clue if v > 0]
-    k = len(runs)
-
-    def fits(start, length):
-        return (start + length <= n and all(m != "W" for m in marks[start:start + length])
-                and (start + length == n or marks[start + length] != "D"))
-
-    @lru_cache(maxsize=None)
-    def rest(i, j):  # runs j.. placed in cells i.., no dark cell left over
-        if i >= n:
-            return j == k
-        if marks[i] != "D" and rest(i + 1, j):
-            return True
-        return j < k and fits(i, runs[j]) and rest(min(i + runs[j] + 1, n), j + 1)
-
-    @lru_cache(maxsize=None)
-    def before(s, j):  # runs ..j-1 placed in cells ..s-1 (s-1 not dark when j runs end there)
-        if j == 0:
-            return all(m != "D" for m in marks[:s])
-        return any(fits(t, runs[j - 1]) and t + runs[j - 1] < s + (s == n) and before(t, j - 1)
-                   and all(m != "D" for m in marks[t + runs[j - 1]:s])
-                   for t in range(0, s))
-
-    if not rest(0, 0):
-        return []
-    pinned = []
-    for j, length in enumerate(runs):
-        starts = [s for s in range(n) if fits(s, length) and before(s, j)
-                  and rest(min(s + length + 1, n), j + 1)]
-        if len(starts) == 1 and all(m == "D" for m in marks[starts[0]:starts[0] + length]):
-            pinned.append(j)
-    return pinned
-
-
-def _rule_circles(clue, marks, *, rule_c=True, rule_d=None):
+def _rule_circles(clue, marks, *, rule_c=True):
     """``solver_state.js``'s rule block written again here, from its prose
     rather than its code: rules A and B (CARD-188) and, unless `rule_c` is
-    off, rule C (CARD-213) and rule D (CARD-400, owner ruling 2026-11-10:
-    a number the marks pin down — see :func:`_pinned`). ``rule_c=False`` is
-    the behaviour before CARD-213 (no C, no D) —
-    ``TestSolverClues_RuleCOnlyAddsToTheOldTable`` calibrates it against the
-    committed pre-card verdicts of the two examples tables; ``rule_d=False``
-    with C on is the behaviour between CARD-213 and CARD-400."""
-    rule_d = rule_c if rule_d is None else rule_d
+    off, rule C (CARD-213). ``rule_c=False`` is the behaviour before CARD-213
+    — ``TestSolverClues_RuleCOnlyAddsToTheOldTable`` calibrates it against the
+    committed pre-card verdicts of the two examples tables.
+
+    Between 2026-11-10 and 2026-11-12 this reference carried a rule D as well
+    (CARD-400, "circle a number when the marks pin it down", with a ``_pinned``
+    helper of its own and a ``rule_d`` switch). The owner withdrew that rule
+    after play-testing it — "circle clues only if they're surrounded by white
+    (dots)" — so CARD-434 removed the rule from the module and rule D and
+    ``_pinned`` from this reference with it. The brute force above still
+    computes the pinned set, which is what
+    ``TestSolverClues_PinnedNumbersCircle`` holds the module against."""
     clue = list(clue)
     if clue == [0]:
         return [all(mark == "W" for mark in marks)]
@@ -472,9 +453,6 @@ def _rule_circles(clue, marks, *, rule_c=True, rule_d=None):
         for number, value in enumerate(clue):
             if clue.count(value) == 1 and closed.count(value) == 1:
                 circled[number] = True
-    if rule_d:
-        for number in _pinned(clue, marks):
-            circled[number] = True
     return circled
 
 
@@ -549,16 +527,16 @@ class TestSolverClues_RepeatedLengthDoesNotCircle:
     ]
 
     def test_the_repeated_value_circles_nothing(self, browser_page, live) -> None:
-        """RETIRED CLAIM, 2026-11-10 (CARD-400, owner finding 2026-11-07 item 10, ruling 2026-11-10 "circle a number when the marks pin it down"): a repeated value
-        circles nothing. Rule C still cannot tell the two 2s apart by length;
-        what decides now is whether the marks pin the run to one number
-        (rule D), so each line circles exactly what the reference says — and
-        on these lines, where the walk from either edge is free, still
-        nothing for the 2 (the name is kept: a rename moves a node id)."""
+        """The claim of CARD-213 AC-2, retired by CARD-400 on 2026-11-10 (the
+        marks pin some of these runs, and rule D circled them) and RESTORED by
+        CARD-434 on 2026-11-12, the owner's ruling after playing with rule D:
+        "circle clues only if they're surrounded by white (dots)". A repeated
+        value circles nothing here — rule C cannot tell the two 2s apart by
+        length, and nothing else reaches the run."""
         _blank_page(browser_page, live)
         got = _numbers(browser_page, [(_OWNER_CLUE, marks) for marks in self.MARKS])
+        assert got == [_NOTHING] * len(self.MARKS)
         assert got == [_rule_circles(_OWNER_CLUE, marks) for marks in self.MARKS]
-        assert any(not circled[1] and not circled[3] for circled in got), got  # a 2 the marks leave ambiguous stays uncircled
 
     def test_the_same_marks_circle_a_two_that_occurs_once(self, browser_page, live) -> None:
         _blank_page(browser_page, live)
@@ -625,15 +603,17 @@ class TestSolverClues_OpenRunDoesNotCircle:
     ]
 
     def test_the_open_run_does_not_circle_and_closing_it_does(self, browser_page, live) -> None:
-        """RETIRED CLAIM, 2026-11-10 (CARD-400, owner finding 2026-11-07 item 10, ruling 2026-11-10 "circle a number when the marks pin it down"): "open means
-        open" — an open run never circled. It now circles exactly when the
-        marks pin it (rule D); closing it still circles the 3 (rule C). Each
-        half is held to the reference, and the closed halves keep their
-        verdict (the name is kept: a rename moves a node id)."""
+        """"Open means open": an open run does not circle. CARD-400 retired
+        that on 2026-11-10 (rule D circled an open run the marks pin down) and
+        CARD-434 RESTORED it on 2026-11-12, the owner's ruling after playing
+        with rule D: a clue number circles only when its run is closed by
+        white — a dot on each side, or the board's edge. Closing the run
+        still circles the 3 (rule C), one cell apart."""
         _blank_page(browser_page, live)
         lines = [(_OWNER_CLUE, marks) for pair in self.PAIRS for marks in pair]
         got = _numbers(browser_page, lines)
         assert got == [_rule_circles(clue, marks) for clue, marks in lines]
+        assert got[0::2] == [_NOTHING] * len(self.PAIRS)
         assert got[1::2] == [_ONLY_THE_THREE] * len(self.PAIRS)
 
 
@@ -728,10 +708,11 @@ class TestSolverClues_RuleCOnlyAddsToTheOldTable:
         assert set(self.ADDED) <= set(self.BEFORE)
 
     def test_rule_c_adds_three_circles_and_removes_none(self, browser_page, live) -> None:
-        """Since CARD-400 (owner ruling 2026-11-10) rule D adds circles too:
-        the module still removes none of the pre-card circles, rule C's
-        three additions are among what changed, and every line reads what
-        the reference (rules A-D) says."""
+        """Rule C's three additions are the only changes, and no pre-card
+        circle is lost. CARD-400 (owner ruling 2026-11-10) made rule D add two
+        more of these lines and this cell could then only ask that C's three
+        were AMONG what changed; the owner withdrew rule D on 2026-11-12
+        (CARD-434), so the exact equality is back."""
         _blank_page(browser_page, live)
         rows = list(self.BEFORE)
         got = _numbers(browser_page, rows)
@@ -743,7 +724,7 @@ class TestSolverClues_RuleCOnlyAddsToTheOldTable:
             assert now == _rule_circles(clue, marks), (clue, marks, now)
             if now != before:
                 changed[(clue, marks)] = now
-        assert {row: changed[row] for row in self.ADDED} == self.ADDED
+        assert changed == self.ADDED
 
     def test_the_reference_reproduces_the_pre_card_verdicts(self) -> None:
         """``_rule_circles(..., rule_c=False)`` was written from the rule
@@ -751,7 +732,7 @@ class TestSolverClues_RuleCOnlyAddsToTheOldTable:
         actually did before rule C existed, and with the module now once
         rule C is switched on."""
         assert {row: _rule_circles(*row, rule_c=False) for row in self.BEFORE} == self.BEFORE
-        now = {row: _rule_circles(*row, rule_d=False) for row in self.BEFORE}  # C alone (CARD-400 added D)
+        now = {row: _rule_circles(*row) for row in self.BEFORE}
         assert {row: verdict for row, verdict in now.items() if verdict != self.BEFORE[row]} == self.ADDED
 
 
@@ -796,10 +777,10 @@ def _rule_c_lines(rng, size):
 
 @pytest.mark.browser
 def test_PropertyTest_SolverClues_RuleCOnlyAddsToRulesAAndB(browser_page, live) -> None:
-    """Since CARD-400 (owner ruling 2026-11-10, "circle a number when the
-    marks pin it down") the reference with rule C on also carries rule D,
-    so the module is held to rules A-D here — a stronger claim; "rule C only
-    ever adds" still holds against the A-and-B reference.
+    """Between 2026-11-10 (CARD-400) and 2026-11-12 (CARD-434, the owner's
+    ruling after play-testing) the reference with rule C on also carried a
+    rule D, and the module was held to rules A-D here; with rule D withdrawn
+    the reference is rules A-C again and so is the module.
 
     CARD-213 G-4 — on a seeded corpus, circledNumbers equals the Python
     reference with rule C on, and every circle the reference gives with rule
@@ -946,7 +927,8 @@ def _circles(page):
 
 
 def _reference_set(page):
-    """The circles rules A-D give the board as drawn (CARD-400)."""
+    """The circles rules A-C give the board as drawn (rule D withdrawn,
+    CARD-434)."""
     cells = _states(page)
     mark = {F: "D", E: "W"}
     rows = ["".join(mark.get(cells[r * SIDE + c], ".") for c in range(SIDE)) for r in range(SIDE)]
@@ -1005,9 +987,10 @@ class TestSolverClues_CirclesFollowEveryCommit:
         assert _states(page)[first * SIDE + n] == E
         assert _none(page)
         _drag(page, [(first, 0), (first, n - 1)])
-        # CARD-400 (owner ruling 2026-11-10): a column number the drag pins
-        # circles too, so each step is held to the reference (rules A-D) on
-        # the board as drawn, as well as to the row it is about.
+        # Each step is held to the reference (rules A-C) on the whole board as
+        # drawn, as well as to the row it is about — CARD-400 needed that
+        # because a drag also pinned column numbers; CARD-434 withdrew rule D,
+        # and the whole-board equality is kept as the stronger reading.
         assert ("rows", first, 0) in _circled_set(page) == _reference_set(page)
 
         _button(page, "Undo").click()
@@ -3357,7 +3340,10 @@ def test_the_sticky_gutter_rules_declare_no_colour_but_the_one_token(
 
 
 # ==========================================================================
-# CARD-400 — a number the marks pin down is circled (owner ruling 2026-11-10)
+# CARD-400 — a number the marks pin down is circled (owner ruling 2026-11-10),
+# WITHDRAWN by CARD-434 (owner ruling 2026-11-12): a number circles only when
+# its run is closed by white. The corpus and the brute force below are
+# CARD-400's, kept and inverted rather than deleted.
 # ==========================================================================
 
 
@@ -3393,25 +3379,54 @@ def _settled_numbers(clue, marks, placements=None):
             for i in range(len(clue))]
 
 
+def _settled_and_closed(clue, marks, placements=None):
+    """The numbers of :func:`_settled_numbers` whose pinned run is also
+    CLOSED — a white mark or the line's edge on each side. That is what rules
+    A, B and C ask of a run, and since the owner's ruling of 2026-11-12
+    (CARD-434) it is what a circle is allowed to mean. None when nothing
+    fits."""
+    fitting = [spans for pattern, spans in (placements or _placements(clue, len(marks)))
+               if all((m != "D" or dark) and (m != "W" or not dark) for m, dark in zip(marks, pattern))]
+    if not fitting:
+        return None
+    closed = []
+    for i, settled in enumerate(_settled_numbers(clue, marks, placements)):
+        start, end = fitting[0][i]
+        closed.append(settled
+                      and (start == 0 or marks[start - 1] == "W")
+                      and (end == len(marks) or marks[end] == "W"))
+    return closed
+
+
 @pytest.mark.browser
 class TestSolverClues_PinnedNumbersCircle:
-    """CARD-400 (owner finding 2026-11-07, item 10: "Some solved numbers are
-    not circled"; owner ruling 2026-11-10: "circle a number when the marks pin
-    it down" — "it would be nice to fix all 3").
+    """INVERTED, 2026-11-12 (CARD-434, the owner's ruling after play-testing
+    rule D: "Circle clues only if they're surrounded by white (dots)", and
+    asked which counts as surrounding: "Dots or the board edge").
+
+    The claim it was written for (CARD-400, owner finding 2026-11-07 item 10
+    "Some solved numbers are not circled", ruling 2026-11-10 "circle a number
+    when the marks pin it down"): a number whose run the marks PIN — the same
+    cells, all dark, in every placement of the clue that fits — circled even
+    with no white dot beside it. Played with, that circle told the reader
+    something they had not deduced on a line they had not finished, so the
+    owner withdrew rule D; the class name is now the name of the retired
+    claim and is kept deliberately (a rename moves a node id).
 
     The owner's line (AC-1): column 7 of the owner's 23 x 30 board, clue
-    "6 3 2", its last 2 dark at rows 25-26 with white dots below and the
-    cell above BLANK — an open run (H1), uncircled before this card, and
-    pinned: no placement of "6 3" can reach those cells.
+    "6 3 2", its last 2 dark at rows 25-26 with white dots below and the cell
+    above BLANK — pinned (no placement of "6 3" can reach those cells), and
+    once more UNCIRCLED, because its run is open on the blank side. AC-2 is
+    the same case with a "?" above instead of the blank.
 
-    The property (AC-2, AC-3, AC-5): over every clue and every marking of
-    lines 1..7 cells long that fits some placement (dark, white, blank), the
-    numbers circled are EXACTLY the numbers an independent brute force calls
-    pinned — so every class the owner was shown (beside a blank, beside a
-    "?" — a "?" is free like a blank — and a closed repeated value) circles,
-    and nothing still ambiguous does. Held to its own case counts so the
-    corpus cannot shrink. Plant: rule D's "earliest equals latest" test
-    loosened to the earliest alone -> red.
+    The property (AC-1, AC-2, AC-5): over CARD-400's own corpus — every clue
+    and every marking of lines 1..7 cells long that fits some placement (dark,
+    white, blank) — every number the module circles is pinned AND closed by
+    white or by the line's edge, the module reads exactly what rules A, B and
+    C give, and the withdrawal is counted: 8,244 numbers that rule D circled
+    no longer do. Held to its own case counts so the corpus cannot shrink.
+    Plant: rule D put back (pinnedNumbers OR-ed into circledNumbers) -> red on
+    the owner's line, on the closedness property and on the count.
     """
 
     def test_the_owners_line_and_every_short_line_circle_what_the_marks_pin(self, browser_page, live) -> None:
@@ -3419,12 +3434,15 @@ class TestSolverClues_PinnedNumbersCircle:
 
         _blank_page(browser_page, live)
         owner = "." * 24 + "DD" + "W" * 4
-        assert _numbers(browser_page, [((6, 3, 2), owner)]) == [[False, False, True]]
-        # (Not brute-forced: 2**30 lines. Pinned by hand: the "3" cannot reach
-        # rows 25-26 — it would leave the "2" no room in the white tail — so
-        # the dark pair can only be the "2".)
+        # Rule D read [False, False, True] here (the dark pair can only be the
+        # "2": the "3" would leave it no room in the white tail). The run's
+        # upper neighbour is unmarked, so since 2026-11-12 nothing circles —
+        # and a "?" there is no different, which is AC-2's half of the ruling.
+        assert _numbers(browser_page, [((6, 3, 2), owner)]) == [[False, False, False]]
+        maybe = "." * 23 + "?" + "DD" + "W" * 4
+        assert _numbers(browser_page, [((6, 3, 2), maybe)]) == [[False, False, False]]
 
-        lines, want = [], []
+        lines, want, closed = [], [], []
         for n in range(1, 8):
             clues = set()
             for pattern in product((False, True), repeat=n):
@@ -3446,9 +3464,22 @@ class TestSolverClues_PinnedNumbersCircle:
                         continue
                     lines.append((clue, marks))
                     want.append(settled)
+                    closed.append(_settled_and_closed(clue, marks, placed))
         got = _numbers(browser_page, lines)
-        wrong = [(clue, marks, w, g) for (clue, marks), w, g in zip(lines, want, got) if w != g]
+        # Every circle is a run the marks pin AND close: the ruling itself,
+        # read off the marks by a brute force over all 2**n placements.
+        open_circles = [(clue, marks, c, g) for (clue, marks), c, g in zip(lines, closed, got)
+                        if any(on and not ok for ok, on in zip(c, g))]
+        assert open_circles == [], open_circles[:5]
+        # And the module is exactly rules A, B and C, number for number.
+        wrong = [(clue, marks, g) for (clue, marks), g in zip(lines, got)
+                 if g != _rule_circles(clue, marks)]
         assert wrong == [], wrong[:5]
+        # The withdrawal, counted on the corpus rule D was landed with: the
+        # pinned numbers that no longer circle. An equality, not a floor — the
+        # corpus is a full enumeration, so it is a measurement (CARD-434 AC-5).
+        stopped = sum(1 for w, g in zip(want, got) for p, on in zip(w, g) if p and not on)
         pinned_open = sum(1 for (clue, marks), w in zip(lines, want) for i, p in enumerate(w)
                           if p and "." in marks)
         assert len(lines) >= 16000 and pinned_open >= 1000, (len(lines), pinned_open)  # 16,292 lines measured
+        assert stopped == 8244, stopped

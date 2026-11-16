@@ -1008,10 +1008,11 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         numbers = len(shaped["circledRow0"][0])
         assert numbers > 1  # a 30-wide tight row: several numbers to circle
         assert shaped["circledRow0"] == [[True] * numbers] * 2  # both gutters
-        # Only row 0's among the ROW clues, in both gutters. RETIRED CLAIM,
-        # 2026-11-10 (CARD-400, owner ruling "circle a number when the marks
-        # pin it down"): no other number circled at all — row 0's marks now
-        # also pin some columns' first numbers, which circle too.
+        # Only row 0's among the ROW clues, in both gutters. (CARD-400 made
+        # row 0's marks pin some columns' first numbers, so they circled too
+        # and this reads the ROW gutters only; CARD-434 withdrew that rule on
+        # 2026-11-12, so nothing outside row 0 circles again — the reading is
+        # kept as the one that holds under both rules.)
         assert shaped["circledInRows"] == 2 * numbers
         assert shaped["zoomProperty"] == "1.5"
 
@@ -1029,7 +1030,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert _board_snapshot(page, puzzle_id) == before
         assert _zoom_readout(page) == "150%" and phone["zoomProperty"] == "1.5"
         assert phone["circledRow0"] == [[True] * numbers]  # the one gutter, still circled
-        assert phone["circledInRows"] == numbers  # row 0's, among the row clues (CARD-400: pinned column numbers circle too)
+        assert phone["circledInRows"] == numbers  # row 0's, among the row clues (CARD-400 added pinned column circles; CARD-434 withdrew them)
 
         # And back: the duplicates return, with the marks, the zoom and the
         # circles unchanged.

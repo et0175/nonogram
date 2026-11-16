@@ -113,13 +113,18 @@ with that instruction rather than skipping green.**" The marker is declared at
 `pyproject.toml:92`.
 
 **Clue circles.** A clue number is circled once the player's marks settle it —
-in the owner's words (2026-11-10), "circle a number when the marks pin it down":
-its run sits on the same cells, all marked black, in every way the clue can
-still fit the line. A run beside a blank cell circles when the clue leaves that
-cell no choice; a run that could still grow, or still be another number of the
-same value, does not. `solver_state.js`'s `circledNumbers` holds the rules (A-D,
-the last added by CARD-400) and reads only the marks and the clues, never the
-solution, so the public player circles the same numbers.
+in the owner's words (2026-11-12), "circle clues only if they're surrounded by
+white (dots)", and, asked what counts as surrounding, "dots or the board edge".
+A number circles only when its run is CLOSED, a white dot or the line's edge on
+each side, and the marks say which number that run is. A run that could still
+grow into an unmarked cell does not circle, however firmly the clue pins it:
+that was rule D (CARD-400, the owner's earlier ruling of 2026-11-10, "circle a
+number when the marks pin it down"), withdrawn two days later after they played
+with it, because a circle beside a cell the reader has not marked tells them
+something they did not deduce. CARD-434 removed it, and the rule comment in
+`solver_state.js` keeps the record and the measurement. That file's
+`circledNumbers` holds the rules (A, B and C) and reads only the marks and the
+clues, never the solution, so the public player circles the same numbers.
 
 ADR-0038/R5 is why the scripts are listed as package data (`pyproject.toml:85`):
 "`static/*.js` is the puzzle player's client; without it an editable install works
