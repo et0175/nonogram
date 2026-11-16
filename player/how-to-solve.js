@@ -267,7 +267,9 @@ function setupTry(page) {
     });
     board.dataset.solved = done ? "true" : "false";
     board.dataset.step = String(step + 1);
-    tag.textContent = done ? "Solved" : `Step ${step + 1} of ${TRY_STEPS.length}`;
+    // CARD-470 (UX review L3): not a second "Step ... of ..." a few lines
+    // under the wizard's own; this one counts the exercise's moves.
+    tag.textContent = done ? "Solved" : `Try it: ${step + 1}/${TRY_STEPS.length}`;
     text.textContent = done
       ? "You solved it: a little tree. Every puzzle works the same way, just bigger."
       : tryText(step, clues);

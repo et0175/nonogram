@@ -404,6 +404,10 @@ def test_try_one_marks_black_white_and_maybe_and_show_me_solves_it(browser_page,
     _open(page, url)
     cell = lambda: _cell(page, "try", 0, 0)  # noqa: E731
     assert cell().get_attribute("data-state") == "unknown"
+    # CARD-470 (UX review L3): one "Step ... of ..." on the page, the
+    # wizard's; the exercise counts its own moves differently.
+    assert page.locator("[data-hts-try-tag]").inner_text() == "Try it: 1/5"
+    assert page.locator("body").inner_text().count("Step 1 of") == 1
     # CARD-444: the player's cycle, black -> white -> clear (it was
     # black -> clear here), and its Clear brush.
     seen = []
