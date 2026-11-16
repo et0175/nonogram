@@ -2495,6 +2495,26 @@ function wireMarking(container, player) {
   const probeNote = probeBar?.querySelector(".player-probe-note") ?? null;
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
+  // REGION BY HOLD, THEN TAP (CARD-449; Anna's QA, 2026-11-16, item 6, the
+  // owner's "add the two-tap region"; the safer of two variants, so ordinary
+  // taps keep their meaning). With Region on, a press held REGION_HOLD_MS on
+  // a cell without leaving it marks nothing and makes that cell the ANCHOR
+  // (.is-anchor); the next tap in the anchor's row or column paints the
+  // whole segment between them with the brush — one dragStroke, so one
+  // recorded stroke, one undo step, saved like any drag. A tap anywhere else
+  // (or on the anchor itself) only drops the anchor; so do Escape, a brush
+  // change, Region turning off, a drag, and any recorded change (commit).
+  // The line view's own long press (its strips, CARD-439) is a different
+  // surface and untouched.
+  const REGION_HOLD_MS = 450;
+  let anchor = null; // [row, col] or null
+  const anchorCell = (at) => (at === null ? null
+    : container.querySelector(`td.player-cell[data-row="${at[0]}"][data-col="${at[1]}"]`));
+  function setAnchor(at) {
+    anchorCell(anchor)?.classList.remove("is-anchor");
+    anchor = at;
+    anchorCell(anchor)?.classList.add("is-anchor");
+  }
 
   // Zoom (CARD-195, see ZOOM above). `zoom` is a percent, 100..300, view
   // state only — never saved, never reset by anything but a fresh load.
@@ -2692,6 +2712,7 @@ function wireMarking(container, player) {
   function setRegion(armed) {
     if (armed === region) return;
     region = armed;
+    if (!region) setAnchor(null); // CARD-449
     regionToggle.setAttribute("aria-pressed", String(region));
     announce.textContent = REGION_ANNOUNCEMENT[String(region)];
     refresh();
@@ -2843,6 +2864,7 @@ function wireMarking(container, player) {
   function pick(name) {
     tool = name;
     lastClick = null;
+    setAnchor(null); // CARD-449: a brush change drops the anchor
     if (!region && !regionOff && boardFits()) setRegion(true);
     syncTrigger();
     closeMenu();
@@ -2937,6 +2959,7 @@ function wireMarking(container, player) {
   function refresh() {
     const { board: current, done, undone } = player.getHistory();
     const locked = player.locked();
+    anchorCell(anchor)?.classList.add("is-anchor"); // CARD-449: a redraw replaces the cells
     if (locked) closeMenu(); // the tools' box is hidden while solved (admin.css)
     // Read fresh from the live DOM (not a `table` reference start() keeps):
     // a mirror redraw (CARD-193) replaces the table outright, and refresh()
@@ -2988,6 +3011,7 @@ function wireMarking(container, player) {
 
   function commit(next, hint = null, replay = false) {
     lastClick = null; // anything recorded ends a run of repeat clicks
+    setAnchor(null); // CARD-449: and drops a Region anchor
     // CARD-269: and anything recorded puts the ladder back on rung 1 with
     // nothing highlighted. THIS is the one choke point every recorded change
     // goes through — a click, a drag, undo, redo, a confirmed reset,
@@ -3080,6 +3104,18 @@ function wireMarking(container, player) {
     // The tool is taken here, at pointerdown: picking another brush mid-drag
     // applies to the next drag, not this one.
     gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool, paints };
+    // CARD-449: with Region on, a press held without leaving its cell sets
+    // the anchor instead of marking.
+    if (region) {
+      const held = gesture;
+      held.hold = setTimeout(() => {
+        if (gesture !== held || held.dragging) return;
+        held.anchored = true;
+        setAnchor(held.start);
+        announce.textContent = `Start set at row ${held.start[0] + 1}, column ${held.start[1] + 1}. `
+          + "Tap the other end in the same row or column.";
+      }, REGION_HOLD_MS);
+    }
     refresh(); // Hint is disabled while a gesture is in progress
   });
 
@@ -3102,6 +3138,7 @@ function wireMarking(container, player) {
     // still gated on `paints`.
     gesture.path.push(position);
     gesture.dragging = gesture.dragging || !isAt(position, gesture.start);
+    if (gesture.dragging) clearTimeout(gesture.hold); // CARD-449: a drag is not a hold
     if (gesture.dragging && gesture.paints) {
       player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, gesture.tool)));
     }
@@ -3126,8 +3163,27 @@ function wireMarking(container, player) {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const done = gesture;
     gesture = null;
+    clearTimeout(done.hold);
     const history = player.getHistory();
+    // CARD-449: the hold that set the anchor marks nothing.
+    if (done.anchored) {
+      refresh();
+      return;
+    }
+    // CARD-449: a tap while an anchor is set ends it: in the anchor's row or
+    // column it paints the segment between them (one stroke); elsewhere, or
+    // on the anchor itself, it only drops the anchor.
+    if (anchor !== null && !done.dragging) {
+      const from = anchor;
+      const [row, col] = done.start;
+      const inLine = (row === from[0]) !== (col === from[1]);
+      setAnchor(null);
+      if (inLine) commit(record(history, dragStroke(from, [done.start], done.tool)));
+      else refresh();
+      return;
+    }
     if (done.dragging) {
+      setAnchor(null); // CARD-449
       if (!done.paints) {
         // A touch or pen gesture that left its starting cell but reached
         // pointerup without ever being cancelled (the browser chose not to
@@ -3174,6 +3230,7 @@ function wireMarking(container, player) {
       }
     }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
+    clearTimeout(gesture.hold); // CARD-449
     gesture = null;
     lastClick = null;
     player.show(player.getHistory().board);
@@ -3511,6 +3568,10 @@ function wireMarking(container, player) {
     closeOffer();
   }, true);
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeOffer(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") setAnchor(null); }); // CARD-449
+  // CARD-449: a held press on the board is the anchor gesture, not the
+  // browser's context menu (Chrome on Android opens one on a long press).
+  container.addEventListener("contextmenu", (event) => { if (region) event.preventDefault(); });
 
   // Undo and redo change nothing while the board is locked (solved).
   const step = {

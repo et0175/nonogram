@@ -678,7 +678,7 @@ class TestSolverClickFollowsTheBrush:
         assert bullets == [
             "Tap a cell to fill it. Tap again to cycle: black, white (dot), empty.",
             "Brush (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.",
-            "Region (the two squares): turn it on, then drag along a row or column to mark many cells at once. With it off, dragging scrolls.",
+            "Region (the two squares): turn it on, then drag along a row or column to mark many cells at once, or press and hold one cell and tap the other end. With it off, dragging scrolls.",
             # CARD-446: the history group, and Line's bullet (in the list
             # always; hidden by syncLine wherever the Line button is).
             "Undo and Redo: step back or forward one mark at a time.",
@@ -695,6 +695,65 @@ class TestSolverClickFollowsTheBrush:
 # ==========================================================================
 # AC-305 / AC-306 — drags keep to one line
 # ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverMarking_RegionHoldThenTap:
+    """CARD-449 (Anna's QA item 6, the owner's "add the two-tap region", the
+    safer variant): with Region on, a held press sets an anchor and marks
+    nothing; the next tap in its row or column paints the segment as one
+    stroke; a tap elsewhere, Escape or a brush change drops the anchor; two
+    ordinary taps still mark two cells."""
+
+    def test_hold_then_tap_paints_the_segment(self, browser, live) -> None:
+        context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID))
+            region = page.locator("[data-player-region]")
+            if region.get_attribute("aria-pressed") != "true":
+                region.tap()
+            assert region.get_attribute("aria-pressed") == "true"
+            cdp = context.new_cdp_session(page)
+
+            def hold(r, c):
+                x, y = _centre(page, r, c)
+                cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+                page.wait_for_timeout(650)
+                cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+
+            anchored = lambda: page.locator("td.player-cell.is-anchor").count()  # noqa: E731
+            undo_on = lambda: page.locator('[data-player-action="undo"]').get_attribute("aria-disabled") == "false"  # noqa: E731
+
+            # The hold marks nothing and sets the anchor.
+            hold(3, 2)
+            assert _marked(_states(page)) == {} and anchored() == 1
+            assert "is-anchor" in _cell(page, 3, 2).get_attribute("class")
+            # The tap at the other end paints the whole segment, one stroke.
+            page.touchscreen.tap(*_centre(page, 3, 7))
+            assert _marked(_states(page)) == {(3, c): F for c in range(2, 8)}
+            assert anchored() == 0
+            page.locator('[data-player-action="undo"]').click()
+            assert _marked(_states(page)) == {} and not undo_on()   # one undo step took it all
+
+            # A tap elsewhere only drops the anchor; so do Escape and a brush change.
+            hold(5, 5)
+            page.touchscreen.tap(*_centre(page, 8, 9))
+            assert anchored() == 0 and _marked(_states(page)) == {}
+            hold(5, 5)
+            page.keyboard.press("Escape")
+            assert anchored() == 0
+            hold(5, 5)
+            _trigger(page).tap()
+            _menu_item(page, "White").tap()
+            assert anchored() == 0 and _marked(_states(page)) == {}
+
+            # Without a hold, two taps in a row are two cells, not a segment.
+            page.touchscreen.tap(*_centre(page, 7, 1))
+            page.touchscreen.tap(*_centre(page, 7, 6))
+            assert _marked(_states(page)) == {(7, 1): E, (7, 6): E}
+        finally:
+            context.close()
 
 
 @pytest.mark.browser

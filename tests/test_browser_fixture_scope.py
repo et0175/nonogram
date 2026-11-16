@@ -2234,6 +2234,9 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "tests/test_puzzle_solver_line.py::TestSolverLine_TheLineIsSplitInTwo::test_the_strips_fit_the_phone[chromium-30-row]": (
         "CARD-439", "AC-4: a 30-cell row is split 15 + 15 and fits a 390 px phone",
     ),
+    "tests/test_puzzle_solver_marking.py::TestSolverMarking_RegionHoldThenTap::test_hold_then_tap_paints_the_segment[chromium]": (
+        "CARD-449", "Region on: a held press sets an anchor and marks nothing; a tap in its line paints the segment as one stroke",
+    ),
     "tests/test_puzzle_solver_line.py::TestSolverLine_ReadsLikeTheBoard::test_ring_and_divider[chromium]": (
         "CARD-441", "a settled number in the view is ringed, not struck; the heavy fifth rule shows between two black cells",
     ),
