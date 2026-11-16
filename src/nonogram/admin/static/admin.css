@@ -2165,7 +2165,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      position, pushed below it), the reset dialog at the window's top right,
      over the board and clear of any sidebar (review cycle 1, F-003, F-007). */
   .player-toolbar:has(~ .player-stage-wrap) .player-tool-menu { position: fixed; top: auto; left: auto; margin-top: calc(44px + var(--space-2)); }
+  /* CARD-450 (QA on Android, 2026-11-16: on a Galaxy S9+ in landscape,
+     658 x 320 — 264 with Chrome's address bar — Probe sat below the edge of
+     CARD-448's three-wide strip). Probe is placed straight after Hint, in
+     the cell the history group leaves empty, and the zoom pill and the
+     counters after it: one row less. `order` moves the drawing only; the
+     focus order stays the DOM's (zoom, then Probe). */
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom { order: 1; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-counters,
+  .player-toolbar:has(~ .player-stage-wrap) .player-probe-note { order: 2; }
   .player-toolbar:has(~ .player-stage-wrap) .player-confirm { position: fixed; top: var(--space-4); right: var(--space-4); left: auto; }
+}
+/* CARD-450: and on the shortest landscape phones the strip's gaps halve, so
+   every control is on screen at 658 x 264. */
+@media (max-height: 360px) and (orientation: landscape) {
+  .player-toolbar:not([hidden]):has(~ .player-stage-wrap) { gap: var(--space-1); }
 }
 
 /* CARD-439 (owner request 2026-11-12; split strips by the owner's ruling the
