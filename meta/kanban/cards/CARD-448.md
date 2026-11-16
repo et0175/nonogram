@@ -1,6 +1,6 @@
 # CARD-448: The landscape tool strip three wide, so every control is on a landscape phone's screen
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** bug
 **Estimate:** 1c (0.25d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_player_public_mode.py, tests/test_puzzle_solver_zoom.py
 **Review score:** — (no review cycle; owner request, 2026-11-16)
 **Started:** 2026-11-16T13:40Z
-**Closed:** —
+**Closed:** 2026-11-16T14:20Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 6fb3a4ab
 **Blocked by:** —
 
 ## Why
