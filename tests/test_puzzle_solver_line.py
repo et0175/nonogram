@@ -109,7 +109,20 @@ def _centre(page, selector):
 
 
 def _strips_box(page) -> tuple[float, float]:
-    """``.player-line-strips``' border box, (width, height), to 1/100 px."""
+    """``.player-line-strips``' border box, (width, height), to 1/100 px.
+
+    Its control, recorded here and not only in a review (ADR-0039/R4): the
+    assertions below are ``>=`` against ``MAIN_STRIPS``, so what has to be
+    shown is that the box can FALL when something beside or above the strips
+    takes room from them. It can, and in the direction the ``>=`` guards —
+    widening the landscape block's ``column-gap`` from ``--space-5`` to
+    200 px gives the map column 180 px more and the box reads ``(418, 132)``
+    against the ``(598.0, 132.0)`` asked for, which reds AC-3's cell at
+    844 x 390. The height is content-fixed (two 48 px strips, a 2 px rule
+    each side, one ``--space-3 + 1rem`` gap = 132), so a fall shows in the
+    width; the companion ``_tool_rows`` is what catches a wrap, which is the
+    other way the strips lose room.
+    """
     return tuple(page.eval_on_selector(
         ".player-line-strips",
         "e => { const r = e.getBoundingClientRect();"
@@ -138,6 +151,36 @@ def _jump_targets(page) -> list[str]:
                                      "els => els.map((b) => b.textContent.trim())")
 
 
+def _answer_and_tip(page) -> tuple[float, float]:
+    """The BOTTOM of the ask's targets box and the TOP of the view's tip.
+
+    CARD-445: the owner's ruling of 2026-11-16 put the lines the ask found
+    broken where "it reads as the answer and not as a footnote to it" — above
+    the tip — while the markup has them LAST, so that an empty answer is
+    ``display: none`` and costs the strips nothing (AC-3). ``admin.css``'s
+    ``order`` on ``.player-line-tip`` is what puts them back, in the portrait
+    flex column and in the landscape grid alike. Two border-box edges and not
+    a frozen ``y``: the arrangement is the claim, the pixel is not.
+    """
+    answer = page.locator("[data-player-line-broken]").bounding_box()
+    tip = page.locator("[data-player-line-tip]").bounding_box()
+    return answer["y"] + answer["height"], tip["y"]
+
+
+def _view_scroll(page) -> tuple[float, float]:
+    """The view's own (``scrollHeight``, ``clientHeight``).
+
+    ``admin.css``'s ``.player-line`` rule is ``overflow-y: auto``, so this is
+    the instrument behind its landscape block's "13 px of scroll": what the
+    answered state costs in landscape is overflow inside the view, not room
+    out of the strips. Falls to a zero difference whenever the content fits,
+    which is what it reads in portrait.
+    """
+    return tuple(page.evaluate(
+        "() => { const e = document.getElementById('puzzle-player-line');"
+        " return [e.scrollHeight, e.clientHeight]; }"))
+
+
 def _explain_pixel(page) -> tuple[tuple[int, ...], tuple[int, ...]]:
     """The pixel the answer line actually PAINTS, and the colour it asks for.
 
@@ -149,6 +192,24 @@ def _explain_pixel(page) -> tuple[tuple[int, ...], tuple[int, ...]]:
     ``elementFromPoint`` returns whatever is beneath it whichever one paints on
     top), so this reads one screenshot pixel inside the box's padding and
     compares it with the box's own computed background colour.
+
+    Its controls, recorded here because a control run once in a review is a
+    control the next reader cannot find (ADR-0039/R4). Both run against the
+    committed bytes, each reverted immediately:
+      * POSITIVE — ``.is-line-open .player-explain``'s ``z-index: 1060`` ->
+        ``1040``, i.e. BELOW the view's own 1050: the probe reads
+        ``(245, 240, 230)``, the view's paper, against the box's own
+        ``(230, 239, 236)``, and the assertion reds.
+      * NEGATIVE — the same declaration ``1060`` -> ``1051``, one above the
+        view instead of ten: stays green. So the instrument discriminates
+        "above the view" from "far above it", and will not red on a
+        near-miss stacking change that still paints correctly.
+    Comparing the painted pixel with the box's OWN computed
+    ``backgroundColor`` is what makes it survive a colour-token, theme or
+    dark-mode change: both sides move together. Its one drift anchor is the
+    literal ``8`` in the clip's ``x`` — it is 6 px clear of anything but
+    background only because ``--space-4: 1rem`` (tokens.css) plus a 2 px
+    border leaves it so, which a padding-token change could undo.
     """
     box = page.locator("#puzzle-player-explain").bounding_box()
     shot = page.screenshot(clip={"x": box["x"] + 8, "y": box["y"] + box["height"] / 2,
@@ -227,7 +288,13 @@ class TestSolverLine_ThePureHelpers:
 @pytest.mark.browser
 class TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone:
     """AC-1 — and, since CARD-445, AC-3's geometry: what the view's own ask
-    control costs the strips at each of the two viewports the card names."""
+    control costs the strips at each of the two viewports the card names.
+
+    The RESTING and PROBING states only: the ANSWERED one needs a probe that
+    has actually broken two lines, so it is measured where that probe already
+    exists, at both viewports, in
+    ``TestSolverLine_ProbesInTheView::test_a_wrong_guess_in_the_view_undoes_it_and_offers_the_other_colour``.
+    """
 
     @pytest.mark.parametrize("viewport", [PHONE, LANDSCAPE], ids=["390x844", "844x390"])
     def test_a_big_board_on_a_phone_offers_it(self, browser, live, viewport) -> None:
@@ -470,7 +537,11 @@ class TestSolverLine_ProbesInTheView:
     no control in the view to lift it. The second cell below drives that ask,
     and the three things the owner asked it to answer — the visible line's own
     clue flagged, the OTHER broken rows and columns named in the sentence, and
-    those others offered as targets that pivot the view onto them. Its name is
+    those others offered as targets that pivot the view onto them. It also
+    carries AC-3 for the ANSWERED state, at BOTH orientations the ruling
+    names: that state needs a probe that has broken two lines, which is what
+    this cell has already built by then, so the viewport turns under the open
+    answered view rather than a second cell being added for it. Its name is
     narrower than its body by exactly that act: the node id is registered in
     ``tests/test_browser_fixture_scope.py``, so renaming it would read as a
     test removed plus a test added rather than as the cell this card changed.
@@ -552,6 +623,7 @@ class TestSolverLine_ProbesInTheView:
             # is silent until the ask.
             assert _flags(page) == {"clue": False, "abandon": False}
             assert _jump_targets(page) == []
+            resting, rows = _strips_box(page), _tool_rows(page)
             page.locator("[data-player-line-ask]").tap()
             # 1. the visible line's own clue numbers, flagged.
             assert _flags(page) == {"clue": True, "abandon": True}
@@ -569,10 +641,57 @@ class TestSolverLine_ProbesInTheView:
             # 3. the others, as targets that pivot the view onto them.
             titled = {n.capitalize() for n in named}
             assert set(_jump_targets(page)) == titled - {"Column 29"}, said
+            # 4. and the shape of the ANSWERED view — the one state in which
+            #    the targets box is a layout participant at all, and so the
+            #    only state this card adds to the view's geometry (AC-3). The
+            #    strips keep the box they had one press ago, the tool block
+            #    keeps its rows, and the answer sits ABOVE the tip, where the
+            #    owner's ruling put it.
+            assert _strips_box(page) == resting, (resting, _strips_box(page))
+            assert _tool_rows(page) == rows, (rows, _tool_rows(page))
+            answer_low, tip_top = _answer_and_tip(page)
+            assert answer_low <= tip_top, (answer_low, tip_top)
+            # Portrait has the room for all of it: no scroll at all.
+            tall, visible = _view_scroll(page)
+            assert tall == visible, (tall, visible)
             page.locator('[data-player-line-jump="row:0"]').tap()
             assert _title(page) == "Row 1 of 30"
+            # The pivot's only screen-reader channel: the live region takes
+            # the name of the line jumped to, exactly as the long press's
+            # pivot announces the crossing line. The sentence itself is not
+            # re-said — the answer has not changed, only what is on screen.
+            assert page.locator("#puzzle-player-announce").text_content() == "Row 1"
             assert _flags(page) == {"clue": True, "abandon": True}   # still asked
             assert set(_jump_targets(page)) == titled - {"Row 1"}
+
+            # ---- the same answered view in LANDSCAPE (AC-3's other half) ---
+            # The owner's ruling and AC-3 name both orientations, and
+            # landscape is where the one-row tool block and the view's own
+            # scroll live. The viewport TURNS under the open, answered view
+            # rather than this becoming a second cell: the owner's test budget
+            # (2026-11-07) is "change existing tests, do not add", and a
+            # parameter here would cost a node id plus an entry in
+            # tests/test_browser_fixture_scope.py's registry for a state this
+            # same press has already reached.
+            page.set_viewport_size(LANDSCAPE)
+            page.wait_for_function(
+                "() => matchMedia('(max-height: 500px) and (orientation: landscape)').matches")
+            was = MAIN_STRIPS[LANDSCAPE["width"]]
+            landscape = _strips_box(page)
+            assert all(a >= b for a, b in zip(landscape, was, strict=True)), (landscape, was)
+            assert len(_tool_rows(page)) == 1, _tool_rows(page)
+            answer_low, tip_top = _answer_and_tip(page)
+            assert answer_low <= tip_top, (answer_low, tip_top)
+            # admin.css's landscape block: "what the answer costs is 13 px of
+            # scroll inside the view, nothing in the strips". Measured as the
+            # overflow the view carries, and bounded rather than frozen: the
+            # claim is that the cost is a little scroll and not a row of the
+            # strips (132 px), so the bound is well under one strip.
+            tall, visible = _view_scroll(page)
+            assert 0 < tall - visible <= 40, (tall, visible)
+            page.set_viewport_size(PHONE)
+            page.wait_for_function(
+                "() => !matchMedia('(max-height: 500px) and (orientation: landscape)').matches")
 
             page.locator('[data-player-line-probe="abandon"]').tap()
             assert _board_line(page, "row", 0)[20] == U

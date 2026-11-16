@@ -2523,9 +2523,14 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
      takes the 1fr row and the tip takes an IMPLICIT row below it, and while
      it has nothing it is not a grid item at all and this block's five
      explicit rows — with every row-gap the strips sit between — are the ones
-     it always had. MEASURED at 844 x 390: the strips are 598 x 132 at y 120
-     resting, probing AND answered, and the tool row stays one row; what the
-     answer costs is 13 px of scroll inside the view, nothing in the strips. */
+     it always had. MEASURED at 844 x 390, each figure by the instrument in
+     tests/test_puzzle_solver_line.py that actually carries it: the strips are
+     598 x 132 resting, probing AND answered (_strips_box, against
+     MAIN_STRIPS) and the tool block stays ONE row (_tool_rows, a row census).
+     What the answer costs is scroll inside the view and nothing out of the
+     strips — 13 px of it here (_view_scroll: scrollHeight 403 against
+     clientHeight 390), which the answered-landscape assertion bounds well
+     under one strip's 132. */
   .player-line-clue, .player-line-strips, .player-line-tools, .player-line-tip,
   .player-line-broken { grid-column: 2; }
   .player-line[data-axis="row"] .player-line-step .icon { transform: rotate(90deg); }

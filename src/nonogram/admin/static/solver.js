@@ -2400,13 +2400,18 @@ function buildLineView(probeBar, stage) {
         // just above clones the probe bar's the same way) and the word in a
         // clipped
         // .player-btn-label — the form the view's brush, Undo and Redo
-        // already take, and the form the landscape tool row has room for:
-        // MEASURED at 844 x 390, where the brush (188), history (92) and
-        // probe groups plus two 12 px gaps have 598 px to fit in, a worded
-        // ask is 72.64 px wide and takes the total to 602.88, which wraps the
-        // whole probe group onto a second row. Icon-only it is 44 and the
-        // total 574.23. A free-space sum did not predict that wrap; the row
-        // census in tests/test_puzzle_solver_line.py's _tool_rows caught it.
+        // already take, and the form the landscape tool row has room for.
+        //
+        // Why icon-only, and by what: the widths below were read ONE OFF by
+        // hand, summing getBoundingClientRect().width over
+        // .player-line-tools' children in a Chromium session at 844 x 390 —
+        // a worded ask is about 73 px and takes the row's content to about
+        // 603 px against the 598 it has, icon-only it is 44 and the total
+        // about 574. No test re-derives those widths, and a free-space sum
+        // did not predict the wrap anyway. What the suite holds instead is
+        // the CONSEQUENCE, and only that: the row census
+        // _tool_rows in tests/test_puzzle_solver_line.py, which goes from one
+        // row to two the moment the word comes back (its control).
         lineButton({ "data-player-line-ask": "", title: HINT_PROBE_NAME,
           "aria-label": HINT_PROBE_NAME, hidden: "" }, [
           hint?.querySelector(".player-compact-icon")?.cloneNode(true)
@@ -2435,7 +2440,13 @@ function buildLineView(probeBar, stage) {
     // aria-hidden (the live region is the assistive channel) and
     // pointer-events: none, so a target inside it would be a button no
     // screen reader meets and no finger can reach.
-    lineElement("div", { class: "player-line-broken", "data-player-line-broken": "", hidden: "" }),
+    //
+    // role="group" with a label, the view's own idiom for a control group:
+    // the brush (role="group" aria-label="Brush"), the probe ("Probe") and
+    // the history all carry one, and without it these buttons reach a screen
+    // reader as a bare "Row 1" with nothing saying what the row is to.
+    lineElement("div", { class: "player-line-broken", "data-player-line-broken": "",
+      role: "group", "aria-label": "Also broken", hidden: "" }),
   ]);
   (stage.closest(".player-stage-wrap") ?? stage).after(lineDialog);
   return { lineDialog, lineOpen };
