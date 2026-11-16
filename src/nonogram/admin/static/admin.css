@@ -2079,7 +2079,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 @media (max-height: 500px) and (orientation: landscape) {
   :has(> .player-toolbar ~ .player-stage-wrap) { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start; min-height: calc(100svh - var(--player-stage-top, 0px) - var(--space-4)); }
   :has(> .player-toolbar ~ .player-stage-wrap) > * { grid-column: 2; }
-  :has(> .player-toolbar ~ .player-stage-wrap) > .player-head { grid-column: 1; grid-row: 1; width: calc(2 * 44px + var(--space-2)); flex-wrap: wrap; margin-bottom: var(--space-2); }
+  :has(> .player-toolbar ~ .player-stage-wrap) > .player-head { grid-column: 1; grid-row: 1; width: calc(3 * 44px + 2 * var(--space-2)); flex-wrap: wrap; margin-bottom: var(--space-2); }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-head { gap: var(--space-1); }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-head h1 { font-size: var(--text-base); line-height: var(--leading-tight); margin: 0; }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-head .badge { font-size: var(--text-xs); padding: 0 var(--space-1); }
@@ -2087,7 +2087,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-toolbar { grid-column: 1; grid-row: 2 / 4; }
   :has(> .player-toolbar ~ .player-stage-wrap) > .player-hint { grid-row: 3; }
   .player-toolbar:not([hidden]):has(~ .player-stage-wrap) {
-    display: grid; grid-template-columns: repeat(2, 44px); grid-auto-rows: min-content; gap: var(--space-2);
+    /* CARD-448 (owner 2026-11-16, Anna's QA: "in landscape the Hints button
+       is missing"; owner's choice "three wide", narrowing the 2026-11-10
+       ruling "B, two buttons wide"): THREE columns. Two wide, the strip was
+       about 390 px tall and a landscape phone gives it 300 or less, so
+       Probe, the Hints counter and at 340 px the zoom too sat below the edge,
+       reachable only by scrolling the strip. Three wide it is brush+Region,
+       Undo Redo Reset, Line Hint Probe, the zoom pill, the counters. */
+    display: grid; grid-template-columns: repeat(3, 44px); grid-auto-rows: min-content; gap: var(--space-2);
     align-content: start; height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain;
     margin: 0; position: relative;
   }
@@ -2131,17 +2138,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      one more strip row, because the plus no longer shares its row with the
      next control: measured, with the strip's own scroll absorbing it and
      the board's box unchanged, in CARD-428's Worktree notes. */
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, 44px); gap: var(--space-2); }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(3, 44px); gap: var(--space-2); }
   .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="out"] { grid-area: 1 / 1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="in"] { grid-area: 1 / 2; }
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { grid-area: 2 / 1 / 3 / -1; width: auto; }
+  /* CARD-448: three wide, the readout (Fit) takes the third column of the
+     pair's own row — minus, plus, readout, the DOM's (and so the focus) order. */
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { grid-area: 1 / 3; width: auto; }
   /* CARD-430: the same joined control in the strip, as one block across its
      two columns — minus and plus side by side, the readout (the Fit button)
      across the row below. A one-row pill would give each of its three
      members about 30 px of the strip's 96, under the 44 px tap floor. */
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom { grid-template-columns: 1fr 1fr; gap: 0; border-radius: 12px; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom { grid-template-columns: 1fr 1fr 1fr; gap: 0; border-radius: 22px; }
   .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .btn { width: auto; }
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { border-left: 0; border-top: var(--border-width) solid var(--color-border); }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { border-top: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters { grid-column: 1 / -1; order: 1; flex-direction: column; align-items: flex-start; gap: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters-pair { flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters p { min-height: 0; font-size: var(--text-xs); }
