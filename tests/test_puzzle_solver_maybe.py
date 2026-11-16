@@ -73,8 +73,10 @@ _STATE = {code: state for state, code in _CODE.items()}
 #: What one FIRST click does (CARD-189), written out: state -> the state after
 #: a first click with (Black, White, Clear, Maybe). Repeat clicks are
 #: tested in test_puzzle_solver_marking.py (TestSolverClickFollowsTheBrush).
+#: CARD-447: Clear on a blank cell stays blank (it was F, the colour cycle,
+#: which painted black from the brush named Clear).
 _CLICK_TABLE = {
-    U: (F, E, F, M),
+    U: (F, E, U, M),
     F: (E, E, U, M),
     E: (F, U, U, M),
     M: (F, E, U, U),

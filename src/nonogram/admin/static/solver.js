@@ -3020,6 +3020,24 @@ function wireMarking(container, player) {
     refresh();
   }
 
+  // CARD-447 (owner's QA, 2026-11-16, Anna on an iPhone: "while placing dots
+  // the page zooms", and "the last cell won't clear, after the dot it paints
+  // black again"): iOS Safari reads a quick second tap as double-tap-to-zoom.
+  // It zooms the page, swallows the tap (so the cell does not step on), and
+  // the zoom's cancelled touch ends the repeat (so the next tap is a FIRST
+  // tap again, and Black on a white cell paints black). A touchend that
+  // follows the previous one within DOUBLE_TAP_MS on the board or a line
+  // strip is cancelled, which is the one thing that stops that zoom; marking
+  // runs on pointer events, which have already fired, and nothing on either
+  // surface listens for the click a touchend would synthesize.
+  const DOUBLE_TAP_MS = 350;
+  let lastTouchEnd = -Infinity;
+  document.addEventListener("touchend", (event) => {
+    if (!(event.target instanceof Element) || !event.target.closest(".player-stage, .player-line-strips")) return;
+    if (event.timeStamp - lastTouchEnd < DOUBLE_TAP_MS && event.cancelable) event.preventDefault();
+    lastTouchEnd = event.timeStamp;
+  }, { passive: false });
+
   container.addEventListener("pointerdown", (event) => {
     // Pinch bookkeeping (CARD-195) runs ahead of — and independently of —
     // the single-pointer gesture logic below, for touch/pen pointers only

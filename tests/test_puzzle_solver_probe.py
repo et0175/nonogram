@@ -230,8 +230,9 @@ _RING_FLOOR = 20.0
 
 
 #: The ops the pure-module driver and :func:`_oracle` both understand. A
-#: ``mark`` is one click's stroke (``clickStroke`` always changes its cell, so
-#: every mark is one history step); ``undo``/``redo`` are the history's own
+#: ``mark`` is one click's stroke (one history step whenever it changes its
+#: cell — every click but Clear on a blank cell since CARD-447, which records
+#: nothing); ``undo``/``redo`` are the history's own
 #: moves; ``open``/``keep``/``abandon`` are the probe's three controls.
 #:
 #: Production applies the ``"change"`` event to the probe after EVERY recorded
@@ -345,17 +346,40 @@ def _oracle(ops):
     undone: list[tuple[int, tuple[int, int]]] = []
     before: set[int] | None = None   # the identities the open probe found made
     minted = 0
+    # CARD-447: a mark is a stroke only if it changes its cell — Clear on a
+    # blank cell changes nothing, so `record` records nothing (and keeps the
+    # redo stack). So this oracle tracks the cells, by its own first-click
+    # table (CARD-189's, with CARD-447's Clear), not by solver_state.js.
+    first_click = {
+        "f": {"u": "f", "f": "e", "e": "f", "m": "f"},
+        "e": {"u": "e", "f": "e", "e": "u", "m": "e"},
+        "m": {"u": "m", "f": "m", "e": "m", "m": "u"},
+        "u": {"u": "u", "f": "u", "e": "u", "m": "u"},
+    }
+    cells: dict[tuple[int, int], str] = {}
+    changes: dict[int, tuple[str, str]] = {}       # identity -> (before, after)
     for op in ops:
         if op[0] == "mark":
+            cell = (op[1], op[2])
+            was = cells.get(cell, "u")
+            now = first_click[op[3]][was]
+            if now == was:
+                continue           # nothing changes, nothing is recorded
             minted += 1
-            done.append((minted, (op[1], op[2])))
+            changes[minted] = (was, now)
+            cells[cell] = now
+            done.append((minted, cell))
             undone = []            # `record` drops the redo stack
         elif op[0] == "undo":
             if done:
-                undone.append(done.pop())
+                entry = done.pop()
+                cells[entry[1]] = changes[entry[0]][0]
+                undone.append(entry)
         elif op[0] == "redo":
             if undone:
-                done.append(undone.pop())
+                entry = undone.pop()
+                cells[entry[1]] = changes[entry[0]][1]
+                done.append(entry)
         elif op[0] == "open":
             if before is None:
                 before = {identity for identity, _ in done + undone}
@@ -364,7 +388,9 @@ def _oracle(ops):
         elif op[0] == "abandon":
             if before is not None:
                 while done and done[-1][0] not in before:
-                    undone.append(done.pop())
+                    entry = done.pop()
+                    cells[entry[1]] = changes[entry[0]][0]
+                    undone.append(entry)
                 before = None
         else:
             raise AssertionError(f"unknown op {op[0]}")
@@ -398,7 +424,9 @@ _RULE_CASES = {
         ("mark", 0, 0, "f"), ("open",), ("mark", 1, 0, "f"), ("open",), ("mark", 1, 1, "f"),
     ],
     "3 — every brush's mark belongs to the probe": [
-        ("open",), ("mark", 0, 0, "f"), ("mark", 0, 1, "e"), ("mark", 0, 2, "m"),
+        # CARD-447: Clear paints nothing on a blank cell, so (0, 3) is made
+        # black before the probe and Clear's mark inside it clears it.
+        ("mark", 0, 3, "f"), ("open",), ("mark", 0, 0, "f"), ("mark", 0, 1, "e"), ("mark", 0, 2, "m"),
         ("mark", 0, 3, "u"),
     ],
     "3 — a cell marked twice is one member": [

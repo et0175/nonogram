@@ -51,7 +51,7 @@ BRUSHES = {**TOOLS, "Maybe": M}
 FIRST_CLICK = {
     F: {U: F, F: E, E: F, M: F},
     E: {U: E, F: E, E: U, M: E},
-    U: {U: F, F: U, E: U, M: U},
+    U: {U: U, F: U, E: U, M: U},  # CARD-447: Clear always clears (blank was F)
     M: {U: M, F: M, E: M, M: U},
 }
 #: A repeat click (same cell, same brush, nothing in between): one step along
@@ -59,7 +59,7 @@ FIRST_CLICK = {
 REPEAT_CLICK = {
     F: {U: F, F: E, E: U, M: F},
     E: {U: F, F: E, E: U, M: E},
-    U: {U: F, F: E, E: U, M: U},
+    U: {U: U, F: U, E: U, M: U},  # CARD-447: was {U: F, F: E, E: U} — Clear cycled
     M: {U: M, F: M, E: M, M: U},
 }
 
@@ -392,7 +392,7 @@ _REFUSED_TOOLS_JS = """async () => {
 _SEQUENCES = {
     "Black": [F, E, U, F],
     "White": [E, U, F, E],
-    "Clear": [F, E, U, F],
+    "Clear": [U, U, U, U],  # CARD-447: Clear never paints (was F, E, U, F)
     "Maybe": [M, U, M, U],
 }
 
@@ -415,7 +415,9 @@ class TestSolverClickFollowsTheBrush:
         for row in got["out"]:
             table = REPEAT_CLICK if row["repeat"] else FIRST_CLICK
             want = table[row["brush"]][row["state"]]
-            assert want != row["state"]  # every click changes the cell
+            # Every click changes the cell — except Clear on a blank one
+            # (CARD-447: Clear never paints).
+            assert want != row["state"] or (row["brush"] == U and row["state"] == U)
             assert (row["cells"], row["after"]) == ([[1, 2]], want), row
         assert got["coerced"] == [F, F, F, F]
 
@@ -548,12 +550,19 @@ class TestSolverClickFollowsTheBrush:
             page.evaluate("window.__types = []; document.addEventListener('pointerdown', (e) => window.__types.push(e.pointerType))")
             _trigger(page).tap()
             _menu_item(page, "White").tap()
+            # CARD-447: and each quick second touchend on the board is
+            # cancelled (iOS Safari's double-tap-to-zoom swallowed it and
+            # ended the repeat); a tap after a pause is not.
+            page.evaluate("window.__ends = []; window.addEventListener('touchend', (e) => window.__ends.push(e.defaultPrevented))")
             seen = []
             for _ in range(3):
                 page.touchscreen.tap(*_centre(page, 2, 2))
                 seen.append(_at(_states(page), 2, 2))
             assert seen == [E, U, F]
             assert set(page.evaluate("window.__types")) == {"touch"}
+            page.wait_for_timeout(500)
+            page.touchscreen.tap(*_centre(page, 2, 2))
+            assert page.evaluate("window.__ends") == [False, True, True, False]
         finally:
             context.close()
 
@@ -1785,7 +1794,10 @@ def test_PropertyTest_SolverHistory_ReplayReproducesTheBoard(browser_page, live)
         board_before = model.board
         if op[0] == "click":
             model.click(op[1], op[2], op[3], op[4])
-            assert model.board is not board_before, (index, op)  # CARD-189: every click is a step
+            # CARD-189: every click is a step — except, since CARD-447, Clear on
+            # a blank cell, which changes nothing and so records nothing.
+            if not (op[3] == U and board_before[(op[1], op[2])] == U):
+                assert model.board is not board_before, (index, op)
         elif op[0] == "drag":
             model.drag(op[1], tuple(op[2]), [tuple(p) for p in op[3]])
         elif op[0] == "reset":

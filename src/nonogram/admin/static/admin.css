@@ -771,6 +771,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    only thing that can ever act on a two-finger touch starting on a cell. */
 .player-board { user-select: none; -webkit-user-select: none; }
 .player-cell { cursor: pointer; touch-action: pan-x pan-y; }
+/* CARD-447: the controls around the board take no double-tap zoom either
+   (iOS Safari zoomed the page on a quick second press); pinch and scroll
+   are untouched (manipulation keeps both). The cells' own values above
+   already exclude it; solver.js's touchend guard covers the board itself. */
+.player-toolbar, .player-line { touch-action: manipulation; }
 .player-board.is-region .player-cell { touch-action: none; }
 /* Sizing on phones (CARD-193, owner decision 2026-10-06): below the shell
    breakpoint the cell floor is removed (0 px, never binds) so the board
