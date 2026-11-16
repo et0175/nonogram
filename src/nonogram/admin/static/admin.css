@@ -2278,6 +2278,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      open, Line view still shows its own probing sentence, and the desktop
      and landscape layouts still show this one. */
   .player-toolbar .player-probe-note { display: none; }
+  /* CARD-462 (UX review M6): a small board on an upright phone stopped at the
+     28 px cell cap, about 300 px of a 412 px screen, and sat against the
+     left edge. Here the cap is 36 px, so a 10 x 10 fills the width, and a
+     board narrower than the stage is centred in it (auto margins are 0 once
+     a zoomed board is wider than the stage, so scrolling is unchanged). */
+  .player-stage { --player-cell-max: 36px; }
+  .player-stage > .player-board { margin-inline: auto; }
 }
 
 /* CARD-402 (owner finding 2026-11-07, item 5: "Toolbar as a vertical icon
