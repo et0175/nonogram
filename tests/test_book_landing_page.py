@@ -197,6 +197,16 @@ def test_a_long_book_is_cut_into_level_sections_that_open_and_close(browser_page
     assert [heads.nth(i).get_attribute("aria-expanded") for i in range(3)] == ["false", "true", "false"]
     assert [grids.nth(i).is_visible() for i in range(3)] == [False, True, False]
 
+    # CARD-464 (UX review M8): a reader with a puzzle under way gets THAT
+    # section open and no other. Every square here is one key, so one save
+    # starts all thirty and the Continue target is the last, in Hard.
+    _plant(page, url, base["key"], [(0, 0)])
+    _open_pages(page, url, f"/b/{slug}")
+    assert [heads.nth(i).get_attribute("aria-expanded") for i in range(3)] == ["false", "false", "true"]
+    # And each square carries its size, small, under the number.
+    assert page.locator(".tile .tile-size").first.inner_text() == f"{base['width']}\u00d7{base['height']}"
+    page.evaluate("() => localStorage.clear()")
+
     # The short fixture book opens every section: nothing to save by closing.
     book_file.write_text(json.dumps(served), encoding="utf-8")
     _open_pages(page, url, f"/b/{slug}")
