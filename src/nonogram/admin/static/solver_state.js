@@ -259,11 +259,19 @@ function checkState(state, what) {
 // memory. A cell outside the brush's sequence takes the brush's state;
 // otherwise, on a repeat click or when the cell already holds the brush's
 // state, it moves one step along the sequence; otherwise it takes the
-// brush's state. So the result always differs from `state`. A `state` or
-// `tool` that is not a cell state is refused with RangeError.
+// brush's state. A `state` or `tool` that is not a cell state is refused
+// with RangeError.
+//
+// CARD-447 (owner's QA, 2026-11-16, Anna's checklist items 4 and 5: "Clear
+// on an empty cell paints black"): Clear — the UNKNOWN brush, "Undecided"
+// when CARD-189 gave it the colour brushes' cycle, renamed by CARD-247 —
+// always clears. It is the one brush that does not cycle, so a tap with it
+// on an empty cell changes nothing (record() then records nothing: no undo
+// step), and every other result still differs from `state`.
 export function clickedState(state, tool, repeat) {
   checkState(state, "cell state");
   checkState(tool, "tool");
+  if (tool === UNKNOWN) return UNKNOWN;
   const order = tool === MAYBE ? MAYBE_ORDER : COLOUR_ORDER;
   if (!Object.hasOwn(order, state)) return tool;
   if (repeat === true || state === tool) return order[state];
