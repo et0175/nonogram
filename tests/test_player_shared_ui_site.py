@@ -471,6 +471,8 @@ class TestSharedUi_ThePageRuns:
         assert page.locator(".player-head h1").inner_text() == f"Puzzle {number}"
         assert page.locator("[data-player-size]").inner_text() == "10\u00d710"
         assert page.title().startswith(f"Puzzle {number} \u00b7 10\u00d710")
+        # CARD-453: the way on is drawn but not shown until the solve.
+        assert not page.locator("[data-player-next]").is_visible()
         quiet = page.evaluate(_LOOK)
         # F-002: ``inner_text()`` is the string, not the painted glyphs, so the
         # line above passes identically whether the reader sees the book's name
@@ -506,6 +508,14 @@ class TestSharedUi_ThePageRuns:
         assert loud["background"] != quiet["background"] and loud["border"] != quiet["border"]
         assert quiet["background"] == "rgba(0, 0, 0, 0)", quiet
         solved = page.evaluate(_ROOM)
+        # CARD-453: once solved, the way on — the book's next puzzle (with
+        # ?book= kept) and the book — and How to play steps aside for it.
+        assert page.locator("[data-player-next]").is_visible()
+        following = shelf["puzzles"][number]["key"]  # e10 is not the book's last
+        assert page.locator("[data-player-next-puzzle]").get_attribute("href") == (
+            f"/play/{following}?book={slug}")
+        assert page.locator("[data-player-next] a").last.get_attribute("href") == f"/b/{slug}"
+        assert not page.locator(".player-howto").is_visible()
 
         # The SOLVED state's cost, measured against the same solved board with
         # no book — the player's own save resumes it, and no link is drawn.
