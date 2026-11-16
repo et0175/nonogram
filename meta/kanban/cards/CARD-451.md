@@ -1,6 +1,6 @@
 # CARD-451: Clues stay pinned on a landscape phone, and Hint's dead end points to Probe
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5c (0.1d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/templates/puzzle_solve.html (comment), tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_zoom.py
 **Review score:** — (no review cycle; owner request, 2026-11-16)
 **Started:** 2026-11-16T18:50Z
-**Closed:** —
+**Closed:** 2026-11-16T19:40Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 72c7886c
 **Blocked by:** —
 
 ## What to implement
