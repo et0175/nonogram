@@ -1871,8 +1871,13 @@ class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
     Two assertions, and the first is not decoration. A bar that is hidden,
     or that has been folded back onto the toolbar's first row, satisfies the
     second one for a reason that has nothing to do with the air; the premise
-    says the bar is visible and is a line of its OWN below ``.player-tools``,
-    which is the layout the air is arithmetic about.
+    says the bar is visible and is BELOW ``.player-tools``, which is the
+    layout the air is arithmetic about. It said "a line of its OWN below"
+    until CARD-438 gave the compact portrait toolbar two rows: the bar shares
+    the second one with Check, the zoom pill and the counters there, so it is
+    no longer a line of its own — and the assertion is unchanged, because what
+    it reads is ``barTop >= toolsBottom``, which is "below the marking row"
+    and was never "alone on a row".
 
     Both probe states are swept because the bar's height is not constant —
     Keep, Contradiction and the leaving note appear while a probe is open,
@@ -1978,6 +1983,14 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
     page whose two CARD-268 geometry rules have both been switched off, and
     the two must be the same number. That is sharp at one pixel.
 
+    Since CARD-438 (owner play-test 2026-11-12, item 7: all the buttons in
+    two lines on a portrait phone) the LINE is a line at two of the three
+    viewports only: on a compact portrait screen Probe shares the toolbar's
+    second row, so the pull has no row of its own to pay for and the cost
+    arithmetic below skips 390 x 844 for a reason stated where it skips. What
+    that viewport still asserts is the half this class shares with the owner's
+    CARD-411 ruling — the board's top is the same closed and open.
+
     Probe CLOSED at all three viewports, which is the standing layout every
     sibling test sees — and, since CARD-411, OPEN too: the board's top is the
     same with no probe, one open and after closing it, because the line's
@@ -2051,6 +2064,26 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             after = browser_page.evaluate(_BOARD_TOP)
             assert closed == opened == after, (width, height, closed, opened, after)
 
+        # CARD-438 (owner play-test 2026-11-12, item 7: "Is it possible to
+        # have all the buttons in 2 lines on portrait mode"): on a compact
+        # PORTRAIT screen the probe is no longer a LINE. It shares the
+        # toolbar's second row with Check, the zoom pill and the counters, so
+        # there is no row of its own for the pull to pay for and the
+        # arithmetic below is not a claim about this viewport. What replaces
+        # it for a phone is above, unchanged and still asserted there: the
+        # board's top is the same with no probe, with one open and after
+        # closing it, and the pair is the toolbar's height and at least 44 px
+        # wide. The ROW count is
+        # tests/test_puzzle_solver_phone.py::TestSolverPhone_CompactToolbar's,
+        # whose _PORTRAIT_ROWS names which control sits on which row.
+        # The plant still measures something here and it is NOT the cost of a
+        # row: taking .player-probe out of the layout frees the row it SHARES,
+        # so the counters it shared it with come up onto it and the board
+        # rises 18.203 px rather than the 20 a row would have cost. Pinning
+        # that figure would pin the counters' wrap, so the arithmetic is
+        # asserted where it is still about a line.
+        if viewport == (390, 844):
+            return
         # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "at full toolbar
         # size"; owner ruling 2026-11-10, option "A"): the line cost the board
         # nothing. It is now a full control row (the toolbar's button height)

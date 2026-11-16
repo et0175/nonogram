@@ -823,8 +823,8 @@ class TestSolverPhone_MirroredGutterSticks:
             _to_corner(page, col, row)
             seen = _in_view(page, row, col)
 
-            assert seen["overflow"] == [136, 82], (corner, seen["overflow"])  # 95 until CARD-431 (the 20 px compact title); [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage; 87 until CARD-423's 44 px tap-target floor, which costs a control row 44 px MINUS its tallest control: of the two rows at 600 x 844 on THIS board ONE paid its 8 px and the other paid nothing, already standing 44 px tall on the zoom readout's own compact rule — which is keyed on [role="button"], so it holds only while a Fit exists, as it does for BIG here (toolbar 111.8 -> 119.8 px, measured), so this axis sees the 8 px the stage's cap loses.
-            assert seen["scroll"] == [136 if col else 0, 82 if row else 0], (corner, seen["scroll"])  # 95 until CARD-431; 75 until CARD-411, 87 until CARD-423 (the line above)
+            assert seen["overflow"] == [136, 59], (corner, seen["overflow"])  # 82 until CARD-438 (owner play-test 2026-11-12, item 7: all the buttons in two lines on portrait): the compact PORTRAIT toolbar lays its controls out in two rows, which at 600 x 844 means Probe and the counters share the second one (Probe first, the counters last on CARD-438's `order: 1`) where the counters had it and Probe a third of its own, so the toolbar measures 119.8 -> 96 px (measured on this board at this zoom) and the stage's measured cap is 23.8 px taller. The board absorbs it, as it did at CARD-423: this axis's overflow is 23 px less and nothing scrolls sideways that did not before. Its other home, tests/test_puzzle_solver_clues.py's ROOMS, is re-pinned with it, as CARD-406, CARD-409, CARD-411 and CARD-423 each re-pinned the pair together; 95 until CARD-431 (the 20 px compact title); [136, 0] until CARD-403's measured stage cap; 108 until CARD-406's 44 px Fit control; 75 until CARD-411 (option C) made the probe line a full control row on compact screens: --space-3 = 12 px less stage; 87 until CARD-423's 44 px tap-target floor, which costs a control row 44 px MINUS its tallest control: of the two rows at 600 x 844 on THIS board ONE paid its 8 px and the other paid nothing, already standing 44 px tall on the zoom readout's own compact rule — which is keyed on [role="button"], so it holds only while a Fit exists, as it does for BIG here (toolbar 111.8 -> 119.8 px, measured), so this axis sees the 8 px the stage's cap loses.
+            assert seen["scroll"] == [136 if col else 0, 59 if row else 0], (corner, seen["scroll"])  # 82 until CARD-438 (the two-row portrait toolbar, the line above); 95 until CARD-431; 75 until CARD-411, 87 until CARD-423 (the line above)
 
             # [CARD-405: the band is on the LEFT now and pinned to the LEFT edge.]
             # The mirrored row band is pinned to the scrollport's RIGHT edge
@@ -930,7 +930,7 @@ class TestSolverPhone_MirroredGutterSticks:
         room = _room(page)
         assert room["keeping"] == [False, True], room
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
-        assert room["port"] == [358, 413] and room["overflow"] == [346, 170], room  # 400/183 until CARD-431 (the 20 px compact title); 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap  # 424/159 until CARD-423's 44 px tap-target floor: of the four control rows at 390 x 844 three paid an 8 px step and the zoom row paid none (its readout already stood 44 px tall on its own compact rule), so the toolbar is 24 px taller and not the 32 a per-row multiplier predicts (183.8 -> 207.8 px, measured) and the stage's cap — which reads solver.js's measured --player-stage-top — is 24 px shorter. The BOARD absorbs it, not the page: the cell is the column-floor-bound 14.391 px before and after, and nothing scrolls sideways that did not before.
+        assert room["port"] == [358, 492] and room["overflow"] == [346, 91], room  # 413/170 until CARD-438 (owner play-test 2026-11-12, item 7: all the buttons in two lines on portrait): the compact PORTRAIT toolbar lays its controls out in TWO rows where this page had FOUR — the brush slot, the history group, the zoom pill with the counters, and Probe alone on the last — so the toolbar measures 207.8 -> 128.8 px (measured on this board at this zoom) and the stage, capped at solver.js's measured --player-stage-top, is 79 px taller. 79 and not the 44 the card predicted: a row is not a fixed price, and two of the four rows went — Probe's, and the one the history group took when the eighth marking control would not fit it. The BOARD absorbs it as it did at CARD-423: the cell is the column-floor-bound 14.391 px before and after, and nothing scrolls sideways that did not before; 400/183 until CARD-431 (the 20 px compact title); 436/147 until CARD-411 (option C: the compact probe line is a full control row, 12 px); 398/185 until CARD-409 took the answer line out of the head  # 583 / 0 until CARD-403's measured stage cap  # 424/159 until CARD-423's 44 px tap-target floor: of the four control rows at 390 x 844 three paid an 8 px step and the zoom row paid none (its readout already stood 44 px tall on its own compact rule), so the toolbar is 24 px taller and not the 32 a per-row multiplier predicts (183.8 -> 207.8 px, measured) and the stage's cap — which reads solver.js's measured --player-stage-top — is 24 px shorter. The BOARD absorbs it, not the page: the cell is the column-floor-bound 14.391 px before and after, and nothing scrolls sideways that did not before.
         # Past the share the rule allows, re-derived here from solver.js's
         # own constant rather than from the class it set — off the RAW cover
         # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs
@@ -1015,6 +1015,36 @@ _UNLABELLED = ("Brush: Black", "Region", "Zoom out", "Zoom in", "Zoom readout")
 #: on the set assertion that says nothing about 44 px.
 _CONTROLS = _LABELLED + _UNLABELLED
 
+#: CARD-438 (owner play-test 2026-11-12, item 7: "Is it possible to have all
+#: the buttons in 2 lines on portrait mode" — the answer is yes): the two rows
+#: the compact PORTRAIT toolbar lays those controls out in, each row named by
+#: the controls on it rather than by a count, so a layout that reaches two
+#: rows by dropping or swapping a control reds here and not only on the set
+#: assertion above. It is a MEASUREMENT of the admin solve page at 390 x 844,
+#: and the admin page is the wider of the two inventories: public mode takes
+#: Check off the page (solver.js's PUBLIC_ABSENT), so the page the owner plays
+#: puts the whole marking group on row 1 and the zoom pill, Probe and the
+#: Hints readout — in that order, the readout last since CARD-438 gave
+#: .player-counters `order: 1` — on row 2. Here Check is the control that
+#: moved rows, and it had to: the eight marking controls — seven at CARD-423's
+#: 44 px floor and Region at its content's 49 — need 357 px of the 358 the
+#: toolbar has at 390 px, so row 1 cannot hold the marking group entire while
+#: Check is drawn. Landscape is not in this pin — CARD-402's
+#: strip is a two-column column of rows and this cell's 844 x 390 case says
+#: nothing about it (AC-6).
+#:
+#: One control per rule, measured as mutants rather than argued: restore
+#: .player-probe's `flex-basis: 100%` in admin.css's portrait block and Probe
+#: is back on a row of its own, so this pin reds with three rows; drop
+#: `.player-history { display: contents }` and the whole history group wraps
+#: instead of Check alone, so it reds with three rows the other way. Neither
+#: mutant touches the set assertion above, which is why the rows are named
+#: and not counted.
+_PORTRAIT_ROWS = (
+    ("Brush: Black", "Region", "Undo", "Redo", "Reset", "Line", "Hint"),
+    ("Check", "Zoom out", "Zoom in", "Zoom readout", "Probe"),
+)
+
 #: CARD-423: was ``_LABEL_BOXES``, which started from ``.player-btn-label``
 #: and therefore could not see the five controls in ``_UNLABELLED`` — four of
 #: the nine that measured 44 x 36 px. It starts from the toolbar's controls
@@ -1030,6 +1060,11 @@ _CONTROLS = _LABELLED + _UNLABELLED
 #: instead of adding a row called ``''``. ``textContent`` and not
 #: ``innerText``: Chromium applies ``text-transform`` to ``innerText``, which
 #: would report what the CSS painted rather than what the markup says.
+#: CARD-438: and the border box's ``y``, rounded to 1/100 px (the layout
+#: engine's own rounding is 1/64), because the toolbar's ROWS are what that
+#: card is about — a control's row is its ``y``, and the toolbar top-aligns
+#: every item (``.player-toolbar``'s ``align-items: flex-start``), so one
+#: distinct ``y`` is one row.
 _CONTROL_BOXES = """() => [...document.querySelectorAll('.player-toolbar button, .player-toolbar [role="button"]')]
   .filter((button) => button.getClientRects().length > 0).map((button) => {
   const label = button.querySelector('.player-btn-label');
@@ -1041,7 +1076,8 @@ _CONTROL_BOXES = """() => [...document.querySelectorAll('.player-toolbar button,
   return { name: name,
            label: label ? label.getBoundingClientRect().width : 0,
            icon: icon ? icon.getBoundingClientRect().width : 0,
-           button: box.width, height: box.height };
+           button: box.width, height: box.height,
+           y: Math.round(box.y * 100) / 100 };
 })"""
 
 
@@ -1097,7 +1133,13 @@ class TestSolverPhone_CompactToolbar:
     ``.player-btn-label`` to show at any width (review cycle 1, F-006: the
     arm is unreached while both cells are compact, and asserting it over
     every box would red the first desktop cell a later card adds for a
-    reason that says nothing about the page)."""
+    reason that says nothing about the page).
+
+    CARD-438 (owner play-test 2026-11-12, item 7: "Is it possible to have all
+    the buttons in 2 lines on portrait mode") adds the ROWS to the portrait
+    case of this cell: see ``_PORTRAIT_ROWS``. Landscape keeps only the claims
+    above — its strip is a two-column column of rows by CARD-402's design, and
+    this cell's 844 x 390 case is not asked for a row count (AC-6)."""
 
     # No desktop cell: the existing 1280/1440 layout cells (brush-menu slot,
     # percent, maybe) already hold the labelled toolbar there (review cycle 1,
@@ -1110,6 +1152,10 @@ class TestSolverPhone_CompactToolbar:
         _open(browser_page, live, live.store(BIG))
         boxes = browser_page.evaluate(_CONTROL_BOXES)
         assert sorted(box["name"] for box in boxes) == sorted(_CONTROLS), boxes
+        if height > width:  # CARD-438, AC-1/AC-2: see _PORTRAIT_ROWS
+            rows = sorted({box["y"] for box in boxes})
+            assert [sorted(box["name"] for box in boxes if box["y"] == y) for y in rows] == [
+                sorted(row) for row in _PORTRAIT_ROWS], [(box["name"], box["y"]) for box in boxes]
         for box in boxes:
             if compact:
                 # CARD-423: both dimensions, every control — not the width of
@@ -1144,3 +1190,4 @@ class TestSolverPhone_CompactToolbar:
             context.close()
         assert name_box and name_box["width"] > 1 and name_box["height"] > 1, name_box
         assert label_box["width"] <= 1, label_box
+

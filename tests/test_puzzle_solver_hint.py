@@ -926,8 +926,12 @@ class TestSolverHint_PlacesTheButtonAndTheCounter:
     the amended AC, not a superseded one. "Hints: N" is the element right after
     "Errors: N" and sits to its right in the same row, at the right end of
     the toolbar, at desktop width and at 390 px. Hint and Check share Reset's
-    row at both widths (at 390 px since CARD-401's icon-only compact toolbar,
-    2026-11-07), Check to Hint's right in both.
+    row at 1440 px, Check to Hint's right — and at 390 px Hint does and Check
+    does not: CARD-438 (owner play-test 2026-11-12, item 7) gives the compact
+    portrait toolbar two rows, and Check is the control that had to move to
+    the second one, where it is the first control. Hint shared that row at
+    390 px from CARD-401's icon-only compact toolbar (2026-11-07) and still
+    does; Check shared it from the same card until CARD-438.
     """
 
     @pytest.mark.parametrize("width", [1440, 390])
@@ -951,17 +955,31 @@ class TestSolverHint_PlacesTheButtonAndTheCounter:
         rl, rt, rr, rb = got["reset"]
         bl, bt, br, bb = got["hint"]
         kl, kt, kr, kb = got["check"]
-        # Check is on Hint's row and to its right at BOTH widths: it is the
-        # ladder's neighbour, not a control of its own somewhere else.
-        assert kt < bb and bt < kb, (got["hint"], got["check"])
-        assert kl >= br, (got["hint"], got["check"])
+        # Check is the ladder's neighbour and not a control of its own
+        # somewhere else — which is Hint's row and to its right at 1440, and
+        # since CARD-438 (owner play-test 2026-11-12, item 7: all the buttons
+        # in two lines on a portrait phone) the FIRST control of the row
+        # below at 390. It is the control that had to move for two rows:
+        # the admin page's eight marking controls — seven at CARD-423's
+        # 44 px floor and Region at its content's 49 — need 357 px of the 358
+        # the toolbar has there, so the eighth cannot be on row 1 at all.
+        # Reading order is unbroken either way — Check still comes straight
+        # after Hint, at the start of the next line rather than beside it —
+        # and that is what is asserted here rather than a y value.
+        if width == 390:
+            assert kt >= bb, (got["hint"], got["check"])
+            assert abs(kl - got["toolbar"][0]) <= 1, (got["check"], got["toolbar"])
+        else:
+            assert kt < bb and bt < kb, (got["hint"], got["check"])
+            assert kl >= br, (got["hint"], got["check"])
         # Reset's row, to its right, at both widths. RETIRED CLAIM 2026-11-07
         # (CARD-401, owner finding "Mobile - have only icons on buttons"):
         # Hint and Check used to wrap onto a row of their own at 390 px; the
         # compact toolbar is icon-only, and the whole History group fits one
         # row there.
         assert bt < rb and rt < bb and bl >= rr
-        assert kt < rb and rt < kb  # Check on that row too
+        if width != 390:
+            assert kt < rb and rt < kb  # Check on that row too (CARD-438: not at 390)
         if width == 390:
             assert bb <= et and kb <= et  # still above the counters
 
