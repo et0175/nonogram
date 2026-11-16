@@ -672,7 +672,14 @@ function wayBack(slug, title) {
   link.dataset.playerBook = "quiet";
   link.setAttribute("style", BOOK_LINK_BOX);
   const name = document.createElement("span");
-  name.textContent = `\\u2190 ${named}`;
+  // CARD-459 (UX review M3): on a compact screen the book's name never fit
+  // this row ("\\u2190 Christmas Non\\u2026" upright, "\\u2190 Christma\\u2026" sideways),
+  // so there the link says "\\u2190 Book"; its accessible name keeps the title.
+  const compact = matchMedia("(max-width: 600px), (max-height: 500px)");
+  const word = () => { name.textContent = `\\u2190 ${compact.matches ? "Book" : named}`; };
+  compact.addEventListener("change", word);
+  word();
+  link.setAttribute("aria-label", `Back to ${named}`);
   name.setAttribute("style", BOOK_LINK_QUIET);
   link.append(name);
   slot.append(link);

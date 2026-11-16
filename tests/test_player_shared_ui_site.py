@@ -461,7 +461,10 @@ class TestSharedUi_ThePageRuns:
         back = page.locator("[data-player-book]")
         assert back.is_visible()
         assert back.get_attribute("href") == f"/b/{slug}", "a real href, openable in a new tab"
-        assert BOOK_TITLE_SERVED in back.inner_text()
+        # CARD-459 (UX review M3): on a compact screen the link says "← Book"; the
+        # book's name rides in its accessible name instead.
+        assert back.inner_text() == "\u2190 Book"
+        assert back.get_attribute("aria-label") == f"Back to {BOOK_TITLE_SERVED}"
         assert back.get_attribute("data-player-book") == "quiet"
         # CARD-452: the heading is the print number (the key's place in the
         # book file, from 1, as the book page numbers its tiles), and the size
@@ -483,7 +486,8 @@ class TestSharedUi_ThePageRuns:
         # product decision about what this row shows, not a defect of this
         # card — so a later change that makes the name fit reds here and has to
         # re-state the declaration instead of silently retiring it.
-        assert quiet["whole"] > quiet["painted"], quiet
+        # CARD-459 retired that declaration: "← Book" fits, so nothing is clipped.
+        assert quiet["whole"] <= quiet["painted"], quiet
         # Cycle 2, M6: scrollWidth/clientWidth is blind to HOW the overflow is
         # hidden, so the clipping pair above survives dropping text-overflow
         # entirely — and the card DECLARES the residual as reading "<- W...".
@@ -501,7 +505,7 @@ class TestSharedUi_ThePageRuns:
         assert page.locator("#puzzle-player-solved").is_visible()
         assert back.is_visible()
         assert back.get_attribute("href") == f"/b/{slug}"
-        assert BOOK_TITLE_SERVED in back.inner_text()
+        assert back.inner_text() == "\u2190 Book"
         assert back.get_attribute("data-player-book") == "solved"
         loud = page.evaluate(_LOOK)
         assert loud["weight"] != quiet["weight"], (loud, quiet)
@@ -554,6 +558,8 @@ class TestSharedUi_ThePageRuns:
         # enough: given the space, the whole name IS painted. So "clipped at
         # 390 x 844" above is a statement about the row, not about the string.
         assert wide["whole"] <= wide["painted"], wide
+        # CARD-459: and with the room, the link names the book again.
+        assert BOOK_TITLE_SERVED in page.locator("[data-player-book]").inner_text()
 
         # Nothing threw along any of it — the observer included.
         assert watch.problems() == []

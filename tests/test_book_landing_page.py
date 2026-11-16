@@ -490,6 +490,16 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     )
     assert hung["garlands"] == 1 and hung["onBoard"] == 0 and hung["heading"] == PINE, hung
     assert hung["sheets"][-1] == "/decor.css", hung
+    # CARD-459 (UX review M3): on a phone held sideways the garland is 32 px,
+    # not 72, and it still spans the window (decor.js's eight tiles).
+    size = page.viewport_size
+    page.set_viewport_size({"width": 860, "height": 400})
+    low = page.evaluate("""() => { const g = document.querySelector('.decor-garland');
+      const tiles = [...g.querySelectorAll('svg')];
+      return { height: g.getBoundingClientRect().height,
+               reach: tiles.at(-1).getBoundingClientRect().right }; }""")
+    assert low["height"] == 32 and low["reach"] >= 860, low
+    page.set_viewport_size(size)
 
     # Any other way in is the default look (AC-4): no book, a malformed book,
     # and a real christmas book that does not hold this key.
