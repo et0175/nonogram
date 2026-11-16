@@ -746,6 +746,24 @@ async function main() {
   // CARD-436: the way back is the BOOK's, not the theme's — a book the site
   // draws no look for still gets its link.
   if (holds) wayBack(book, shelved.title);
+  // CARD-452: opened from a book, the heading is the PRINT number the reader
+  // typed on the book page and sees above the printed grid (the book page
+  // numbers its tiles the same way: position in the book file, from 1). The
+  // size moves beside it, in the quiet secondary colour, so it stays visible.
+  if (holds) {
+    const number = shelved.puzzles.findIndex(
+      (entry) => entry !== null && typeof entry === "object" && entry.key === key) + 1;
+    const heading = document.querySelector(".player-head h1");
+    heading.textContent = `Puzzle ${number}`;
+    const size = document.createElement("span");
+    size.dataset.playerSize = "";
+    size.textContent = `${width}\\u00d7${height}`;
+    size.setAttribute("style", "font-size:var(--text-sm);color:var(--color-text-secondary);"
+      + "white-space:nowrap");
+    heading.after(size);
+    document.title = `Puzzle ${number} \\u00b7 ${width}\\u00d7${height}`
+      + `${label ? " \\u00b7 " + label : ""} - Nonogram`;
+  }
   if (holds && THEMES.includes(shelved.theme)) {
     document.documentElement.dataset.theme = shelved.theme;
     // CARD-422: and its decorations (the garland; the board is left as it is).
