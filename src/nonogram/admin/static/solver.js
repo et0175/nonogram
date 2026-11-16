@@ -892,6 +892,10 @@ function clueBox(tag, kind, line, label, clue, { right = false, duplicate = fals
     const number = document.createElement("span");
     number.className = "player-clue-num";
     number.textContent = String(n);
+    // CARD-456 (UX review H5): a two-digit number in a COLUMN clue is drawn
+    // condensed (admin.css), so "12 13" on neighbouring columns no longer
+    // touch and read as "1213". Row clues have a space between numbers.
+    if (kind === "col" && n > 9) number.dataset.wide = "";
     box.append(number);
   }
   return box;

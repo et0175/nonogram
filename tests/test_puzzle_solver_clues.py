@@ -1550,6 +1550,21 @@ class TestPlayerNumerals_TwelvePixelFloor:
         fonts = browser_page.evaluate(_NUMERALS)
         assert fonts and min(fonts) >= 12 - 0.001, sorted(set(fonts))
         assert all(abs(f - 12) < 0.01 for f in fonts), sorted(set(fonts))
+        # CARD-456 (UX review H5): at the floor two digits are exactly the
+        # 14.4 px column floor, so neighbouring two-digit numbers met edge to
+        # edge ("12 13" read as "1213"). Set closer together, every pair of
+        # neighbouring column numbers at the same depth keeps 2 px of air.
+        gaps = browser_page.evaluate("""() => {
+          const ink = (span) => { const r = document.createRange(); r.selectNodeContents(span);
+            const b = r.getBoundingClientRect(); return [b.left, b.right]; };
+          const stacks = [...document.querySelectorAll('thead .player-clue.is-col')]
+            .map((c) => [...c.querySelectorAll('.player-clue-num')].reverse().map(ink));
+          const gaps = [];
+          for (let i = 0; i + 1 < stacks.length; i++)
+            for (let d = 0; d < Math.min(stacks[i].length, stacks[i + 1].length); d++)
+              gaps.push(stacks[i + 1][d][0] - stacks[i][d][1]);
+          return gaps; }""")
+        assert len(gaps) >= 29 and min(gaps) >= 2, sorted(gaps)[:5]
 
 
 @pytest.mark.browser
