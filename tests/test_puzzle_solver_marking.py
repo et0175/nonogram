@@ -670,6 +670,11 @@ class TestSolverClickFollowsTheBrush:
             "Tap a cell to fill it. Tap again to cycle: black, white (dot), empty.",
             "Brush (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.",
             "Region (the two squares): turn it on, then drag along a row or column to mark many cells at once. With it off, dragging scrolls.",
+            # CARD-446: the history group, and Line's bullet (in the list
+            # always; hidden by syncLine wherever the Line button is).
+            "Undo and Redo: step back or forward one mark at a time.",
+            "Reset: clears the whole board after asking. Undo brings it back.",
+            "Line (big puzzles on a phone): opens one row or column in big squares.",
             "Hint: press up to three times. First it shows where to look, then why, then it fills the cell.",
             "Check: highlights the row of the first wrong mark.",
             "Probe: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.",

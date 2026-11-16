@@ -3895,6 +3895,10 @@ function wireMarking(container, player) {
     if (lineDialog === null) return;
     const offered = lineOffered();
     if (lineOpen !== null) lineOpen.hidden = !offered;
+    // CARD-445: the "How to play" bullet for Line is shown with the button,
+    // so the text never names a control the page is not showing.
+    const howtoLine = document.querySelector("[data-player-howto-line]");
+    if (howtoLine !== null) howtoLine.hidden = !offered;
     if (focused === null) return;
     if (!offered) {
       closeLine();

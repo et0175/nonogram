@@ -276,6 +276,10 @@ HOWTO_CONTROLS = {
     "Tap": "td.player-cell",
     "Brush": ".player-tool-trigger",
     "Region": "[data-player-region]",
+    # CARD-445: the history group, and Line (its bullet shown only with it).
+    "Undo": '[data-player-action="undo"]',
+    "Reset": '[data-player-action="reset"]',
+    "Line": "[data-player-line-open]",
     "Hint": '[data-player-action="hint"]',
     "Check": '[data-player-action="check"]',
     "Probe": "[data-player-probe]",
@@ -292,7 +296,7 @@ def howto_problems(page) -> list[str]:
     names no control the page lacks. Read from the DOM, opened first."""
     page.evaluate("document.getElementById('puzzle-player-hint').open = true")
     names = page.evaluate(
-        "[...document.querySelectorAll('#puzzle-player-hint li > strong:first-child')].map((s) => s.textContent.trim())")
+        "[...document.querySelectorAll('#puzzle-player-hint li:not([hidden]) > strong:first-child')].map((s) => s.textContent.trim())")
     problems = []
     if not names:
         problems.append("the text names no control")
