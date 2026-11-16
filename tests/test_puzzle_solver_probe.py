@@ -1835,7 +1835,9 @@ _BAR_AGAINST_BOARD = """() => {
 
 @pytest.mark.browser
 class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
-    """The probe bar's 1 px of air above the board, in the mechanism domain.
+    """The probe bar's air above the board, in the mechanism domain — one
+    whole CSS pixel of it on a desktop, and since CARD-438 a quantity with a
+    different source on a compact portrait screen (re-derived below).
 
     This is the fix round's control, and the defect it pins is not a tint or
     a transition: shipped with ``margin-bottom: calc(-1 * var(--space-4))``
@@ -1859,14 +1861,46 @@ class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
     of air", because ``floor(t) > t - 1`` for every ``t``: one whole CSS
     pixel of air keeps the bar out of the capture's first row at every
     viewport, zoom and device pixel ratio rather than at the ones measured.
-    Half a pixel does not, and the fix round's mutants say so precisely
-    rather than loosely: with the air removed (A1) all four cases red here;
-    with HALF a pixel of air (A2) the two phone cases red and the two
-    desktop ones do NOT, because the board's top fraction at 1440 x 900 is
-    .797 and ``floor()`` absorbs the half, where at 390 x 844 it is .0625
-    and it does not. Both viewports are swept for exactly that reason —
-    whether half a pixel is enough is an accident of the viewport, and a
-    one-viewport sweep would have licensed the accident.
+
+    That 1 px is the DESKTOP cases' quantity, and since CARD-438 theirs
+    alone. Re-measured at this commit, both probe states (CARD-438 review
+    cycle 1, F-001):
+
+      1440 x 900 (the portrait block does not apply): bar bottom 216.578125,
+        board top 217.578125 — air exactly 1.000 px, of which 0.421875 px
+        survives ``floor()`` to the capture row 217. The bar's computed
+        ``margin-bottom`` is -15 px against the toolbar's 16 px, which IS
+        that pixel.
+      390 x 844 (the portrait block applies): bar bottom 287.59375, board
+        top 336.390625 — air 48.796875 px, 48.40625 px of it above capture
+        row 336. The bar's computed margins are BOTH 0 there, so none of
+        that air is the bar's: it is the counters' own line, which
+        ``order: 1`` sends below the two control rows (8 px row gap +
+        24.796875 px of readout), plus the toolbar's own 16 px
+        margin-bottom. 8 + 24.796875 + 16 = 48.796875.
+
+    So the sharp arithmetic and its mutants belong to the desktop cases, and
+    the two phone cases are a REGRESSION NET: they would red if a later card
+    put the bar back on a line of its own with no air, or took the counters'
+    line and the toolbar's margin out from under it, and they say nothing
+    about the bar's margin, which no longer reaches them.
+
+    The mutants, re-run at this commit rather than carried: with the air
+    removed (A1 — the base rule's ``margin-bottom`` back to
+    ``calc(-1 * var(--space-4))``) the two DESKTOP cases red and the two
+    phone cases stay green, because the portrait block overrides that margin
+    with 0 and they cannot see it. A2, HALF a pixel of air, now reds
+    nothing: the bar's bottom edge is pinned by the content above it and the
+    margin moves everything BELOW it, so the board's top moves with the half
+    pixel and whether ``floor()`` gives it back is an accident of the
+    FRACTION the bar's bottom edge sits on — the air has to reach 1 minus
+    it, so today at 1440 x 900 the fraction is .578125 and the threshold
+    .421875 px, where A2 was written against a fraction of .797 and a
+    threshold of .203, and the phone case A2 used to red (fraction .0625
+    then, threshold .9375) is the one the block has since made blind. A1 is
+    this claim's live mutant; A2 is retired as a discriminator and kept as
+    the reason the claim is written with ``floor()`` rather than as a figure,
+    since nothing in this cell fixes that fraction.
 
     Two assertions, and the first is not decoration. A bar that is hidden,
     or that has been folded back onto the toolbar's first row, satisfies the
@@ -1879,12 +1913,20 @@ class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
     it reads is ``barTop >= toolsBottom``, which is "below the marking row"
     and was never "alone on a row".
 
-    Both probe states are swept because the bar's height is not constant —
-    Keep, Contradiction and the leaving note appear while a probe is open,
-    and at 390 px they wrap the bar onto further lines (measured: 24 px
-    closed, taller open). The air is a function of the bar's MARGIN and not
-    of its height, and that is the half of the arithmetic a reader is most
-    likely to doubt.
+    Both probe states are swept because the bar's CONTENT is not constant —
+    Keep, Wrong guess and the leaving note appear while a probe is open. Its
+    BOX no longer changes with them: CARD-411 made the pair a line of fixed
+    height, and the two states measure the same here to the 1/64 px
+    (38.78125 px closed and open at 1440 x 900, 44 px closed and open at
+    390 x 844). The sweep is what would show a future wrap, not what shows
+    one now — the sentence it replaces claimed 24 px closed and taller open,
+    which is the geometry of two cards ago.
+
+    What the air is a function of is viewport-dependent since CARD-438, and
+    that is the half of the arithmetic a reader is most likely to doubt: the
+    bar's own MARGIN on a desktop, and on a compact portrait screen neither
+    its margin nor its height but the two boxes between it and the board,
+    both named with their figures above.
     """
 
     @pytest.mark.parametrize(
@@ -1989,7 +2031,10 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
     second row, so the pull has no row of its own to pay for and the cost
     arithmetic below skips 390 x 844 for a reason stated where it skips. What
     that viewport still asserts is the half this class shares with the owner's
-    CARD-411 ruling — the board's top is the same closed and open.
+    CARD-411 ruling — the board's top is the same closed and open — and the
+    bar's own box against Hint's, which the row it shares does not change
+    (review cycle 1, F-002: the guard skips the plant and the cost
+    subtraction, not the lines above them).
 
     Probe CLOSED at all three viewports, which is the standing layout every
     sibling test sees — and, since CARD-411, OPEN too: the board's top is the
@@ -2082,8 +2127,15 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
         # rises 18.203 px rather than the 20 a row would have cost. Pinning
         # that figure would pin the counters' wrap, so the arithmetic is
         # asserted where it is still about a line.
-        if viewport == (390, 844):
-            return
+        # Review cycle 1 (F-002): the guard for that is NOT here. A bare
+        # `return` at this point also dropped `abs(line - hint_h) < 0.5`, the
+        # one place .player-probe's own BOX height is pinned at a compact
+        # viewport — and that claim is still true there (measured at
+        # 390 x 844: the bar is 44 px and so is Hint), because the group
+        # sharing a row does not change what the group measures. The guard
+        # therefore sits lower down, immediately before the plant, and
+        # everything between — the settle loop, the old-line probe and that
+        # box-height pin — runs at all three viewports.
         # RETIRED CLAIM 2026-11-07 (CARD-411, owner finding "at full toolbar
         # size"; owner ruling 2026-11-10, option "A"): the line cost the board
         # nothing. It is now a full control row (the toolbar's button height)
@@ -2110,6 +2162,11 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
         line = browser_page.locator(".player-probe").bounding_box()["height"]
         hint_h = _hint_button(browser_page).bounding_box()["height"]  # by attribute: see _hint_button
         assert abs(line - hint_h) < 0.5, (line, hint_h)  # a control row: the toolbar's button height
+        # CARD-438: the plant and the cost arithmetic below are not a claim
+        # about a compact portrait screen — the reason is stated above, where
+        # the viewport's own row layout is.
+        if viewport == (390, 844):
+            return
         browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
         without = browser_page.evaluate(_BOARD_TOP)
         cost = line - old_line

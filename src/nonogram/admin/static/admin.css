@@ -2107,11 +2107,35 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      a portrait phone. Two rows cannot be had and that sentence kept: the
      pair plus a legible note is a line's width, which is the line this card
      takes away.
-     The group's negative margins go with its line: they were CARD-411's
-     bookkeeping for a line of its own (margin-top -8 px pulled the line up
-     into the row gap and margin-bottom -15 px into the toolbar's own 16 px
-     margin), and an item that SHARES a row would only be pulled 8 px out of
-     line with the controls beside it. The toolbar's own pull-up
+     The group's two negative margins were CARD-411's bookkeeping for a line
+     of its own, and they are zeroed here for two DIFFERENT reasons — one
+     carries the layout and one does not, so they are not one rule (review
+     cycle 1, F-004):
+     - `margin-top: 0` is the load-bearing half. CARD-411's -8 px pulled the
+       probe's own line up into the row gap; an item that SHARES a row is
+       pulled 8 px out of line with the controls beside it instead, and the
+       Probe button's `y` then differs from its row-mates'. Measured as a
+       mutant: with the declaration dropped, _PORTRAIT_ROWS sees THREE rows
+       and tests/test_puzzle_solver_phone.py's
+       test_icons_only_when_compact[390-844-True] reds (the 844 x 390 case
+       stays green, so it is this block's rule and not CARD-402's).
+     - `margin-bottom: 0` is defensive and reaches nothing at any viewport
+       this block covers. Measured, not argued: reverting it to CARD-411's
+       -15 px leaves the whole 390 x 844 geometry identical to the 1/64 px
+       (toolbar 128.797, probe bottom 287.594, counters top 295.594, board
+       top 336.391), because a flex line's cross size is the MAX of its
+       items' outer cross sizes and the bar's 44 px row-mates — Check and the
+       zoom pill — set it, not the bar. It is kept so the pair of margins is
+       stated together: a later card that gives the bar back a line of its
+       own in this block has to think about both, and one zeroed margin
+       beside one inherited -15 px reads like a decision nobody made. What
+       the air below the bar IS on this viewport — the counters' line plus
+       the toolbar's own 16 px margin-bottom, 48.797 px of it — is derived in
+       tests/test_puzzle_solver_probe.py's
+       TestSolverProbe_TheBarStaysOutOfTheBoardsCapture, which is where
+       CARD-411's "-15 px into the toolbar's own 16 px" arithmetic still
+       holds and where it stops.
+     The toolbar's own pull-up
      (.player-toolbar:has(.player-probe), -9 px) is NOT touched: it pays for
      the small-button row CARD-268 measured, which is a fact about the head
      above the toolbar and not about the probe's line.
@@ -2131,6 +2155,18 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      auto-placement follows document order — which is what CARD-429's focus
      order depends on. The same precedent, on the same element, is in
      CARD-402's strip above.
+     What the declaration takes away is a BOX that carries role="group"
+     aria-label="History", and an explicit ARIA role on a box-less element is
+     the documented hazard case for the accessibility tree. So the group's
+     exposure is asserted and not assumed, folded into the cell that counts
+     the rows — tests/test_puzzle_solver_phone.py's
+     test_icons_only_when_compact at 390 x 844 (review cycle 1, F-005;
+     dropping the role and the label from puzzle_solve.html reds it). That
+     verifies CHROMIUM, the engine this suite drives. WebKit — the engine the
+     owner plays the public player on — is not driven here and stays
+     UNVERIFIED; CARD-402's strip has carried the same open question in
+     landscape since 2026-11-10. Either way no NAME is lost: each of
+     Undo/Redo/Reset/Line/Hint/Check keeps its own accessible name.
 
    Two consequences of display: contents, both handled:
 
@@ -2191,6 +2227,23 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    that reading rather than rising to the row's top. Neither rule moves a
    CONTROL: the toolbar's own align-items: flex-start still puts every control
    at its row's top, which is what AC-1 measures.
+   `align-self: center` is DELIBERATELY UNPINNED, and this says so rather
+   than leaving the next reader to look for the covering cell (review
+   cycle 1, F-003). No existing cell can see it, and that is structural, not
+   an oversight: every measurement that reaches this toolbar collects
+   CONTROLS — _PORTRAIT_ROWS and _CONTROL_BOXES in
+   tests/test_puzzle_solver_phone.py take `.player-toolbar button,
+   .player-toolbar [role="button"]`, and the frozen census's SAMPLE takes
+   buttons, [hidden] elements and the alert — while .player-counters' three
+   readouts are <p>s and are none of those. Measured as a mutant: with the
+   declaration removed, the six modules that touch this block
+   (tests/test_puzzle_solver_phone.py, test_player_base_css.py,
+   test_puzzle_solver_clues.py, _percent.py, _probe.py, _hint.py) are all
+   green — 231 passed. It stays unpinned on purpose: the owner's 2026-11-07
+   test budget ("verify once, change existing tests not add, one control per
+   card") is not spent on a 1 px vertical alignment of a readout with no AC
+   behind it. If a later card wants it pinned, the cheapest home is the
+   existing 390 px hint cell, which already reads the Hints readout's box.
 
    Measured after, on the same board at the same zoom: TWO control rows at
    both portrait viewports the suite samples. 390 x 844: the toolbar

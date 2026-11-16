@@ -1139,7 +1139,22 @@ class TestSolverPhone_CompactToolbar:
     the buttons in 2 lines on portrait mode") adds the ROWS to the portrait
     case of this cell: see ``_PORTRAIT_ROWS``. Landscape keeps only the claims
     above — its strip is a two-column column of rows by CARD-402's design, and
-    this cell's 844 x 390 case is not asked for a row count (AC-6)."""
+    this cell's 844 x 390 case is not asked for a row count (AC-6).
+
+    Review cycle 1 (F-005) adds one more claim to that portrait case and no
+    new cell: what buys the two rows is ``display: contents`` on
+    ``.player-history``, which removes the box of an element carrying
+    ``role="group" aria-label="History"``, so the group's exposure is
+    asserted here rather than assumed. It is verified on CHROMIUM, the one
+    engine this suite drives — and the assertion bites: dropping the role and
+    the label from ``puzzle_solve.html`` reds this cell's 390 x 844 case.
+    WEBKIT IS UNVERIFIED, and it is the engine that matters most for this
+    one: the owner plays the public player on a phone, an ARIA role on a
+    box-less element is handled version-dependently there, and nothing in
+    this suite can drive it. CARD-402's landscape strip has carried the same
+    open question on the same element since 2026-11-10. What is not at risk
+    either way is each button's own accessible name, which the ``_LABELLED``
+    loop at the end of this cell asserts."""
 
     # No desktop cell: the existing 1280/1440 layout cells (brush-menu slot,
     # percent, maybe) already hold the labelled toolbar there (review cycle 1,
@@ -1156,6 +1171,16 @@ class TestSolverPhone_CompactToolbar:
             rows = sorted({box["y"] for box in boxes})
             assert [sorted(box["name"] for box in boxes if box["y"] == y) for y in rows] == [
                 sorted(row) for row in _PORTRAIT_ROWS], [(box["name"], box["y"]) for box in boxes]
+            # CARD-438 review cycle 1 (F-005): what buys the two rows is
+            # `display: contents` on .player-history, which takes the BOX
+            # away from an element carrying role="group" aria-label="History"
+            # (puzzle_solve.html, puzzle_edit.html). A box-less element with
+            # an explicit ARIA role is the documented hazard case for the
+            # accessibility tree, so the group is asserted here instead of
+            # assumed — folded into this cell rather than given one of its
+            # own (owner's test budget). Chromium keeps it; WebKit is
+            # UNVERIFIED, see the docstring.
+            expect(browser_page.get_by_role("group", name="History", exact=True)).to_have_count(1)
         for box in boxes:
             if compact:
                 # CARD-423: both dimensions, every control — not the width of
