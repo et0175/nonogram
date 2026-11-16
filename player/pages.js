@@ -399,6 +399,13 @@ export function squareFor(item, progress, slug = null) {
   ordinal.className = "tile-number";
   ordinal.textContent = String(number);
   tile.append(ordinal);
+  // CARD-464 (UX review M8): the size, small, so a 10 x 10 and a 30 x 30 in
+  // the same section no longer look alike. aria-hidden: the label says it.
+  const size = document.createElement("span");
+  size.className = "tile-size";
+  size.setAttribute("aria-hidden", "true");
+  size.textContent = `${entry.width}\u00d7${entry.height}`;
+  tile.append(size);
   const state = progress.state === "new" ? "" : `, ${progress.state}`;
   tile.setAttribute(
     "aria-label",
@@ -502,9 +509,11 @@ function renderBook(page, entries, progress, slug, held = new Map()) {
   const empty = page.querySelector("[data-pages-empty]");
   const sections = sectionsOf(entries);
   const resume = continueTarget(entries, progress);
-  // Open by default: the first Easy section (the first section when there is
-  // none), and the section holding the Continue puzzle. The rest start
-  // closed, so a 160-puzzle book is three headers and one grid, not a scroll.
+  // Open by default: the section holding the Continue puzzle, or, when there
+  // is none, the first Easy section (the first section when there is none).
+  // CARD-464 (UX review M8): no longer both — a reader in Medium got Easy's
+  // 68 squares above their own section. The rest start closed, so a
+  // 160-puzzle book is three headers and one grid, not a scroll.
   // A short book (OPEN_ALL_UP_TO puzzles or fewer) opens everything: there is
   // no scroll to save, and a closed header would only hide a few squares.
   const firstEasy = sections.findIndex((section) => section.tier === "easy");
@@ -512,8 +521,9 @@ function renderBook(page, entries, progress, slug, held = new Map()) {
   const all = entries.length <= OPEN_ALL_UP_TO;
   list.replaceChildren(
     ...sections.map((section, k) => {
-      const byDefault =
-        all || k === opened || (resume !== null && resume + 1 >= section.from && resume + 1 <= section.to);
+      const byDefault = all || (resume === null
+        ? k === opened
+        : resume + 1 >= section.from && resume + 1 <= section.to);
       // What the reader set by hand wins over the default; see openSections.
       return sectionFor(section, progress, held.get(sectionId(section)) ?? byDefault, slug);
     })

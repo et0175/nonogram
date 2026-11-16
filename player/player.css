@@ -858,6 +858,21 @@ body {
   border-radius: var(--radius-badge);
 }
 
+/* CARD-464: the size, under the number; a solved square shows its picture
+   instead (the number moves to the corner there). */
+.square .tile-size {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+.square[data-progress="solved"] .tile-size { display: none; }
+
 .square-picture {
   position: absolute;
   inset: 16%;
