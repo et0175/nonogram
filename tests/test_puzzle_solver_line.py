@@ -288,6 +288,10 @@ class TestSolverLine_TheLineIsSplitInTwo:
             # One cell size for both strips.
             assert max(s["cell"] for s in strips) - min(s["cell"] for s in strips) < 1
             assert page.evaluate("document.documentElement.scrollWidth") <= PHONE["width"]
+            # CARD-471 (UX review L4): upright, the map is at most a quarter
+            # of the screen's height (it was a third), so the strips sit higher.
+            mini = page.locator(".player-line-mini").bounding_box()
+            assert mini["height"] <= 0.25 * PHONE["height"] + 1, mini
         finally:
             context.close()
 

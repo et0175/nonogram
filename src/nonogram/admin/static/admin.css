@@ -2446,6 +2446,12 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
   border: var(--border-width) solid var(--color-border-strong); background: var(--grid-paper);
   cursor: pointer; touch-action: manipulation;
 }
+/* CARD-471 (UX review L4): upright, the map took ~32 % of the height and put
+   the strips and brushes low; a quarter less keeps every line tappable on it
+   (a 30 x 30 map is ~200 px, ~6.7 px a line) and lifts the strips. */
+@media (orientation: portrait) {
+  .player-line-mini { width: min(calc(100vw - 2 * var(--space-4) - 2 * (44px + var(--space-3))), 24svh); }
+}
 /* The map's drawing (solver.js drawMini): one rect per decided cell. */
 .player-line-mini-paper { fill: var(--grid-paper); }
 .player-line-mini-filled { fill: var(--grid-ink); }
