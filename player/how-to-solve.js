@@ -18,6 +18,12 @@
 // storage. A board resets on reload, which is what a lesson should do.
 
 // "#" is black, "." is white. Rows top to bottom.
+// CARD-445: the player's own rules, imported rather than copied: what a tap
+// does (clickedState) and which clue numbers are circled (circledNumbers).
+// solver_state.js is served at the site root as the play page's byte-
+// identical copy (ADR-0041/R3), so the lesson runs exactly the player's code.
+import { circledNumbers, clickedState } from "/solver_state.js";
+
 export const TRY_GRID = ["..#..", ".###.", "#####", "..#..", ".###."];
 export const PROBE_GRID = ["#.#.#", ".....", "#...#", "#..##", ".###."];
 // How many squares line logic leaves open on PROBE_GRID.
@@ -92,6 +98,21 @@ function drawBoard(container, grid, view) {
   const height = rows.length;
   const width = columns.length;
   container.style.setProperty("--hts-columns", String(width));
+  const states = Array.from({ length: height }, (_, r) =>
+    Array.from({ length: width }, (_, c) => view.cell(r, c).state));
+  // A clue box: one span per number, circled exactly where the player would
+  // circle it on these marks (CARD-445).
+  const numbers = (box, clue, cells) => {
+    const circled = circledNumbers(clue, cells);
+    box.replaceChildren(...clue.map((value, k) => {
+      const number = document.createElement("span");
+      number.className = "hts-num";
+      number.classList.toggle("is-circled", circled[k]);
+      number.textContent = String(value);
+      return number;
+    }));
+    box.setAttribute("aria-label", `Clue ${words(clue)}`);
+  };
   const parts = [];
   const corner = document.createElement("span");
   corner.className = "hts-clue hts-corner";
@@ -99,7 +120,7 @@ function drawBoard(container, grid, view) {
   columns.forEach((clue, c) => {
     const cell = document.createElement("span");
     cell.className = "hts-clue hts-clue-column";
-    cell.textContent = clue.join("\n");
+    numbers(cell, clue, states.map((row) => row[c]));
     cell.dataset.column = String(c);
     if (view.litColumn(c)) cell.classList.add("is-lit");
     if (view.badColumn(c)) cell.classList.add("is-bad");
@@ -108,7 +129,7 @@ function drawBoard(container, grid, view) {
   for (let r = 0; r < height; r += 1) {
     const clue = document.createElement("span");
     clue.className = "hts-clue hts-clue-row";
-    clue.textContent = words(rows[r]);
+    numbers(clue, rows[r], states[r]);
     clue.dataset.row = String(r);
     if (view.litRow(r)) clue.classList.add("is-lit");
     if (view.badRow(r)) clue.classList.add("is-bad");
@@ -121,10 +142,15 @@ function drawBoard(container, grid, view) {
       button.dataset.row = String(r);
       button.dataset.column = String(c);
       button.dataset.state = info.state;
+      // The player's ruled grid (CARD-445): a heavy rule after every fifth
+      // line and around the frame, a thin one between the rest.
+      if (c === 0) button.classList.add("is-left");
+      if (r === 0) button.classList.add("is-top");
+      if ((c + 1) % 5 === 0 || c === width - 1) button.classList.add("major-right");
+      if ((r + 1) % 5 === 0 || r === height - 1) button.classList.add("major-below");
       if (info.probe) button.dataset.probe = "true";
       if (info.target) button.dataset.target = "true";
       if (view.litRow(r) || view.litColumn(c)) button.classList.add("is-lit");
-      if (view.badColumn(c) || view.badRow(r)) button.classList.add("is-bad");
       button.setAttribute(
         "aria-label",
         `Row ${r + 1}, column ${c + 1}, ${STATE_NAMES[info.state]}${info.probe ? ", in the probe" : ""}`
@@ -134,6 +160,35 @@ function drawBoard(container, grid, view) {
     }
   }
   container.replaceChildren(...parts);
+  wireCrosshair(container);
+}
+
+// The player's crosshair (CARD-267): the row and the column of the square
+// under the pointer, and their clue boxes, tinted. Wired once per board and
+// re-applied after a redraw from the square it last pointed at.
+function wireCrosshair(container) {
+  const paint = (at) => {
+    for (const element of container.querySelectorAll(".is-crossed")) element.classList.remove("is-crossed");
+    if (at === null) return;
+    const [r, c] = at;
+    for (const element of container.querySelectorAll(
+      `.hts-cell[data-row="${r}"], .hts-cell[data-column="${c}"], .hts-clue-row[data-row="${r}"], .hts-clue-column[data-column="${c}"]`
+    )) element.classList.add("is-crossed");
+  };
+  if (container.dataset.crosshair !== "wired") {
+    container.dataset.crosshair = "wired";
+    container.addEventListener("pointerover", (event) => {
+      const cell = event.target instanceof Element ? event.target.closest(".hts-cell") : null;
+      if (cell === null) return;
+      container.htsCrossed = [cell.dataset.row, cell.dataset.column];
+      paint(container.htsCrossed);
+    });
+    container.addEventListener("pointerleave", () => {
+      container.htsCrossed = null;
+      paint(null);
+    });
+  }
+  paint(container.htsCrossed ?? null);
 }
 
 // --------------------------------------------------------------------------
@@ -157,20 +212,11 @@ function tryText(step, clues) {
   }
 }
 
-// What a tap does, the player's rule (solver_state.js clickedState),
-// reimplemented here because the lesson ships no player code: a tap paints
-// the brush; tapping the same square again, or a square already holding the
-// brush, steps it on — black, white, clear, black for the colour brushes,
-// maybe and clear for Maybe. tests/test_how_to_solve_page.py runs both over
-// every state, brush and repeat and holds them equal (CARD-444).
-const COLOUR_ORDER = { filled: "empty", empty: "unknown", unknown: "filled" };
-const MAYBE_ORDER = { maybe: "unknown", unknown: "maybe" };
-export function tappedState(state, brush, repeat) {
-  const order = brush === "maybe" ? MAYBE_ORDER : COLOUR_ORDER;
-  if (!Object.hasOwn(order, state)) return brush;
-  if (repeat === true || state === brush) return order[state];
-  return brush;
-}
+// What a tap does is the player's own rule, imported (clickedState): a tap
+// paints the brush; tapping the same square again, or a square already
+// holding the brush, steps it on — black, white, clear for the colour
+// brushes, maybe and clear for Maybe (CARD-444 copied it; CARD-445 imports it).
+export const tappedState = clickedState;
 
 function setupTry(page) {
   const board = page.querySelector("[data-hts-try-board]");
@@ -400,6 +446,7 @@ function setupProbe(page) {
   const buttons = {
     open: page.querySelector("[data-hts-probe-open]"),
     follow: page.querySelector("[data-hts-probe-follow]"),
+    hint: page.querySelector("[data-hts-probe-hint]"),
     keep: page.querySelector("[data-hts-probe-keep]"),
     abandon: page.querySelector("[data-hts-probe-abandon]"),
     mark: page.querySelector("[data-hts-probe-mark]"),
@@ -416,6 +463,11 @@ function setupProbe(page) {
   const where = `row ${ordinal(pr)}, column ${ordinal(pc)}`;
   let phase = "stuck";
   let step = 0;
+  // CARD-435's quiet probe: a broken line is shown only once Hint is pressed
+  // during the probe, and any further step hides it again (the player resets
+  // it on every recorded change). `said` is that press's sentence.
+  let asked = false;
+  let said = null;
 
   function board_() {
     const cells = stalled.map((row) => row.map((state) => ({ state, probe: false })));
@@ -437,7 +489,7 @@ function setupProbe(page) {
   function redraw() {
     const cells = board_();
     const showing = phase === "following" && step > 0 ? PROBE_CHAIN[step - 1] : phase === "broken" || phase === "kept" ? PROBE_CHAIN.at(-1) : null;
-    const bad = phase === "broken" || phase === "kept";
+    const bad = (phase === "broken" || phase === "kept") && asked;
     const offer = page.querySelector("[data-hts-probe-offer]");
     const lit = (axis, index) => showing !== null && showing.axis === axis && showing.index === index;
     drawBoard(board, PROBE_GRID, {
@@ -459,6 +511,7 @@ function setupProbe(page) {
     buttons.open.hidden = !(phase === "stuck" || phase === "open");
     buttons.open.setAttribute("aria-pressed", String(open));
     buttons.follow.hidden = phase !== "following";
+    buttons.hint.hidden = !(phase === "following" || phase === "broken" || phase === "kept");
     buttons.keep.hidden = !(phase === "broken" || phase === "kept");
     buttons.abandon.hidden = !(phase === "broken" || phase === "kept");
     // The player flags Wrong guess while the probe has broken a line (CARD-410).
@@ -472,9 +525,23 @@ function setupProbe(page) {
     // The square the offer names is outlined, as the player outlines it.
     board.querySelector(`.hts-cell[data-row="${pr}"][data-column="${pc}"]`)
       ?.classList.toggle("is-offered", phase === "offered");
-    text.textContent = probeText(phase, step, clues);
+    text.textContent = said ?? probeText(phase, step, clues);
   }
 
+  // Every press but Hint is a new input: the answer Hint gave is withdrawn.
+  for (const button of Object.values(buttons)) {
+    if (button !== buttons.hint) button.addEventListener("click", () => { asked = false; said = null; }, { capture: true });
+  }
+  board.addEventListener("click", () => { asked = false; said = null; }, { capture: true });
+  buttons.hint.addEventListener("click", () => {
+    asked = true;
+    // The player's own sentences (solver.js probeBrokenText).
+    const broken = phase === "broken" || phase === "kept" ? [PROBE_CHAIN.at(-1)] : [];
+    said = broken.length === 0
+      ? "Hint: this guess breaks no row or column yet."
+      : `Hint: this guess breaks ${broken.map((entry) => `${entry.axis} ${entry.index + 1}`).join(", ")}.`;
+    redraw();
+  });
   buttons.open.addEventListener("click", () => {
     if (phase === "stuck") {
       phase = "open";

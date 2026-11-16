@@ -291,7 +291,11 @@ def test_the_lesson_uses_tokens_and_the_players_probe_colours() -> None:
     # The probe edge is the player's: the same two expressions admin.css
     # gives --player-probe and --player-probe-ink.
     admin = (REPO_ROOT / "src/nonogram/admin/static/admin.css").read_text(encoding="utf-8")
-    for ours, theirs in (("--hts-probe", "--player-probe"), ("--hts-probe-ink", "--player-probe-ink")):
+    # CARD-445: and the ruled grid's thin rule, the crosshair's two tints and
+    # the broken clue's red, the boards now being drawn as the player's.
+    for ours, theirs in (("--hts-probe", "--player-probe"), ("--hts-probe-ink", "--player-probe-ink"),
+                         ("--hts-thin", "--player-thin"), ("--hts-cross", "--player-cross"),
+                         ("--hts-cross-ink", "--player-cross-ink"), ("--hts-broken", "--player-broken")):
         mine = re.search(rf"{ours}:\s*([^;]+);", css)
         player = re.search(rf"{theirs}:\s*([^;]+);", admin)
         assert mine and player, (ours, theirs)
@@ -318,10 +322,15 @@ def test_the_lessons_buttons_are_the_players() -> None:
     assert len(player) >= 6 and lesson == player, (lesson, player)
 
     icons = (REPO_ROOT / "src/nonogram/admin/templates/_icons.html").read_text(encoding="utf-8")
-    for name in ("bulb", "probe"):
+    for name in ("bulb", "probe", "undo", "refresh"):
         path = re.search(rf"name == '{name}' %\}}(<path [^>]*/>)", icons)
         assert path, name
         assert path.group(1) in keys.group(1), name
+    # CARD-445: Line's icon is solver.js's own (LINE_ICONS.line, which the
+    # player draws the Line button with), not _icons.html's.
+    solver = (REPO_ROOT / "src/nonogram/admin/static/solver.js").read_text(encoding="utf-8")
+    line = re.search(r'^  line: "([^"]+)",$', solver, re.M)
+    assert line and f'<path d="{line.group(1)}"/>' in keys.group(1)
 
 
 # ==========================================================================
@@ -438,6 +447,15 @@ def test_try_one_marks_black_white_and_maybe_and_show_me_solves_it(browser_page,
         page.locator("[data-hts-try-show]").click()
     assert board.get_attribute("data-solved") == "true"
     assert page.locator("[data-hts-try-tag]").inner_text() == "Solved"
+    # CARD-445: the player's rings (its own circledNumbers) — every number of
+    # a solved board is circled — and its crosshair: a hovered square tints
+    # its row, its column and their two clue boxes.
+    nums = page.locator("[data-hts-try-board] .hts-num")
+    assert nums.count() > 0 and nums.count() == page.locator("[data-hts-try-board] .hts-num.is-circled").count()
+    _cell(page, "try", 1, 3).hover()
+    crossed = page.evaluate("""() => [...document.querySelectorAll('[data-hts-try-board] .is-crossed')]
+      .map((e) => e.dataset.row !== undefined && e.dataset.column !== undefined ? 'cell' : 'clue')""")
+    assert crossed.count("cell") == 9 and crossed.count("clue") == 2, crossed
     grid = _constant("TRY_GRID")
     cells = page.evaluate("() => window.howToSolve.getTryCells()")
     assert [["#" if s == "filled" else "." for s in row] for row in cells] == [list(r) for r in grid]
@@ -477,14 +495,24 @@ def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) ->
         if bad["axis"] == "column"
         else f".hts-clue-row[data-row='{bad['index']}']"
     )
-    assert "is-bad" in page.locator(f"[data-hts-probe-board] {selector}").get_attribute("class")
+    clue = page.locator(f"[data-hts-probe-board] {selector}")
+    abandon = page.locator("[data-hts-probe-abandon]")
     probed = page.locator("[data-hts-probe-board] .hts-cell[data-probe]")
     assert probed.count() == 1 + sum(len(step["cells"]) for step in chain)
 
-    # The player's flag on Wrong guess while the probe has broken a line.
-    assert "is-flagged" in page.locator("[data-hts-probe-abandon]").get_attribute("class")
+    # CARD-435, followed by CARD-445: the probe keeps quiet until Hint —
+    # no red clue and no flag on Wrong guess until it is pressed, then both,
+    # with the player's sentence; the next press withdraws them.
+    assert "is-bad" not in clue.get_attribute("class")
+    assert "is-flagged" not in abandon.get_attribute("class")
+    page.locator("[data-hts-probe-hint]").click()
+    assert "is-bad" in clue.get_attribute("class")
+    assert "is-flagged" in abandon.get_attribute("class")
+    assert page.locator("[data-hts-probe-text]").inner_text() == (
+        f"Hint: this guess breaks {bad['axis']} {bad['index'] + 1}.")
     page.locator("[data-hts-probe-keep]").click()
     assert phase() == "kept"
+    assert "is-bad" not in clue.get_attribute("class")
     # CARD-444: Wrong guess, as the player names it, then the player's offer.
     page.locator("[data-hts-probe-abandon]").click()
     assert phase() == "offered"
