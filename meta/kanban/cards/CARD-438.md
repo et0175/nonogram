@@ -1,6 +1,6 @@
 # CARD-438: The portrait toolbar takes three rows to hold what fits in two, and the board pays 44 px for it
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,8 +9,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/438-portrait-toolbar-two-rows
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-438
 **Source:** owner's play-test doc "Гра - тест", 2026-11-12, item 7: *"Is it possible to have all the buttons in 2 lines on portrait mode"*, with a screenshot. **The screenshot was not readable** from the document export — the measurement below was taken instead, and the owner should confirm it shows what they saw.
 **Idea:** —
 **Wave:** 79
@@ -20,7 +20,7 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py, tests/test_player_base_css.py
 <!-- Derived 2026-11-12. The compact toolbar grid is in admin.css's `@media (max-width: 600px), (max-height: 500px)` block. tests/test_puzzle_solver_phone.py owns the portrait geometry (_CONTROL_BOXES, TestSolverPhone_CompactToolbar). tests/test_player_base_css.py's FROZEN census samples the toolbar's elements at 390 and MUST be re-recorded and re-certified against the pinned bootstrap@5.3.0 — it is outside the impact selection and reds at the gate if it is forgotten. tests/test_puzzle_solver_clues.py's ROOMS and TestSolverPhone_MirroredGutterSticks hold the scrollport figures that move when the toolbar's height changes (CARD-423 moved both). Re-derive with scripts/impact_set.py --gate. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-16T12:40:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -63,3 +63,11 @@ How the rows are divided is the implementer's, informed by the re-measurement: t
 
 ## Worktree notes
 - **[Note, 2026-11-12, orchestrator]** The control inventory in AC-2 says "the same twelve controls" by counting the table above; that table was measured before `Line` existed, so the real inventory at implementation time is **thirteen** — re-derive it from `tests/test_puzzle_solver_phone.py`'s `_LABELLED + _UNLABELLED`, which is now the maintained list and was itself corrected at CARD-437's close after CARD-439 landed the control without it. Do not count the table in this card.
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`. Start gate `decision: gate`; fork point interactive/target tip `61d34704`. Pin, drift and state-table gates not applicable. `Depends on: CARD-430` is satisfied — it is `done` and live.
+- **[RE-MEASURED ON PRODUCTION BEFORE DISPATCH, 2026-11-16 — the card's table was stale and is replaced by this]** At 390x844 on `0978469757`, every visible control of `.player-toolbar` with its width:
+  - **row 1** (y 51): `Brush: Black` 44 · `Region` 49 · `Undo` 44 · `Redo` 44 · `Reset` 44 · **`Line` 44** · `Hint` 44 — **seven** controls, 313 px of content in a ~374 px row, so it is nearly full
+  - **row 2** (y 103/104): `Zoom out` 44 · `Zoom in` 44 · readout 52, with `Hints: 0` 63 right-aligned (its `y` is 1 px lower, which is why a naive row count reads 5)
+  - **row 3** (y 147): `Probe` 44, **alone**
+  - plus the 1x1 announce live region at y 50
+  **Toolbar height 125 px, three visible rows — both unchanged from the card.** What changed is the inventory: **13 controls, not 12** — CARD-439 put `Line` into row 1 after the card was written, which is why `AC-2`'s list is short by one and must be derived from `tests/test_puzzle_solver_phone.py`'s `_LABELLED + _UNLABELLED` rather than counted off the card.
+- **[A figure in the card that is NOT a fixed property, stated so the next reader does not chase it]** The card says the stage gets "385 px of 844". This measurement reads **300**, with the same `stage_top` of 192. The difference is not a regression: `.player-stage` is `overflow: auto` under `max-height: max(calc(100svh - var(--player-above)), 5rem)`, so its height is `min(board, cap)` and at Fit it is the **board's** height — which depends on the puzzle and the zoom. So the toolbar's cost must be measured as a **delta on one board at one zoom**, before and after, never as an absolute stage height compared against the card's.
