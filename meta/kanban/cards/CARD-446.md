@@ -1,6 +1,6 @@
 # CARD-446: How to solve draws like the player — ruled grid, clue rings, crosshair, the quiet probe — and How to play names Undo, Redo, Reset and Line
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -20,9 +20,9 @@
 **Touches:** player/how-to-solve.html, player/how-to-solve.js, player/player.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, tests/test_how_to_solve_page.py, tests/test_player_shared_ui_site.py, tests/test_player_base_css.py (FROZEN: one row), tests/test_puzzle_solver_marking.py (the How to play bullets)
 **Review score:** — (no review cycle; owner request, 2026-11-16)
 **Started:** 2026-11-16T06:40Z
-**Closed:** —
+**Closed:** 2026-11-16T07:40Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 6d62bda5
 **Blocked by:** —
 
 ## What to implement
