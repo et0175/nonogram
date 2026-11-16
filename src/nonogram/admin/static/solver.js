@@ -2277,6 +2277,12 @@ const REGION_ANNOUNCEMENT = {
   false: "Region off.",
 };
 
+//: CARD-467 (UX review M11): said ONCE per page, in the centred answer box
+//: and the live region, the first time zooming in takes a board out of view
+//: and so disarms Region (CARD-433 rule 3) — the only sign used to be the
+//: toggle losing its green, and a reader painting by drag found it scrolling.
+const REGION_ZOOM_OFF = "Zoomed in: dragging now moves the board. Turn on Region to paint by dragging.";
+
 // CARD-439: the line focus view's markup (see LINE FOCUS in wireMarking),
 // built once for a board that can be offered it. Returns the dialog and the
 // Line button, which joins the toolbar just before Hint (CARD-440).
@@ -2431,6 +2437,8 @@ function wireMarking(container, player) {
   // state (see it below).
   let regionSettled = false;
   let fittedLast = null;
+  let regionZoomTold = false; // CARD-467: REGION_ZOOM_OFF is said once per page
+  let readerZoomed = false; // CARD-467: set by the reader's own zoom gestures
   // The hint ladder (CARD-269, see LADDER above). `rung` is the rung the
   // NEXT Hint press will show, 1..3, and `ladderLine` is the line currently
   // carrying `.is-hint-line` — a {axis, index} VALUE and not the elements
@@ -2603,6 +2611,7 @@ function wireMarking(container, player) {
 
   function toggleFit() {
     if (zoomFloor >= ZOOM_MIN) return;
+    readerZoomed = true;
     const centre = [container.clientWidth / 2, container.clientHeight / 2];
     if (zoom <= zoomFloor + 1e-6) applyZoom(beforeFit, ...centre);
     else {
@@ -2683,6 +2692,7 @@ function wireMarking(container, player) {
     const midY = (p1.y + p2.y) / 2 - stageBox.top;
     const pinched = pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2), zoomFloor);
     if (pinched <= zoomFloor + 1e-6 && zoom > zoomFloor + 1e-6) beforeFit = Math.max(ZOOM_MIN, pinch.startZoom);
+    readerZoomed = true;
     applyZoom(pinched, midX, midY);
   }
 
@@ -2830,11 +2840,20 @@ function wireMarking(container, player) {
   // overflow that exists for one task disarmed a Region on a board that
   // never left view (measured, 390 x 844 -> 390 x 700 at Fit) — which is
   // what this paragraph had claimed could not happen.
+  // CARD-467: the one-time sentence is said only once the READER has zoomed
+  // (a button, the Fit readout or a pinch set readerZoomed), never for the
+  // page's own opening fit or a resize before that.
   function syncRegionToFit() {
     const fits = boardFits();
     const was = fittedLast;
     fittedLast = fits;
-    if (was === true && !fits && region) setRegion(false);
+    if (was === true && !fits && region) {
+      setRegion(false);
+      if (readerZoomed && !regionZoomTold) {
+        regionZoomTold = true;
+        say(REGION_ZOOM_OFF);
+      }
+    }
   }
 
   function closeMenu() {
@@ -3257,10 +3276,12 @@ function wireMarking(container, player) {
   });
 
   zoomOut.addEventListener("click", () => {
+    readerZoomed = true;
     if (zoom > zoomFloor + 1e-6 && stepZoom(zoom, "out", zoomFloor) <= zoomFloor + 1e-6) beforeFit = zoom;
     applyZoom(stepZoom(zoom, "out", zoomFloor), container.clientWidth / 2, container.clientHeight / 2);
   });
   zoomIn.addEventListener("click", () => {
+    readerZoomed = true;
     applyZoom(stepZoom(zoom, "in", zoomFloor), container.clientWidth / 2, container.clientHeight / 2);
   });
   zoomReadout.addEventListener("click", toggleFit);

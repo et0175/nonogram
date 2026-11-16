@@ -1105,6 +1105,31 @@ class TestSolverRegion_AnnouncesItsState:
         assert _region_pressed(browser_page) == "false"
         assert _announced(browser_page) == "Region off."
 
+    def test_zooming_a_board_out_of_view_says_why_region_went_off(self, browser_page, live) -> None:
+        """CARD-467 (UX review M11): CARD-433 rule 3's disarm on a zoom used
+        to show only as the toggle losing its colour. The first time, the
+        page says so in the centred answer box (and the live region); the
+        second time it does not repeat itself."""
+        _open(browser_page, live, live.store(SCROLLING_GRID))
+        _zoom_out(browser_page)  # to Fit: the whole board in view
+        assert _overflow(browser_page) == [0, 0]
+        if _region_pressed(browser_page) != "true":
+            _region(browser_page)
+        assert _region_pressed(browser_page) == "true"
+        zoom_in = browser_page.locator('[data-player-zoom-action="in"]')
+        zoom_in.click(force=True)
+        assert _overflow(browser_page) != [0, 0]
+        assert _region_pressed(browser_page) == "false"
+        told = "Zoomed in: dragging now moves the board. Turn on Region to paint by dragging."
+        assert browser_page.locator("#puzzle-player-explain").text_content().strip() == told
+        assert _announced(browser_page) == told
+        # Once only: back into view, Region armed again, out of view again.
+        _zoom_out(browser_page)
+        _region(browser_page)
+        zoom_in.click(force=True)
+        assert _region_pressed(browser_page) == "false"
+        assert _announced(browser_page) == "Region off."
+
     def test_a_drag_that_solves_the_board_announces_the_banner_instead(self, browser_page, live) -> None:
         """The two writers of the one live region, ordered: solver.js
         announces the disarm BEFORE committing the stroke, so when that

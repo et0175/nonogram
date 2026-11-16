@@ -759,6 +759,9 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_brush_menu.py::TestSolverRegion_AnnouncesItsState::test_zooming_a_board_out_of_view_says_why_region_went_off": (
+        "CARD-467", "UX review M11 (owner 2026-11-16): the first zoom that takes the board out of view and disarms Region says why, once",
+    ),
     "tests/test_puzzle_solver_brush_menu.py::TestSolverBrushMenu_AnOutsidePointerDownDismissesIt::test_an_outside_pointer_down_closes_it_and_the_board_stays_reachable[chromium]": (
         "CARD-426", "AC-1..AC-3 (owner play-test finding 2026-11-11, item 2): an outside pointer-down dismisses the brush menu at both pinned viewports, the trigger still toggles with no flicker, and the board under the menu's box stays reachable",
     ),
