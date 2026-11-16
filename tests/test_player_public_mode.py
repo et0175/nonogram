@@ -1784,11 +1784,15 @@ class TestPublicMode_LandscapeToolStrip:
     def test_the_tools_stand_in_a_strip_left_of_the_board(self, browser_page, serve, live) -> None:
         page = browser_page
         served = serve(public_payload(SWEEP_GRID))
-        for width, height in ((844, 390), (852, 393), (874, 402)):
+        # CARD-448: three wide (owner 2026-11-16; two wide until then, which
+        # left Probe and the counters below a landscape phone's edge), and
+        # 844 x 340 too — Safari's landscape window with its bars — where
+        # every control must still be in the strip's view without scrolling.
+        for width, height in ((844, 390), (852, 393), (874, 402), (844, 340)):
             page.set_viewport_size({"width": width, "height": height})
             open_page(page, served)
             idle = _settled(page)
-            assert idle["right"] <= idle["board"][0] and idle["width"] <= 2 * 44 + 8 + 1, (width, idle)
+            assert idle["right"] <= idle["board"][0] and idle["width"] <= 3 * 44 + 2 * 8 + 1, (width, idle)
             assert idle["lowest"] <= idle["clip"] and idle["page"] <= 0, (width, idle)
             assert idle["shortest"] >= 44 and idle["count"] == 10, (width, idle)
             page.locator(".player-tool-trigger").click()

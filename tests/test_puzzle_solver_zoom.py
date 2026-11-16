@@ -744,13 +744,14 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
             # gap, var(--space-2) = 8 px, and nothing else between them).
             assert round(minus["y"]) == round(plus["y"]), where
             assert 0 <= plus["x"] - (minus["x"] + minus["w"]) <= 8.5, where
-            # The readout is the member that takes the row below, and it
-            # spans the pair rather than sitting under one of them.
-            assert readout["y"] >= minus["y"] + minus["h"], where
-            assert readout["x"] <= minus["x"] + 0.5, where
-            assert readout["x"] + readout["w"] >= plus["x"] + plus["w"] - 0.5, where
-            # Two rows for the group, and CARD-423's floor on all three.
-            assert len({round(b["y"]) for b in boxes.values()}) == 2, where
+            # CARD-448 (the strip three wide, owner 2026-11-16): the readout
+            # no longer takes a row below the pair — it is the third member
+            # of the pair's own row, after the plus (the DOM's and the focus
+            # order). Until CARD-448: the row below, spanning the pair.
+            assert round(readout["y"]) == round(minus["y"]), where
+            assert 0 <= readout["x"] - (plus["x"] + plus["w"]) <= 8.5, where
+            # One row for the group, and CARD-423's floor on all three.
+            assert len({round(b["y"]) for b in boxes.values()}) == 1, where
             for name, box in boxes.items():
                 assert box["w"] >= 44 and box["h"] >= 44, (name, where)
 
