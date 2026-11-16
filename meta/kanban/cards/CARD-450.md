@@ -1,6 +1,6 @@
 # CARD-450: The landscape strip fits the shortest phones — Probe beside Hint, tighter gaps under 360 px
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** bug
 **Estimate:** 0.5c (0.1d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_player_public_mode.py
 **Review score:** — (no review cycle; owner request, 2026-11-16)
 **Started:** 2026-11-16T16:00Z
-**Closed:** —
+**Closed:** 2026-11-16T16:40Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** c6400e89
 **Blocked by:** —
 
 ## Why
