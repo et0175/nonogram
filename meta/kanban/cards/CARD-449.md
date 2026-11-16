@@ -1,6 +1,6 @@
 # CARD-449: Region by hold, then tap — a held press sets the start, the next tap in its line paints the segment
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -20,9 +20,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, player/how-to-solve.html, tests/test_puzzle_solver_marking.py, tests/test_browser_fixture_scope.py (ADDED_SINCE_BEFORE)
 **Review score:** — (no review cycle; owner request, 2026-11-16)
 **Started:** 2026-11-16T14:30Z
-**Closed:** —
+**Closed:** 2026-11-16T15:10Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** e70a1339
 **Blocked by:** —
 
 ## What to implement
