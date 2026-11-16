@@ -618,6 +618,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-clue { background: var(--color-surface); }
 .player-clue.is-col { vertical-align: bottom; text-align: center; border-top: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule-major) solid var(--grid-ink); padding-top: calc(var(--player-clue-cell) * 0.2); }
 .player-clue.is-col .player-clue-num { display: flex; justify-content: center; align-items: center; width: 0; margin: 0 auto; height: var(--player-clue-cell); line-height: normal; }
+/* CARD-456 (UX review H5): two digits in one column clue cell. At the 12 px
+   numeral floor (CARD-196, owner decision 2026-10-06) two tabular digits are
+   14.4 px, which is CARD-196's column floor, so on a 30-wide board "12" and
+   "13" in neighbouring columns met edge to edge (worst gap measured -0.5 px
+   at 412 x 839). The size stays (the floor is the owner's); the two digits
+   are set closer together instead, which opens a gap on each side. */
+.player-clue.is-col .player-clue-num[data-wide] { letter-spacing: -0.12em; }
 .player-clue.is-row { text-align: right; white-space: nowrap; border-left: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule-major) solid var(--grid-ink); padding-left: 0.5ch; }
 .player-clue.is-row .player-clue-num { display: inline-flex; align-items: center; }
 .player-cell { width: var(--player-cell); min-width: var(--player-cell); height: var(--player-cell); background: var(--grid-paper); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); vertical-align: middle; }
