@@ -686,6 +686,58 @@ function wayBack(slug, title) {
   follow();
 }
 
+// CARD-453 — THE WAY ON. A solved book puzzle used to be a dead end: the
+// only way out was the back link in the header. Under the board, once it is
+// solved, a row offers the next puzzle in the book (the book file's next
+// entry, ?book= kept so it wears the same theme and keeps its way back) and
+// the book itself. The book's last puzzle offers only the book; a puzzle
+// outside a book gets no row at all (this is only called when the book file
+// holds the key). Like the way back, it follows the solved banner's own
+// `hidden` attribute rather than a second copy of "is this solved?", and it
+// is real <a href>s, styled inline from tokens.css for the same reason.
+const WAY_ON_ROW = "display:flex;flex-wrap:wrap;justify-content:flex-start;gap:var(--space-2);"
+  + "margin:var(--space-3) 0";
+// The public page links no Bootstrap, so .btn-primary's --bs-btn-* custom
+// properties are never read: the filled look is spelled out here.
+const WAY_ON_NEXT = "background:var(--color-accent);border-color:var(--color-accent);"
+  + "color:var(--color-on-accent);text-decoration:none;font-weight:600";
+const WAY_ON_BOOK = "text-decoration:none";
+
+function wayOn(slug, next) {
+  const row = document.createElement("nav");
+  row.dataset.playerNext = "";
+  row.setAttribute("aria-label", "After this puzzle");
+  row.setAttribute("style", WAY_ON_ROW);
+  if (next !== undefined && next !== null && typeof next === "object" && KEY.test(next.key)) {
+    const on = document.createElement("a");
+    on.className = "btn btn-primary";
+    on.href = `/play/${next.key}?book=${slug}`;
+    on.dataset.playerNextPuzzle = "";
+    on.textContent = "Next puzzle \\u2192";
+    on.setAttribute("style", WAY_ON_NEXT);
+    row.append(on);
+  }
+  const shelf = document.createElement("a");
+  shelf.className = "btn btn-outline-secondary";
+  shelf.href = `/b/${slug}`;
+  shelf.textContent = "Back to the book";
+  shelf.setAttribute("style", WAY_ON_BOOK);
+  row.append(shelf);
+  document.querySelector(".player-stage-wrap").after(row);
+  const banner = document.querySelector("#puzzle-player-solved");
+  // How to play has nothing left to say once the puzzle is solved, and on a
+  // landscape phone it holds the one grid row under the board that is on
+  // screen (admin.css puts it in row 3); stepping it aside gives that row to
+  // the way on, which would otherwise be placed below the fold.
+  const howto = document.querySelector(".player-howto");
+  const follow = () => {
+    row.style.display = banner.hidden ? "none" : "flex";
+    if (howto !== null) howto.style.display = banner.hidden ? "" : "none";
+  };
+  new MutationObserver(follow).observe(banner, { attributes: true, attributeFilter: ["hidden"] });
+  follow();
+}
+
 async function main() {
   const key = location.pathname.split("/").filter((segment) => segment !== "").at(-1);
   if (key === undefined || !KEY.test(key)) {
@@ -763,6 +815,7 @@ async function main() {
     heading.after(size);
     document.title = `Puzzle ${number} \\u00b7 ${width}\\u00d7${height}`
       + `${label ? " \\u00b7 " + label : ""} - Nonogram`;
+    wayOn(book, shelved.puzzles[number]);
   }
   if (holds && THEMES.includes(shelved.theme)) {
     document.documentElement.dataset.theme = shelved.theme;
