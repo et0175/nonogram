@@ -463,6 +463,14 @@ class TestSharedUi_ThePageRuns:
         assert back.get_attribute("href") == f"/b/{slug}", "a real href, openable in a new tab"
         assert BOOK_TITLE_SERVED in back.inner_text()
         assert back.get_attribute("data-player-book") == "quiet"
+        # CARD-452: the heading is the print number (the key's place in the
+        # book file, from 1, as the book page numbers its tiles), and the size
+        # stays visible beside it; the bookless arm above keeps "Puzzle WxH".
+        shelf = page.request.get(f"{url}/book/{slug}.json").json()
+        number = [entry["key"] for entry in shelf["puzzles"]].index(key) + 1
+        assert page.locator(".player-head h1").inner_text() == f"Puzzle {number}"
+        assert page.locator("[data-player-size]").inner_text() == "10\u00d710"
+        assert page.title().startswith(f"Puzzle {number} \u00b7 10\u00d710")
         quiet = page.evaluate(_LOOK)
         # F-002: ``inner_text()`` is the string, not the painted glyphs, so the
         # line above passes identically whether the reader sees the book's name
