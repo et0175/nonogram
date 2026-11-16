@@ -640,7 +640,14 @@ class TestSolverPercent_AlignItemsFlexStartKeepsHistoryAndSlotAtTheirRowsTop:
     lines of its own. Mutant: reverting align-items to center pulls the
     slot and the history group ~18 px down from the toolbar's top at
     1280 px (measured: both move from top 148 to top 166, confirmed red;
-    restored, confirmed green)."""
+    restored, confirmed green).
+
+    CARD-438 (owner play-test 2026-11-12, item 7) changes what the 390 px
+    case can read, not what it claims: the compact portrait toolbar gives
+    .player-history `display: contents`, so the group has no box there and
+    its buttons are the toolbar's own flex items. The 390 px branch reads the
+    buttons against the toolbar's line instead of against the group, and says
+    so where it does."""
 
     @pytest.mark.parametrize("width,height", [(1280, 720), (390, 844)])
     def test_slot_and_history_sit_at_their_own_lines_top(self, browser, live, width, height) -> None:
@@ -662,7 +669,25 @@ class TestSolverPercent_AlignItemsFlexStartKeepsHistoryAndSlotAtTheirRowsTop:
         # on (flex-start holds for every wrapped line, not only the first);
         # its own first row of buttons sits at the group's own top.
         history_top = round(got["history"][1])
-        assert round(min(b[1] for b in got["historyButtons"])) == history_top
+        if width <= 600 and height > width:
+            # CARD-438 (owner play-test 2026-11-12, item 7: all the buttons
+            # in two lines on a portrait phone): on a compact PORTRAIT screen
+            # .player-history is `display: contents`, so the group generates
+            # no box at all — its getBoundingClientRect is 0|0|0|0 and "the
+            # group's own top" has no subject. That is asserted here rather
+            # than worked around, because it is the premise of the branch.
+            # Its buttons are the TOOLBAR's own flex items there, so what
+            # flex-start holds is each of them at the top of the toolbar LINE
+            # it is on, and the first of them at the toolbar's own top, which
+            # is what is read instead. WHICH control sits on which line, and
+            # that every control on a line shares its top, is CARD-438's own
+            # pin and is not restated here:
+            # tests/test_puzzle_solver_phone.py::TestSolverPhone_CompactToolbar
+            # (_PORTRAIT_ROWS).
+            assert (history_top, round(got["history"][3])) == (0, 0), got["history"]
+            assert round(min(b[1] for b in got["historyButtons"])) == top
+        else:
+            assert round(min(b[1] for b in got["historyButtons"])) == history_top
         if width == 1280:
             # At 1280 px the slot, the history group and the counters share
             # the toolbar's first line (TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280).

@@ -2069,6 +2069,203 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 }
 
+/* CARD-438 (owner play-test doc "Гра - тест", 2026-11-12, item 7: "Is it
+   possible to have all the buttons in 2 lines on portrait mode"). It is, and
+   no control is dropped, shrunk or merged to do it. Two rules each cost the
+   board a whole line for one short group, and a third would have put one of
+   those lines back; this block answers all three.
+
+   PORTRAIT ONLY, and the condition says so rather than relying on the
+   cascade: (max-width: 600px) and (orientation: portrait) cannot be true at
+   the same time as CARD-402's strip, which is (max-height: 500px) and
+   (orientation: landscape) — so the strip is untouched by construction and
+   not by being later in the file (AC-6).
+
+   What the two rules were, measured on main at 390 x 844 on the admin solve
+   page (a 30 x 30, 100% zoom, so Line is offered):
+
+   * .player-probe's `flex-basis: 100%` (CARD-411) gave the Probe button a
+     line of its own with 314 px of it empty. Here it is `flex: 1 1 0`, so it
+     joins the row the zoom pill is on and takes what that row has left. The
+     basis is 0 and NOT `auto` on purpose: `auto` is the group's max-content,
+     and while a probe is open that includes the leaving note's whole
+     sentence — measured, the group's hypothetical size then exceeded the row
+     and the group wrapped to a line of its own, which moved the board 52 px
+     down on opening a probe and retired the owner's CARD-411 ruling by
+     accident. At 0 the group is its min-content (the Probe button, 44 px;
+     Keep and Wrong guess with the note shrunk, 104 px) and grows into the
+     row, so the board's top is the SAME closed and open — asserted at both
+     portrait viewports by
+     tests/test_puzzle_solver_probe.py::TestSolverProbe_TheBarCostsTheBoardNoGround.
+     THE ONE THING THIS COSTS, said plainly because the owner should see it:
+     the note is `flex: 1 1 0` inside the group, so where it had the whole
+     line to clamp two lines into it now has what the row has left. MEASURED,
+     both ways, with a probe open: at 390 x 844 the note was 254 x 24.97 px
+     and is 62 x 24.97; at 600 x 844 it was 464 x 12.48 (one line) and is
+     178 x 24.97 (two). It is still drawn, still two lines at most and its
+     whole sentence is still its `title`, but at 62 px it is not readable on
+     a portrait phone. Two rows cannot be had and that sentence kept: the
+     pair plus a legible note is a line's width, which is the line this card
+     takes away.
+     The group's two negative margins were CARD-411's bookkeeping for a line
+     of its own, and they are zeroed here for two DIFFERENT reasons — one
+     carries the layout and one does not, so they are not one rule (review
+     cycle 1, F-004):
+     - `margin-top: 0` is the load-bearing half. CARD-411's -8 px pulled the
+       probe's own line up into the row gap; an item that SHARES a row is
+       pulled 8 px out of line with the controls beside it instead, and the
+       Probe button's `y` then differs from its row-mates'. Measured as a
+       mutant: with the declaration dropped, _PORTRAIT_ROWS sees THREE rows
+       and tests/test_puzzle_solver_phone.py's
+       test_icons_only_when_compact[390-844-True] reds (the 844 x 390 case
+       stays green, so it is this block's rule and not CARD-402's).
+     - `margin-bottom: 0` is defensive and reaches nothing at any viewport
+       this block covers. Measured, not argued: reverting it to CARD-411's
+       -15 px leaves the whole 390 x 844 geometry identical to the 1/64 px
+       (toolbar 128.797, probe bottom 287.594, counters top 295.594, board
+       top 336.391), because a flex line's cross size is the MAX of its
+       items' outer cross sizes and the bar's 44 px row-mates — Check and the
+       zoom pill — set it, not the bar. It is kept so the pair of margins is
+       stated together: a later card that gives the bar back a line of its
+       own in this block has to think about both, and one zeroed margin
+       beside one inherited -15 px reads like a decision nobody made. What
+       the air below the bar IS on this viewport — the counters' line plus
+       the toolbar's own 16 px margin-bottom, 48.797 px of it — is derived in
+       tests/test_puzzle_solver_probe.py's
+       TestSolverProbe_TheBarStaysOutOfTheBoardsCapture, which is where
+       CARD-411's "-15 px into the toolbar's own 16 px" arithmetic still
+       holds and where it stops.
+     The toolbar's own pull-up
+     (.player-toolbar:has(.player-probe), -9 px) is NOT touched: it pays for
+     the small-button row CARD-268 measured, which is a fact about the head
+     above the toolbar and not about the probe's line.
+   * .player-history is a box, so when its content does not fit the row the
+     WHOLE group wraps — and on the ADMIN page it does not fit: the marking
+     controls are eight there (public mode takes Check off the page,
+     solver.js's PUBLIC_ABSENT) and those eight — seven at CARD-423's 44 px
+     floor and Region at its content's 49 — need 357 px of the 358 the
+     toolbar has at 390 px. Row 1 therefore cannot
+     hold the marking group entire, and with the group as one box the
+     overflow cost a whole row: the measurement on main is FOUR rows (brush
+     slot 44 / history 44 / zoom + counters 74.8 / probe 21), 207.8 px.
+     display: contents makes the group's buttons the toolbar's own flex
+     items, so the row breaks between two BUTTONS instead of before a group:
+     Check falls to row 2 and joins the zoom pill and Probe. DOM order is
+     untouched and so is the visual order — flex
+     auto-placement follows document order — which is what CARD-429's focus
+     order depends on. The same precedent, on the same element, is in
+     CARD-402's strip above.
+     What the declaration takes away is a BOX that carries role="group"
+     aria-label="History", and an explicit ARIA role on a box-less element is
+     the documented hazard case for the accessibility tree. So the group's
+     exposure is asserted and not assumed, folded into the cell that counts
+     the rows — tests/test_puzzle_solver_phone.py's
+     test_icons_only_when_compact at 390 x 844 (review cycle 1, F-005;
+     dropping the role and the label from puzzle_solve.html reds it). That
+     verifies CHROMIUM, the engine this suite drives. WebKit — the engine the
+     owner plays the public player on — is not driven here and stays
+     UNVERIFIED; CARD-402's strip has carried the same open question in
+     landscape since 2026-11-10. Either way no NAME is lost: each of
+     Undo/Redo/Reset/Line/Hint/Check keeps its own accessible name.
+
+   Two consequences of display: contents, both handled:
+
+   * .player-history's `position: relative` is inert on a box-less element,
+     so .player-confirm (the reset dialog, absolutely positioned at
+     `top: calc(100% + space-2); left: 0`) would resolve against the initial
+     containing block and open a viewport below the fold. The toolbar becomes
+     the containing block instead, so the dialog opens 8 px under the
+     TOOLBAR's bottom edge and flush with its left, where it opened 8 px
+     under the history group's and flush with the group's — measured in the
+     frozen census, which samples its button: x 142 -> 33, y 179.13 ->
+     231.13 at 390. CARD-402's strip answers the same question its own way
+     (position: fixed, top right).
+   * the group's own `gap` is inert too, so the row's gaps are the toolbar's.
+     They already agree: var(--space-2) = 8 px, and 4 px while Line is
+     offered, which CARD-440 states on BOTH the group and the toolbar.
+
+   THE COUNTERS, which is the third rule and the one that is not obvious.
+   They are not a control, so AC-1 does not count them — but they sit between
+   the zoom pill and Probe in the DOM and they are `flex: 1 1 0`, which on the
+   admin page is 146.5 px of min-content (the errors and hints readouts side
+   by side) and up to 263.5 px of content. Row 2 is Check 44 + the zoom pill
+   140 + Probe 44 and three 4 px gaps = 240 of the toolbar's 358, so left
+   where they are the counters pushed Probe onto a row of its own again — the
+   very row this card is taking away. `order: 1` puts them LAST on the row
+   instead, and then the row's arithmetic decides, per page, without a
+   breakpoint for it: on the admin page their min-content does not fit after
+   the three controls and they take a line below (one line, 24.8 px, where
+   the group had three stacked readouts in a 90 px column); on the public
+   page, which has only the hints readout (solver.js's PUBLIC_ABSENT takes
+   errors and progress off), 63 px fits and they stay on row 2 with the
+   controls. Nothing focusable is reordered, so CARD-429's focus order is
+   untouched — .player-counters holds three live-region <p>s and no button —
+   and the eye and the Tab walk agree BETTER than before: the readout used to
+   sit between the zoom pill and Probe, which the Tab walk skipped over.
+   CARD-402's strip gives the same element the same `order: 1` for the same
+   reason.
+   Two alternatives were measured and rejected. `min-width: 0` on
+   .player-counters: the box shrinks but its children do not, so the readouts
+   overflow it to the LEFT (row-reverse, plus .player-errors' own
+   `margin-left: auto`) and sit over the zoom pill — at 600 x 844 in the
+   opening Fit state .player-errors swallowed the pointer on the zoom-in
+   button and the board could not be zoomed at all. `flex-wrap: wrap` on
+   .player-counters-pair: it does drop the min-content to one readout's width
+   so Probe keeps the row, but it keeps the counters ON that row, and while a
+   probe is open the pair and the note then cannot both fit it — the board
+   moved 11.2 px on opening a probe.
+
+   `min-height: 0` on the pair and on each readout is what makes the
+   counters' own line cheap, and it is CARD-402's answer in its strip too.
+   The 32.4 px on the pair and the 36 px (--control-h) on each readout are
+   figures that make a readout as tall as the button row it sits IN; on a line
+   of their own, stacked, they were 36 px of box around a 24.8 px line, three
+   times over. At 0 the lines are the counters' height and nothing else.
+   `align-self: center` then centres the box against the controls beside it,
+   which is what the public page's one readout needs once it is no longer a
+   38.8 px box: on main its `y` is 1 px under the zoom pill's and it keeps
+   that reading rather than rising to the row's top. Neither rule moves a
+   CONTROL: the toolbar's own align-items: flex-start still puts every control
+   at its row's top, which is what AC-1 measures.
+   `align-self: center` is DELIBERATELY UNPINNED, and this says so rather
+   than leaving the next reader to look for the covering cell (review
+   cycle 1, F-003). No existing cell can see it, and that is structural, not
+   an oversight: every measurement that reaches this toolbar collects
+   CONTROLS — _PORTRAIT_ROWS and _CONTROL_BOXES in
+   tests/test_puzzle_solver_phone.py take `.player-toolbar button,
+   .player-toolbar [role="button"]`, and the frozen census's SAMPLE takes
+   buttons, [hidden] elements and the alert — while .player-counters' three
+   readouts are <p>s and are none of those. Measured as a mutant: with the
+   declaration removed, the six modules that touch this block
+   (tests/test_puzzle_solver_phone.py, test_player_base_css.py,
+   test_puzzle_solver_clues.py, _percent.py, _probe.py, _hint.py) are all
+   green — 231 passed. It stays unpinned on purpose: the owner's 2026-11-07
+   test budget ("verify once, change existing tests not add, one control per
+   card") is not spent on a 1 px vertical alignment of a readout with no AC
+   behind it. If a later card wants it pinned, the cheapest home is the
+   existing 390 px hint cell, which already reads the Hints readout's box.
+
+   Measured after, on the same board at the same zoom: TWO control rows at
+   both portrait viewports the suite samples. 390 x 844: the toolbar
+   207.8 -> 128.8 px and the stage 413 -> 492 px, so the board gets 79 px
+   back, not the 44 px the card predicted — two of the four rows went, Probe's
+   and the one the history group took when the eighth marking control would
+   not fit it. 600 x 844: 119.8 -> 96 px, 23.8 px back. On the public page,
+   which is the one the owner plays: 125 -> 96 px at 390 (the frozen census's
+   "02 div puzzle-player-controls" row, re-measured against the real
+   Bootstrap). The figures and the deltas are in
+   tests/test_puzzle_solver_phone.py
+   (TestSolverPhone_CompactToolbar's _PORTRAIT_ROWS, and the scrollport cells)
+   and tests/test_puzzle_solver_clues.py's ROOMS, re-pinned together as
+   CARD-423 re-pinned them. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .player-toolbar { position: relative; }
+  .player-history { display: contents; }
+  .player-counters { order: 1; align-self: center; }
+  .player-counters-pair, .player-counters p { min-height: 0; }
+  .player-probe { flex: 1 1 0; margin-top: 0; margin-bottom: 0; }
+}
+
 /* CARD-402 (owner finding 2026-11-07, item 5: "Toolbar as a vertical icon
    column at the side ... the board then gets nearly the full height"): on a
    landscape phone (the compact condition's short arm, in landscape; owner
