@@ -1,6 +1,6 @@
 # CARD-470: How to solve: one step counter
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.25c (0.1d)
@@ -9,20 +9,20 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
+**Branch:** card/470-one-step-counter (merged into ux-review-cards)
 **Worktree:** —
 **Source:** owner 2026-11-16 (project thread "UX and design review"): *"I think you can create cards for all of your findings and take them one by one"* — finding L3 of the review doc https://claude.ai/artifact/4gu4yk21Kt9CapTXbwVv11; screenshots ~/Documents/nonogram-reviews/UX-review/shots/
 **Idea:** —
-**Wave:** —
+**Wave:** 80
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/how-to-solve.html, player/how-to-solve.js
-**Review score:** —
-**Started:** —
-**Closed:** —
+**Touches:** player/how-to-solve.js, tests/test_how_to_solve_page.py
+**Review score:** — (no review cycle; owner request, 2026-11-16)
+**Started:** 2026-11-17T01:45Z
+**Closed:** 2026-11-17T01:55Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 8c22e6ac (on ux-review-cards; into main with it)
 **Blocked by:** —
 
 ## Why
@@ -38,3 +38,4 @@ The inner counter becomes "Try it: 1/5" (or dots).
 - **AC-1**: only one "Step … of …" on each step.
 
 ## Worktree notes
+- **[Built]** "Try it: 1/5" (and "Solved" when done, unchanged).
