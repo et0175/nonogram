@@ -651,6 +651,19 @@ Not observed: a real phone.
 
 **Eleventh publish, and still not one human finger.**
 
+**The QA publish, 2026-11-16.** Published from `main` at `54ff2a64`, same curated bundle. Three cards from Anna's QA checklist of the live player on an iPhone (handed over by the owner the same day): **CARD-447** (Clear never paints; a quick second tap on the board or a line strip is not Safari's double-tap zoom), **CARD-448** (the landscape tool strip three wide, the owner's choice) and **CARD-449** (Region by hold, then tap). The owner's go-ahead was "задеплой будь-ласка" ("deploy, please").
+
+| Step | What was observed |
+| --- | --- |
+| What changed | `solver_state.js` `33e7086ceda1` → **`5568747bdaa6`** (Clear always clears); `solver.js` `ca8cc5d2b1b7` → **`bbada945b063`** (the touchend guard, the Region anchor); `admin.css` `5a0034869c26` → **`268cdcfdd917`** (manipulation on the controls, the three-wide strip and one-row zoom pill, the anchor ring); the play page and How to solve (the Region bullet). Before building, every other served file was compared with production and matched. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-20261116c`, no `--analytics`. 160 puzzles, one book landing. The five copied files, `how-to-solve.js` and `player.css` byte-identical to their sources; 160/160 puzzle files with exactly the five served fields; no goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-p68irxlgr`**. Hashes matched, five doors 200, `/nope` 404. |
+| Behaviour, on the preview and repeated on the live domain | Chromium touch, `/play/08642cb1b2` (14 x 14). Landscape: at 844x390 Hint, Probe, zoom, brush and the Hints counter all on screen; at 844x340 every control on screen, the counter's text just below. Portrait 390x844: a held press on row 5 column 2 rings it and marks nothing; a tap on column 10 paints columns 2..10; Clear tapped twice on a blank cell leaves it blank. No page error. |
+| Production | Checked first: still `nonogram-studio-lwoujhp00`, and `main` unchanged since the preview. `vercel promote <the preview URL> --scope et0175s-projects --yes` created **`nonogram-studio-zo6wly97s`**; the three changed hashes live on the third check. |
+| Rollback target | `nonogram-studio-lwoujhp00` still Ready. |
+
+Not observed: a real iPhone. The double-tap fix is the one thing only Safari on a phone can confirm — that a quick second tap no longer zooms the page and that the cycle black, white, clear holds at speed.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
