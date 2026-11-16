@@ -474,6 +474,21 @@ class TestSharedUi_ThePageRuns:
         assert page.locator(".player-head h1").inner_text() == f"Puzzle {number}"
         assert page.locator("[data-player-size]").inner_text() == "10\u00d710"
         assert page.title().startswith(f"Puzzle {number} \u00b7 10\u00d710")
+        # CARD-462 (UX review M6): on this upright phone the 10 x 10 is no
+        # longer stopped at the 28 px cell cap against the left edge: it
+        # fills most of the stage and sits centred in it.
+        fill = page.evaluate("""() => {
+          const stage = document.querySelector('.player-stage').getBoundingClientRect();
+          const board = document.querySelector('.player-board').getBoundingClientRect();
+          return { share: board.width / stage.width, left: board.left - stage.left,
+                   right: stage.right - board.right,
+                   cap: getComputedStyle(document.querySelector('.player-stage'))
+                     .getPropertyValue('--player-cell-max').trim() }; }""")
+        # This fixture's 10 x 10 is width-bound here (its clue band is wide),
+        # so the cap is read as the rule's value; the live book's 10 x 10,
+        # which the cap DID stop, measures 36 px cells (CARD-462's notes).
+        assert fill["share"] >= 0.85 and abs(fill["left"] - fill["right"]) <= 1, fill
+        assert fill["cap"] == "36px", fill
         # CARD-453: the way on is drawn but not shown until the solve.
         assert not page.locator("[data-player-next]").is_visible()
         quiet = page.evaluate(_LOOK)
