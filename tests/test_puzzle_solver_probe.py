@@ -1965,6 +1965,14 @@ class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
             f"capture starts at {seen['capture']}), which puts the bar's own "
             f"paint into every pixel reading taken of the board"
         )
+        if open_probe:
+            # CARD-454 (UX review H3): on an upright phone the leaving note had
+            # ~30 px and painted as "Le t.."; it is not drawn there. A desktop
+            # still draws it beside the pair.
+            drawn = browser_page.evaluate(
+                "() => document.querySelector('#puzzle-player-probe-note')"
+                ".getClientRects().length > 0")
+            assert drawn == (viewport[0] > 600), (viewport, drawn)
 
 
 #: Takes the probe LINE out of the page without taking the probe's element out
@@ -2250,7 +2258,9 @@ class TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell:
         closed = browser_page.evaluate(_FOCUS_SCROLL)
         _probe(browser_page)
         assert _probe_pressed(browser_page) == "true"
-        assert _actions_shown(browser_page) == (True, True, True)
+        # CARD-454: an upright phone does not draw the leaving note (it painted
+        # as "Le t.." in ~30 px); a desktop still does.
+        assert _actions_shown(browser_page) == (True, True, viewport[0] > 600)
         opened = browser_page.evaluate(_FOCUS_SCROLL)
         assert opened["scrolled"] <= opened["halfCell"], (
             f"{viewport}: with a probe open #puzzle-player's focus scroll is "

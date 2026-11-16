@@ -2264,6 +2264,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-counters { order: 1; align-self: center; }
   .player-counters-pair, .player-counters p { min-height: 0; }
   .player-probe { flex: 1 1 0; margin-top: 0; margin-bottom: 0; }
+  /* CARD-454 (UX review H3, owner 2026-11-16): on an upright phone the
+     leaving note gets the ~30 px between Wrong guess and the counters and
+     painted as "Le t.." — two clamped lines of a sentence nobody could read.
+     It is not drawn here; the dashed probe marks and the pair say a probe is
+     open, Line view still shows its own probing sentence, and the desktop
+     and landscape layouts still show this one. */
+  .player-toolbar .player-probe-note { display: none; }
 }
 
 /* CARD-402 (owner finding 2026-11-07, item 5: "Toolbar as a vertical icon
