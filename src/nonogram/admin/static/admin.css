@@ -777,6 +777,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    already exclude it; solver.js's touchend guard covers the board itself. */
 .player-toolbar, .player-line { touch-action: manipulation; }
 .player-board.is-region .player-cell { touch-action: none; }
+/* CARD-449: the Region anchor (a press held on a cell), a thick inset accent
+   ring — not the hint's outline, not the probe's dashed edge — and no iOS
+   callout or selection on the long press that sets it. */
+.player-cell.is-anchor { box-shadow: inset 0 0 0 calc(2 * var(--player-rule-major)) var(--color-accent); }
+.player-board.is-region .player-cell { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 /* Sizing on phones (CARD-193, owner decision 2026-10-06): below the shell
    breakpoint the cell floor is removed (0 px, never binds) so the board
    fits the stage width and never scrolls sideways, for boards the 12 px
