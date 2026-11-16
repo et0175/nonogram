@@ -18,7 +18,11 @@ something this view does.
 
 from __future__ import annotations
 
+import io
+import re
+
 import pytest
+from PIL import Image
 
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
@@ -44,6 +48,15 @@ DESKTOP = {"width": 1440, "height": 900}
 
 #: solver.js's LONG_PRESS_MS, with room to spare.
 LONG_PRESS_S = 0.6
+
+#: CARD-445 AC-3 — ``.player-line-strips``' own border box (width x height),
+#: MEASURED on ``main`` at each viewport with ``BIG`` open in the view, before
+#: this card put an ask control in the view's tool row. Keyed on the
+#: viewport's width. The figure is a measurement and not a prediction: the
+#: brief's own numbers were taken on production's 30 x 25 puzzle, where the
+#: landscape strip is 559 px wide and not 598 — the mini board beside it is a
+#: different shape, so the column it leaves is a different width.
+MAIN_STRIPS = {390: (358.0, 132.0), 844: (598.0, 132.0)}
 
 
 def _context(browser, viewport):
@@ -93,6 +106,57 @@ def _board_line(page, axis, index) -> list[str]:
 def _centre(page, selector):
     box = page.locator(selector).bounding_box()
     return {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2}
+
+
+def _strips_box(page) -> tuple[float, float]:
+    """``.player-line-strips``' border box, (width, height), to 1/100 px."""
+    return tuple(page.eval_on_selector(
+        ".player-line-strips",
+        "e => { const r = e.getBoundingClientRect();"
+        " return [Math.round(r.width * 100) / 100, Math.round(r.height * 100) / 100]; }"))
+
+
+def _tool_rows(page) -> list[float]:
+    """The distinct ``y`` of the view's drawn tool buttons, ascending.
+
+    One distinct ``y`` is one row — ``tests/test_puzzle_solver_phone.py``'s own
+    idiom for the board's toolbar, and the measurement CARD-445 AC-3 actually
+    needs: a control that WRAPS the tool block onto another row is what would
+    take room from the strips, and a free-space sum does not predict a wrap.
+    ``getClientRects()`` and not ``offsetParent``: the view is
+    ``position: fixed``, whose ``offsetParent`` is null however visible it is.
+    """
+    return sorted(set(page.eval_on_selector_all(
+        ".player-line-tools button",
+        "els => els.filter((b) => b.getClientRects().length > 0)"
+        "  .map((b) => Math.round(b.getBoundingClientRect().y * 100) / 100)")))
+
+
+def _jump_targets(page) -> list[str]:
+    """CARD-445: the ask's other broken lines, as the view offers them."""
+    return page.eval_on_selector_all("[data-player-line-jump]",
+                                     "els => els.map((b) => b.textContent.trim())")
+
+
+def _explain_pixel(page) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """The pixel the answer line actually PAINTS, and the colour it asks for.
+
+    CARD-445: ``#puzzle-player-explain`` is a ``position: fixed`` box and so is
+    the view (``z-index: 1050``), so borrowing the board's answer line over an
+    open view needs the stacking to work out — ``admin.css``'s
+    ``.is-line-open .player-explain { z-index: 1060 }``. A hit test cannot
+    measure it (the box is ``pointer-events: none``, so
+    ``elementFromPoint`` returns whatever is beneath it whichever one paints on
+    top), so this reads one screenshot pixel inside the box's padding and
+    compares it with the box's own computed background colour.
+    """
+    box = page.locator("#puzzle-player-explain").bounding_box()
+    shot = page.screenshot(clip={"x": box["x"] + 8, "y": box["y"] + box["height"] / 2,
+                                 "width": 1, "height": 1})
+    painted = Image.open(io.BytesIO(shot)).convert("RGB").getpixel((0, 0))
+    asked = page.eval_on_selector("#puzzle-player-explain",
+                                  "e => getComputedStyle(e).backgroundColor")
+    return painted, tuple(int(v) for v in re.findall(r"\d+", asked)[:3])
 
 
 def _cell(k: int) -> str:
@@ -162,13 +226,31 @@ class TestSolverLine_ThePureHelpers:
 
 @pytest.mark.browser
 class TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone:
-    """AC-1."""
+    """AC-1 — and, since CARD-445, AC-3's geometry: what the view's own ask
+    control costs the strips at each of the two viewports the card names."""
 
     @pytest.mark.parametrize("viewport", [PHONE, LANDSCAPE], ids=["390x844", "844x390"])
     def test_a_big_board_on_a_phone_offers_it(self, browser, live, viewport) -> None:
         context, page = _open_phone(browser, live, BIG, viewport)
         try:
             assert _line_button(page).is_visible()
+            # CARD-445 AC-3: "the strips keep their room". The ask control is
+            # drawn only while a probe is open (it answers about a probe and
+            # has nothing to say outside one), so the state to measure is the
+            # PROBING one: there the view's Probe button is replaced by Keep
+            # and Wrong guess and joined by the ask, which is the tool block's
+            # widest state and the one that could wrap.
+            _open_line(page)
+            before, rows = _strips_box(page), _tool_rows(page)
+            # "No smaller" in BOTH dimensions, element-wise and not as a tuple
+            # comparison: tuples compare lexicographically, so a box one pixel
+            # wider and a hundred shorter would pass `>=` on the pair.
+            was = MAIN_STRIPS[viewport["width"]]
+            assert all(a >= b for a, b in zip(before, was, strict=True)), (before, was)
+            page.locator('[data-player-line-probe="open"]').tap()
+            assert page.locator("[data-player-line-ask]").is_visible()
+            assert _strips_box(page) == before, (before, _strips_box(page))
+            assert _tool_rows(page) == rows, (rows, _tool_rows(page))
         finally:
             context.close()
 
@@ -377,9 +459,21 @@ class TestSolverLine_ProbesInTheView:
     surface: the clue a probe has broken and the Wrong guess button wait for
     Hint here exactly as the board's clue boxes and Contradiction do, because
     one probe cannot answer one way on the board and another in the view. The
-    asking itself is the BOARD's Hint — this view ships no Hint of its own
-    (buildLineView), so a reader asks by going back to the board, which is
-    what the first cell below drives.
+    asking itself was the BOARD's Hint, the view shipping no ask of its own
+    (buildLineView), so a reader asked by going back to the board — which is
+    still what the first cell below drives, unchanged, because that path must
+    keep working.
+
+    CARD-445 (owner rulings 2026-11-16) gives the view its own ask, because
+    the two CARD-435 rulings together left the flags unreachable from inside:
+    once a reader marks anything here the quiet rule hides them and there is
+    no control in the view to lift it. The second cell below drives that ask,
+    and the three things the owner asked it to answer — the visible line's own
+    clue flagged, the OTHER broken rows and columns named in the sentence, and
+    those others offered as targets that pivot the view onto them. Its name is
+    narrower than its body by exactly that act: the node id is registered in
+    ``tests/test_browser_fixture_scope.py``, so renaming it would read as a
+    test removed plus a test added rather than as the cell this card changed.
     """
 
     def test_an_open_probe_shows_and_keep_keeps_it(self, browser, live) -> None:
@@ -428,9 +522,65 @@ class TestSolverLine_ProbesInTheView:
             assert page.locator("#puzzle-player-probe").is_hidden()    # the bar opened with it
             page.locator(_cell(20)).tap()
             assert _probe_state(page)["strip"] == [20]
+
+            # ---------- CARD-445: the view can be ASKED (AC-1, AC-4) --------
+            # Two broken lines, one on each axis, so the ask has something to
+            # flag ON SCREEN and something else to NAME and jump to.
+            # Row 1 first: a black run one longer than its longest clue number
+            # cannot be placed whatever the clue says. Its first cell IS the
+            # probe's single-cell first stroke above, so the Wrong-guess offer
+            # at the end of this cell still reads that stroke (probeVerdict
+            # looks at the probe's FIRST stroke, not at its only one).
+            over = _over_long_run(BIG[0])
+            assert len(BIG[0]) - over == 20, over      # the run starts at cell 20
+            for k in range(21, len(BIG[0])):
+                page.locator(_cell(k)).tap()
+            # Then a column, through the view's own pivot: Cols switches axis
+            # through the cell last touched (cell 29 -> column 30), one step
+            # back is column 29, whose longest clue number is three.
+            page.locator('[data-player-line-axis="column"]').tap()
+            page.locator('[data-player-line-action="prev"]').tap()
+            assert _title(page) == "Column 29 of 30"
+            column = [BIG[r][28] for r in range(len(BIG))]
+            kill = _over_long_run(column)
+            assert kill == 4, kill
+            for k in range(10, 10 + kill):
+                page.locator(_cell(k)).tap()
+
+            # AC-2's property, on this surface and at this moment too: a
+            # recorded change un-asks the question, so everything marked above
+            # is silent until the ask.
+            assert _flags(page) == {"clue": False, "abandon": False}
+            assert _jump_targets(page) == []
+            page.locator("[data-player-line-ask]").tap()
+            # 1. the visible line's own clue numbers, flagged.
+            assert _flags(page) == {"clue": True, "abandon": True}
+            # 2. the sentence — the BOARD's, written to the board's own answer
+            #    line and its live region by the one shared handler (AC-4), so
+            #    it names every broken line and not only the visible one.
+            said = page.locator("#puzzle-player-explain").text_content()
+            assert said.startswith("Hint: this guess breaks "), said
+            named = set(re.findall(r"(?:row|column) \d+", said))
+            assert {"row 1", "column 29"} <= named, said
+            assert page.locator("#puzzle-player-announce").text_content() == said
+            # and it PAINTS over the view, which is what borrowing it needs.
+            painted, asked = _explain_pixel(page)
+            assert painted == asked, (painted, asked)
+            # 3. the others, as targets that pivot the view onto them.
+            titled = {n.capitalize() for n in named}
+            assert set(_jump_targets(page)) == titled - {"Column 29"}, said
+            page.locator('[data-player-line-jump="row:0"]').tap()
+            assert _title(page) == "Row 1 of 30"
+            assert _flags(page) == {"clue": True, "abandon": True}   # still asked
+            assert set(_jump_targets(page)) == titled - {"Row 1"}
+
             page.locator('[data-player-line-probe="abandon"]').tap()
             assert _board_line(page, "row", 0)[20] == U
             assert _probe_state(page)["strip"] == []
+            # The probe is gone, so the ask and its answer go with it.
+            assert _flags(page) == {"clue": False, "abandon": False}
+            assert _jump_targets(page) == []
+            assert page.locator("[data-player-line-ask]").is_hidden()
             offer = page.locator("#puzzle-player-offer")
             assert offer.is_visible()
             assert "row 1, column 21 must be white" in offer.text_content()
