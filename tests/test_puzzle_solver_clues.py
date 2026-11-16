@@ -2380,9 +2380,11 @@ LAPTOP_720 = DEFAULT_VIEWPORT
 #: Desktop, the whole column band scrolled out. 600 tall until CARD-411 (owner
 #: ruling 2026-11-10, option "A": the probe line is a full control row, 14.78
 #: px less stage): at 1280 x 600 the column band no longer has the room to stick
-#: (TheRoomForAStuckBandIsMeasuredNotPredicted's 1280x600 row records that),
+#: (TheRoomForAStuckBandIsMeasuredNotPredicted's 1280x600 row recorded that),
 #: so the window is 15 px taller to keep the stage these cases were written
-#: for — both bands stuck, the same port and overflow.
+#: for — both bands stuck, the same port and overflow. Since CARD-451's 0.48
+#: bar the 1280 x 600 band sticks again (0.41 of the port); 615 is kept, so
+#: these cases still measure the stage they were written against.
 SHORT_720 = {"width": 1280, "height": 615}
 #: The narrowest desktop measured: a plain big board scrolls on BOTH axes and
 #: is still not mirrored (900 > 820).
@@ -3215,7 +3217,7 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         # keeping verdicts are unchanged. Was: 492/91, 372/211, 472/111, and
         # at 390x844 / 600x844 583 tall with no vertical overflow.
         ("1280x720", {"width": 1280, "height": 720}, [True, True], [0, 133], [980, 450]),  # 118/465 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
-        ("1280x600", {"width": 1280, "height": 600}, [True, False], [0, 253], [980, 330]),  # [True, True]/238/345 until CARD-411 (option "A", 14.78 px less stage): the column band no longer has the room to stick here
+        ("1280x600", {"width": 1280, "height": 600}, [True, True], [0, 253], [980, 330]),  # [True, True]/238/345 until CARD-411 (option "A", 14.78 px less stage), then [True, False]: the column band (135.4 of 330, 0.41) lost the room at 0.4 — CARD-451's 0.48 gives it back
         ("900x700", {"width": 900, "height": 700}, [True, True], [104, 210], [600, 373]),  # 195/388 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
         # The mirror, and the one case at 100 % zoom where an axis gives up:
         # 272.2 px of band over a 358 px stage is three quarters of it, so a

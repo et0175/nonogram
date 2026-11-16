@@ -1354,7 +1354,10 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
     #: are more than STICK_MAX_SHARE of a 720 px window's port. Owner ruling
     #: 2026-11-09 ("all as recommended"): STICK_MAX_SHARE stays; a band too
     #: big AT the cap scrolls with the board rather than covering it.
-    GIVES_UP_AT = {"rows": 325, "cols": 150}
+    #: CARD-451 (owner 2026-11-16, after the Android QA) moved the bar from
+    #: 0.4 to 0.48, so the columns hold one step longer here: they give up
+    #: at 175 % (at 150 % until then).
+    GIVES_UP_AT = {"rows": 325, "cols": 175}
 
     def test_each_axis_keeps_its_clues_up_to_the_zoom_its_band_outgrows(
         self, browser_page, live

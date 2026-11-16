@@ -1061,7 +1061,7 @@ class TestSolverHint_FallsBackToTheSolution:
             assert _hinted(browser_page) == [], press
             assert _lined(browser_page) == {"cells": [], "rowClues": [], "colClues": []}, press
             assert _announced(browser_page) == (
-                "Hint: no single row or column decides a cell right now."), press
+                "Hint: no single row or column decides a cell right now. Try a Probe: guess one square and see if it breaks a line."), press
 
     def test_fallback_reveals_the_first_undecided_cell(self, browser_page, live) -> None:
         """Rung 3 is CARD-183's fallback reveal, unchanged — the same cell,
@@ -2633,7 +2633,7 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
         _hint(browser_page).click()
         first, said = _shots(browser_page), _explained(browser_page)
 
-        assert said == "Hint: no single row or column decides a cell right now."
+        assert said == "Hint: no single row or column decides a cell right now. Try a Probe: guess one square and see if it breaks a line."
         assert said == _announced(browser_page)
         assert _lined(browser_page) == _NO_LINE  # still highlights nothing
         assert not _indistinguishable(blank["line"], first["line"])  # yet it is visible

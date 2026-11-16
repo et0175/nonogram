@@ -721,8 +721,11 @@ const EDIT_MODE = "edit";
 // What a Hint press says in public mode when the clues decide no cell: the
 // words of the retired player/play.js's HINT_EXHAUSTED (CARD-399 deleted that
 // file; tests/test_player_public_mode.py reads this constant for the sweep).
+// CARD-451 (owner 2026-11-16, after the Android QA): the dead end says what to
+// do next. The player has no solution to reveal from, so past here only a
+// probe moves the board on.
 const PUBLIC_EXHAUSTED =
-  "Hint: the clues decide nothing more by themselves; no single row or column forces a cell from the marks on the board.";
+  "Hint: the clues decide nothing more by themselves. Try a Probe: guess one square and see if it breaks a line.";
 
 // What public mode takes off the page (CARD-385; see PUBLIC MODE above).
 const PUBLIC_ABSENT = '#puzzle-player-errors, #puzzle-player-progress, [data-player-action="check"]';
@@ -792,7 +795,18 @@ const DOUBLE_MIN_CELL = 24;
 //
 // Nothing was measured between 0.364 and 0.496, so where in that gap the bar
 // belongs is the owner's to move; CARD-271 records it as such.
-const STICK_MAX_SHARE = 0.4;
+//
+// CARD-451 (owner 2026-11-16, after the Android QA): MOVED from 0.4 to 0.48.
+// On a phone on its side a 30 x 30's column band covers 43 % of the stage at
+// 150 % zoom and 46 % from 175 % up (CARD-404's numeral cap stops it there),
+// measured at 839 x 412 (a Pixel 7): at 0.4 the column clues scrolled away
+// from 150 % on, which the QA run flagged. 0.48 keeps them at every zoom
+// there, and stays under the 0.496 above that a stuck band was measured
+// taking the cells a drag aimed at. On the smallest phone measured, a
+// Galaxy S9+ (658 x 320 on its side, 320 x 658 upright), the column band
+// keeps to 125 % (46 %; 55 % at 150 %) and the upright row band to 125 %
+// (45 %; 49 % at 150 %).
+const STICK_MAX_SHARE = 0.48;
 
 // The performance.mark drawBoard leaves behind, one per board built.
 const DRAW_MARK = "nonogram-player-board-draw";
@@ -1927,7 +1941,8 @@ function ladderExplainText(line) {
 //: its shipped "(from the solution)" wording (hintText above), so the
 //: expensive answer is still available; it is no longer the only one, and
 //: the two cheap rungs no longer teach a falsehood to get to it.
-const LADDER_EXHAUSTED = "Hint: no single row or column decides a cell right now.";
+// CARD-451: and the same pointer on the ladder's own dead end.
+const LADDER_EXHAUSTED = "Hint: no single row or column decides a cell right now. Try a Probe: guess one square and see if it breaks a line.";
 
 //: Which sentence a press on each rung says about a line it DID find, keyed
 //: by the rung the press was made ON. EXPORTED and keyed by HINT_RUNGS'
