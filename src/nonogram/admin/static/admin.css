@@ -455,6 +455,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .main { padding: var(--space-4); }
   .puzzle-list-item { grid-template-columns: 2.5rem 80px 1fr auto; }
 }
+/* CARD-466 (UX review M10): under the board there is only the one-line "How
+   to play", so the solve page does not keep .main's 56 px bottom padding,
+   which made the page itself scroll past the board — by about 52 px at
+   1280 x 800 and 58 px on a phone held sideways, where a drag near the
+   board's edge then moved the page. A phone held sideways keeps 4 px. */
+.main:has(> .player-stage-wrap) { padding-bottom: var(--space-4); }
+@media (max-height: 500px) and (orientation: landscape) {
+  .main:has(> .player-stage-wrap) { padding-bottom: var(--space-1); }
+}
 
 /* ---------- Puzzle player (CARD-160, FR-044; board drawn by solver.js) ----------
    One table: column-clue boxes above, row-clue boxes left, W x H cells. Each

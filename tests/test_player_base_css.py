@@ -295,7 +295,10 @@ FROZEN: dict[int, dict[str, str]] = {
         "error alert": "16|60|358|108.39|block|border-box|0px 0px 16px|16px|1px 1px 1px 4px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|relative|rgb(28, 35, 51)|rgb(245, 230, 224)|rgb(155, 59, 38)|1|none|none|auto|auto|none|none|auto",
     },
     1280: {
-        "html": "0|0|1280|617.55|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
+        # CARD-466 (UX review M10): 617.55 until the solve page dropped .main's
+        # 56 px bottom padding for 16 px (admin.css, shared by both sides of
+        # this comparison, so the real Bootstrap measures the same 40 px less).
+        "html": "0|0|1280|577.55|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
         "00 h1 ": "40|28|234.58|48|block|border-box|0px 0px 4px|0px|0px|none|0px|40px|500|48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
         "01 span badge": "290.58|40.77|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none|auto",
         "02 div puzzle-player-controls": "40|87|1200|62.58|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px 16px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
