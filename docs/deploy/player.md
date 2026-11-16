@@ -635,6 +635,22 @@ Not observed: a real phone.
 
 **Tenth publish, and still not one human finger.** The owner was told on 2026-11-14 which card most needs their hands — CARD-439's line mode, live, carrying no review score by design, its long-press pivot and strip drag exercised by nothing but its own tests.
 
+**The closed-run publish, 2026-11-16 (the day's second).** Published from `main` at `206423be`. **One card, CARD-434** — rule D withdrawn, so a clue circles only when its run is closed by white. One file: `solver_state.js` **`432304aa1738` → `33e7086ceda1`**.
+
+| Step | What was observed |
+| --- | --- |
+| Pre-flight | Fail-fast, and **it raised its own new check**: `pinnedNumbers` and `earliestStarts` each still appear **once** in the served `solver_state.js`. Resolved before deploying rather than after — both are on **one comment line** (`// … it was implemented as pinnedNumbers, over an earliestStarts …`), with no definition and no call site, which is exactly what the card's requirement 3 asked for: the doc comment must record that rule D existed. A grep for a removed symbol is the right check and a count of 1 is the right answer here. |
+| What changed, read BEFORE promoting | Ten assets compared with the live domain first. **One** differed, `solver_state.js`; the four copied files, `pages.js`, `player.css`, `base.css`, `decor.*` and `how-to-solve.js` all already live. |
+| Preview | `vercel deploy --yes`: **`nonogram-studio-cbb6ivmi0`**; `solver_state.js` matched the tree, five doors 200, `/nope` 404. |
+| Production | `vercel promote … --yes`. **Four polls read the old bytes before the fifth read the new** — the slowest of the nine times this page has recorded that the promote returning is not the deployment being live. |
+| Behaviour, on the live domain — the owner's ruling in two steps | An A/B on one row, chosen so that the only difference is the thing the owner ruled on. Row 0 of `33fa80994c` is clued **`2 2 2`**. **Fill a 2-run at the left edge with its right neighbour UNMARKED:** cells read `filled, filled, unknown`, circles **`false, false, false`**. Under rule D that run is pinned — edge-anchored and forced by the clue — so it *would* have circled. **Then mark that one neighbour WHITE:** cells read `filled, filled, empty`, circles **`true, false, false`**. Same marks, one white dot added, and the circle appears. That is "circle only if they're surrounded by white (dots)", demonstrated on the real site rather than in a fixture. |
+| The figure this publish carries | **82,668** clue numbers stop circling across the measured corpus — four times what CARD-434 originally claimed, because the card misread which of CARD-400's figures was rule D's addition. Measured three times independently, the third against the shipped module loaded into bare `node`. |
+| Rollback target | The production deployment before it (`solver_state.js` `432304aa1738`) still Ready. It serves rule D. |
+
+**What this publish leaves owed.** **CARD-438** (two-row portrait toolbar) and **CARD-445** (the line view cannot be asked) are `ready`. The owner's whole play-test list of 2026-11-12 is now closed and live: 433, 434, 435, 436. **A third surface is owed a look:** `player/how-to-solve.js` paints circles from the same function, so the lesson's intermediate circles changed too, and nothing pins them — its only circle assertion drives a *solved* board, true under both rule sets.
+
+**Eleventh publish, and still not one human finger.**
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
