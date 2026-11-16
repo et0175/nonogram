@@ -664,6 +664,24 @@ Not observed: a real phone.
 
 Not observed: a real iPhone. The double-tap fix is the one thing only Safari on a phone can confirm — that a quick second tap no longer zooms the page and that the cycle black, white, clear holds at speed.
 
+**The two-row-toolbar publish, 2026-11-16 (the day's third).** **One card, CARD-438.** One file: `admin.css` **`268cdcfdd917` → `d0a93199f016`**, 2300 → 2511 lines.
+
+| Step | What was observed |
+| --- | --- |
+| The first assemble produced a site with **no puzzles** | `player/assemble.py --out …` without `--bundle` printed `0 puzzles into …` and `0 book landings` and **exited 0**. Deploying it would have published an empty library over a working one. The bundle is `build/player-bundle` (the 2026-10-29 export), as every earlier row on this page records; re-assembled with it, **160 puzzles, 1 book landing**. The check that caught it is the one this page keeps asking for: **assert the count, do not read the log**. |
+| Another session had deployed since the morning | Reading the live hashes **before** promoting showed `solver.js` and `solver_state.js` had **moved off** this morning's values and already matched the tree — so production already carried CARD-447 … CARD-450, and this publish was CARD-438 alone. Established by diffing the live stylesheet against the tree's, not by reading the card list: **211 lines added, nothing removed**. |
+| A near-miss on the output directory | `build/site-20261116d` already existed, lexically after the `c` in hand. Its mtime is **17:26**, hours *older* than the new build — the suffixes are lexical, not chronological, so a later letter is not a later build. No deploy was in flight (`ps` for vercel: none). |
+| Pre-flight | 4 `COPIED_FROM_ADMIN` copies byte-identical to their admin sources; `pages.js`, `player.css`, `how-to-solve.js` identical to `player/`; **all 160** puzzle files carrying exactly `clues, height, key, tier, width`; no goatcounter, no `.vercel/`. |
+| Preview | **`nonogram-studio-pvtrhq5s1`**; `admin.css` matched the tree, five doors 200, `/nope` 404, `puzzle/0978469757.json` 200. |
+| Production | Promoted; **two polls read the old bytes before the third read the new** — the tenth recorded instance. |
+| Behaviour, on the live public player at 390x844 | **Two distinct control rows, and that is the whole card.** Row 1 at y 51: `Brush: Black`, `Region`, `Undo`, `Redo`, `Reset`, `Line`, `Hint`. Row 2 at y 103: `Zoom out`, `Zoom in`, the zoom readout, **`Probe`** — which used to have a line of its own. **11 controls** (the public page has no `Check`), **none under 44 px in either axis**, toolbar **96 px = 44 + 8 + 44**, and `.player-stage`'s top **192 → 163: the 29 px the board gains.** |
+| The one red was my own instrument | I asserted exactly one `[role="group"][aria-label="History"]` and found **two**. The second is **CARD-439's line view's own** `player-line-history` inside `#puzzle-player-line` — correct, and my assertion was wrong. Resolved by printing each group's ancestry instead of trusting the count. Worth recording for a second reason: the player's own group reads `0x0` with a null `offsetParent`, which is `display: contents` behaving exactly as specified — the box is gone while the buttons and the role remain. That is the mechanism this card rests on, seen in production. |
+| Rollback target | The deployment before it (`admin.css` `268cdcfdd917`) still Ready; it serves the three-row toolbar. |
+
+**What this publish leaves owed.** **CARD-445** (the line view cannot be asked for) is the only card left `ready`. The **full derived selection** — 7576 of 10654, 142 files — plus 7 marked tests is owed at the wave close; CARD-438 gated on the player subset (1086 tests) by the owner's ruling. And **CARD-439's line mode has still never been touched by a human finger**: its long-press pivot and strip drag are exercised only by its own tests, because a dispatched `PointerEvent` cannot satisfy `setPointerCapture`.
+
+**Twelfth publish.**
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
