@@ -641,10 +641,38 @@ function setupWizard(page) {
   return { getStep: () => current };
 }
 
+// CARD-463 (UX review M7): opened from a book's landing, the lesson wears
+// that book's theme, read from the book's own file exactly as the landing
+// and the play page read it; anything else keeps the default look.
+async function dressFor(home) {
+  const slug = /^\/b\/([0-9a-f]{10})$/.exec(home)?.[1];
+  if (slug === undefined) return;
+  let book = null;
+  try {
+    const response = await fetch(`/book/${slug}.json`, { cache: "no-store" });
+    book = response.ok ? await response.json() : null;
+  } catch {
+    return;
+  }
+  if (book === null || typeof book !== "object" || typeof book.theme !== "string"
+      || !/^[a-z]+$/.test(book.theme)) return;
+  // Which themes draw decorations is decor.js's to say, so this page names
+  // no theme (it stays generic: AC-E of CARD-419).
+  const decor = await import("/decor.js");
+  if (!decor.DECORATED_THEMES.includes(book.theme)) return;
+  document.documentElement.dataset.theme = book.theme;
+  const sheet = document.createElement("link");
+  sheet.rel = "stylesheet";
+  sheet.href = "/decor.css";
+  document.head.append(sheet);
+  decor.decorate();
+}
+
 function load() {
   const page = document.querySelector("[data-hts-page]");
   if (page === null) return;
   const home = homeHref(document.referrer, window.location.origin);
+  dressFor(home);
   for (const link of page.querySelectorAll("[data-hts-home]")) link.setAttribute("href", home);
   const wizard = setupWizard(page);
   const tryBoard = setupTry(page);

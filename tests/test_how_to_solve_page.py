@@ -264,8 +264,11 @@ def test_the_lesson_is_published_routed_and_names_no_book(pages_site) -> None:
         assert BOOK_TITLE_SERVED not in text
         assert "data-pages-" not in text
         assert not re.search(r"christmas|anna|olga", text, re.I)
-    # Static: no request, no storage.
-    assert "fetch(" not in script and "XMLHttpRequest" not in script
+    # No storage; and one request only (CARD-463, owner 2026-11-16 on the UX
+    # review: the lesson opened from a book wears that book's theme): the
+    # book's own file, the one the landing and the play page read.
+    assert re.findall(r"fetch\(([^,)]*)", script) == ["`/book/${slug}.json`"]
+    assert "XMLHttpRequest" not in script
     assert "localStorage" not in script and "sessionStorage" not in script
     # Served from the site root like the other pages (rewrites serve one
     # document at many paths, so a relative src would break).
