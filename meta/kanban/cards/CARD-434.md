@@ -1,6 +1,6 @@
 # CARD-434: A clue circles only when its run is closed by white — rule D is withdrawn
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/434-circles-need-a-closed-run
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-434
 **Source:** owner's play-test doc "Гра - тест", 2026-11-12, item 3: *"Circle clues only if they're surrounded by white (dots)"*. Ruled the same day, asked because rule D exists precisely to circle runs that are NOT closed: **"Dots or the board edge"** — revert rule D; a number circles only when its run has an actual white dot, or the grid edge, on both sides.
 **Idea:** —
 **Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py
+**Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_line.py
 <!-- Derived 2026-11-12. circledNumbers, pinnedNumbers and earliestStarts are all in solver_state.js; tests/test_puzzle_solver_clues.py is the only module that imports circledNumbers and holds TestSolverClues_PinnedNumbersCircle (line 3397 on main at the time of writing — resolve it by NAME). earliestStarts is also reachable from lineForced's family: check before deleting it, it may have a second caller. Re-derive the full set with scripts/impact_set.py --gate. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-16T05:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -55,3 +55,7 @@ This is not "circles are wrong". Rules A, B and C stay exactly as they are, incl
 **Net test count: 0 added, and possibly fewer** — if rule D owns cells beyond `TestSolverClues_PinnedNumbersCircle`, they are rewritten or, where the behaviour no longer exists, removed with the count reported. Deleting a cell to make a gate pass is still forbidden; deleting one whose subject the owner withdrew is the point of the card. Say which, per cell.
 
 ## Worktree notes
+- **[Env]** forge 2026.10.29; no `meta/.skills.yml`. Start gate `decision: gate`; fork point interactive/target tip `aa4f3dec`. Pin, drift and state-table gates not applicable; no dependencies.
+- **[Two things the card left open, both settled by reading before dispatch — no owner question needed]**
+  (i) **The line view shares `circledNumbers`.** The card was written on 2026-11-12 and **CARD-441 landed afterwards**, giving the line view its own ringed clue numbers. Unlike CARD-435's probe flags — which turned out to be a *second, separate* code path and needed a ruling — `solver.js:3739` calls the **same** `circledNumbers` the board's `circledClues` uses. So withdrawing rule D changes both surfaces at once and consistently, which is the behaviour anyone would want and needs no decision. What it DOES mean is that the line view's ring cells may move too: `Touches:` is widened to include `tests/test_puzzle_solver_line.py`, and the round must re-derive rather than assume.
+  (ii) **`earliestStarts` has no caller but `pinnedNumbers`.** The card said to derive this rather than assume it; derived here — `solver_state.js:607` and `:610`, both inside `pinnedNumbers`, and nowhere else. `lineForced` builds a similar table of its own and does not share this one. So the helper goes with the rule, and the card's cautious "only if nothing else calls it" is now answered yes.
