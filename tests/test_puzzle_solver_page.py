@@ -791,6 +791,12 @@ def _to_hundred(page):
         page.wait_for_function(
             "document.querySelector('[data-player-zoom-readout]').textContent === '100%'")
         page.evaluate("() => document.querySelector('.player-stage').scrollTo({left: 0, top: 0, behavior: 'instant'})")
+        # CARD-467: that zoom is the reader's, and when it takes a board with
+        # Region armed out of view the page says once why Region went off, in
+        # the centred answer box. The suite's cells start from a quiet page,
+        # so the box is dismissed the reader's way (Escape) when it showed.
+        if page.locator("#puzzle-player-explain").is_visible():
+            page.keyboard.press("Escape")
 
 
 _DRAWN = """() => {
