@@ -1239,10 +1239,18 @@ class TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround:
             assert (look[name]["crossed"], look[name]["lined"]) == (
                 neighbour == "cross", neighbour == "line"
             ), (ground, name, look[name])
-        assert look["probed"]["background"] == look["plain"]["background"], (
-            f"{ground}: the probe repainted the ground, so the distance below "
-            f"would be measured against the wrong colour"
-        )
+        if state == F:
+            # CARD-468 (UX review L1, owner 2026-11-17): a probed BLACK is
+            # drawn in a warm ink as well — a second channel, so on a small
+            # cell it reads as a guess even where the dashed ring is a pixel
+            # or two. So here the ground differs ON PURPOSE, and the claim
+            # below is measured against the probed cell's own ground.
+            assert look["probed"]["background"] != look["plain"]["background"], (ground, look)
+        else:
+            assert look["probed"]["background"] == look["plain"]["background"], (
+                f"{ground}: the probe repainted the ground, so the distance below "
+                f"would be measured against the wrong colour"
+            )
         # 2 — the ring is drawn at all: a colour cannot be seen through a ring
         # that is not there, which is the arm a width mutation reds.
         style, width, colour = look["probed"]["outline"]

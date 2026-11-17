@@ -1904,6 +1904,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell[data-probe] { outline: calc(1.5 * var(--player-rule-major)) dashed var(--player-probe); outline-offset: calc(-1.5 * var(--player-rule-major)); }
 .player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); outline-width: var(--player-rule-major); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
+/* CARD-468 (UX review L1, owner 2026-11-17 "do l1", reopening the
+   2026-10-30 choice of the outline as the ONLY channel): on a ~16 px cell
+   the dashed edge is a pixel or two and a probed black read as a kept one,
+   so a probed black is also drawn in a warm, lighter ink. The Line view's
+   large cells show the edge plainly and keep the plain ink. */
+.player-board .player-cell[data-probe][data-state="filled"] { background-color: color-mix(in srgb, var(--grid-ink) 70%, var(--player-probe)); }
 /* CARD-410 (owner finding 2026-11-07): a clue the open probe broke is red —
    the danger tint pushed toward the danger colour, numerals in the danger
    hover ink — and Contradiction wears a danger ring that pulses twice while

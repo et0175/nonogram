@@ -729,6 +729,8 @@ def test_the_probe_tint_comes_from_tokens() -> None:
         ".player-cell[data-probe]",
         '.player-cell[data-probe][data-state="filled"]',
         ".player-cell.is-hinted[data-probe]",
+        # CARD-468 (owner 2026-11-17): a probed black's warm ink, on the board.
+        '.player-board .player-cell[data-probe][data-state="filled"]',
         # CARD-442: the same marker in the line view's strip (a cell, and a
         # filled cell for the same 2.66:1 reason), and the map's outline
         # colour (its geometry is a rule of its own, as the bar's layout is).
