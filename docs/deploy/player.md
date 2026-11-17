@@ -708,7 +708,7 @@ Not observed: a real iPhone. The double-tap fix is the one thing only Safari on 
 | Production | `vercel promote <preview> --scope et0175s-projects --yes`. Polled all seven changed files together on `https://nonogram.adverax.io` (the torn-state lesson above): attempt 1 not yet, attempt 2 all seven matched. The doors 200, `/nope` 404, and the heading, counter, back link, brush caret, hint sentence and sideways bough read the same as on the preview; no page errors. |
 | Rollback target | The ask-in-the-line-view deployment (`nonogram-studio-gahdmbuw6`). |
 
-**Owed:** CARD-473 (the browser no longer zooms the play page) is on main and unpublished, waiting on the owner; the owner's phone is its check.
+**Then CARD-473, the same morning** (owner: "publish please"). Built from **`ddca09ce`** the same way into `~/Documents/nonogram-reviews/deploy-2026-11-17-473`; `diff -rq` against the UX-review tree names exactly one file, `play/index.html`, whose viewport is now `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no`. Preview **`nonogram-studio-3auonyn85`**: doors 200, `/nope` 404, the viewport served, puzzle 160 drew 870 cells and zoomed with no page error (Galaxy S9+ emulation). Promoted with `vercel promote … --scope et0175s-projects --yes`; the live play page carried `user-scalable=no` on poll 3, doors 200, `/nope` 404. **Not verified by a pinch**: headless Chromium's synthesized pinch zooms neither build, so the check is the owner's Android phone (puzzle 68). iOS Safari ignores `user-scalable=no`, so an iPhone can still page-zoom. Rollback target: `nonogram-studio-2ppg8kahr`.
 
 ## Publishing a new bundle
 
