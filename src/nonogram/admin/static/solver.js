@@ -366,7 +366,10 @@
 //             its title say which of the two meanings it is on (HINT_NAME /
 //             HINT_PROBE_NAME, written in refresh). The consequence, named
 //             here rather than discovered: a reader inside a probe cannot
-//             get a cell revealed until they close it.
+//             get a cell revealed until they close it. CARD-445: the press
+//             itself is askProbe now, and the line view's own ask is the
+//             other caller of it — this button is no longer the only way to
+//             ask, and the sentence both write is still this one.
 //   check     [data-player-action="check"] (CARD-269) answers "is one of my
 //             marks wrong?": it highlights the ROW of the first wrong mark
 //             (the same .is-hint-line) and names it, or says there are none —
@@ -649,6 +652,13 @@
 //             BOTH surfaces: these clue boxes and, since CARD-442, the line
 //             view's own clue and Wrong guess button (ruling 2). The
 //             derivation is untouched: this gates the painting.
+//             CARD-445 (owner rulings of 2026-11-16) gave the VIEW its own
+//             ask, because those two rulings together had left the view's
+//             flags unreachable from inside it: the quiet rule applied there
+//             and only the board had a Hint. Both presses are one function
+//             (askProbe), and the view's answer also NAMES the broken lines
+//             that are not on its screen and offers them as targets that
+//             pivot it onto them (LINE FOCUS below).
 //   the save  while a probe is open the stored entry is the entry as of the
 //             checkpoint (serializeState of checkpointHistory), so a save
 //             never holds a probe stroke and deserializeState is unchanged.
@@ -2386,6 +2396,46 @@ function buildLineView(probeBar, stage) {
         lineButton({ "data-player-line-probe": "open", "aria-pressed": "false", title: "Probe" }, [
           probe?.querySelector(".player-compact-icon")?.cloneNode(true) ?? lineElement("span"),
           lineElement("span", {}, ["Probe"])]),
+        // CARD-445 (owner rulings 2026-11-16): the ASK. CARD-435's quiet rule
+        // reached this surface before this control did, so between those two
+        // cards the view's red clue and flagged Wrong guess could not be
+        // reached from inside it at all. It is the board's Hint INSIDE a
+        // probe, and it carries that button's own probing name (HINT_PROBE_NAME)
+        // and presses the same handler (askProbe), so neither surface can
+        // answer what the other does not.
+        //
+        // Its hook is data-player-line-ask and NOT a fourth
+        // data-player-line-probe: the view's probe trio is read as a set by
+        // name (tests/test_puzzle_solver_line.py's _probe_state, and so
+        // CARD-435's own quiet cell), and a fourth member would change what
+        // that set is rather than add a control beside it.
+        //
+        // Drawn only while a probe is open, like Keep and Wrong guess: the
+        // board's Hint reveals a CELL outside a probe and this view has no
+        // reveal of its own, so a button drawn outside one would promise the
+        // board's other meaning and not have it.
+        //
+        // Icon-only, with the board Hint's OWN icon cloned (the Probe button
+        // just above clones the probe bar's the same way) and the word in a
+        // clipped
+        // .player-btn-label — the form the view's brush, Undo and Redo
+        // already take, and the form the landscape tool row has room for.
+        //
+        // Why icon-only, and by what: the widths below were read ONE OFF by
+        // hand, summing getBoundingClientRect().width over
+        // .player-line-tools' children in a Chromium session at 844 x 390 —
+        // a worded ask is about 73 px and takes the row's content to about
+        // 603 px against the 598 it has, icon-only it is 44 and the total
+        // about 574. No test re-derives those widths, and a free-space sum
+        // did not predict the wrap anyway. What the suite holds instead is
+        // the CONSEQUENCE, and only that: the row census
+        // _tool_rows in tests/test_puzzle_solver_line.py, which goes from one
+        // row to two the moment the word comes back (its control).
+        lineButton({ "data-player-line-ask": "", title: HINT_PROBE_NAME,
+          "aria-label": HINT_PROBE_NAME, hidden: "" }, [
+          hint?.querySelector(".player-compact-icon")?.cloneNode(true)
+            ?? lineElement("span", { class: "player-probe-glyph", "aria-hidden": "true" }, ["?"]),
+          lineLabel(HINT_NAME)]),
         lineButton({ "data-player-line-probe": "keep", title: "Keep", hidden: "" }, [
           lineElement("span", { class: "player-probe-glyph", "aria-hidden": "true" }, ["\u2713"]),
           lineElement("span", {}, ["Keep"])]),
@@ -2396,6 +2446,26 @@ function buildLineView(probeBar, stage) {
     ]),
     lineElement("p", { class: "player-line-tip", "data-player-line-tip": "" },
       ["Tap or drag along the line to mark it. Long-press a cell to open the line that crosses it."]),
+    // CARD-445 (owner ruling: "everything, and offer to jump there"): the
+    // OTHER lines the ask found broken — the ones not on screen — as buttons
+    // that pivot the view onto them through focusLine, the same pivot the
+    // Rows/Cols toggle and the strips' long press already go through.
+    //
+    // LAST in the view, and empty until the ask fills it, so it is
+    // `display: none` whenever there is nothing to offer: the answer costs
+    // the strips nothing in the state the reader is in for all but one press
+    // (AC-3), and admin.css's `order` puts it back above the tip. It is NOT
+    // in #puzzle-player-explain, where the sentence goes: that box is
+    // aria-hidden (the live region is the assistive channel) and
+    // pointer-events: none, so a target inside it would be a button no
+    // screen reader meets and no finger can reach.
+    //
+    // role="group" with a label, the view's own idiom for a control group:
+    // the brush (role="group" aria-label="Brush"), the probe ("Probe") and
+    // the history all carry one, and without it these buttons reach a screen
+    // reader as a bare "Row 1" with nothing saying what the row is to.
+    lineElement("div", { class: "player-line-broken", "data-player-line-broken": "",
+      role: "group", "aria-label": "Also broken", hidden: "" }),
   ]);
   (stage.closest(".player-stage-wrap") ?? stage).after(lineDialog);
   return { lineDialog, lineOpen };
@@ -3567,6 +3637,32 @@ function wireMarking(container, player) {
     if (verdict !== null && !player.locked()) openOffer(verdict);
     return true;
   }
+  // CARD-445: THE ASK, and the only one. It was the body of the board's Hint
+  // handler's probe arm (CARD-435); the view needed the same press, and the
+  // card's AC-4 is that there is one answer and not two — so the arm became
+  // this function and the handler became a call to it. Every consequence of
+  // the press is here: the question marked as asked (the one assignment
+  // outside setProbe), the markers and flags repainted together, the ladder
+  // reset because the reader is now looking at something else, and the
+  // sentence — one sentence, to the board's own answer line and live region
+  // (say), because the owner's ruling of 2026-11-16 was to BORROW that line
+  // rather than give the view a live region of its own. A change to what the
+  // press answers therefore moves both surfaces at once, which is the whole
+  // of the property.
+  //
+  // Answers whether it acted, as openProbe/keepProbe/wrongGuess do, so a
+  // caller can move focus; neither caller needs to today.
+  function askProbe() {
+    if (gesture || player.locked() || probe === null) return false;
+    lastClick = null;       // a press is an input (see the rungs in the Hint handler)
+    rung = nextRung(rung, "change");
+    setLadderLine(null);
+    probeAsked = true;      // and nothing else sets it (see setProbe)
+    player.probed();        // the markers and the flags, repainted together
+    refresh();              // the line view's own pair follows (ruling 2)
+    say(probeBrokenText(brokenNow()));
+    return true;
+  }
   probeToggle?.addEventListener("click", () => {
     if (probeToggle.getAttribute("aria-disabled") === "true") return;
     const had = document.activeElement === probeToggle;
@@ -3682,14 +3778,12 @@ function wireMarking(container, player) {
     // would be answering a question the reader had stopped asking, and
     // leaving `.is-hint-line` on the board beside the red clues would put two
     // highlight families on one page saying different things.
+    //
+    // CARD-445: and the arm is a CALL now, not a body — the line view's own
+    // ask presses the same askProbe, so the two surfaces cannot drift in what
+    // the press answers or in the sentence it says (that card's AC-4).
     if (probe !== null) {
-      lastClick = null;       // a press is an input (see the rungs below)
-      rung = nextRung(rung, "change");
-      setLadderLine(null);
-      probeAsked = true;      // and nothing else sets it (see setProbe)
-      player.probed();        // the markers and the flags, repainted together
-      refresh();              // the line view's own pair follows (ruling 2)
-      say(probeBrokenText(brokenNow()));
+      askProbe();
       return;
     }
     const hint = player.nextHint();
@@ -3820,6 +3914,19 @@ function wireMarking(container, player) {
   //             — the save, the probe, the hint ladder, Hint and Check all see
   //             it exactly as a mark made on the board. The brush buttons set
   //             the board's own brush; Undo and Redo are the board's.
+  //   the ask   (CARD-445, owner rulings of 2026-11-16) one more control in
+  //             the tool row, drawn only while a probe is open: the board's
+  //             Hint inside a probe, pressing the board's own askProbe. Its
+  //             answer is all three of the things the owner asked for — the
+  //             focused line's clue flagged when the guess broke it, the
+  //             BOARD's sentence naming every broken row and column (written
+  //             to #puzzle-player-explain and the live region, borrowed and
+  //             not duplicated: the view has no live region of its own), and
+  //             the lines it names that are NOT on screen as buttons that
+  //             pivot the view onto them (.player-line-broken, through
+  //             focusLine, the same pivot as the long press and Rows/Cols).
+  //             Everything it paints is gated by the one question, so it goes
+  //             quiet again the moment a recorded change un-asks it.
   //   leaving   the Board button, Escape, or the board becoming solved (so the
   //             celebration is seen). Nothing about the view is saved.
   //
@@ -3855,6 +3962,9 @@ function wireMarking(container, player) {
       .map((b) => [b.dataset.playerLineAction, b])),
     probe: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-probe]")]
       .map((b) => [b.dataset.playerLineProbe, b])),
+    // CARD-445: the ask, and the box its other broken lines are offered in.
+    ask: lineDialog.querySelector("[data-player-line-ask]"),
+    broken: lineDialog.querySelector("[data-player-line-broken]"),
     tip: lineDialog.querySelector("[data-player-line-tip]"),
   };
   const LINE_TIP = "Tap or drag along the line to mark it. Long-press a cell to open the line that crosses it.";
@@ -3959,6 +4069,30 @@ function wireMarking(container, player) {
     lineParts.probe.keep.hidden = !open;
     lineParts.probe.abandon.hidden = !open;
     lineParts.probe.abandon.classList.toggle("is-flagged", anyBroken);
+    // CARD-445: the ask, drawn with Keep and Wrong guess and for their reason
+    // — it is about the open probe, and there is no probe to ask about
+    // otherwise.
+    lineParts.ask.hidden = !open;
+    lineParts.ask.setAttribute("aria-disabled", String(!open || player.locked()));
+    // CARD-445: and its answer's OTHER lines, as targets. `broken` is
+    // brokenNow(), so this list is empty until the ask and empty again the
+    // moment a recorded change un-asks the question — the quiet rule governs
+    // the targets exactly as it governs the clue and Wrong guess, through the
+    // one gated derivation and not through a second rule of their own. The
+    // focused line is left out: it is on screen, with its clue flagged, so a
+    // button offering to jump to it would pivot nowhere.
+    const targets = [...broken.rows.filter((i) => !(axis === "row" && i === index))
+      .map((i) => ["row", i]),
+    ...broken.columns.filter((i) => !(axis === "column" && i === index))
+      .map((i) => ["column", i])];
+    lineParts.broken.hidden = targets.length === 0;
+    lineParts.broken.replaceChildren(...(targets.length === 0 ? [] : [
+      lineElement("span", { class: "player-line-broken-word" }, ["Also broken:"]),
+      ...targets.map(([lineAxis, at]) => lineButton({
+        class: "btn btn-outline-secondary player-line-jump",
+        "data-player-line-jump": `${lineAxis}:${at}`,
+      }, [`${lineAxis === "row" ? "Row" : "Column"} ${at + 1}`])),
+    ]));
     lineParts.tip.textContent = open ? LINE_PROBE_TIP : LINE_TIP;
     lineDialog.classList.toggle("is-probing", open);
     const { done, undone } = player.getHistory();
@@ -4133,6 +4267,33 @@ function wireMarking(container, player) {
     });
     lineParts.probe.abandon.addEventListener("click", () => {
       if (lineGesture === null && wrongGuess()) lineParts.probe.open.focus({ preventScroll: true });
+    });
+    // CARD-445: the ask, and the board's own handler behind it (askProbe).
+    // Focus stays where it is: the button is not hidden by its own press (the
+    // probe is still open afterwards), so there is nothing to hand focus on
+    // to — the Keep/Wrong guess pair's handOn problem does not arise here.
+    lineParts.ask.addEventListener("click", () => {
+      if (lineGesture !== null || lineParts.ask.getAttribute("aria-disabled") === "true") return;
+      askProbe();
+    });
+    // CARD-445: a target pivots the view, through focusLine — the same pivot
+    // the Rows/Cols toggle and the strips' long press go through, so a jump
+    // is an ordinary line change: the next tap on a strip is a first tap
+    // (lastClick), the mini board follows, and nothing is recorded. Delegated
+    // because drawLine rebuilds the buttons on every repaint.
+    //
+    // The question stays asked across the jump (no recorded change happened),
+    // so the line jumped to arrives with its own clue already flagged. The
+    // live region gets its name, exactly as the long press's pivot announces
+    // the crossing line; the sentence itself is not re-said, because the
+    // answer has not changed — only which part of it is on screen.
+    lineParts.broken.addEventListener("click", (event) => {
+      const target = event.target instanceof Element
+        ? event.target.closest("[data-player-line-jump]") : null;
+      if (target === null || focused === null || lineGesture !== null) return;
+      const [jumpAxis, at] = target.dataset.playerLineJump.split(":");
+      focusLine(jumpAxis, Number(at));
+      announce.textContent = `${jumpAxis === "row" ? "Row" : "Column"} ${Number(at) + 1}`;
     });
     for (const name of ["undo", "redo"]) {
       lineParts.action[name].addEventListener("click", () => {

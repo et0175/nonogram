@@ -2561,7 +2561,20 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
 .player-line-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .player-line-brush, .player-line-history { display: flex; gap: var(--space-1); }
 .player-line-brush .btn[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: 0 0 0 var(--border-width) var(--color-accent); background: var(--color-accent-tint); }
-.player-line-tip { margin: auto 0 0; font-size: var(--text-xs); line-height: var(--leading-tight); color: var(--color-text-secondary); text-align: center; }
+.player-line-tip { margin: auto 0 0; order: 1; font-size: var(--text-xs); line-height: var(--leading-tight); color: var(--color-text-secondary); text-align: center; }
+/* CARD-445 (owner ruling 2026-11-16, "everything, and offer to jump there"):
+   the lines the ask found broken that are NOT the one on screen, as buttons
+   that pivot the view. LAST in the view's markup, so that an empty answer —
+   the state the reader is in for all but one press — is `display: none` and
+   costs the strips nothing (AC-3); the `order` on the tip above puts it back
+   ABOVE that tip, where it reads as the answer and not as a footnote to it.
+   `order` drives grid auto-placement too, so the landscape block below needs
+   only to put it in the right column. Its edge is the broken clue's own
+   danger colour, the one the view already uses to say "this line is dead". */
+.player-line-broken { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1); }
+.player-line-broken[hidden] { display: none; }
+.player-line-broken-word { font-size: var(--text-xs); color: var(--color-text-secondary); }
+.player-line-jump { padding: 0 var(--space-3); border-radius: 22px; border-color: var(--color-danger); color: var(--color-danger); }
 /* CARD-442 (owner 2026-11-12): the probe inside the line view. Its group is
    in the tools row: a line of its own on a portrait phone (the brush and
    history fill the width), beside them on a landscape one (where height is
@@ -2588,7 +2601,21 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
   .player-line-head { grid-column: 1 / -1; }
   .player-line-map { grid-column: 1; grid-row: 2 / 6; align-self: start; flex-direction: column; }
   .player-line-mini { width: auto; height: calc(100svh - 44px - 2 * 44px - 4 * var(--space-3) - var(--space-4)); max-width: 40vw; }
-  .player-line-clue, .player-line-strips, .player-line-tools, .player-line-tip { grid-column: 2; }
+  /* CARD-445: .player-line-broken joins the column. `order` puts it ahead of
+     the tip for auto-placement too, so while it has something to offer it
+     takes the 1fr row and the tip takes an IMPLICIT row below it, and while
+     it has nothing it is not a grid item at all and this block's five
+     explicit rows — with every row-gap the strips sit between — are the ones
+     it always had. MEASURED at 844 x 390, each figure by the instrument in
+     tests/test_puzzle_solver_line.py that actually carries it: the strips are
+     598 x 132 resting, probing AND answered (_strips_box, against
+     MAIN_STRIPS) and the tool block stays ONE row (_tool_rows, a row census).
+     What the answer costs is scroll inside the view and nothing out of the
+     strips — 13 px of it here (_view_scroll: scrollHeight 403 against
+     clientHeight 390), which the answered-landscape assertion bounds well
+     under one strip's 132. */
+  .player-line-clue, .player-line-strips, .player-line-tools, .player-line-tip,
+  .player-line-broken { grid-column: 2; }
   .player-line[data-axis="row"] .player-line-step .icon { transform: rotate(90deg); }
   .player-line[data-axis="column"] .player-line-step .icon { transform: none; }
 }
