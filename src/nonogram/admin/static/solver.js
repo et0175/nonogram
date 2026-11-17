@@ -1900,10 +1900,19 @@ function hintText({ row, col, state, deduced }) {
 
 //: Rung 1: where to look, and nothing more. `axis` is a hintLine axis, so it
 //: is already the word to say out loud ("row" / "column").
-function ladderPointText(axis, index) {
+function ladderPointText(axis, index, clue) {
   // CARD-409 (owner finding 2026-11-07): the highlight does the pointing,
   // the number is the backup ("Look at row 13" asked for counting lines).
-  return `Hint: look at the highlighted ${axis} (${index + 1}).`;
+  // CARD-455 (UX review H4, owner 2026-11-17): the line is named by its
+  // number AND its clue, which the reader can see — "(1)" read as a count.
+  return `Hint: look at the highlighted ${lineName(axis, index, clue)}.`;
+}
+
+//: "column 1 (clue 17)", "row 12 (clue 1 2 3)": a line by what is printed
+//: beside it as well as by its number.
+function lineName(axis, index, clue) {
+  const printed = Array.isArray(clue) && clue.length > 0 ? ` (clue ${clue.join(" ")})` : "";
+  return `${axis} ${index + 1}${printed}`;
 }
 
 //: Rung 2's reason clause, one sentence per HINT_REASONS name. Each is
@@ -1921,9 +1930,9 @@ function ladderPointText(axis, index) {
 //: undetected). TestSolverHintLadder_ThePureModule now asserts
 //: Object.keys(LADDER_REASON) IS HINT_REASONS, both directions.
 export const LADDER_REASON = Object.freeze({
-  "runs-complete": (axis) => `every run in this ${axis} is placed; the rest is white.`,
-  overlap: (axis, run) => `the ${run}-run must overlap in the middle whatever its position.`,
-  generic: (axis) => `every placement of this ${axis}'s clues agrees on at least one cell.`,
+  "runs-complete": (axis) => `every block in this ${axis} is placed, so the rest is white.`,
+  overlap: (axis, run) => `wherever the block of ${run} can sit, it always covers the same cells, so they are black.`,
+  generic: (axis) => `every way of placing this ${axis}'s blocks agrees on at least one cell.`,
 });
 
 //: Rung 2: rung 1's sentence with the checked reason added.
@@ -1933,7 +1942,7 @@ function ladderExplainText(line) {
   if (sentence === undefined) {
     throw new RangeError(`"${reason}" is not a hint reason (${HINT_REASONS.join(", ")})`);
   }
-  return `Hint: look at the highlighted ${line.axis} (${line.index + 1}) — ${sentence(line.axis, run)}`;
+  return `Hint: look at the highlighted ${lineName(line.axis, line.index, line.clue)} — ${sentence(line.axis, run)}`;
 }
 
 //: The exhausted state (card rule 6): undecided cells remain but no single
@@ -1961,7 +1970,7 @@ const LADDER_EXHAUSTED = "Hint: no single row or column decides a cell right now
 //: unknown event already is in nextRung and an unknown reason is in
 //: ladderExplainText.
 export const LADDER_SAY = Object.freeze({
-  [RUNG_POINT]: (line) => ladderPointText(line.axis, line.index),
+  [RUNG_POINT]: (line) => ladderPointText(line.axis, line.index, line.clue),
   [RUNG_EXPLAIN]: (line) => ladderExplainText(line),
 });
 
@@ -2920,7 +2929,31 @@ function wireMarking(container, player) {
   function say(text) {
     closeOffer(); // CARD-412 review cycle 1, F-303: one strip at a time
     announce.textContent = text;
+    placeExplain();
     showExplain(text);
+  }
+
+  // CARD-455 (UX review H4, owner 2026-11-17, superseding the CENTRE of
+  // CARD-427's ruling but not its box): the answer box no longer sits over
+  // the middle of the board, where it hid the very line it named. With a
+  // line lit it goes to the window's edge AWAY from that line — a row in the
+  // upper half sends it to the bottom, one in the lower half to the top; a
+  // column, whose clue is at the top, sends it to the bottom. With no line
+  // lit (Check's all-clear, Probe's broken lines, the Region note) it stays
+  // centred. Still fixed, so nothing moves when it appears.
+  function placeExplain() {
+    const box = document.getElementById("puzzle-player-explain");
+    if (box === null) return;
+    const table = container.querySelector(".player-board");
+    const part = ladderLine === null || table === null ? null
+      : linedParts(table, ladderLine.axis, ladderLine.index)[0] ?? null;
+    if (part === null) {
+      box.removeAttribute("data-place");
+      return;
+    }
+    const at = part.getBoundingClientRect();
+    box.dataset.place = ladderLine.axis === "column" || (at.top + at.bottom) / 2 < window.innerHeight / 2
+      ? "bottom" : "top";
   }
 
   // Put `.is-hint-line` on (or take it off) every cell and clue box of

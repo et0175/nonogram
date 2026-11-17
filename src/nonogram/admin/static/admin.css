@@ -1248,6 +1248,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   box-shadow: var(--shadow-modal); pointer-events: none;
 }
 .player-explain:empty, .player-explain[hidden] { display: none; }
+/* CARD-455 (UX review H4, owner 2026-11-17): with a line lit, solver.js's
+   placeExplain puts the box at the window's edge away from that line
+   instead of over the board's middle. */
+.player-explain[data-place="top"] { inset: var(--space-4) 0 auto 0; margin: 0 auto; }
+.player-explain[data-place="bottom"] { inset: auto 0 var(--space-4) 0; margin: 0 auto; }
 /* CARD-412: the Wrong-guess offer, in the hint box's place and look; it
    holds two buttons, so it takes the pointer, and it is a row that wraps.
    CARD-427: it carries .player-explain, so the owner's "contradiction and
@@ -1868,6 +1873,28 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    narrow phone or a large default font would otherwise make the line taller
    than its buttons when a probe opens; the full sentence is in its title. */
 .player-probe-note { flex: 1 1 0; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* CARD-458 (UX review M2, owner 2026-11-17 "do m2", superseding CARD-411's
+   option "A" ON DESKTOP ONLY): the toolbar is one row there — the brush and
+   Region, Undo Redo Reset Hint, then Probe, then the counter, then the zoom
+   — instead of Probe alone on a second row and the counter at the far
+   right, away from Hint. The compact layouts (a phone either way up) keep
+   their own rows. `order` moves the drawing only; focus keeps the DOM's. */
+@media (min-width: 601px) and (min-height: 501px) {
+  /* The public player only — the page with no Check (solver.js removes it
+     there, PUBLIC_ABSENT). The admin's toolbar also carries Check, Errors and
+     Progress, which do not fit one row beside the panel's sidebar, so it
+     keeps CARD-411's layout. */
+  .player-toolbar:not(:has([data-player-action="check"])):has(.player-probe) { margin-top: 0; }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-probe { flex-basis: auto; order: 1; margin-top: 0; margin-bottom: 0; }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-counters { flex: none; order: 2; align-self: center; }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-zoom { order: 3; }
+  /* With Probe on the row, an open probe's leaving note (a full sentence)
+     would wrap the row and push the board down, which CARD-411's ruling
+     forbids ("opening a probe moves nothing"). Not drawn here, as on an
+     upright phone (CARD-454); the dashed marks and Keep / Wrong guess show
+     that a probe is open. */
+  .player-toolbar:not(:has([data-player-action="check"])) .player-probe-note { display: none; }
+}
 /* The glyphs carry the pair's meaning in colour too, so the phone's
    icon-only Keep (✓) does not read as Check's tick. */
 [data-player-probe-action="keep"] .player-probe-glyph { color: var(--color-success); }
@@ -1877,6 +1904,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell[data-probe] { outline: calc(1.5 * var(--player-rule-major)) dashed var(--player-probe); outline-offset: calc(-1.5 * var(--player-rule-major)); }
 .player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); outline-width: var(--player-rule-major); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
+/* CARD-468 (UX review L1, owner 2026-11-17 "do l1", reopening the
+   2026-10-30 choice of the outline as the ONLY channel): on a ~16 px cell
+   the dashed edge is a pixel or two and a probed black read as a kept one,
+   so a probed black is also drawn in a warm, lighter ink. The Line view's
+   large cells show the edge plainly and keep the plain ink. */
+.player-board .player-cell[data-probe][data-state="filled"] { background-color: color-mix(in srgb, var(--grid-ink) 70%, var(--player-probe)); }
 /* CARD-410 (owner finding 2026-11-07): a clue the open probe broke is red —
    the danger tint pushed toward the danger colour, numerals in the danger
    hover ink — and Contradiction wears a danger ring that pulses twice while
