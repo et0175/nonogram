@@ -471,6 +471,17 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     decor = page.evaluate(_DECOR)
     assert decor["garlands"] == 1 and decor["snowed"] == decor["panels"] > 0, decor
     assert decor["hidden"] and decor["needles"] > 0, decor
+    # CARD-459 (UX review M3): on the LANDING held sideways the garland is
+    # 32 px, not 72, and still spans the window (decor.js's eight tiles); the
+    # side bough is the play page's only (CARD-465).
+    size = page.viewport_size
+    page.set_viewport_size({"width": 860, "height": 400})
+    low = page.evaluate("""() => { const g = document.querySelector('.decor-garland');
+      const tiles = [...g.querySelectorAll('svg')];
+      return { height: g.getBoundingClientRect().height, reach: tiles.at(-1).getBoundingClientRect().right,
+               side: document.querySelector('.decor-side').getBoundingClientRect().width }; }""")
+    assert low["height"] == 32 and low["reach"] >= 860 and low["side"] == 0, low
+    page.set_viewport_size(size)
     # CARD-463 (UX review M7): the lesson, opened from this landing, wears the
     # book's theme and garland; opened from nowhere it keeps the default look.
     for referer, theme in ((f"{url}/b/{slug}", "christmas"), (None, None)):
@@ -518,15 +529,21 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
     )
     assert hung["garlands"] == 1 and hung["onBoard"] == 0 and hung["heading"] == PINE, hung
     assert hung["sheets"][-1] == "/decor.css", hung
-    # CARD-459 (UX review M3): on a phone held sideways the garland is 32 px,
-    # not 72, and it still spans the window (decor.js's eight tiles).
+    # CARD-465 (owner 2026-11-17, on M9: "I'd remove the garland but maybe add
+    # some decoration to the right"): on a phone held sideways the PLAY page
+    # draws no garland (CARD-459 had made it 32 px) and hangs a bough down
+    # the right edge instead, in a strip the page leaves free: it touches
+    # neither the board nor the toolbar.
     size = page.viewport_size
     page.set_viewport_size({"width": 860, "height": 400})
-    low = page.evaluate("""() => { const g = document.querySelector('.decor-garland');
-      const tiles = [...g.querySelectorAll('svg')];
-      return { height: g.getBoundingClientRect().height,
-               reach: tiles.at(-1).getBoundingClientRect().right }; }""")
-    assert low["height"] == 32 and low["reach"] >= 860, low
+    low = page.evaluate("""() => {
+      const garland = document.querySelector('.decor-garland').getBoundingClientRect();
+      const side = document.querySelector('.decor-side').getBoundingClientRect();
+      const right = Math.max(...['.player-stage', '.player-toolbar', '.player-head']
+        .map((s) => document.querySelector(s).getBoundingClientRect().right));
+      return { garland: garland.height, side: [side.left, side.right, side.height], right }; }""")
+    assert low["garland"] == 0, low
+    assert low["side"][1] == 860 and low["side"][2] == 400 and low["right"] <= low["side"][0], low
     page.set_viewport_size(size)
 
     # Any other way in is the default look (AC-4): no book, a malformed book,
