@@ -378,6 +378,9 @@ class TestSharedUi_ThePageRuns:
         assert browser_page.locator(".player-head h1").inner_text() == "Puzzle 10×10"
         assert browser_page.locator(".player-tier .badge").inner_text() == "MEDIUM"
         assert browser_page.title() == "Puzzle 10×10 · MEDIUM - Nonogram"
+        # CARD-469 (UX review L2, owner 2026-11-17): the counter counts the
+        # cells Hint revealed, and now says so.
+        assert browser_page.locator("#puzzle-player-hints").inner_text().startswith("Revealed:")
         # The hue is the design token's, not a second copy of the hex.
         assert "--color-tier-medium" in browser_page.locator(".player-tier .badge").get_attribute("style")
         # The banner's name: never a picture name (a title is in no served
