@@ -1,6 +1,6 @@
 # CARD-468: Probe marks read on small cells
 
-**Status:** blocked
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5c (0.1d)
@@ -9,21 +9,21 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
+**Branch:** card/468-probe-marks-visible (merged into ux-review-cards)
 **Worktree:** —
 **Source:** owner 2026-11-16 (project thread "UX and design review"): *"I think you can create cards for all of your findings and take them one by one"* — finding L1 of the review doc https://claude.ai/artifact/4gu4yk21Kt9CapTXbwVv11; screenshots ~/Documents/nonogram-reviews/UX-review/shots/
 **Idea:** —
-**Wave:** —
+**Wave:** 80
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/player.css, src/nonogram/admin/static/admin.css
-**Review score:** —
-**Started:** —
-**Closed:** —
+**Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_probe.py, tests/test_admin_design_tokens.py
+**Review score:** — (no review cycle; owner request, 2026-11-17)
+**Started:** 2026-11-17T02:50Z
+**Closed:** 2026-11-17T05:00Z
 **Actual:** —
-**Merge commit:** —
-**Blocked by:** owner decision: the probe marker is an outline by the owner's fix of 2026-10-30 ("a different CHANNEL rather than a stronger tint")
+**Merge commit:** be28ac2f (on ux-review-cards; into main with it)
+**Blocked by:** —
 
 ## Why
 
@@ -39,3 +39,5 @@ Below a cell-size threshold, probe cells also get a light amber fill.
 
 ## Worktree notes
 - **[Blocked, 2026-11-17]** Tried: a warm lighter ink on probed blacks (`color-mix(--grid-ink 72%, --player-probe)`). Refused by `TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround` (three ink cases), whose docstring records the owner's 2026-10-30 fix: the marker moved to the outline CHANNEL rather than a ground tint, so a later ground tint cannot collide with it. A fill is exactly that ground tint. Reverted; asks the owner whether to reopen that ruling (or to thicken the outline on small cells instead).
+- **[Unblocked, built]** Owner 2026-11-17 "do l1", reopening the 2026-10-30 outline-only choice. A probed black on the board: `color-mix(in srgb, var(--grid-ink) 70%, var(--player-probe))`; the Line view keeps the plain ink. Render: ~/Documents/nonogram-reviews/CARD-468/probe-vs-kept-port.png.
+- **[Gate, 2026-11-17]** One player-set run over 469+455+458+468 stacked: 1442 passed, 9 skipped (DATABASE_URL unset).
