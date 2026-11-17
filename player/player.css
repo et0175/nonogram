@@ -122,6 +122,13 @@ body {
   margin-bottom: var(--space-4);
 }
 
+/* Review of 2026-11-17: `display: flex` above outranks the `hidden`
+ * attribute, so the two selects were drawn over "Loading..." and over a
+ * failed load, where they filter nothing (library.html: "no dead controls"). */
+.pages-filters[hidden] {
+  display: none;
+}
+
 .pages-filter {
   display: flex;
   flex-direction: column;

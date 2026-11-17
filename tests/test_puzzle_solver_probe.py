@@ -662,10 +662,15 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             # Review cycle 1, F-305: the guess recoloured (0, 0), which the
             # player had marked dark before the probe — nothing to offer.
             "a recoloured mark": [["p"], ["click", 0, 0, "e"]],
+            # Review of 2026-11-17: the guess was changed INSIDE the probe (a
+            # second tap turns it white; Clear takes it back), so the
+            # contradiction no longer speaks about the first colour.
+            "a guess turned over": [["p"], ["click", 2, 3, "f"], ["click", 2, 3, "e"]],
+            "a guess taken back": [["p"], ["click", 2, 3, "e"], ["click", 4, 4, "f"], ["click", 2, 3, "u"]],
         }
         got = browser_page.evaluate("""async (cases) => {
           const S = await import('/static/solver_state.js');
-          const tools = { f: S.FILLED, e: S.EMPTY, m: S.MAYBE };
+          const tools = { f: S.FILLED, e: S.EMPTY, m: S.MAYBE, u: S.UNKNOWN };
           const out = {};
           for (const [name, ops] of Object.entries(cases)) {
             let h = S.record(S.createHistory(S.createBoard(8, 8)), S.clickStroke(S.createBoard(8, 8), 0, 0, S.FILLED, false));
@@ -690,6 +695,8 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             if not strokes or strokes[0][0] != "click" or strokes[0][3] not in ("f", "e"):
                 return None
             _, row, col, tool = strokes[0]
+            if [op[3] for op in strokes if op[0] == "click" and (op[1], op[2]) == (row, col)][-1] != tool:
+                return None  # the guess cell no longer holds the guess
             offered = "empty" if tool == "f" else "filled"
             if (row, col) == (0, 0) and offered == "filled":  # the pre-probe mark is (0, 0) dark
                 return None
@@ -697,7 +704,7 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
 
         want = {name: expected(ops) for name, ops in cases.items()}
         assert got == want, (got, want)
-        assert sum(v is not None for v in want.values()) == 2 and sum(v is None for v in want.values()) == 6
+        assert sum(v is not None for v in want.values()) == 2 and sum(v is None for v in want.values()) == 8
 
     def test_the_checkpoint_prefix_is_a_savable_history(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))

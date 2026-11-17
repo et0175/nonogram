@@ -159,7 +159,14 @@ function drawBoard(container, grid, view) {
       parts.push(button);
     }
   }
+  // Review of 2026-11-17: every press redraws the board, and replacing the
+  // focused square dropped a keyboard reader back to the top of the page.
+  // The square that takes its place takes the focus too.
+  const held = container.contains(document.activeElement) ? document.activeElement.dataset : null;
   container.replaceChildren(...parts);
+  if (held?.row !== undefined && held.column !== undefined) {
+    container.querySelector(`.hts-cell[data-row="${held.row}"][data-column="${held.column}"]`)?.focus();
+  }
   wireCrosshair(container);
 }
 
@@ -202,7 +209,7 @@ function tryText(step, clues) {
     case 0:
       return `Tap a square to make it black. Row 3 says ${r(2)}, and the row is 5 squares wide, so every square in it is black.`;
     case 1:
-      return `Column 3 says ${c(2)} too. Make the whole column black.`;
+      return `Column 3 says ${c(2)} too, and its middle square is black already. Make the other four black.`;
     case 2:
       return `Columns 1 and 5 say ${c(0)}, and that one square is already black. Choose White and mark the rest of those two columns white.`;
     case 3:
@@ -470,6 +477,7 @@ function setupProbe(page) {
   // it on every recorded change). `said` is that press's sentence.
   let asked = false;
   let said = null;
+  let pressed = null; // the button whose press this redraw answers
 
   function board_() {
     const cells = stalled.map((row) => row.map((state) => ({ state, probe: false })));
@@ -528,11 +536,28 @@ function setupProbe(page) {
     board.querySelector(`.hts-cell[data-row="${pr}"][data-column="${pc}"]`)
       ?.classList.toggle("is-offered", phase === "offered");
     text.textContent = said ?? probeText(phase, step, clues);
+    // A button that was pressed and then hid itself (Follow it at the last
+    // step, Wrong guess, Mark it, Finish) hands the focus to the first one
+    // still offered, for the same reason drawBoard keeps a square's.
+    if (pressed !== null && (pressed.hidden || pressed.closest("[hidden]") !== null)) {
+      (Object.values(buttons).find((button) => !button.hidden && !button.closest("[hidden]")) ?? board).focus?.();
+    }
+    pressed = null;
   }
 
   // Every press but Hint is a new input: the answer Hint gave is withdrawn.
   for (const button of Object.values(buttons)) {
     if (button !== buttons.hint) button.addEventListener("click", () => { asked = false; said = null; }, { capture: true });
+    // Forgotten again once this press has been answered: a press that draws
+    // nothing (Probe pressed twice) must not leave a button remembered for
+    // the NEXT redraw to hand the focus to.
+    button.addEventListener("click", () => {
+      pressed = button;
+      // A task, not a microtask: microtasks run BETWEEN the listeners of a
+      // real press, which would forget the button before its own handler
+      // has redrawn.
+      setTimeout(() => { pressed = null; }, 0);
+    }, { capture: true });
   }
   board.addEventListener("click", () => { asked = false; said = null; }, { capture: true });
   buttons.hint.addEventListener("click", () => {
@@ -590,12 +615,18 @@ function setupProbe(page) {
 // --------------------------------------------------------------------------
 
 // Where "Back to your puzzles" goes: the book landing the reader came from
-// when the referrer is a /b/<slug> on this site, else the library. Read from
+// when the referrer is a /b/<slug> on this site — or one of that book's
+// puzzles, /play/<key>?book=<slug>, which is where the lesson's link on the
+// play page is pressed (review of 2026-11-17: that reader was sent to the
+// library and lost the book's look) — else the library. Read from
 // document.referrer, never stored.
 export function homeHref(referrer, origin) {
   try {
     const from = new URL(referrer);
     if (from.origin === origin && /^\/b\/[0-9a-f]{10}$/.test(from.pathname)) return from.pathname;
+    const book = from.searchParams.get("book") ?? "";
+    if (from.origin === origin && /^\/play\/[0-9a-f]{10}$/.test(from.pathname)
+        && /^[0-9a-f]{10}$/.test(book)) return `/b/${book}`;
   } catch {
     // No referrer, or not a URL: the library.
   }

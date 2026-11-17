@@ -297,6 +297,14 @@ export function clickStroke(board, row, col, tool, repeat) {
 // cells still covers the cells it passed. A path of only `start` covers
 // `start` alone.
 export function dragLine(start, path) {
+  // Whole cells only (review of 2026-11-17): the walk below steps by one
+  // until it EQUALS the cell it is reaching, so a fractional or NaN
+  // coordinate never arrived and the loop did not end.
+  for (const [row, col] of [start, ...path]) {
+    if (!Number.isInteger(row) || !Number.isInteger(col)) {
+      throw new RangeError(`a drag passes through whole cells, not (${row}, ${col})`);
+    }
+  }
   const [startRow, startCol] = start;
   const cells = [[startRow, startCol]];
   const seen = new Set([`${startRow},${startCol}`]);
@@ -1119,6 +1127,10 @@ export const ZOOM_STEP = 25;
 
 // `value` folded into [floor, ZOOM_MAX].
 export function clampZoom(value, floor = ZOOM_MIN) {
+  // A value that is not a number at all clamps to the floor (review of
+  // 2026-11-17): Math.min/max hand NaN straight through, and a NaN zoom
+  // could never be stepped or pinched back into range.
+  if (Number.isNaN(value)) return floor;
   return Math.min(ZOOM_MAX, Math.max(floor, value));
 }
 
@@ -1129,7 +1141,7 @@ export function clampZoom(value, floor = ZOOM_MIN) {
 // RangeError (a stage of no size has no fit to offer).
 export function fitZoom(boardWidth, boardHeight, stageWidth, stageHeight) {
   for (const value of [boardWidth, boardHeight, stageWidth, stageHeight]) {
-    if (!(value > 0)) throw new RangeError(`fitZoom needs positive sizes, not ${value}`);
+    if (!(value > 0 && Number.isFinite(value))) throw new RangeError(`fitZoom needs positive sizes, not ${value}`);
   }
   const scale = Math.min(stageWidth / boardWidth, stageHeight / boardHeight);
   if (scale >= 1) return ZOOM_MIN;
@@ -1487,7 +1499,8 @@ export function checkpointHistory(history, probe) {
 // contradiction makes it false, so the cell must be the other colour.
 // Returns { row, col, state } (state the OPPOSITE of the guess), or null when
 // the probe holds no stroke or its first stroke is anything else: a drag or
-// several guesses do not identify "the first guess". Reads the history only
+// several guesses do not identify "the first guess" — and null when that cell
+// no longer holds the guess (see the last check below). Reads the history only
 // (no solution), so public mode is the same. Call it BEFORE abandonProbe.
 export function probeVerdict(history, probe) {
   if (probe === null) return null;
@@ -1503,6 +1516,12 @@ export function probeVerdict(history, probe) {
   // had already marked the other way has nothing to offer — the cell is
   // back to that colour once Wrong guess undoes the probe.
   if (cellAt(first.before, row, col) === state) return null;
+  // Review of 2026-11-17: and a guess the player went on to change INSIDE the
+  // probe is no longer the hypothesis that broke — a second tap with the same
+  // brush turns a dark guess white (clickedState's repeat), and Clear takes
+  // it back. The contradiction then says nothing about the first colour, and
+  // offering its opposite would offer the very mark that just failed.
+  if (cellAt(history.board, row, col) !== stroke.state) return null;
   return Object.freeze({ row, col, state });
 }
 

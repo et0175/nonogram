@@ -2449,6 +2449,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters,
   .player-toolbar:has(~ .player-stage-wrap) .player-probe-note { order: 2; }
   .player-toolbar:has(~ .player-stage-wrap) .player-confirm { position: fixed; top: var(--space-4); right: var(--space-4); left: auto; }
+  /* Review of 2026-11-17: the reset confirmation sits INSIDE the toolbar, so
+     the strip's square-button rule above reached its two WORDED buttons and
+     drew "Reset board" / "Keep marks" as 44 px squares with the words
+     spilling out of them (measured at 844 x 390 and 667 x 375). They are
+     sentences, not icons: they keep the 44 px height and take their width
+     from their words, as they do on a phone held upright. */
+  .player-toolbar:has(~ .player-stage-wrap) .player-confirm .btn { width: auto; padding: 0 var(--space-3); }
 }
 /* CARD-450: and on the shortest landscape phones the strip's gaps halve, so
    every control is on screen at 658 x 264. */
