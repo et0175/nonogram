@@ -698,6 +698,18 @@ Not observed: a real iPhone. The double-tap fix is the one thing only Safari on 
 
 **Thirteenth publish, and the line mode still has not met a human finger** — its long-press pivot and strip drag remain unexercised by anything but its own tests, for the pointer-capture reason above.
 
+**The UX-review publish, 2026-11-17.** The owner's "yes, publish" for the UX review's cards (CARD-452..472; 460 skipped, 472 no change). Built from **`ca274025`** — main before CARD-473, which arrived after the approval and is asked about separately — with `git archive ca274025 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-17-ux/src`, that tree's own `scripts/assemble_player_site.py --bundle <the 2026-10-29 bundle copy>`, no `--analytics`.
+
+| Step | What was observed |
+| --- | --- |
+| Assemble | 160 puzzles, 1 book landing. `admin.css` `2da79e77d99f`, `solver.js` `457b80098e74`, `solver_state.js` `5568747bdaa6`, `tokens.css` `41cd8c918f84`, `decor.css` `f1901421936d`, `decor.js` `fbe1e27246f4`, `pages.js` `508101077fa8`, `player.css` `a203ba35d21e`, `how-to-solve.js` `8744293566d8` — each SHA-256 identical to `ca274025`'s source. Every `puzzle/<key>.json` carries exactly `clues, height, key, tier, width`; no goatcounter; no `.vercel/`. The play page's viewport is still `width=device-width, initial-scale=1` (CARD-473 not in this build). |
+| Preview | `vercel deploy --yes` with the two ids exported: **`nonogram-studio-2ppg8kahr`**, Ready at once. The seven files matched; `/library`, `/play/<key>`, `/b/<slug>`, `/how-to-solve`, the puzzle and book files 200; `/nope` 404. |
+| Behaviour on the preview (Pixel 7 emulation) | `/play/40556cfb69?book=…`: heading "Puzzle 1", counter "Revealed: 0", way back "← Book"; Hint's first press "Hint: look at the highlighted row 3 (clue 6)." with the box placed at the bottom; solving it showed the way-on row with Next → `/play/33fa80994c?book=…`. Puzzle 160 sideways: garland 0 px, side bough 60 px. Book landing: "New to nonograms? Learn to solve one in 2 minutes" under the number box, squares carrying "10×10". No page errors. |
+| Production | `vercel promote <preview> --scope et0175s-projects --yes`. Polled all seven changed files together on `https://nonogram.adverax.io` (the torn-state lesson above): attempt 1 not yet, attempt 2 all seven matched. The doors 200, `/nope` 404, and the heading, counter, back link, brush caret, hint sentence and sideways bough read the same as on the preview; no page errors. |
+| Rollback target | The ask-in-the-line-view deployment (`nonogram-studio-gahdmbuw6`). |
+
+**Owed:** CARD-473 (the browser no longer zooms the play page) is on main and unpublished, waiting on the owner; the owner's phone is its check.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
