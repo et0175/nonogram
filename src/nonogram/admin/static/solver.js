@@ -772,7 +772,10 @@ const BIG_SIDE = 15;
 // least this many cells on its longer side. Below it the board's own cells
 // are already a fair tap target at Fit (a 15 x 15 on a 390 px phone has
 // ~21 px cells), and the view would only take the board away.
-const LINE_MIN_SIDE = 20;
+// RETIRED 2026-11-17 (owner, after the pass-2 review: "make one-line mode
+// available for all puzzles on mobile"): every board on a compact screen is
+// offered the view, so the floor is one cell.
+const LINE_MIN_SIDE = 1;
 
 // CARD-212: a second gutter is drawn only while the cells it leaves are at
 // least this many CSS pixels on a side — CARD-182's phone-fit minimum (a
@@ -4278,9 +4281,36 @@ function wireMarking(container, player) {
   // (tests/test_player_base_css.py's FROZEN sample, the public sweep's
   // control census) reads exactly the page it read before this card.
   const lineBoard = player.getHistory().board;
-  const { lineDialog, lineOpen } = probeBar !== null
-    && Math.max(lineBoard.width, lineBoard.height) >= LINE_MIN_SIDE
-    ? buildLineView(probeBar, container) : { lineDialog: null, lineOpen: null };
+  // Owner, 2026-11-17: every board on a compact screen is offered the view.
+  // A board under the old 20-cell floor builds it only once the screen is
+  // compact (at load or later), so a desktop page for a small board carries
+  // none of it, exactly as before; a big board builds it at load as it did.
+  let lineDialog = null;
+  let lineOpen = null;
+  let lineParts = null;
+  const BIG_LINE_SIDE = 20;
+  function buildLine() {
+    if (lineDialog !== null || probeBar === null || Math.max(lineBoard.width, lineBoard.height) < LINE_MIN_SIDE) return;
+    if (Math.max(lineBoard.width, lineBoard.height) < BIG_LINE_SIDE && !compactQuery.matches) return;
+    ({ lineDialog, lineOpen } = buildLineView(probeBar, container));
+    lineParts = {
+      title: lineDialog.querySelector("[data-player-line-title]"),
+      mini: lineDialog.querySelector("[data-player-line-mini]"),
+      clue: lineDialog.querySelector("[data-player-line-clue]"),
+      strips: lineDialog.querySelector("[data-player-line-strips]"),
+      axes: [...lineDialog.querySelectorAll("[data-player-line-axis]")],
+      tools: [...lineDialog.querySelectorAll("[data-player-line-tool]")],
+      action: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-action]")]
+        .map((b) => [b.dataset.playerLineAction, b])),
+      probe: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-probe]")]
+        .map((b) => [b.dataset.playerLineProbe, b])),
+      // CARD-445: the ask, and the box its other broken lines are offered in.
+      ask: lineDialog.querySelector("[data-player-line-ask]"),
+      broken: lineDialog.querySelector("[data-player-line-broken]"),
+      tip: lineDialog.querySelector("[data-player-line-tip]"),
+    };
+    wireLine();
+  }
   const compactQuery = window.matchMedia("(max-width: 600px), (max-height: 500px)");
   const tallQuery = window.matchMedia("(max-width: 600px) and (orientation: portrait)");
   const LONG_PRESS_MS = 450;
@@ -4293,22 +4323,6 @@ function wireMarking(container, player) {
   let focusAt = null;
   // The strip gesture: { pointerId, start, path, moved, timer, pivoted }.
   let lineGesture = null;
-  const lineParts = lineDialog === null ? null : {
-    title: lineDialog.querySelector("[data-player-line-title]"),
-    mini: lineDialog.querySelector("[data-player-line-mini]"),
-    clue: lineDialog.querySelector("[data-player-line-clue]"),
-    strips: lineDialog.querySelector("[data-player-line-strips]"),
-    axes: [...lineDialog.querySelectorAll("[data-player-line-axis]")],
-    tools: [...lineDialog.querySelectorAll("[data-player-line-tool]")],
-    action: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-action]")]
-      .map((b) => [b.dataset.playerLineAction, b])),
-    probe: Object.fromEntries([...lineDialog.querySelectorAll("[data-player-line-probe]")]
-      .map((b) => [b.dataset.playerLineProbe, b])),
-    // CARD-445: the ask, and the box its other broken lines are offered in.
-    ask: lineDialog.querySelector("[data-player-line-ask]"),
-    broken: lineDialog.querySelector("[data-player-line-broken]"),
-    tip: lineDialog.querySelector("[data-player-line-tip]"),
-  };
   const LINE_TIP = "Tap or drag along the line to mark it. Long-press a cell to open the line that crosses it.";
   const LINE_PROBE_TIP = "Probing: new marks get a dashed edge. Keep them, or press Wrong guess to undo them all.";
 
@@ -4572,7 +4586,12 @@ function wireMarking(container, player) {
     return applyStroke(player.getHistory().board, lineStroke());
   }
 
-  if (lineDialog !== null && lineOpen !== null) {
+  buildLine();
+  compactQuery.addEventListener("change", () => {
+    buildLine();
+    refresh();
+  });
+  function wireLine() {
     lineOpen.setAttribute("aria-expanded", "false");
     lineOpen.addEventListener("click", openLine);
     lineParts.action.close.addEventListener("click", closeLine);
@@ -4751,7 +4770,6 @@ function wireMarking(container, player) {
       lastClick = null;
       drawLine();
     });
-    compactQuery.addEventListener("change", refresh);
     window.addEventListener("resize", () => { if (focused !== null) drawLine(); });
   }
 

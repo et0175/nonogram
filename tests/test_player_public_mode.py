@@ -1835,7 +1835,7 @@ class TestPublicMode_LandscapeToolStrip:
             idle = _settled(page)
             assert idle["right"] <= idle["board"][0] and idle["width"] <= 3 * 44 + 2 * 8 + 1, (width, idle)
             assert idle["lowest"] <= idle["clip"] and idle["page"] <= 0, (width, idle)
-            assert idle["shortest"] >= 44 and idle["count"] == 10, (width, idle)
+            assert idle["shortest"] >= 44 and idle["count"] == 11, (width, idle)  # 11 since Line is on every board (owner 2026-11-17)
             page.locator(".player-tool-trigger").click()
             assert page.evaluate(_MENU_TAPPABLE), width
             page.keyboard.press("Escape")

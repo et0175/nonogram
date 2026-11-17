@@ -330,11 +330,11 @@ class TestSolverLine_IsOfferedOnlyForABigBoardOnAPhone:
     def test_elsewhere_it_is_not_drawn(self, browser, live, grid, viewport) -> None:
         context, page = _open_phone(browser, live, grid, viewport)
         try:
-            assert not _line_button(page).is_visible()
+            # RETIRED CLAIM, 2026-11-17 (owner: "make one-line mode available
+            # for all puzzles on mobile"): a small board on a phone was never
+            # offered the view. It is now; only the desktop is not.
+            assert _line_button(page).is_visible() == (grid is SMALL)
             assert _dialog(page).is_hidden()
-            if grid is SMALL:
-                # Never offered, so never built: the page is the one it was.
-                assert _dialog(page).count() == 0 and _line_button(page).count() == 0
         finally:
             context.close()
 
