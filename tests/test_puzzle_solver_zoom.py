@@ -742,14 +742,16 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
             minus, plus, readout = boxes["out"], boxes["in"], boxes["readout"]
             # The pair shares a row and is horizontally adjacent (one grid
             # gap, var(--space-2) = 8 px, and nothing else between them).
+            # 2026-11-17 (owner: "place Fit or % to the center"), retiring
+            # CARD-429's "− + 100%": the readout stands between the pair.
             assert round(minus["y"]) == round(plus["y"]), where
-            assert 0 <= plus["x"] - (minus["x"] + minus["w"]) <= 8.5, where
+            assert 0 <= readout["x"] - (minus["x"] + minus["w"]) <= 8.5, where
             # CARD-448 (the strip three wide, owner 2026-11-16): the readout
             # no longer takes a row below the pair — it is the third member
             # of the pair's own row, after the plus (the DOM's and the focus
             # order). Until CARD-448: the row below, spanning the pair.
             assert round(readout["y"]) == round(minus["y"]), where
-            assert 0 <= readout["x"] - (plus["x"] + plus["w"]) <= 8.5, where
+            assert 0 <= plus["x"] - (readout["x"] + readout["w"]) <= 8.5, where
             # One row for the group, and CARD-423's floor on all three.
             assert len({round(b["y"]) for b in boxes.values()}) == 1, where
             for name, box in boxes.items():
@@ -764,8 +766,8 @@ class TestSolverZoom_TapTargetsAreAtLeast24px:
             order = browser_page.evaluate(_ZOOM_ORDER)
             walked = _zoom_tab_order(browser_page)
             where = (width, height, order, walked)
-            assert order["dom"] == ["out", "in", "readout"], where
-            assert order["drawn"] == ["out", "in", "readout"], where
+            assert order["dom"] == ["out", "readout", "in"], where  # owner 2026-11-17
+            assert order["drawn"] == ["out", "readout", "in"], where
             # Focus order IS DOM order, so this is what the owner's ruling
             # buys: the walk visits the members it can reach in the order
             # they are drawn, with no step back up the group.

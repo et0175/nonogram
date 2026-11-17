@@ -833,10 +833,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-history { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 /* Zoom (CARD-195): a third group, after .player-history and before
    .player-counters (G-6 — the DOM order and Tab-order tests check this).
-   Its three members are the minus, the plus and then the readout (CARD-429,
-   owner ruling 2026-11-11: "Accept − + 100% everywhere"); this rule draws
-   them in that DOM order, which is focus order too, and the landscape grid
-   below draws the same order in two rows. The readout is a plain <span>,
+   Its three members are the minus, the readout and the plus (owner,
+   2026-11-17: "place Fit or % to the center", superseding CARD-429's
+   "− + 100% everywhere"); this rule draws them in that DOM order, which is
+   focus order too, and the landscape grid below draws the same order. The readout is a plain <span>,
    not a live region (target behaviour #3). */
 .player-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
 /* Narrower side padding than the toolbar's other buttons (like
@@ -2467,10 +2467,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      the board's box unchanged, in CARD-428's Worktree notes. */
   .player-toolbar:has(~ .player-stage-wrap) .player-zoom { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(3, 44px); gap: var(--space-2); }
   .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="out"] { grid-area: 1 / 1; }
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="in"] { grid-area: 1 / 2; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > [data-player-zoom-action="in"] { grid-area: 1 / 3; }
   /* CARD-448: three wide, the readout (Fit) takes the third column of the
      pair's own row — minus, plus, readout, the DOM's (and so the focus) order. */
-  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { grid-area: 1 / 3; width: auto; }
+  .player-toolbar:has(~ .player-stage-wrap) .player-zoom > .player-zoom-readout { grid-area: 1 / 2; width: auto; }
   /* CARD-430: the same joined control in the strip, as one block across its
      two columns — minus and plus side by side, the readout (the Fit button)
      across the row below. A one-row pill would give each of its three
@@ -2520,6 +2520,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    every control is on screen at 658 x 264. */
 @media (max-height: 360px) and (orientation: landscape) {
   .player-toolbar:not([hidden]):has(~ .player-stage-wrap) { gap: var(--space-1); }
+  /* Owner 2026-11-17 (Line on every board): on the shortest phones held
+     sideways the open probe's pair took a row of its own beside Line and the
+     strip ran past the window's edge; while a probe is open Line steps aside
+     there (it is back the moment the probe closes) and the pair sits beside
+     Hint, as before. */
+  .player-toolbar:has(~ .player-stage-wrap):has([data-player-probe-action="keep"]:not([hidden])) .player-line-open { display: none; }
+  .player-toolbar:has(~ .player-stage-wrap):has(.player-line-open:not([hidden])) [data-player-probe-action="keep"] { grid-column-start: auto; }
 }
 
 /* CARD-439 (owner request 2026-11-12; split strips by the owner's ruling the

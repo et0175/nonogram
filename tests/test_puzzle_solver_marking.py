@@ -693,7 +693,7 @@ class TestSolverClickFollowsTheBrush:
             # always; hidden by syncLine wherever the Line button is).
             "Undo and Redo: step back or forward one mark at a time.",
             "Reset: clears the whole board after asking. Undo brings it back.",
-            "Line (big puzzles on a phone): opens one row or column in big squares.",
+            "Line (on a phone): opens one row or column in big squares.",
             "Hint: press up to three times. First it shows where to look, then why, then it fills the square.",
             "Check: highlights the row of the first wrong mark.",
             "Probe: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.",
