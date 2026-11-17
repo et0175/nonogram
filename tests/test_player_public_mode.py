@@ -1022,7 +1022,8 @@ class TestPublicMode_TheStallBoard:
         disabled (the same rule play.js's canHint had)."""
         stalled = [c for c in hint_corpus() if c["w"] <= ORACLE_MAX_SIDE and c["h"] <= ORACLE_MAX_SIDE
                    and oracle_hint(c["cells"], c["w"], c["h"], c["rows"], c["cols"]) is None
-                   and any(s in (UNKNOWN, MAYBE) for s in c["cells"])]
+                   and any(s in (UNKNOWN, MAYBE) for s in c["cells"])
+                   and not has_broken_line(c)]  # 2026-11-17: those name the broken line instead
         assert len(stalled) >= 30 and sum(MAYBE in c["cells"] for c in stalled) >= 10
         for n, case in enumerate(stalled[:24]):
             served = serve(public_payload(case["grid"], puzzle_id=f"stalled{n}"))
@@ -1040,7 +1041,12 @@ class TestPublicMode_TheStallBoard:
             """() => { const b = window.puzzlePlayer.getBoard();
                window.puzzlePlayer.setBoard(Object.freeze({ width: b.width, height: b.height,
                  cells: Object.freeze(b.cells.map(() => 'filled')) })); }""")
-        assert disabled(action(page, "hint")), "no undecided cell: nothing to say, nothing to reveal"
+        # RETIRED CLAIM, 2026-11-17 (owner's pass-2 review, item 6): an
+        # all-black board that is not solved had nothing to hint, so Hint was
+        # disabled. Its lines cannot fit their clues, and Hint now says so.
+        assert not disabled(action(page, "hint"))
+        action(page, "hint").click()
+        assert "no longer fits its clue" in page.locator("#puzzle-player-explain").text_content()
 
 
 @pytest.mark.browser
@@ -1303,6 +1309,39 @@ def oracle_hint(cells, width, height, rows, columns):
 #: no longer also by a comparison with play.js).
 HINT_EXTENTS = [(6, 5), (8, 8), (10, 8), (11, 10), (12, 12), (20, 20), (30, 30)]
 ORACLE_MAX_SIDE = 12
+
+
+def _line_fits(clue, cells) -> bool:
+    """Whether some placement of ``clue`` agrees with the decided cells of
+    ``cells`` — written here apart from solver_state.js's lineForced."""
+    runs = [n for n in clue if n > 0]
+    length = len(cells)
+
+    @functools.lru_cache(maxsize=None)
+    def fits(at: int, k: int) -> bool:
+        if k == len(runs):
+            return all(c != FILLED for c in cells[at:])
+        for start in range(at, length - runs[k] + 1):
+            if any(c == FILLED for c in cells[at:start]):
+                break
+            end = start + runs[k]
+            if all(c != EMPTY for c in cells[start:end]) and (end == length or cells[end] != FILLED):
+                if fits(min(end + 1, length), k + 1):
+                    return True
+        return False
+
+    return fits(0, 0)
+
+
+def has_broken_line(case) -> bool:
+    """2026-11-17 (owner's pass-2 review, item 6): a board whose marks leave
+    some row or column unable to fit its clue — where public Hint now names
+    that line instead of saying anything else."""
+    w, h, cells = case["w"], case["h"], case["cells"]
+    rows = (tuple(cells[r * w:(r + 1) * w]) for r in range(h))
+    cols = (tuple(cells[r * w + c] for r in range(h)) for c in range(w))
+    return (not all(_line_fits(clue, line) for clue, line in zip(case["rows"], rows))
+            or not all(_line_fits(clue, line) for clue, line in zip(case["cols"], cols)))
 
 
 def hint_corpus(seed: int = 3851, count: int = 420) -> list[dict]:

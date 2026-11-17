@@ -352,6 +352,50 @@ function setupSqueeze(page) {
 }
 
 // --------------------------------------------------------------------------
+// The agreement picture (review of 2026-11-17, pass 2, item 13: step 3 was
+// text only while steps 2 and 4 had figures). A row of 10 with the clue 3 and
+// its second square already black: the two arrangements that still fit, and
+// what both agree on, the whites included, which the squeeze alone would not
+// give. The arrangements are the lesson's own (arrangements, below), so the
+// figure cannot disagree with the clue it shows.
+// --------------------------------------------------------------------------
+
+function setupAgree(page) {
+  const box = page.querySelector("[data-hts-agree]");
+  if (box === null) return;
+  const length = 10;
+  const known = 1;
+  const ways = arrangements([3], length).filter((line) => line[known]);
+  const agreed = Array.from({ length }, (_, k) => (ways.every((line) => line[k]) ? "filled"
+    : ways.every((line) => !line[k]) ? "empty" : "unknown"));
+  const rows = [
+    { label: "You know", cells: Array.from({ length }, (_, k) => (k === known ? "filled" : "unknown")) },
+    ...ways.map((line, i) => ({ label: i === 0 ? "One way" : "The other", cells: line.map((on) => (on ? "maybe" : "unknown")) })),
+    { label: "Both agree", cells: agreed },
+  ];
+  const said = { filled: "black", empty: "white", maybe: "covered", unknown: "open" };
+  box.replaceChildren(...rows.map((row) => {
+    const line = document.createElement("div");
+    line.className = "hts-strip";
+    const label = document.createElement("span");
+    label.className = "hts-strip-label";
+    label.textContent = row.label;
+    const cells = document.createElement("div");
+    cells.className = "hts-strip-cells";
+    cells.setAttribute("role", "img");
+    cells.setAttribute("aria-label", `${row.label}: ${row.cells.map((state, k) => `${k + 1} ${said[state]}`).join(", ")}`);
+    for (const state of row.cells) {
+      const cell = document.createElement("span");
+      cell.className = "hts-strip-cell";
+      cell.dataset.state = state;
+      cells.append(cell);
+    }
+    line.append(label, cells);
+    return line;
+  }));
+}
+
+// --------------------------------------------------------------------------
 // "Try a probe": the player's Probe / Keep / Wrong guess, and the "Mark it?"
 // offer a wrong guess on one square makes (CARD-412), on a real stall
 // --------------------------------------------------------------------------
@@ -645,6 +689,18 @@ function setupWizard(page) {
   const back = page.querySelector("[data-hts-back]");
   const next = page.querySelector("[data-hts-next]");
   let current = 1;
+  const narrow = window.matchMedia("(max-width: 600px)");
+  function nextLabel() {
+    const n = current;
+    if (n >= STEP_NAMES.length) {
+      next.textContent = "";
+      next.removeAttribute("aria-label");
+      return;
+    }
+    next.textContent = narrow.matches ? "Next" : `Next: ${STEP_NAMES[n]}`;
+    next.setAttribute("aria-label", `Next: ${STEP_NAMES[n]}`);
+  }
+  narrow.addEventListener("change", nextLabel);
 
   function show(n, focus) {
     current = n;
@@ -655,10 +711,15 @@ function setupWizard(page) {
       if (k === n) dot.setAttribute("aria-current", "step");
       else dot.removeAttribute("aria-current");
     });
-    caption.textContent = `Step ${n} of ${STEP_NAMES.length} · ${STEP_NAMES[n - 1]}`;
+    // Review of 2026-11-17, pass 2 (item 15): the step's name is its heading,
+    // so the caption says only where in the lesson the reader is.
+    caption.textContent = `Step ${n} of ${STEP_NAMES.length}`;
     back.hidden = n === 1;
     next.hidden = n === STEP_NAMES.length;
-    next.textContent = n < STEP_NAMES.length ? `Next: ${STEP_NAMES[n]}` : "";
+    // Item 16: the next step's name is dropped on a narrow screen, where a
+    // long one wrapped the button and stacked Back above it; the accessible
+    // name keeps it.
+    nextLabel();
     if (focus) page.querySelector(`[data-hts-step="${n}"] h2`)?.focus?.();
   }
   const go = (n) => {
@@ -687,6 +748,15 @@ async function dressFor(home) {
   } catch {
     return;
   }
+  // Review of 2026-11-17, pass 2 (item 17): the last step offered only the
+  // way back; from a book it also starts that book's first puzzle.
+  const first = book !== null && typeof book === "object" && Array.isArray(book.puzzles) ? book.puzzles[0] : null;
+  const start = document.querySelector("[data-hts-start]");
+  if (start !== null && first !== null && typeof first === "object" && /^[0-9a-f]{10}$/.test(first.key ?? "")) {
+    start.href = `/play/${first.key}?book=${slug}`;
+    start.hidden = false;
+    document.querySelector(".hts-end .hts-home-end")?.classList.replace("hts-go", "hts-quiet");
+  }
   if (book === null || typeof book !== "object" || typeof book.theme !== "string"
       || !/^[a-z]+$/.test(book.theme)) return;
   // Which themes draw decorations is decor.js's to say, so this page names
@@ -710,6 +780,7 @@ function load() {
   const wizard = setupWizard(page);
   const tryBoard = setupTry(page);
   setupSqueeze(page);
+  setupAgree(page);
   const probe = setupProbe(page);
   window.howToSolve = {
     getStep: wizard.getStep,

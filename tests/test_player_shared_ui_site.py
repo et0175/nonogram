@@ -535,6 +535,11 @@ class TestSharedUi_ThePageRuns:
         assert loud["weight"] != quiet["weight"], (loud, quiet)
         assert loud["background"] != quiet["background"] and loud["border"] != quiet["border"]
         assert quiet["background"] == "rgba(0, 0, 0, 0)", quiet
+        # 2026-11-17 (owner's pass-2 review, S3): the clue band leaves the
+        # solved table once the celebration has played, so the solved room is
+        # read after it, as the resumed board below is.
+        page.wait_for_function("!document.querySelector('.player-board').classList.contains('is-celebrating')",
+                               timeout=8000)
         solved = page.evaluate(_ROOM)
         # CARD-453: once solved, the way on — the book's next puzzle (with
         # ?book= kept) and the book — and How to play steps aside for it.

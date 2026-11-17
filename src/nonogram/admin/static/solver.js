@@ -139,15 +139,17 @@
 //   * the save carries a constant stamp instead of the solution's fingerprint
 //     (solver_state.js PUBLIC_GRID) under the admin's key, nonogram-player:<id>.
 // Edit mode and public mode are exclusive (one `mode`), and admin mode —
-// `mode` absent — is exactly what it was. The flag is read NINE times in
+// `mode` absent — is exactly what it was. The flag is read TEN times in
 // code (the `const publicMode` declaration aside): the seal, the removal of
 // the three elements, showProgress's two guards (Errors, Progress) and its
-// solved test, and the four callbacks start() hands wireMarking (nextHint,
-// speaks, hintLine, solves). The count is the control, as the edit flag's is:
+// solved test, and the five callbacks start() hands wireMarking (nextHint,
+// speaks, hintLine, solves, and — review of 2026-11-17, pass 2 — brokenLine:
+// only a page with no answer to check marks against needs Hint to name a
+// broken line first; the admin's hint ignores wrong marks, AC-328). The count is the control, as the edit flag's is:
 // tests/test_puzzle_editor_ui.py's
 // test_the_edit_mode_contract_counts_its_own_branches reads this very
-// sentence AND counts the reads, so a tenth read added without amending
-// "NINE reads of `publicMode`" reds. The ten solution-reading sites are
+// sentence AND counts the reads, so an eleventh read added without amending
+// "TEN reads of `publicMode`" reds. The ten solution-reading sites are
 // listed, each with how it is gated, in tests/test_player_public_mode.py.
 //
 // THE LIVE PLAYER — window.puzzlePlayer, set once the board is drawn:
@@ -701,6 +703,9 @@ import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, fitZoom, pinchZoom, revealScroll, s
 // above. The flag's transitions and the "does this drag paint?" rule are
 // pure (ADR-0038/R4); the button that shows the flag is this file's.
 import { gesturePaints, nextRegion } from "./solver_state.js";
+// Review of 2026-11-17, pass 2 (item 6): the line Hint names before anything
+// else when the player's marks have broken one.
+import { firstBrokenLine } from "./solver_state.js";
 // The hint ladder (CARD-269): see LADDER below. The rung transitions, the
 // rung-1/2 line choice, the rung-2 classifier and Check's first-wrong-row
 // scan are all pure (ADR-0038/R4); the three announcements, the line
@@ -721,7 +726,7 @@ import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, pr
 // Line focus (CARD-439): see LINE FOCUS in wireMarking. The line's cells, the
 // crossing line of a long press and the split into strips are pure
 // (ADR-0038/R4); the dialog, its mini board and its strips are this file's.
-import { circledNumbers, crossingLine, lineOf, linePosition, lineStrips } from "./solver_state.js";
+import { LINE_STRIP_TALL, circledNumbers, crossingLine, lineOf, linePosition, lineStrips } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -1238,6 +1243,9 @@ function start() {
     }
     const hints = String(hintCount(history));
     if (hintsOut.textContent !== hints) hintsOut.textContent = hints;
+    // Review of 2026-11-17, pass 2 (item 11): "Revealed" is shown from the
+    // first reveal. Its box is kept, so nothing moves when it appears.
+    hintsOut.closest(".player-hints")?.classList.toggle("is-none", hints === "0");
     if (!publicMode) {
       const percent = `${solvedPercent(history.board, payload.solution)}%`;
       if (progressOut.textContent !== percent) progressOut.textContent = percent;
@@ -1269,7 +1277,7 @@ function start() {
       // which this branch predates).
       const answer = document.getElementById("puzzle-player-explain");
       const revealed = cellElements[hint.row * payload.width + hint.col]?.getBoundingClientRect();
-      if (answer && revealed) {
+      if (answer && revealed && !placeInSlot(answer, stage, revealed.top)) {
         answer.dataset.place = (revealed.top + revealed.bottom) / 2 < window.innerHeight / 2 ? "bottom" : "top";
       }
       showExplain(said);
@@ -1287,7 +1295,10 @@ function start() {
         table.classList.add("is-celebrating");
         // The praise names no line, so it is centred — not left at whichever
         // edge the last hint sent the box to.
-        document.getElementById("puzzle-player-explain")?.removeAttribute("data-place");
+        // Review of 2026-11-17, pass 2 (S2): beside or under the finished
+        // picture, never across it; centred only where there is no room.
+        const praiseBox = document.getElementById("puzzle-player-explain");
+        if (praiseBox !== null && !placeInSlot(praiseBox, stage)) praiseBox.removeAttribute("data-place");
         showExplain(praise);
         setTimeout(() => {
           table.classList.remove("is-celebrating");
@@ -1604,6 +1615,10 @@ function start() {
     // Check's reader of the answer: UNREACHABLE in public mode, because the
     // button is removed above (and were it not, the sealed getter throws).
     wrongRow: () => firstWrongRow(history.board, payload.solution),
+    // Review of 2026-11-17, pass 2 (item 6): a row or column the marks have
+    // broken, read from the clues and the marks only (no solution), so it is
+    // the same in every mode.
+    brokenLine: () => (publicMode ? firstBrokenLine(history.board, payload.rows, payload.columns) : null),
     // CARD-439: the line focus view draws one line's clue; the clues are the
     // payload's, read here like hintLine's.
     clues: { rows: payload.rows, columns: payload.columns },
@@ -2032,6 +2047,15 @@ function checkText(row) {
   return row === null ? "Check: no wrong marks." : `Check: a mark in row ${row + 1} is wrong.`;
 }
 
+//: Review of 2026-11-17, pass 2 (item 6): what Hint says first when a line
+//: no longer fits its clue. A hint deduced from such a board is deduced from
+//: a wrong mark (the review measured one reveal saying a cell is black and,
+//: from another wrong start, the same ladder saying it is white), so the
+//: ladder offers nothing else until the line fits again.
+function brokenLineText(axis, index, clue) {
+  return `Hint: ${lineName(axis, index, clue)} no longer fits its clue — something in it is wrong.`;
+}
+
 //: CARD-435 (owner ruling 1, 2026-11-14): Hint's two names. Inside a probe it
 //: no longer reveals a cell — it reveals the clues the guess has already
 //: broken — so the button says which of the two it is doing, as its
@@ -2096,6 +2120,58 @@ function probeBrokenText({ rows, columns }) {
 function showExplain(text) {
   const line = document.getElementById("puzzle-player-explain");
   if (line !== null) line.textContent = text;
+}
+
+// THE FREE ROOM (review of 2026-11-17, pass 2, items 7, 7a, 10 and S2). A
+// sentence about the board was drawn over the board — in the middle, or at
+// the window's top or bottom edge (CARD-455) — while 250-300 px beside a
+// board on a phone held sideways, and half a desktop, were empty; upright,
+// the box sat at the screen's foot, about 500 px from the line it named.
+// So a box is put in the room the board leaves: to its RIGHT when there is
+// at least SIDE_MIN px there (a phone on its side, a desktop), otherwise
+// directly UNDER it when a short box fits there (an upright phone), and only
+// when neither has room does the caller fall back to the old placement.
+// `nearY` (viewport px) is the line or cell the sentence names: beside the
+// board the box is moved down towards it. Fixed, like the box itself, so
+// nothing on the page moves; measured when the box is shown.
+const SIDE_MIN = 220;
+const SLOT_GAP = 16;
+function freeSlot(stage, nearY = null) {
+  const table = stage?.querySelector(".player-board");
+  if (!table) return null;
+  const port = stage.getBoundingClientRect();
+  const box = table.getBoundingClientRect();
+  const right = Math.min(port.right, box.right);
+  const top = Math.max(port.top, box.top, SLOT_GAP);
+  const bottom = Math.min(port.bottom, box.bottom);
+  const roomRight = window.innerWidth - right - 2 * SLOT_GAP;
+  if (roomRight >= SIDE_MIN) {
+    const width = Math.min(roomRight, 400);
+    const y = nearY === null ? top : Math.max(top, Math.min(nearY - 24, window.innerHeight - 160));
+    return { place: "side", left: right + SLOT_GAP, top: y, width };
+  }
+  const roomBelow = window.innerHeight - bottom - 2 * SLOT_GAP;
+  if (roomBelow >= 72) {
+    const width = Math.min(window.innerWidth - 2 * SLOT_GAP, 480);
+    return { place: "under", left: (window.innerWidth - width) / 2, top: bottom + SLOT_GAP / 2, width };
+  }
+  return null;
+}
+// Put `box` in the free room; answers whether there was any. With none the
+// box's own placement is left to the caller.
+function placeInSlot(box, stage, nearY = null) {
+  // The line view covers the board, so the room beside it is not on screen.
+  const slot = document.documentElement.classList.contains("is-line-open") ? null : freeSlot(stage, nearY);
+  for (const name of ["--player-slot-left", "--player-slot-top", "--player-slot-w"]) box.style.removeProperty(name);
+  if (slot === null) {
+    if (box.dataset.place === "side" || box.dataset.place === "under") box.removeAttribute("data-place");
+    return false;
+  }
+  box.dataset.place = slot.place;
+  box.style.setProperty("--player-slot-left", `${Math.round(slot.left)}px`);
+  box.style.setProperty("--player-slot-top", `${Math.round(slot.top)}px`);
+  box.style.setProperty("--player-slot-w", `${Math.round(slot.width)}px`);
+  return true;
 }
 
 // CARD-409: the box over the page goes away on the next
@@ -2556,6 +2632,12 @@ function wireMarking(container, player) {
   let regionSettled = false;
   let fittedLast = null;
   let regionZoomTold = false; // CARD-467: REGION_ZOOM_OFF is said once per page
+  // Review of 2026-11-17, pass 2 (item 4): Region was turned off BY THE PAGE
+  // (a zoom that took the board out of view, or the one-shot disarm after a
+  // drag on a board that did not fit), not by the reader. Such an off is
+  // undone when the whole board is in view again; the reader's own off
+  // (regionOff) never is.
+  let regionAutoOff = false;
   let readerZoomed = false; // CARD-467: set by the reader's own zoom gestures
   // The hint ladder (CARD-269, see LADDER above). `rung` is the rung the
   // NEXT Hint press will show, 1..3, and `ladderLine` is the line currently
@@ -2638,6 +2720,23 @@ function wireMarking(container, player) {
   const probeKeep = probeBar?.querySelector('[data-player-probe-action="keep"]') ?? null;
   const probeAbandon = probeBar?.querySelector('[data-player-probe-action="abandon"]') ?? null;
   const probeNote = probeBar?.querySelector(".player-probe-note") ?? null;
+  // Review of 2026-11-17, pass 2 (item 3): on a phone the only sign of an open
+  // probe was the Probe icon turning into ✓ and ✗ (the note is hidden
+  // upright and cut off sideways). While one is open the board's frame is
+  // tinted (.is-probing on the stage's wrapper, admin.css) and one worded
+  // line says what the two glyphs do, put in the room beside or under the
+  // board. aria-hidden: aria-pressed on Probe and the buttons' own names
+  // already say it to a screen reader.
+  const stageWrap = container.closest(".player-stage-wrap");
+  const probeFlag = probeBar === null || stageWrap === null ? null
+    : stageWrap.appendChild(Object.assign(document.createElement("p"), {
+      className: "player-probe-flag", textContent: "Probing \u00b7 \u2713 Keep \u00b7 \u2717 Wrong guess",
+    }));
+  probeFlag?.setAttribute("aria-hidden", "true");
+  function placeProbeFlag() {
+    if (probeFlag === null || !probeFlag.classList.contains("is-shown")) return;
+    if (!placeInSlot(probeFlag, container)) probeFlag.removeAttribute("data-place");
+  }
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
   // REGION BY HOLD, THEN TAP (CARD-449; Anna's QA, 2026-11-16, item 6, the
@@ -2659,6 +2758,51 @@ function wireMarking(container, player) {
     anchorCell(anchor)?.classList.remove("is-anchor");
     anchor = at;
     anchorCell(anchor)?.classList.add("is-anchor");
+  }
+
+  // Review of 2026-11-17, pass 2 (item 2): the run being painted, counted.
+  // A small number beside the finger or pointer while a Region drag (or a
+  // mouse drag, or a line-view strip drag) is previewed, so the reader can
+  // stop at the clue's length without counting cells under their finger.
+  // Drawn above the pointer, where a finger does not cover it. aria-hidden:
+  // it repeats what the preview shows, cell by cell, and is gone on release.
+  // Made on the first preview and taken out of the page on release, so a
+  // page between gestures carries nothing of it (not even a hidden node).
+  let runBadge = null;
+  function showRun(stroke, x, y) {
+    if (runBadge === null) {
+      runBadge = document.createElement("span");
+      runBadge.className = "player-run";
+      runBadge.setAttribute("aria-hidden", "true");
+      document.body.append(runBadge);
+    }
+    runBadge.textContent = String(stroke.cells.length);
+    runBadge.style.left = `${Math.round(x)}px`;
+    runBadge.style.top = `${Math.round(y)}px`;
+  }
+  function hideRun() {
+    runBadge?.remove();
+    runBadge = null;
+  }
+  for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, hideRun);
+
+  // Review of 2026-11-17, pass 2 (item 5): keyboard play. The stage takes
+  // focus (a scroll container already does in Chromium; tabindex makes it so
+  // everywhere), the arrow keys move a cursor cell, Space or Enter mark it
+  // with the brush (the click rules, repeat included), X marks it White and
+  // Delete or Backspace clears it. The cursor is drawn only while the stage
+  // has keyboard focus (admin.css, .is-cursor under :focus-visible).
+  let cursor = null; // [row, col] or null
+  const cursorCell = (at) => (at === null ? null
+    : container.querySelector(`td.player-cell[data-row="${at[0]}"][data-col="${at[1]}"]`));
+  function setCursor(at) {
+    cursorCell(cursor)?.classList.remove("is-cursor");
+    cursor = at;
+    const cell = cursorCell(cursor);
+    if (cell !== null) {
+      cell.classList.add("is-cursor");
+      bringIntoView(container, [cell], "xy");
+    }
   }
 
   // Zoom (CARD-195, see ZOOM above). `zoom` is a percent, 100..300, view
@@ -2699,8 +2843,15 @@ function wireMarking(container, player) {
     zoomReadout.textContent = atFit ? "Fit" : `${Math.round(zoom)}%`;
     zoomOut.setAttribute("aria-disabled", String(zoom <= zoomFloor + 1e-6));
     zoomIn.setAttribute("aria-disabled", String(zoom >= ZOOM_MAX));
-    // The readout is a control only while there is a Fit to go to.
-    if (zoomFloor < ZOOM_MIN) {
+    // The readout is a control only while there is a Fit to go to — or,
+    // since the review of 2026-11-17 (pass 2, item 5), a 100% to go back to
+    // on a board that has no Fit.
+    if (zoomFloor >= ZOOM_MIN && zoom > ZOOM_MIN + 1e-6) {
+      zoomReadout.setAttribute("role", "button");
+      zoomReadout.setAttribute("tabindex", "0");
+      zoomReadout.setAttribute("aria-label", `Zoom ${Math.round(zoom)}%. Back to 100%`);
+      zoomReadout.title = "Back to 100%";
+    } else if (zoomFloor < ZOOM_MIN) {
       zoomReadout.setAttribute("role", "button");
       zoomReadout.setAttribute("tabindex", "0");
       zoomReadout.setAttribute("aria-label", atFit ? "Zoom: Fit. Back to the last zoom" : `Zoom ${Math.round(zoom)}%. Fit the whole board`);
@@ -2728,7 +2879,13 @@ function wireMarking(container, player) {
   }
 
   function toggleFit() {
-    if (zoomFloor >= ZOOM_MIN) return;
+    if (zoomFloor >= ZOOM_MIN) {
+      if (zoom > ZOOM_MIN + 1e-6) {
+        readerZoomed = true;
+        applyZoom(ZOOM_MIN, container.clientWidth / 2, container.clientHeight / 2);
+      }
+      return;
+    }
     readerZoomed = true;
     const centre = [container.clientWidth / 2, container.clientHeight / 2];
     if (zoom <= zoomFloor + 1e-6) applyZoom(beforeFit, ...centre);
@@ -2812,6 +2969,7 @@ function wireMarking(container, player) {
   // preview is reverted, never committed) and starts tracking the pinch
   // from the two pointers' current positions.
   function beginPinch(firstId, secondId) {
+    hideRun();
     if (gesture) {
       player.show(player.getHistory().board); // revert the preview, commit nothing
       gesture = null;
@@ -2995,8 +3153,14 @@ function wireMarking(container, player) {
     const fits = boardFits();
     const was = fittedLast;
     fittedLast = fits;
+    if (was === false && fits && !region && regionAutoOff && !regionOff) {
+      regionAutoOff = false;
+      setRegion(true);
+      return;
+    }
     if (was === true && !fits && region) {
       setRegion(false);
+      regionAutoOff = true;
       if (readerZoomed && !regionZoomTold) {
         regionZoomTold = true;
         say(REGION_ZOOM_OFF);
@@ -3086,6 +3250,9 @@ function wireMarking(container, player) {
     const table = container.querySelector(".player-board");
     const part = ladderLine === null || table === null ? null
       : linedParts(table, ladderLine.axis, ladderLine.index)[0] ?? null;
+    // Review of 2026-11-17, pass 2: the room beside or under the board first.
+    const near = part !== null && ladderLine.axis === "row" ? part.getBoundingClientRect().top : null;
+    if (placeInSlot(box, container, near)) return;
     if (part === null) {
       box.removeAttribute("data-place");
       return;
@@ -3164,12 +3331,19 @@ function wireMarking(container, player) {
     probeKeep.hidden = !open;
     probeAbandon.hidden = !open;
     probeNote.hidden = !open;
+    stageWrap?.classList.toggle("is-probing", open);
+    if (probeFlag !== null) {
+      // A class and not `hidden`, for the census's reason (see runBadge).
+      probeFlag.classList.toggle("is-shown", open);
+      placeProbeFlag();
+    }
   }
 
   function refresh() {
     const { board: current, done, undone } = player.getHistory();
     const locked = player.locked();
     anchorCell(anchor)?.classList.add("is-anchor"); // CARD-449: a redraw replaces the cells
+    cursorCell(cursor)?.classList.add("is-cursor"); // and the keyboard cursor's
     if (locked) closeMenu(); // the tools' box is hidden while solved (admin.css)
     // Read fresh from the live DOM (not a `table` reference start() keeps):
     // a mirror redraw (CARD-193) replaces the table outright, and refresh()
@@ -3187,7 +3361,7 @@ function wireMarking(container, player) {
     // "nothing to reveal" is not a reason to disable it there — Check's rule 9
     // exactly, for the same reason. The lock and the gesture still disable it.
     actions.hint?.setAttribute("aria-disabled", String(locked || gesture !== null
-      || (probe === null && player.nextHint() === null && !player.speaks())));
+      || ((probe === null && player.nextHint() === null && !player.speaks()) && player.brokenLine() === null)));
     // CARD-435 ruling 1: and it says which of its two meanings it is on, as
     // the accessible name and as the tooltip. Both attributes are written
     // from one ternary on every refresh — a probe opening, closing or being
@@ -3296,7 +3470,11 @@ function wireMarking(container, player) {
       touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
       touchStartCell.set(event.pointerId, cell);
     }
-    if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0)) return;
+    // Review of 2026-11-17, pass 2 (item 5): the right mouse button marks
+    // White, whatever the brush, the desktop convention; only the main and
+    // the right button mark.
+    const rightClick = event.pointerType === "mouse" && event.button === 2;
+    if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0 && !rightClick)) return;
     const start = cellUnder(container, event.clientX, event.clientY);
     if (!start) return;
     lastCell = start; // CARD-439: where Line opens
@@ -3313,7 +3491,7 @@ function wireMarking(container, player) {
     }
     // The tool is taken here, at pointerdown: picking another brush mid-drag
     // applies to the next drag, not this one.
-    gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool, paints };
+    gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool: rightClick ? EMPTY : tool, paints };
     // CARD-449: with Region on, a press held without leaving its cell sets
     // the anchor instead of marking.
     if (region) {
@@ -3353,7 +3531,9 @@ function wireMarking(container, player) {
     // marks nothing on release (pointerup's `anchored` branch), so a preview
     // painted after it was left on the board as marks no undo could reach.
     if (gesture.dragging && gesture.paints && !gesture.anchored) {
-      player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, gesture.tool)));
+      const stroke = dragStroke(gesture.start, gesture.path, gesture.tool);
+      player.show(applyStroke(player.getHistory().board, stroke));
+      showRun(stroke, event.clientX, event.clientY);
     }
   });
 
@@ -3421,7 +3601,10 @@ function wireMarking(container, player) {
       // reader who wants to paint three runs drags three times. The reading
       // is taken here, per drag, rather than remembered from the load: the
       // same page can be zoomed in and out between two drags.
-      if (!boardFits()) setRegion(nextRegion(region, "drag"));
+      if (!boardFits()) {
+        setRegion(nextRegion(region, "drag"));
+        if (!region) regionAutoOff = true;
+      }
       commit(record(history, dragStroke(done.start, done.path, done.tool)));
       return;
     }
@@ -3680,6 +3863,7 @@ function wireMarking(container, player) {
   regionToggle.addEventListener("click", () => {
     setRegion(nextRegion(region, "toggle"));
     regionOff = !region;
+    regionAutoOff = false;
   });
 
   // The probe's three controls (CARD-268, see PROBE above). Native <button>s,
@@ -3801,6 +3985,9 @@ function wireMarking(container, player) {
     offerText.textContent = said;
     announce.textContent = said;
     offer.hidden = false;
+    // Review of 2026-11-17, pass 2 (item 7a): beside or under the board, not
+    // over the cell it names.
+    placeInSlot(offer, container, offeredCell()?.getBoundingClientRect().top ?? null);
     offeredCell()?.classList.add("is-offered");
     syncLine(); // CARD-442: and the strip outlines it, if it is in the line shown
   }
@@ -3828,6 +4015,7 @@ function wireMarking(container, player) {
   // centred in the viewport by the stylesheet, which no redraw or resize can
   // move, so there is no placement left to re-run.
   function offerRedrawn() {
+    placeProbeFlag(); // review of 2026-11-17, pass 2: the room moved with the board
     if (offered === null) return;
     offeredCell()?.classList.add("is-offered");
   }
@@ -3839,7 +4027,38 @@ function wireMarking(container, player) {
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") setAnchor(null); }); // CARD-449
   // CARD-449: a held press on the board is the anchor gesture, not the
   // browser's context menu (Chrome on Android opens one on a long press).
-  container.addEventListener("contextmenu", (event) => { if (region) event.preventDefault(); });
+  // Review of 2026-11-17, pass 2: and a right click on a cell marks White, so
+  // the menu is kept off every cell.
+  container.addEventListener("contextmenu", (event) => {
+    if (region || (event.target instanceof Element && event.target.closest("td.player-cell"))) event.preventDefault();
+  });
+
+  if (!container.hasAttribute("tabindex")) container.tabIndex = 0;
+  container.addEventListener("keydown", (event) => {
+    if (event.target !== container || event.ctrlKey || event.metaKey || event.altKey) return;
+    const { width, height } = player.getHistory().board;
+    const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (Object.hasOwn(moves, event.key)) {
+      event.preventDefault();
+      const [row, col] = cursor ?? lastCell ?? [0, 0];
+      const [dr, dc] = cursor === null ? [0, 0] : moves[event.key];
+      setCursor([Math.max(0, Math.min(height - 1, row + dr)), Math.max(0, Math.min(width - 1, col + dc))]);
+      return;
+    }
+    const marks = { " ": null, Enter: null, x: EMPTY, X: EMPTY, Delete: UNKNOWN, Backspace: UNKNOWN };
+    if (!Object.hasOwn(marks, event.key) || gesture || player.locked()) return;
+    event.preventDefault();
+    if (cursor === null) {
+      setCursor(lastCell ?? [0, 0]);
+      return;
+    }
+    const mark = marks[event.key] ?? tool;
+    const [row, col] = cursor;
+    const history = player.getHistory();
+    const repeat = lastClick !== null && lastClick.row === row && lastClick.col === col && lastClick.tool === mark;
+    commit(record(history, clickStroke(history.board, row, col, mark, repeat)));
+    lastClick = { row, col, tool: mark };
+  });
 
   // Undo and redo change nothing while the board is locked (solved).
   const step = {
@@ -3883,6 +4102,19 @@ function wireMarking(container, player) {
     // the press answers or in the sentence it says (that card's AC-4).
     if (probe !== null) {
       askProbe();
+      return;
+    }
+    // Review of 2026-11-17, pass 2 (item 6): a line the marks have broken is
+    // named first, and the ladder offers nothing else while it stays broken:
+    // nothing is recorded or counted, and the ladder goes back to rung 1, as
+    // Check's press does.
+    const broken = player.brokenLine();
+    if (broken !== null) {
+      lastClick = null;
+      rung = nextRung(rung, "change");
+      setLadderLine(broken);
+      const clue = (broken.axis === "row" ? player.clues.rows : player.clues.columns)[broken.index];
+      say(brokenLineText(broken.axis, broken.index, clue));
       return;
     }
     const hint = player.nextHint();
@@ -4050,6 +4282,7 @@ function wireMarking(container, player) {
     && Math.max(lineBoard.width, lineBoard.height) >= LINE_MIN_SIDE
     ? buildLineView(probeBar, container) : { lineDialog: null, lineOpen: null };
   const compactQuery = window.matchMedia("(max-width: 600px), (max-height: 500px)");
+  const tallQuery = window.matchMedia("(max-width: 600px) and (orientation: portrait)");
   const LONG_PRESS_MS = 450;
   // The last board cell a pointer went down on ([row, col]) — where Line opens.
   let lastCell = null;
@@ -4117,7 +4350,11 @@ function wireMarking(container, player) {
     }));
     lineParts.clue.setAttribute("aria-label", `Clue: ${clue.join(" ")}`);
     // The strips: rebuilt only when the line's length changes, repainted always.
-    const strips = lineStrips(cells.length);
+    // Review of 2026-11-17, pass 2 (item 9): upright, strips of ten cells
+    // (three for a 25 or 30, about 36 px a cell) in the half screen two
+    // strips of fifteen left empty; on its side the height is the limit, so
+    // the two strips stay.
+    const strips = lineStrips(cells.length, tallQuery.matches ? LINE_STRIP_TALL : undefined);
     const key = strips.join("+");
     if (lineParts.strips.dataset.split !== key) {
       lineParts.strips.dataset.split = key;
@@ -4181,8 +4418,14 @@ function wireMarking(container, player) {
     // CARD-445: the ask, drawn with Keep and Wrong guess and for their reason
     // — it is about the open probe, and there is no probe to ask about
     // otherwise.
-    lineParts.ask.hidden = !open;
-    lineParts.ask.setAttribute("aria-disabled", String(!open || player.locked()));
+    // Review of 2026-11-17, pass 2 (item 9): and outside a probe it is the
+    // board's own Hint (the view had none), named and enabled as that button
+    // is; its answer pivots the view onto the line it points at.
+    lineParts.ask.hidden = false;
+    lineParts.ask.title = open ? HINT_PROBE_NAME : HINT_NAME;
+    lineParts.ask.setAttribute("aria-label", open ? HINT_PROBE_NAME : HINT_NAME);
+    lineParts.ask.setAttribute("aria-disabled", String(open ? player.locked()
+      : (actions.hint?.getAttribute("aria-disabled") ?? "true") === "true"));
     // CARD-445: and its answer's OTHER lines, as targets. `broken` is
     // brokenNow(), so this list is empty until the ask and empty again the
     // moment a recorded change un-asks the question — the quiet rule governs
@@ -4319,11 +4562,14 @@ function wireMarking(container, player) {
     player.show(player.getHistory().board);
   }
 
-  function linePreview() {
+  function lineStroke() {
     const { axis, index } = focused;
-    const stroke = dragStroke(linePosition(axis, index, lineGesture.start),
+    return dragStroke(linePosition(axis, index, lineGesture.start),
       lineGesture.path.map((k) => linePosition(axis, index, k)), lineGesture.tool);
-    return applyStroke(player.getHistory().board, stroke);
+  }
+
+  function linePreview() {
+    return applyStroke(player.getHistory().board, lineStroke());
   }
 
   if (lineDialog !== null && lineOpen !== null) {
@@ -4408,7 +4654,15 @@ function wireMarking(container, player) {
     // to — the Keep/Wrong guess pair's handOn problem does not arise here.
     lineParts.ask.addEventListener("click", () => {
       if (lineGesture !== null || lineParts.ask.getAttribute("aria-disabled") === "true") return;
-      askProbe();
+      if (probe !== null) {
+        askProbe();
+        return;
+      }
+      actions.hint?.click();
+      if (focused !== null && ladderLine !== null
+        && (ladderLine.axis !== focused.axis || ladderLine.index !== focused.index)) {
+        focusLine(ladderLine.axis, ladderLine.index);
+      }
     });
     // CARD-445: a target pivots the view, through focusLine — the same pivot
     // the Rows/Cols toggle and the strips' long press go through, so a jump
@@ -4469,6 +4723,7 @@ function wireMarking(container, player) {
       if (!lineGesture.moved) return;
       clearTimeout(lineGesture.timer);
       const preview = linePreview();
+      showRun(lineStroke(), event.clientX, event.clientY);
       player.show(preview);
       drawLine(preview);
     });

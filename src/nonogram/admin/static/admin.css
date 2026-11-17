@@ -1261,6 +1261,46 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    instead of over the board's middle. */
 .player-explain[data-place="top"] { inset: var(--space-4) 0 auto 0; margin: 0 auto; }
 .player-explain[data-place="bottom"] { inset: auto 0 var(--space-4) 0; margin: 0 auto; }
+/* Review of 2026-11-17, pass 2 (items 7, 7a, 10, S2): beside the board when
+   there is room on its right (a phone held sideways, a desktop), or directly
+   under it (an upright phone) — solver.js's placeInSlot measures the room
+   and writes the three custom properties; with no room the box keeps the
+   placements above. */
+.player-explain[data-place="side"], .player-explain[data-place="under"],
+.player-probe-flag[data-place="side"], .player-probe-flag[data-place="under"] {
+  inset: auto; margin: 0;
+  left: var(--player-slot-left); top: var(--player-slot-top);
+  width: max-content; max-width: var(--player-slot-w);
+}
+/* Review of 2026-11-17, pass 2 (item 3): an open probe, said in words and in
+   the board's frame. The line sits in the same room as the hint box (under
+   it: the box is the answer to a press, the line a standing state). */
+.player-stage-wrap.is-probing > .player-stage { outline: calc(2 * var(--player-rule-major)) dashed var(--color-warning); outline-offset: calc(-2 * var(--player-rule-major)); }
+.player-probe-flag {
+  position: fixed; inset: var(--space-2) 0 auto 0; margin: 0 auto; z-index: 1025;
+  width: max-content; max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm); line-height: var(--leading-base); color: var(--color-text);
+  background: var(--color-warning-tint);
+  border: calc(2 * var(--border-width)) dashed var(--color-warning);
+  border-radius: var(--radius-control); pointer-events: none;
+}
+.player-probe-flag:not(.is-shown) { display: none; }
+/* Review of 2026-11-17, pass 2 (item 2): the length of the run a drag is
+   painting, drawn above the finger or pointer (solver.js showRun). */
+.player-run {
+  position: fixed; z-index: 1035; transform: translate(-50%, calc(-100% - 28px));
+  min-width: 2.2em; padding: 2px var(--space-2); text-align: center;
+  font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 600; font-size: var(--text-base);
+  color: var(--color-surface); background: var(--color-text);
+  border-radius: 999px; pointer-events: none; box-shadow: var(--shadow-modal);
+}
+/* Review of 2026-11-17, pass 2 (item 5): the keyboard's cell, drawn only
+   while the board has keyboard focus. */
+.player-stage:focus-visible .player-cell.is-cursor { outline: calc(1.5 * var(--player-rule-major)) solid var(--color-accent); outline-offset: calc(-1.5 * var(--player-rule-major)); }
+/* Review of 2026-11-17, pass 2 (item 11): "Revealed" from the first reveal;
+   its box is kept so nothing moves when it appears. */
+.player-hints.is-none { opacity: 0; }
 /* CARD-412: the Wrong-guess offer, in the hint box's place and look; it
    holds two buttons, so it takes the pointer, and it is a row that wraps.
    CARD-427: it carries .player-explain, so the owner's "contradiction and
@@ -1308,6 +1348,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-board.is-solved:not(.is-showing-grid) .player-cell[data-state="empty"]::after { visibility: hidden; }
 .player-board.is-solved:not(.is-showing-grid) .player-clue,
 .player-board.is-solved:not(.is-showing-grid) .player-corner { opacity: 0; }
+/* Review of 2026-11-17, pass 2 (S3): the faded clue band still took its
+   room, so the finished picture sat in the bottom-right of its frame with an
+   empty L where the clues had been. Once the celebration has played the band
+   is taken out of the table and the picture is centred in the stage; Show
+   grid puts both back. */
+.player-board.is-solved:not(.is-showing-grid):not(.is-celebrating) .player-clue,
+.player-board.is-solved:not(.is-showing-grid):not(.is-celebrating) .player-corner { display: none; }
+.player-board.is-solved:not(.is-showing-grid):not(.is-celebrating) { margin-inline: auto; }
 .player-solved-mark { flex: none; line-height: 1; }
 /* The celebration mark is drawn here: the panel's templates carry no emoji (icons come from _icons.html). */
 .player-solved-mark::before { content: "\1F389"; }
@@ -2434,6 +2482,17 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters-pair { flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; }
   .player-toolbar:has(~ .player-stage-wrap) .player-counters p { min-height: 0; font-size: var(--text-xs); }
   .player-toolbar:has(~ .player-stage-wrap) .player-probe-note { grid-column: 1 / -1; order: 1; }
+  /* Review of 2026-11-17, pass 2 (item 3): the leaving note fell below the
+     window's edge here (y 369-394 of 390) and Wrong guess wrapped alone onto
+     a row of its own. The worded probe line beside the board says what the
+     pair does now, so the note is not drawn, and — where the Line button makes
+     the third row — Keep starts a row so the pair stays together. */
+  .player-toolbar:has(~ .player-stage-wrap) .player-probe-note { display: none; }
+  .player-toolbar:has(~ .player-stage-wrap):has(.player-line-open:not([hidden])) [data-player-probe-action="keep"] { grid-column-start: 1; }
+  /* Review of 2026-11-17, pass 2 (S1): after a solve, Next puzzle and Back to
+     the book sat half below the window (y 371-410 of 390); they stand in the
+     free corner right of the picture instead. */
+  nav[data-player-next] { position: fixed; right: var(--space-4); bottom: var(--space-2); z-index: 5; flex-direction: column; align-items: stretch; }
   /* The two popovers leave the strip's scroll box (it would clip them):
      fixed, the brush menu at its own place beside the trigger (its static
      position, pushed below it), the reset dialog at the window's top right,

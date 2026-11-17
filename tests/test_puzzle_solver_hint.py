@@ -561,6 +561,11 @@ def _shots(page):
     # the band read is that edge's 128 px, still fixed for one placement.
     place = page.evaluate(f"() => {strip}.dataset.place ?? ''")
     top = {"top": 0, "bottom": view[1] - 128}.get(place, view[1] / 2 - 64)
+    # 2026-11-17 (owner's pass-2 review, items 7 and 10): beside or under the
+    # board the box starts at the slot's top, so the band read starts there.
+    if place in ("side", "under"):
+        slot_top = page.evaluate(f"() => parseFloat({strip}.style.getPropertyValue('--player-slot-top'))")
+        top = max(0, min(slot_top, view[1] - 128))
     shots["line"] = page.screenshot(clip={"x": 0, "y": top, "width": view[0], "height": 128})
     return shots
 
@@ -2819,7 +2824,24 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                 # lit the box sits at the window's edge away from it; on this
                 # board, at every size here, it covers none of that line.
                 assert box["position"] == "fixed", (width, height, box)
-                assert abs(box["dx"]) <= 2, (width, height, box)
+                # 2026-11-17 (owner's pass-2 review, items 7 and 10), retiring
+                # "centred across the viewport" where the board leaves room:
+                # the box stands in the free room RIGHT of the board, or
+                # directly UNDER it, and only with neither is it placed as
+                # CARD-455 placed it.
+                slot = page.evaluate("""(() => {
+                  const box = document.getElementById('puzzle-player-explain');
+                  const b = box.getBoundingClientRect();
+                  const s = document.querySelector('.player-stage').getBoundingClientRect();
+                  const t = document.querySelector('.player-board').getBoundingClientRect();
+                  return { place: box.dataset.place ?? '', left: b.left, top: b.top,
+                           right: Math.min(s.right, t.right), bottom: Math.min(s.bottom, t.bottom) }; })()""")
+                if slot["place"] == "side":
+                    assert slot["left"] >= slot["right"], (width, height, slot)
+                elif slot["place"] == "under":
+                    assert slot["top"] >= slot["bottom"] - 0.5, (width, height, slot)
+                else:
+                    assert abs(box["dx"]) <= 2, (width, height, box)
                 covers = page.evaluate("""() => {
                   const b = document.getElementById('puzzle-player-explain').getBoundingClientRect();
                   return [...document.querySelectorAll('.is-hint-line')].filter((e) => {

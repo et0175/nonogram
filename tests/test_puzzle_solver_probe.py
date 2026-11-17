@@ -2488,7 +2488,22 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
         # nothing places it. A second placement path would show up here as a
         # centre that is not the screen's.
         assert offer["box"]["position"] == "fixed", offer
-        assert abs(offer["box"]["dx"]) <= 2 and abs(offer["box"]["dy"]) <= 2, offer
+        # 2026-11-17 (owner's pass-2 review, item 7a: the offer was drawn on
+        # top of the cell it names): the offer stands beside the board, or
+        # under it, where there is room; centred only where there is none.
+        slot = page.evaluate("""(() => {
+                  const box = document.getElementById('puzzle-player-offer');
+                  const b = box.getBoundingClientRect();
+                  const s = document.querySelector('.player-stage').getBoundingClientRect();
+                  const t = document.querySelector('.player-board').getBoundingClientRect();
+                  return { place: box.dataset.place ?? '', left: b.left, top: b.top,
+                           right: Math.min(s.right, t.right), bottom: Math.min(s.bottom, t.bottom) }; })()""")
+        if slot["place"] == "side":
+            assert slot["left"] >= slot["right"], slot
+        elif slot["place"] == "under":
+            assert slot["top"] >= slot["bottom"] - 0.5, slot
+        else:
+            assert abs(offer["box"]["dx"]) <= 2 and abs(offer["box"]["dy"]) <= 2, offer
         assert offer["box"]["inside"], offer
         assert offer["box"]["width"] <= 0.6 * offer["box"]["vw"], offer
 

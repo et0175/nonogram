@@ -166,8 +166,14 @@ class TestSolvedReveal_ThePictureStaysAndTheCelebrationRunsOnce:
         solved = page.evaluate(_BOARD)
         assert solved["hairline"] == "rgba(0, 0, 0, 0)" and solved["dot"] == "hidden" and solved["clue"] == "0", solved
         assert solved["frame"] == "solid"
-        changed = [(a, b) for a, b in zip(before["boxes"], solved["boxes"]) if a[1:] != b[1:]]
-        assert changed == [], changed[:3]  # no cell moved
+        # RETIRED CLAIM, 2026-11-17 (owner's pass-2 review, S3: "the finished
+        # picture sits in the bottom-right of its frame"): no cell moved. The
+        # clue band now leaves the table once the celebration has played and
+        # the picture is centred, so every cell moves by ONE offset — the
+        # picture keeps its shape — and the clue band's room is gone.
+        offsets = {(b[1] - a[1], b[2] - a[2]) for a, b in zip(before["boxes"], solved["boxes"])}
+        assert len(offsets) == 1, sorted(offsets)[:3]
+        assert page.evaluate("document.querySelector('th.player-clue').getBoundingClientRect().width") == 0
         assert [b[0] for b in solved["boxes"]] == _states(page)
         # The pointer is still on the solving stroke's last cell: the picture
         # shows no crosshair band there (owner screenshot check 2026-11-10).

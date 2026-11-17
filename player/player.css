@@ -465,7 +465,8 @@ body {
 .hts-cell[data-state="filled"] { background: var(--grid-ink); box-shadow: inset 0 0 0 var(--player-rule) var(--hts-thin); }
 
 .hts-cell[data-state="empty"]::after,
-.hts-swatch[data-state="empty"]::after {
+.hts-swatch[data-state="empty"]::after,
+.hts-strip-cell[data-state="empty"]::after {
   content: "";
   display: block;
   width: 28%;
@@ -554,6 +555,17 @@ body {
 }
 
 .hts-nav { border-top: var(--player-rule) solid var(--color-border); padding-top: var(--space-4); }
+
+/* Item 17: the last step's two ways out, side by side. */
+.hts-end { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* Item 15: on a phone held sideways the title, the progress and the step's
+   heading filled the whole first screen; the title is smaller and the
+   progress bar's targets shorter there (the caption no longer repeats the
+   step's name, how-to-solve.js). */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hts-title { font-size: var(--text-lg); }
+  .hts-dot { min-height: 32px; }
+}
 
 .btn[hidden] { display: none; }
 
@@ -915,6 +927,21 @@ body {
 
 /* CARD-463: the lesson link, under the number box (it was .book-foot). */
 .book-learn { margin: 0; font-size: var(--text-sm); }
+
+/* Review of 2026-11-17, pass 2 (item 12): on a phone held sideways the first
+   screen was the title and the number box and nothing else, not one puzzle
+   square. The number box moves up beside the title (the lesson link stays
+   under the title), and the box is shorter there. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .pages-book { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-3); align-items: start; }
+  .pages-book > * { grid-column: 1 / -1; }
+  .pages-book > .book-head { grid-column: 1; grid-row: 1; }
+  .pages-book > .book-jump { grid-column: 2; grid-row: 1 / span 2; padding: var(--space-3); gap: var(--space-1); }
+  .pages-book > .book-learn { grid-column: 1; grid-row: 2; }
+  .book-head h1 { font-size: var(--text-xl); }
+  .book-jump label { font-size: var(--text-base); }
+  .book-jump input, .book-jump-go { min-height: 44px; }
+}
 .book-learn a { color: var(--color-accent); display: inline-flex; align-items: center; min-height: 32px; }
 
 /*
