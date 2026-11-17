@@ -719,7 +719,7 @@ async function load() {
         // repaint takes the old decorations away first rather than laying a
         // second garland over the first. Redrawing is safe and cheap: the
         // bough comes from a fixed seed, so it is the same bough.
-        for (const old of page.ownerDocument.querySelectorAll(".decor-garland, .decor-snow")) {
+        for (const old of page.ownerDocument.querySelectorAll(".decor-garland, .decor-snow, .decor-side")) {
           old.remove();
         }
         decorate(page.querySelectorAll(".book-jump, .book-continue, .book-section-head"));
@@ -778,7 +778,27 @@ async function load() {
 
   const filters = { tier: "", size: "" };
   const controls = [...page.querySelectorAll("[data-pages-filter]")];
+  // Review of 2026-11-17: the selects are the browser's, and it puts their
+  // values BACK when a reader returns with Back to a page it has to rebuild
+  // (measured: "hard" and "small" in the selects over an unfiltered list of
+  // all 160). So the filters are READ from the controls — at load, and again
+  // whenever the page is shown — rather than assumed empty.
+  const readControls = () => {
+    let moved = false;
+    for (const control of controls) {
+      const name = control.dataset.pagesFilter;
+      if (filters[name] !== control.value) {
+        filters[name] = control.value;
+        moved = true;
+      }
+    }
+    return moved;
+  };
+  readControls();
   let shown = render(page, entries, filters, numbered);
+  window.addEventListener("pageshow", () => {
+    if (readControls()) shown = render(page, entries, filters, numbered);
+  });
   // `shown` is read through the closure below, so re-rendering is the whole
   // of a filter change: there is no second copy of the rendered set to keep
   // in step with the DOM.

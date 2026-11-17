@@ -1261,6 +1261,17 @@ function start() {
       // explanation standing over a cell that is now revealed.
       const said = hintText(hint);
       announce.textContent = said;
+      // Review of 2026-11-17: the box is placed for THIS sentence, away from
+      // the cell it names. Rungs 1-2 place it through say(); this branch
+      // wrote past that and kept rung 2's edge, and bringIntoView had just
+      // scrolled the revealed cell to that same edge — one reveal in ten on
+      // a zoomed board sat wholly under its own answer (CARD-455's rule,
+      // which this branch predates).
+      const answer = document.getElementById("puzzle-player-explain");
+      const revealed = cellElements[hint.row * payload.width + hint.col]?.getBoundingClientRect();
+      if (answer && revealed) {
+        answer.dataset.place = (revealed.top + revealed.bottom) / 2 < window.innerHeight / 2 ? "bottom" : "top";
+      }
       showExplain(said);
     }
     // CARD-280 (owner ruling 2026-11-10: a festive solve): the banner says
@@ -1274,6 +1285,9 @@ function start() {
         cellElements.forEach((cell, index) => cell.style.setProperty("--player-wave", wave[index]));
         table.style.setProperty("--player-wave-step", `${waveStep(wave)}ms`);
         table.classList.add("is-celebrating");
+        // The praise names no line, so it is centred — not left at whichever
+        // edge the last hint sent the box to.
+        document.getElementById("puzzle-player-explain")?.removeAttribute("data-place");
         showExplain(praise);
         setTimeout(() => {
           table.classList.remove("is-celebrating");
@@ -1425,28 +1439,41 @@ function start() {
     // 100% for the reading and put back, inside this one task (a forced
     // layout, never painted); below 100% everything scales together and the
     // division is exact.
-    const zoomNow = marking.getZoom();
-    let boardWidth;
-    let boardHeight;
-    if (zoomNow > ZOOM_MIN) {
-      // The smaller 100% table clamps the stage's scroll; it is put back
-      // with the zoom (review cycle 2, F-101: the view jumped to the 100%
-      // board's limits on every resize while zoomed in).
-      const scrolled = [stage.scrollLeft, stage.scrollTop];
-      table.style.setProperty("--player-zoom", "1");
-      [boardWidth, boardHeight] = [table.offsetWidth, table.offsetHeight];
-      table.style.setProperty("--player-zoom", String(zoomNow / 100));
-      [stage.scrollLeft, stage.scrollTop] = scrolled;
-    } else {
-      const scale = zoomNow / 100;
-      [boardWidth, boardHeight] = [table.offsetWidth / scale, table.offsetHeight / scale];
+    // Read, set, and — review of 2026-11-17 — read AGAIN when the reading was
+    // coarse. Below 100% the board's size at 100% is its drawn size divided
+    // by the zoom, which is exact only while the rules (which do not scale)
+    // are a small share of it. A board that had been squeezed far down (the
+    // stage's top was stale for a moment, see the observer's note below)
+    // over-stated its own size that way and settled at 57% where 63% fits.
+    // So when a board at Fit GREW by this measurement it is read once more
+    // at its new, closer size; an ordinary re-fit moves by a point at most
+    // and takes one pass, exactly as before.
+    let floor;
+    for (let pass = 0; pass < 3; pass += 1) {
+      const zoomNow = marking.getZoom();
+      let boardWidth;
+      let boardHeight;
+      if (zoomNow > ZOOM_MIN) {
+        // The smaller 100% table clamps the stage's scroll; it is put back
+        // with the zoom (review cycle 2, F-101: the view jumped to the 100%
+        // board's limits on every resize while zoomed in).
+        const scrolled = [stage.scrollLeft, stage.scrollTop];
+        table.style.setProperty("--player-zoom", "1");
+        [boardWidth, boardHeight] = [table.offsetWidth, table.offsetHeight];
+        table.style.setProperty("--player-zoom", String(zoomNow / 100));
+        [stage.scrollLeft, stage.scrollTop] = scrolled;
+      } else {
+        const scale = zoomNow / 100;
+        [boardWidth, boardHeight] = [table.offsetWidth / scale, table.offsetHeight / scale];
+      }
+      const margin = parseFloat(getComputedStyle(table).marginBottom) || 0;
+      const room = parseFloat(getComputedStyle(stage).maxHeight);
+      const height = Number.isFinite(room) ? room : stage.clientHeight;
+      if (!(stage.clientWidth > 0) || !(height - margin > 0)) return;
+      floor = Math.max(FIT_MIN, fitZoom(boardWidth, boardHeight, stage.clientWidth, height - margin));
+      marking.setFloor(floor);
+      if (!(zoomNow < ZOOM_MIN && marking.getZoom() > zoomNow + 1)) break;
     }
-    const margin = parseFloat(getComputedStyle(table).marginBottom) || 0;
-    const room = parseFloat(getComputedStyle(stage).maxHeight);
-    const height = Number.isFinite(room) ? room : stage.clientHeight;
-    if (!(stage.clientWidth > 0) || !(height - margin > 0)) return;
-    let floor = Math.max(FIT_MIN, fitZoom(boardWidth, boardHeight, stage.clientWidth, height - margin));
-    marking.setFloor(floor);
     // CARD-407 (owner ruling 2026-11-07): a puzzle whose whole board does
     // not fit at 100% OPENS at Fit, on compact screens only (the CARD-401
     // condition, narrow or short); desktop keeps opening at 100%. Once, at
@@ -1538,6 +1565,11 @@ function start() {
     // there" and paint nothing (see CROSSHAIR at the top of this file).
     crosshair.forget();
     showProgress(null);
+    // Review of 2026-11-17: "Show grid" is a class on the table, and the
+    // table was just replaced — so a resize or a turned phone took the grid
+    // away while the button went on saying it was shown. The button is the
+    // state; the new table is given it back.
+    table.classList.toggle("is-showing-grid", solved && showGrid?.getAttribute("aria-pressed") === "true");
     marking.refresh();
     [stage.scrollLeft, stage.scrollTop] = scrolled;
     measureFit();
@@ -1723,7 +1755,14 @@ function start() {
       measureFit();
       marking.offerRedrawn();
     });
-    for (const element of [toolbar, document.querySelector(".player-head")]) {
+    // And the body (review of 2026-11-17): something above the stage that is
+    // neither of the two can move it WITHOUT resizing either — measured with
+    // a book's decoration sheet arriving after the first draw, which left
+    // --player-stage-top at 6927 px against a real 223 and the board drawn
+    // into the 5rem floor until the window was resized. "A stale top only
+    // errs safe" did not hold there. The key above still makes every firing
+    // that moved nothing a no-op.
+    for (const element of [toolbar, document.querySelector(".player-head"), document.body]) {
       if (element) above.observe(element);
     }
   }
@@ -2706,14 +2745,44 @@ function wireMarking(container, player) {
   // solver_state.js anchoredScroll). A no-op `nextPercent` (already at the
   // clamped end of the range) touches neither the table nor the scroll
   // position, only re-syncs the readout/buttons (idempotent either way).
+  // The box the board's CELLS occupy, in the stage's own scrolled content
+  // (so independent of where the stage is scrolled to), or null with no
+  // board drawn. Cells never stick, unlike the clue boxes around them.
+  function cellsBox() {
+    const cells = container.querySelectorAll("td.player-cell");
+    if (cells.length === 0) return null;
+    const stage = container.getBoundingClientRect();
+    const first = cells[0].getBoundingClientRect();
+    const last = cells[cells.length - 1].getBoundingClientRect();
+    const left = first.left - stage.left + container.scrollLeft;
+    const top = first.top - stage.top + container.scrollTop;
+    return { left, top, width: last.right - first.left, height: last.bottom - first.top };
+  }
+
   function applyZoom(nextPercent, anchorX, anchorY) {
     const old = zoom;
     zoom = nextPercent;
     if (zoom !== old) {
       const table = container.querySelector(".player-board");
+      // Review of 2026-11-17: the anchor is kept in CELL space. anchoredScroll
+      // scales the whole scrolled distance by the zoom ratio, which is right
+      // only if everything left of (above) the point scales — and the clue
+      // band does not (measured on a 30-wide board: 137 px at 100%, 160 px at
+      // 300%), so every zoom slid the board by band x (ratio - 1): three
+      // cells on one pinch from 180% to 300%. So the cells' own box is read
+      // before and after, and the point keeps its share of it. The formula
+      // stays the fallback for a stage with no board in it.
+      const before = cellsBox();
+      const scrolled = [container.scrollLeft, container.scrollTop];
       if (table) table.style.setProperty("--player-zoom", String(zoom / 100));
-      container.scrollLeft = anchoredScroll(container.scrollLeft, anchorX, old, zoom);
-      container.scrollTop = anchoredScroll(container.scrollTop, anchorY, old, zoom);
+      const after = cellsBox();
+      if (before !== null && after !== null && before.width > 0 && before.height > 0) {
+        container.scrollLeft = after.left + (scrolled[0] + anchorX - before.left) * (after.width / before.width) - anchorX;
+        container.scrollTop = after.top + (scrolled[1] + anchorY - before.top) * (after.height / before.height) - anchorY;
+      } else {
+        container.scrollLeft = anchoredScroll(scrolled[0], anchorX, old, zoom);
+        container.scrollTop = anchoredScroll(scrolled[1], anchorY, old, zoom);
+      }
       // CARD-271: the clue band scales with the cell, so a zoom changes
       // whether either axis can still afford to keep its gutter in view.
       player.zoomed();
@@ -3280,7 +3349,10 @@ function wireMarking(container, player) {
     gesture.path.push(position);
     gesture.dragging = gesture.dragging || !isAt(position, gesture.start);
     if (gesture.dragging) clearTimeout(gesture.hold); // CARD-449: a drag is not a hold
-    if (gesture.dragging && gesture.paints) {
+    // Review of 2026-11-17: not once the hold has set the anchor. That press
+    // marks nothing on release (pointerup's `anchored` branch), so a preview
+    // painted after it was left on the board as marks no undo could reach.
+    if (gesture.dragging && gesture.paints && !gesture.anchored) {
       player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, gesture.tool)));
     }
   });
@@ -3377,6 +3449,33 @@ function wireMarking(container, player) {
     player.show(player.getHistory().board);
     refresh();
   });
+
+  // Review of 2026-11-17: a pointer that goes down on the board and comes up
+  // somewhere the board no longer is. A redraw (a rotation, a window resize)
+  // replaces the table under a resting finger; with Region off nothing is
+  // captured, so that finger's pointerup is delivered to whatever is under
+  // it now and the two listeners above never hear it. Its entry then stayed
+  // in `touchPoints` for good, every later touch was read as a pinch's
+  // "second finger", and no tap marked anything until a reload. The window
+  // hears every pointer end, AFTER the stage's own listeners have run, so
+  // anything still on the books here is exactly such a stray: it is dropped
+  // the way pointercancel drops it, marking nothing.
+  for (const type of ["pointerup", "pointercancel"]) {
+    window.addEventListener(type, (event) => {
+      const stray = touchPoints.has(event.pointerId) || (gesture && gesture.pointerId === event.pointerId);
+      if (!stray) return;
+      touchPoints.delete(event.pointerId);
+      touchStartCell.delete(event.pointerId);
+      if (pinch && (event.pointerId === pinch.firstId || event.pointerId === pinch.secondId)) pinch = null;
+      if (gesture && gesture.pointerId === event.pointerId) {
+        clearTimeout(gesture.hold);
+        gesture = null;
+        lastClick = null;
+        player.show(player.getHistory().board);
+      }
+      refresh();
+    });
+  }
 
   zoomOut.addEventListener("click", () => {
     readerZoomed = true;
@@ -3865,8 +3964,15 @@ function wireMarking(container, player) {
     player.forget(); // a confirmed reset clears the save (see SAVE)
   });
   keep.addEventListener("click", closeConfirm);
-  confirm.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
+  // On the document, not on the dialog (review of 2026-11-17): a press on any
+  // other control while the confirmation is open takes the focus out of it,
+  // and Escape then did nothing while the question stayed on screen.
+  // One layer per Escape: a press the brush menu answered (it closes itself
+  // and puts the focus back on its trigger) leaves the confirmation open for
+  // the next one, the way every stacked dialog behaves.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || confirm.hidden) return;
+    if (event.target instanceof Element && event.target.closest("#puzzle-player-tool-menu") !== null) return;
     event.preventDefault();
     closeConfirm();
   });
@@ -3881,7 +3987,10 @@ function wireMarking(container, player) {
   }
 
   document.addEventListener("keydown", (event) => {
-    if (gesture || !(event.ctrlKey || event.metaKey) || event.altKey || !isZ(event)) return;
+    // `lineGesture` too (review of 2026-11-17): an undo in the middle of a
+    // strip drag took back an EARLIER stroke, and the drag's own record then
+    // dropped the redo stack, so that stroke could not be brought back.
+    if (gesture || lineGesture || !(event.ctrlKey || event.metaKey) || event.altKey || !isZ(event)) return;
     event.preventDefault();
     commit(event.shiftKey ? step.redo() : step.undo(), null, true);
   });
@@ -4172,7 +4281,11 @@ function wireMarking(container, player) {
     lineDialog.hidden = true;
     document.documentElement.classList.remove("is-line-open");
     lineOpen.setAttribute("aria-expanded", "false");
-    if (!lineOpen.hidden) lineOpen.focus();
+    // The Line button, or — when the view closed BECAUSE the button went (the
+    // board was solved from a strip, the window grew past the compact query)
+    // — the first control still on the page, so the focus is never dropped.
+    const home = [lineOpen, actions.reset, trigger].find((element) => element && element.offsetParent !== null);
+    home?.focus();
   }
 
   // Called from refresh(): the button follows the offer, and an open view
@@ -4217,10 +4330,31 @@ function wireMarking(container, player) {
     lineOpen.setAttribute("aria-expanded", "false");
     lineOpen.addEventListener("click", openLine);
     lineParts.action.close.addEventListener("click", closeLine);
-    lineDialog.addEventListener("keydown", (event) => {
-      if (event.key !== "Escape") return;
+    // On the document (review of 2026-11-17): a tap on the mini board or a
+    // long-press pivot leaves the focus on <body>, outside the dialog, and
+    // Escape then no longer closed the view.
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || focused === null) return;
       event.preventDefault();
       closeLine();
+    });
+    // Review of 2026-11-17: the view says aria-modal="true" and covers the
+    // page, but Tab walked out of it into the toolbar underneath, where Reset
+    // and its confirmation could clear the board unseen. Tab now stays in
+    // the view, wrapping at its two ends. A key handler and not `inert` on
+    // what is covered: the live region and the explain box the view borrows
+    // (see "the ask" above) live inside the covered toolbar and stage, and
+    // an inert live region announces nothing.
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Tab" || focused === null) return;
+      const stops = [...lineDialog.querySelectorAll("button")].filter(
+        (button) => button.offsetParent !== null && !button.disabled);
+      if (stops.length === 0) return;
+      const at = stops.indexOf(document.activeElement);
+      const edge = event.shiftKey ? 0 : stops.length - 1;
+      if (at !== -1 && at !== edge) return; // an ordinary step inside the view
+      event.preventDefault();
+      stops[event.shiftKey ? stops.length - 1 : 0].focus();
     });
     for (const [name, step] of [["prev", -1], ["next", 1]]) {
       lineParts.action[name].addEventListener("click", () => {

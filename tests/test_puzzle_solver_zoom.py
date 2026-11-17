@@ -833,6 +833,9 @@ class TestZoomArithmetic_PureFunctions:
                 stepInFromMid: S.stepZoom(137.5, 'in'),
                 stepOutFromMid: S.stepZoom(137.5, 'out'),
                 badDirection: attempt(() => S.stepZoom(150, 'sideways')),
+                notANumber: [S.clampZoom(NaN), S.clampZoom(NaN, 62), S.stepZoom(NaN, 'in'), S.pinchZoom(100, 10, NaN)],
+                noFit: attempt(() => S.fitZoom(Infinity, 10, Infinity, 5)),
+                noSuchCell: attempt(() => S.dragLine([0, 0], [[0, 1.5]])),
                 range: [S.ZOOM_MIN, S.ZOOM_MAX, S.ZOOM_STEP],
               };
             }"""
@@ -843,6 +846,12 @@ class TestZoomArithmetic_PureFunctions:
         assert (result["stepInAtMax"], result["stepOutAtMin"]) == (300, 100)
         assert (result["stepInFromMid"], result["stepOutFromMid"]) == (150, 125)
         assert result["badDirection"] == {"error": "RangeError"}
+        # Review of 2026-11-17: a zoom that is not a number comes back INTO
+        # range (it used to pass through, and a NaN zoom can never be stepped
+        # out of), and two inputs that used to answer NaN or never answer at
+        # all are refused like every other bad argument of this module.
+        assert result["notANumber"] == [100, 62, 100, 100]
+        assert result["noFit"] == {"error": "RangeError"} == result["noSuchCell"]
         assert result["range"] == [100, 300, 25]
 
     def test_pinch_zoom_scales_clamps_and_refuses_a_non_positive_distance(self, browser_page, live) -> None:
