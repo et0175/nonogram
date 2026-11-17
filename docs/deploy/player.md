@@ -710,6 +710,16 @@ Not observed: a real iPhone. The double-tap fix is the one thing only Safari on 
 
 **Then CARD-473, the same morning** (owner: "publish please"). Built from **`ddca09ce`** the same way into `~/Documents/nonogram-reviews/deploy-2026-11-17-473`; `diff -rq` against the UX-review tree names exactly one file, `play/index.html`, whose viewport is now `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no`. Preview **`nonogram-studio-3auonyn85`**: doors 200, `/nope` 404, the viewport served, puzzle 160 drew 870 cells and zoomed with no page error (Galaxy S9+ emulation). Promoted with `vercel promote … --scope et0175s-projects --yes`; the live play page carried `user-scalable=no` on poll 3, doors 200, `/nope` 404. **Not verified by a pinch**: headless Chromium's synthesized pinch zooms neither build, so the check is the owner's Android phone (puzzle 68). iOS Safari ignores `user-scalable=no`, so an iPhone can still page-zoom. Rollback target: `nonogram-studio-2ppg8kahr`.
 
+**The review publish, 2026-11-17 (the day's third).** The owner's "deploy the public player" after the review of the solver and the public site merged (`e3cb7315`, fixes `30966fca`). Built from **`e3cb7315`** the same way — `git archive e3cb7315 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-17-review/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics` — and `diff -rq` against the CARD-473 tree names exactly the six files the review changed: `admin.css`, `solver.js`, `solver_state.js`, `pages.js`, `how-to-solve.js`, `player.css`. The bundle is the one already live (book `0a958d036e`, 160 puzzles); production served the CARD-473 hashes before the publish.
+
+| Step | What was observed |
+| --- | --- |
+| Assemble | 160 puzzles, 1 book landing, `dropped (not in the served schema): title`. The six changed files each SHA-256 identical to their `e3cb7315` source; no goatcounter; no `.vercel/`. |
+| Preview | `vercel deploy --yes` with the two ids exported: **`nonogram-studio-gk6fjpluj`**, Ready at once. The six files matched; `/library`, `/play/<key>`, `/b/<slug>`, `/how-to-solve`, the puzzle and book files 200; `/nope` 404. |
+| Behaviour on the preview | Landscape phone (844 x 390): the reset confirmation's buttons 117 and 116 px wide (they were 44 px squares). The lesson opened from a book puzzle returns to `/b/0a958d036e`, themed `christmas`. Portrait phone, 30 x 30: two zoom steps keep the same centre cell. Library: "hard", a puzzle, Back — 35 tiles under a select still reading "hard". No page errors. |
+| Production | `vercel promote <preview> --scope et0175s-projects --yes` created **`nonogram-studio-cy19s7qao`**. All six files matched on `https://nonogram.adverax.io` on poll 2; the doors 200, `/nope` 404, and the four behaviours above read the same as on the preview; no page errors. |
+| Rollback target | The CARD-473 deployment (`nonogram-studio-6ak219gou`). |
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
