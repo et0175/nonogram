@@ -50,6 +50,22 @@ body:has(> .decor-garland) > main { padding-top: calc(72px + var(--space-1)); }
   .decor-garland svg { height: 32px; width: calc(32px * 240 / 64); }
 }
 
+/* CARD-465 (owner 2026-11-17, on M9): the side bough. Hidden everywhere but
+   the play page on a phone held sideways, where it REPLACES the garland: the
+   garland's height came off the board, so the bough hangs down the right
+   edge instead, in a strip the page keeps free for it. */
+.decor-side { display: none; }
+@media (max-height: 500px) and (orientation: landscape) {
+  body:has(.player-stage-wrap) > .decor-garland { display: none; }
+  body:has(.player-stage-wrap):has(> .decor-garland) > main { padding-top: var(--space-4); padding-right: calc(60px + var(--space-2)); }
+  body:has(.player-stage-wrap) > .decor-side {
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; right: 0; bottom: 0; width: 60px;
+    overflow: hidden; pointer-events: none;
+  }
+  .decor-side svg { flex: none; display: block; width: 60px; height: calc(60px * 240 / 64); }
+}
+
 .decor-snow-fill { fill: var(--grid-paper); stroke: var(--color-surface-sunken); stroke-width: 0.6; }
 
 .decor-snow {

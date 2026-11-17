@@ -75,6 +75,57 @@ export function garlandTile() {
   );
 }
 
+// CARD-465 (owner 2026-11-17, on M9: "I'd remove the garland but maybe add
+// some decoration to the right"): for a phone held sideways, where the
+// garland cost the board rows, a bough hanging down the RIGHT edge instead,
+// with baubles on short strings. One tile is 64x240 units; decor.css draws
+// it only on the play page held sideways, in a strip the page leaves free.
+const SIDE_WIDTH = 64;
+const SIDE_TILE = 240;
+const SIDE_TILES = 4;
+
+export function sideTile() {
+  const rnd = seeded(465);
+  const sway = (y) => 38 + 6 * Math.sin((Math.PI * y) / (SIDE_TILE / 2));
+  const needles = [];
+  for (let layer = 0; layer < 2; layer += 1) {
+    for (let i = 0; i <= SIDE_TILE; i += 2) {
+      const y = i + rnd() * 2 - 1;
+      const x = sway(y) + rnd() * 6 - 3;
+      for (let k = 0; k < 2; k += 1) {
+        const angle = rnd() * 2 * Math.PI - Math.PI;
+        const length = 5 + rnd() * 4 - layer;
+        const shade = 1 + Math.floor(rnd() * 4);
+        needles.push(
+          `<line class="decor-needle-${shade}" x1="${fixed(x)}" y1="${fixed(y)}" ` +
+            `x2="${fixed(x + length * Math.cos(angle) * 0.8)}" y2="${fixed(y + length * Math.sin(angle))}"></line>`
+        );
+      }
+    }
+  }
+  // A bauble hangs straight down from a point on the bough, to its left.
+  const bauble = (y, drop, r, tone) => {
+    const top = sway(y) - 6;
+    const cx = top - 4;
+    const cy = y + drop;
+    return `<line class="decor-gold-line" x1="${fixed(top)}" y1="${fixed(y)}" x2="${fixed(cx)}" y2="${fixed(cy - r)}"></line>` +
+      `<rect class="decor-gold" x="${fixed(cx - 2)}" y="${fixed(cy - r - 2)}" width="4" height="3" rx="1"></rect>` +
+      `<circle class="decor-${tone}" cx="${fixed(cx)}" cy="${fixed(cy)}" r="${r}"></circle>` +
+      `<circle class="decor-shine" cx="${fixed(cx - r * 0.35)}" cy="${fixed(cy - r * 0.35)}" r="${fixed(r * 0.28)}"></circle>`;
+  };
+  const berries = [30, 110, 190].flatMap((y) =>
+    [[0, 0], [1.5, 3.5], [3.5, 1]].map(
+      ([dx, dy]) => `<circle class="decor-berry" cx="${fixed(sway(y) + 3 + dx)}" cy="${fixed(y + dy)}" r="2"></circle>`
+    )
+  );
+  return (
+    `<svg viewBox="0 0 ${SIDE_WIDTH} ${SIDE_TILE}" preserveAspectRatio="xMinYMin meet" aria-hidden="true" focusable="false">` +
+    `<g class="decor-bough">${needles.join("")}</g>${berries.join("")}` +
+    bauble(60, 18, 11, "red") + bauble(145, 14, 8, "gold") + bauble(210, 20, 10, "red") +
+    "</svg>"
+  );
+}
+
 export function snowMarkup() {
   return `<svg viewBox="0 0 400 22" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="decor-snow-fill" d="${SNOW_PATH}"></path></svg>`;
 }
@@ -91,6 +142,13 @@ export function decorate(panels = []) {
   const tile = garlandTile();
   garland.innerHTML = tile.repeat(GARLAND_TILES);
   document.body.prepend(garland);
+  // CARD-465: the side bough, drawn on every decorated page and shown by
+  // decor.css only on the play page held sideways.
+  const side = document.createElement("div");
+  side.className = "decor-side";
+  side.setAttribute("aria-hidden", "true");
+  side.innerHTML = sideTile().repeat(SIDE_TILES);
+  document.body.prepend(side);
   const snow = snowMarkup();
   for (const panel of panels) {
     const drift = document.createElement("span");
