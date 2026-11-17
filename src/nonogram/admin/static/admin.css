@@ -901,6 +901,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    which asserts the trigger's width and the toggle's offset inside the
    group as well as the group's own width. */
 .player-tool-trigger { flex: 1 0 auto; padding-left: var(--space-2); padding-right: var(--space-2); }
+/* CARD-461 (UX review M5, owner 2026-11-17 "go on"): the brush button opens
+   a menu (CARD-194) but looked like a plain square on a phone. A small ▾
+   says so: after the brush's name on a desktop, in the button's corner on a
+   compact screen, where the button is one swatch wide (below). The four
+   brushes were NOT put inline: on an upright phone the row they need is the
+   one CARD-438 gave back to the board. */
+.player-tool-trigger { position: relative; }
+.player-tool-caret { margin-left: auto; font-size: var(--text-xs); line-height: 1; color: var(--color-text-secondary); }
 .player-toolbar .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--color-surface); }
 .player-swatch { position: relative; flex: none; width: var(--space-4); height: var(--space-4); background: var(--grid-paper); border: var(--border-width) solid var(--color-border-strong); }
 .player-swatch[data-state="filled"] { background: var(--grid-ink); border-color: var(--grid-ink); }
@@ -2094,6 +2102,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-tools { min-width: 0; }
   .player-tool-trigger { flex: 0 0 auto; min-width: 44px; justify-content: center; }
   .player-tool-trigger-text { display: none; }
+  .player-tool-caret { position: absolute; right: 3px; bottom: 2px; margin: 0; }
   .player-btn-label, .player-solved-label {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

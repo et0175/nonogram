@@ -269,6 +269,8 @@
         <button type="button" class="btn btn-outline-secondary player-tool-trigger" id="puzzle-player-tool-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="puzzle-player-tool-menu" aria-label="Brush: Black">
             <span class="player-swatch" data-state="filled" aria-hidden="true"></span>
             <span class="player-tool-trigger-text" aria-hidden="true" data-player-trigger-text>Black</span>
+            {# CARD-461 (UX review M5, owner 2026-11-17): the sign that this opens a menu. #}
+            <span class="player-tool-caret" aria-hidden="true">&#9662;</span>
         </button>
         <div class="player-tool-menu" id="puzzle-player-tool-menu" role="menu" aria-label="Brush" hidden>
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="filled" aria-checked="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
