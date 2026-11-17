@@ -360,7 +360,9 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     _open(page, url)
     assert _visible_step(page) == [1]
     assert page.locator("[data-hts-back]").is_hidden()
-    assert page.locator("[data-hts-caption]").inner_text() == "Step 1 of 7 · The rules"
+    # 2026-11-17 (owner's pass-2 review, item 15): the caption no longer
+    # repeats the step's name, which is the step's own heading.
+    assert page.locator("[data-hts-caption]").inner_text() == "Step 1 of 7"
 
     page.locator("[data-hts-next]").click()
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)

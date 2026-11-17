@@ -269,6 +269,9 @@ class TestSolverLine_ThePureHelpers:
               for (const bad of [0, 1.5, -3]) { try { m.lineStrips(bad); } catch { refused += 1; } }
               return {
                 strips: [10, 15, 16, 20, 22, 25, 30].map((n) => [...m.lineStrips(n)]),
+                // 2026-11-17 (owner's pass-2 review, item 9): an upright
+                // phone asks for strips of ten.
+                tall: [10, 22, 25, 30].map((n) => [...m.lineStrips(n, m.LINE_STRIP_TALL)]),
                 refused,
                 row: [...m.lineOf(board, 'row', 1)],
                 column: [...m.lineOf(board, 'column', 2)],
@@ -278,6 +281,7 @@ class TestSolverLine_ThePureHelpers:
               };
             }""")
         assert result["strips"] == [[10], [15], [10, 6], [10, 10], [10, 12], [15, 10], [15, 15]]
+        assert result["tall"] == [[10], [10, 10, 2], [10, 10, 5], [10, 10, 10]]
         assert result["refused"] == 3
         assert result["row"] == [U, U, F] and result["column"] == [U, F]
         assert result["crossRow"] == {"axis": "column", "index": 17, "at": 13}
@@ -419,7 +423,9 @@ class TestSolverLine_TheLineIsSplitInTwo:
     """AC-4 — split, not scrolled, at a phone's width."""
 
     @pytest.mark.parametrize(("grid", "axis", "split"), [
-        (BIG, "row", [15, 15]), (WIDE, "row", [15, 10]), (WIDE, "column", [10, 10]),
+        # 2026-11-17 (owner's pass-2 review, item 9): upright, strips of ten
+        # (they were 15 + 15 and 15 + 10, 23 px cells over half a free screen).
+        (BIG, "row", [10, 10, 10]), (WIDE, "row", [10, 10, 5]), (WIDE, "column", [10, 10]),
     ], ids=["30-row", "25-row", "20-column"])
     def test_the_strips_fit_the_phone(self, browser, live, grid, axis, split) -> None:
         context, page = _open_phone(browser, live, grid)
@@ -433,7 +439,7 @@ class TestSolverLine_TheLineIsSplitInTwo:
                 " cell: s.firstElementChild.getBoundingClientRect().width}))")
             assert [s["n"] for s in strips] == split
             assert all(s["right"] <= PHONE["width"] for s in strips)
-            assert min(s["cell"] for s in strips) >= 22
+            assert min(s["cell"] for s in strips) >= 30  # was 22 with strips of fifteen
             # One cell size for both strips.
             assert max(s["cell"] for s in strips) - min(s["cell"] for s in strips) < 1
             assert page.evaluate("document.documentElement.scrollWidth") <= PHONE["width"]
@@ -700,10 +706,13 @@ class TestSolverLine_ProbesInTheView:
             page.locator('[data-player-line-probe="abandon"]').tap()
             assert _board_line(page, "row", 0)[20] == U
             assert _probe_state(page)["strip"] == []
-            # The probe is gone, so the ask and its answer go with it.
+            # The probe is gone, so the ask's answer goes with it.
+            # RETIRED CLAIM, 2026-11-17 (owner's pass-2 review, item 9: "There
+            # is no Hint in Line view"): the ask itself was hidden outside a
+            # probe; it now stays, as the board's own Hint, under that name.
             assert _flags(page) == {"clue": False, "abandon": False}
             assert _jump_targets(page) == []
-            assert page.locator("[data-player-line-ask]").is_hidden()
+            assert page.locator("[data-player-line-ask]").get_attribute("aria-label") == "Hint"
             offer = page.locator("#puzzle-player-offer")
             assert offer.is_visible()
             assert "row 1, column 21 must be white" in offer.text_content()

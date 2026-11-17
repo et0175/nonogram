@@ -78,7 +78,11 @@ def _line_cells(start, path):
 
     The axis is the first path cell's, other than ``start``: the row when its
     column distance is at least its row distance. The covered cells are the
-    union of the spans between consecutive on-line positions, ``start`` first.
+    union of the spans between consecutive positions along the line,
+    ``start`` first. RETIRED CLAIM, 2026-11-17 (owner's pass-2 review, item 1:
+    "once the axis is locked, project the pointer onto it"): a path cell off
+    the line used to add nothing; it now counts by its column on a row drag
+    and by its row on a column drag.
     """
     sr, sc = start
     moved = [p for p in path if tuple(p) != (sr, sc)]
@@ -87,9 +91,9 @@ def _line_cells(start, path):
     fr, fc = moved[0]
     along_row = abs(fc - sc) >= abs(fr - sr)
     if along_row:
-        stops = [sc] + [c for r, c in path if r == sr]
+        stops = [sc] + [c for r, c in moved]
         return {(sr, k) for a, b in zip(stops, stops[1:]) for k in range(min(a, b), max(a, b) + 1)} | {(sr, sc)}
-    stops = [sr] + [r for r, c in path if c == sc]
+    stops = [sr] + [r for r, c in moved]
     return {(k, sc) for a, b in zip(stops, stops[1:]) for k in range(min(a, b), max(a, b) + 1)} | {(sr, sc)}
 
 
@@ -326,10 +330,14 @@ class TestSolverMarking_ClickCycles:
             context.close()
 
     def test_other_mouse_buttons_mark_nothing(self, browser_page, live) -> None:
+        """RETIRED CLAIM, 2026-11-17 (owner's pass-2 review, item 5: "Right-click
+        does not put White"): the right button marked nothing; it now marks
+        White whatever the brush. The middle button still marks nothing."""
         _open(browser_page, live, live.store(GRID))
-        _cell(browser_page, 3, 3).click(button="right")
         _cell(browser_page, 3, 3).click(button="middle")
         assert _marked(_states(browser_page)) == {}
+        _cell(browser_page, 3, 3).click(button="right")
+        assert _marked(_states(browser_page)) == {(3, 3): E}
 
 
 @pytest.mark.browser
@@ -676,18 +684,22 @@ class TestSolverClickFollowsTheBrush:
         assert browser_page.evaluate("document.querySelector('.player-board').getBoundingClientRect().top") == board_top
         bullets = [" ".join(li.split()) for li in howto.locator("li").all_inner_texts()]
         assert bullets == [
-            "Tap a cell to fill it. Tap again to cycle: black, white (dot), empty.",
+            # 2026-11-17 (pass-2 review, item 18): "square", as everywhere
+            # else on the site, and a desktop is clicked, not tapped.
+            "Tap or click a square to fill it. Do it again to cycle: black, white (dot), empty.",
             "Brush (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.",
-            "Region (the two squares): turn it on, then drag along a row or column to mark many cells at once, or press and hold one cell and tap the other end. With it off, dragging scrolls.",
+            "Region (the two squares): turn it on, then drag along a row or column to mark many squares at once, or press and hold one square and tap the other end. With it off, dragging scrolls.",
             # CARD-446: the history group, and Line's bullet (in the list
             # always; hidden by syncLine wherever the Line button is).
             "Undo and Redo: step back or forward one mark at a time.",
             "Reset: clears the whole board after asking. Undo brings it back.",
             "Line (big puzzles on a phone): opens one row or column in big squares.",
-            "Hint: press up to three times. First it shows where to look, then why, then it fills the cell.",
+            "Hint: press up to three times. First it shows where to look, then why, then it fills the square.",
             "Check: highlights the row of the first wrong mark.",
             "Probe: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.",
             "Zoom: \u2212 / + or Fit to see the whole puzzle.",
+            # 2026-11-17 (pass-2 review, item 5): the desktop's two inputs.
+            "On a computer, right-click puts White; the arrow keys move and Space marks.",
         ], bullets
         assert line["height"] < 40, line  # the closed line is one line
 
@@ -779,12 +791,19 @@ class TestSolverMarking_DragMarksOneLine:
         assert {r for r, _ in marked} == {1}, marked  # nothing in rows 3 or 4 (indexes 2, 3)
 
     def test_a_drag_that_jumps_off_its_row_marks_only_the_start(self, browser_page, live) -> None:
-        """AC-306, cell by cell with no intermediate pointer positions."""
+        """AC-306, cell by cell with no intermediate pointer positions.
+
+        RETIRED CLAIM, 2026-11-17 (owner's pass-2 review, item 1: "once the
+        axis is locked, project the pointer onto it"): this used to mark the
+        start alone, because the off-row cells added nothing. They are now
+        projected onto row 2, so the drag marks row 2's columns 3-7 — and
+        still nothing in rows 3 or 4, which is AC-306 itself.
+        """
         _open(browser_page, live, live.store(GRID))
 
         _drag(browser_page, [(1, 2), (2, 4), (3, 6)], steps=1)
 
-        assert _marked(_states(browser_page)) == {(1, 2): F}
+        assert _marked(_states(browser_page)) == {(1, c): F for c in range(2, 7)}
 
     def test_coming_back_to_the_row_marks_the_span_passed(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -1690,11 +1709,15 @@ class TestSolverHistoryModule:
             ((2, 3), [(2, 3), (2, 3)], [(2, 3)]),
             ((2, 3), [(2, 4), (2, 7)], [(2, 3), (2, 4), (2, 5), (2, 6), (2, 7)]),
             ((2, 3), [(5, 3)], [(2, 3), (3, 3), (4, 3), (5, 3)]),
-            ((2, 3), [(3, 4), (2, 1)], [(2, 3), (2, 2), (2, 1)]),  # tie: the row; off-row ignored
+            # 2026-11-17 (pass-2 review, item 1): an off-line cell is projected
+            # onto the line, where it used to be ignored.
+            ((2, 3), [(3, 4), (2, 1)], [(2, 3), (2, 4), (2, 2), (2, 1)]),  # tie: the row; off-row projected
             ((2, 3), [(4, 4), (5, 3)], [(2, 3), (3, 3), (4, 3), (5, 3)]),  # further in rows: the column
             ((2, 3), [(2, 5), (2, 1)], [(2, 3), (2, 4), (2, 5), (2, 2), (2, 1)]),
-            ((2, 3), [(2, 5), (3, 9), (2, 8)], [(2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8)]),
-            ((2, 3), [(3, 5), (4, 7)], [(2, 3)]),  # AC-306's wander, cell by cell
+            ((2, 3), [(2, 5), (3, 9), (2, 8)], [(2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (2, 9)]),
+            # AC-306's wander, cell by cell: still only row 2 (the AC), now
+            # the projected columns 3-7 of it rather than the start alone.
+            ((2, 3), [(3, 5), (4, 7)], [(2, 3), (2, 4), (2, 5), (2, 6), (2, 7)]),
         ],
         ids=["no-path", "only-start", "row-skips", "column", "tie-is-row", "column-wins",
              "back-and-forth", "returns-to-row", "ac306-wander"],

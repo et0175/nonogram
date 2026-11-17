@@ -291,11 +291,15 @@ export function clickStroke(board, row, col, tool, repeat) {
 // was over afterwards, in order (repeats allowed). The drag keeps to the row
 // or the column through `start`, decided by the first path cell that is not
 // `start`: the row when it is at least as far from `start` in columns as in
-// rows, the column otherwise. A path cell off that line adds nothing. Each
-// path cell on the line adds every cell between it and the previous on-line
-// position (`start` at first), so a pointer that moves fast enough to skip
-// cells still covers the cells it passed. A path of only `start` covers
-// `start` alone.
+// rows, the column otherwise. A path cell off that line is PROJECTED onto it
+// (review of 2026-11-17, pass 2: a phone's 11 px rows meant 8 px of drift
+// dropped a 10-cell drag to 6, because an off-line cell used to add
+// nothing): its column counts on a row drag, its row on a column drag. Each
+// path cell then adds every cell between it and the previous position
+// (`start` at first), so a pointer that moves fast enough to skip cells
+// still covers the cells it passed. A path of only `start` covers `start`
+// alone. The line itself is never left, so AC-306 still holds: a wander
+// marks only cells of the start's row (or column).
 export function dragLine(start, path) {
   // Whole cells only (review of 2026-11-17): the walk below steps by one
   // until it EQUALS the cell it is reaching, so a fractional or NaN
@@ -316,7 +320,6 @@ export function dragLine(start, path) {
       alongRow = Math.abs(col - startCol) >= Math.abs(row - startRow);
       last = alongRow ? startCol : startRow;
     }
-    if (alongRow ? row !== startRow : col !== startCol) continue;
     const reached = alongRow ? col : row;
     const step = reached >= last ? 1 : -1;
     for (let k = last; k !== reached + step; k += step) {
@@ -1549,6 +1552,25 @@ export function brokenLines(board, checkpointBoard, rows, columns) {
   return Object.freeze({ rows: pick("row", rows), columns: pick("column", columns) });
 }
 
+// Review of 2026-11-17, pass 2 (item 6): the first line, rows top to bottom
+// and then columns left to right, that no placement of its clue fits on
+// `board` as the player has marked it (lineForced returns null), as
+// { axis: "row" | "column", index }, or null when every line still fits.
+// A hint deduced from a board with such a line is deduced from a wrong mark,
+// so Hint names this line before anything else. Clues and marks only, never
+// the solution: the same in public mode.
+export function firstBrokenLine(board, rows, columns) {
+  for (let row = 0; row < board.height; row += 1) {
+    const cells = Array.from({ length: board.width }, (_, c) => board.cells[row * board.width + c]);
+    if (lineForced(rows[row], cells) === null) return Object.freeze({ axis: "row", index: row });
+  }
+  for (let col = 0; col < board.width; col += 1) {
+    const cells = Array.from({ length: board.height }, (_, r) => board.cells[r * board.width + col]);
+    if (lineForced(columns[col], cells) === null) return Object.freeze({ axis: "column", index: col });
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Saving a game in this browser (CARD-185; FR-044 AC-360..AC-365, EC-046/047)
 //
@@ -1725,9 +1747,21 @@ export const LINE_STRIP_MAX = 15;
 // board's heavy every-fifth rule then falls on the same cells in the strip)
 // as close to half as fives allow — 30 is 15 + 15, 25 is 15 + 10, 20 is
 // 10 + 10, 22 is 10 + 12. Frozen array of strip lengths, summing to `length`.
-export function lineStrips(length) {
+//
+// Review of 2026-11-17, pass 2: an upright phone has half its screen free
+// under two strips of 23 px cells, so the view asks for strips of at most
+// LINE_STRIP_TALL there — `max` — and a line longer than that is cut into
+// as many strips of `max` as it needs, the last one taking the rest (25 is
+// 10 + 10 + 5, 30 is 10 + 10 + 10): about 36 px cells across 390 px.
+export const LINE_STRIP_TALL = 10;
+export function lineStrips(length, max = LINE_STRIP_MAX) {
   if (!Number.isInteger(length) || length < 1) throw new RangeError(`a line of ${length} cells`);
-  if (length <= LINE_STRIP_MAX) return Object.freeze([length]);
+  if (length <= max) return Object.freeze([length]);
+  if (max < LINE_STRIP_MAX) {
+    const strips = [];
+    for (let left = length; left > 0; left -= max) strips.push(Math.min(max, left));
+    return Object.freeze(strips);
+  }
   const first = Math.min(LINE_STRIP_MAX, 5 * Math.max(1, Math.round(length / 10)));
   return Object.freeze([first, length - first]);
 }

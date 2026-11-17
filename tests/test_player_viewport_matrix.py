@@ -215,6 +215,16 @@ def test_every_option_of_the_player_works_at_this_screen(screen, preview_host) -
 
     # ---- the hint ladder: line, reason, then one revealed cell ------------
     hint = page.locator('[data-player-action="hint"]')
+    # 2026-11-17 (owner's pass-2 review, item 6): the test marks made above
+    # leave a row that cannot fit its clue, and with no answer to check marks
+    # against Hint now names that line before anything else. Then the board
+    # is reset, and the ladder runs on clean marks.
+    press(hint)
+    assert "no longer fits its clue" in page.locator("#puzzle-player-explain").text_content(), \
+        page.locator("#puzzle-player-explain").text_content()
+    press(page.locator('[data-player-action="reset"]'))
+    press(page.get_by_role("button", name="Reset board"))
+    marked = page.evaluate(_MARKED)
     said = []
     for _ in range(3):
         press(hint)
