@@ -529,11 +529,19 @@ _SHARED_UI_PAGE = """<!doctype html>
   tokens.css are byte-identical copies of the admin's files; there is no
   override stylesheet. Only a puzzle opened from a Christmas book attaches
   decor.css (CARD-422), for its decorations and its heading's colour.
+
+  CARD-473 (owner's Android report, 2026-11-17, puzzle 68: the clues and the
+  toolbar gone off screen): a two-finger pinch that did not start on a cell
+  zoomed the BROWSER's view of the whole page, past the board's own sticky
+  clues, which stick to the stage and not to the window. The play page asks
+  the browser not to zoom it (maximum-scale=1, user-scalable=no); the board
+  zooms itself with - / + / Fit and its own pinch. This reverses the
+  2026-11-05 "leave the browser's pinch on", on a reported device problem.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Nonogram</title>
 <link rel="stylesheet" href="@@BASE@@">
 <link rel="stylesheet" href="/tokens.css">
