@@ -1,6 +1,6 @@
 # CARD-460: Phone toolbar icons get captions; Reset moves away from Redo
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5c (0.2d)
@@ -39,3 +39,4 @@ Small captions under each icon in the two-row portrait toolbar; Reset moves to t
 - **AC-2**: Reset is not adjacent to Redo.
 
 ## Worktree notes
+- **[Skipped, 2026-11-17]** M4: the owner kept CARD-401's icons-only phone toolbar (2026-11-17: "do h4, m2, l1, l2", M4 not among them).

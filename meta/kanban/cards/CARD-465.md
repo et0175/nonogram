@@ -1,6 +1,6 @@
 # CARD-465: Zoomed in on a landscape phone, the clue band leaves room for the board
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.3d)
@@ -38,3 +38,4 @@ In landscape, the sticky clue band uses a smaller numeral size when zoomed in (w
 - **AC-1**: at 839×412 and 125 %, at least 12 rows of the 30×29 are visible.
 
 ## Worktree notes
+- **[Skipped, 2026-11-17]** M9: the owner kept CARD-196's 12 px numeral floor (2026-11-17: "do h4, m2, l1, l2", M9 not among them).
