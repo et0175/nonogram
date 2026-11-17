@@ -366,6 +366,10 @@ class TestSharedUi_ThePageRuns:
         assert re.findall(r'rel="stylesheet" href="([^"]+)"', html) == [
             "/base.css", "/tokens.css", "/admin.css"]
         assert [p for p in tree_bytes(report.site_dir) if "bootstrap" in p.lower()] == []
+        # CARD-473 (owner's Android report, 2026-11-17): the browser does not
+        # zoom the play page; the board zooms itself.
+        assert re.findall(r'<meta name="viewport" content="([^"]+)"', html) == [
+            "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"]
         base = (report.site_dir / "base.css").read_text(encoding="utf-8")
         assert not re.search(r"https?:|//[a-z]|/\*!|@import|url\(", base), "no URL, import or licence header"
 
