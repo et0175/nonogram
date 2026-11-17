@@ -1025,3 +1025,11 @@ recorded from it.
 git tag `play-js-last` marks the last commit that has `player/play.js` and the opt-in
 shared-UI preview assembly (the old command-line flag for it is gone). Production itself serves whatever tree was last deployed; the
 "What production is" tables above describe `play.js` deployments and are dated history.
+
+**Then the second review pass, the same evening** (owner: "deploy your findings please", then "please merge it"). Built from **`431efe0f`** (the pass-2 fixes `8e46e4d4` plus the owner's two additions `0c155335`: Line on every board on a phone, the zoom readout between − and +) into `build/site-20261117-pass2b`.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing, `dropped (not in the served schema): title`. `admin.css`, `solver.js`, `solver_state.js`, `tokens.css`, `player.css`, `how-to-solve.js`, `pages.js` byte-identical to their `431efe0f` sources; no puzzle file carries `solution`; no `.vercel/` in the tree. |
+| Preview | `vercel deploy --yes`: `nonogram-studio-p61nukqt1`. Doors 200, `/nope` 404, `solver.js` matched. |
+| Production | `vercel promote <preview> --scope et0175s-projects --yes` created **`nonogram-studio-570o5qb10`**; `https://nonogram.adverax.io` served the new files on poll 2, doors 200, `/nope` 404. Headless Chromium on `/play/33fa80994c?book=0a958d036e` at 1280x800, 390x844 and 844x390: zoom order out/readout/in; Line shown on both phone sizes and not on the desktop; the first Hint's box placed `side`, `under`, `side`; no page errors. Rollback target: `nonogram-studio-cy19s7qao`. |
