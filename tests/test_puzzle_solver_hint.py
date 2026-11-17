@@ -556,8 +556,12 @@ def _shots(page):
     finally:
         page.evaluate(f"() => {{ {strip}.style.visibility = ''; }}")
     view = page.evaluate("() => [document.documentElement.clientWidth, document.documentElement.clientHeight]")
-    shots["line"] = page.screenshot(
-        clip={"x": 0, "y": view[1] / 2 - 64, "width": view[0], "height": 128})
+    # CARD-455 (UX review H4, owner 2026-11-17): with a line lit the box is
+    # at the window's top or bottom edge (data-place), away from that line;
+    # the band read is that edge's 128 px, still fixed for one placement.
+    place = page.evaluate(f"() => {strip}.dataset.place ?? ''")
+    top = {"top": 0, "bottom": view[1] - 128}.get(place, view[1] / 2 - 64)
+    shots["line"] = page.screenshot(clip={"x": 0, "y": top, "width": view[0], "height": 128})
     return shots
 
 
@@ -786,21 +790,39 @@ def _reason(clue, cells, at):
 #: ``HINT_REASONS``, so an extra or missing sentence in the source is a
 #: failure there rather than a dead branch nothing reaches.
 _REASON_SENTENCE = {
-    "runs-complete": lambda axis, run: f"every run in this {axis} is placed; the rest is white.",
-    "overlap": lambda axis, run: f"the {run}-run must overlap in the middle whatever its position.",
-    "generic": lambda axis, run: f"every placement of this {axis}'s clues agrees on at least one cell.",
+    # CARD-455 (UX review H4, owner 2026-11-17): "block", not "run", and a
+    # reason a reader can check by eye. Were "every run in this {axis} is
+    # placed; the rest is white.", "the {run}-run must overlap in the middle
+    # whatever its position." and "every placement of this {axis}'s clues
+    # agrees on at least one cell."
+    "runs-complete": lambda axis, run: f"every block in this {axis} is placed, so the rest is white.",
+    "overlap": lambda axis, run: f"wherever the block of {run} can sit, it always covers the same cells, so they are black.",
+    "generic": lambda axis, run: f"every way of placing this {axis}'s blocks agrees on at least one cell.",
 }
 
 
-def _rung_text(rung, axis, index, reason=None):
+def _printed_clue(page, axis, index):
+    """The numbers drawn in (``axis``, ``index``)'s clue box, as the reader
+    sees them — read off the board, which draws them from the payload
+    independently of the hint's sentence code."""
+    kind = "row" if axis == "row" else "col"
+    return page.evaluate(
+        f"() => [...document.querySelector('th.player-clue.is-{kind}[data-line=\"{index}\"]')"
+        ".querySelectorAll('.player-clue-num')].map((n) => n.textContent).join(' ')")
+
+
+def _rung_text(rung, axis, index, reason=None, *, page):
     """What #puzzle-player-announce says on rung 1 or rung 2 of a ladder
     pointing at (``axis``, ``index``), 0-based, announced 1-based."""
     # CARD-409 (owner finding 2026-11-07): "the highlighted row (13)" — the
     # highlight points, the number is the backup. Was "look at row 13".
+    # CARD-455 (owner 2026-11-17): and the line's printed clue beside its
+    # number — "(1)" read as a count. Was "the highlighted row (13)".
+    name = f"{axis} {index + 1} (clue {_printed_clue(page, axis, index)})"
     if rung == 1:
-        return f"Hint: look at the highlighted {axis} ({index + 1})."
+        return f"Hint: look at the highlighted {name}."
     case, run = reason
-    return f"Hint: look at the highlighted {axis} ({index + 1}) — {_REASON_SENTENCE[case](axis, run)}"
+    return f"Hint: look at the highlighted {name} — {_REASON_SENTENCE[case](axis, run)}"
 
 
 def _grid_ladder_line(cells):
@@ -1100,7 +1122,7 @@ class TestSolverHint_FallsBackToTheSolution:
         _hint(browser_page).click()
 
         assert _lined(browser_page)["cells"] != []
-        assert _announced(browser_page) == _rung_text(1, axis, index)
+        assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page)
 
 
 @pytest.mark.browser
@@ -1791,7 +1813,7 @@ class TestSolverHintLadder_FirstPressPointsAtALine:
             assert lined["cells"] == [[row, index] for row in range(SIDE)]
             assert lined["colClues"] == [index]
             assert lined["rowClues"] == []
-        assert _announced(browser_page) == _rung_text(1, axis, index)
+        assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page)
         assert browser_page.evaluate(_ONLY_THIS_SAVE)
 
     def test_the_cell_the_third_press_will_reveal_is_on_that_line(self, browser_page, live) -> None:
@@ -1865,7 +1887,7 @@ class TestSolverHintLadder_SecondPressExplains:
             _hint(browser_page).click()
             first = _announced(browser_page)
             lined = _lined(browser_page)
-            assert first == _rung_text(1, axis, index), case
+            assert first == _rung_text(1, axis, index, page=browser_page), case
 
             _hint(browser_page).click()
 
@@ -1874,7 +1896,7 @@ class TestSolverHintLadder_SecondPressExplains:
             assert _hinted(browser_page) == [], case
             assert _lined(browser_page) == lined, case  # the same line, same highlight
             said = _announced(browser_page)
-            assert said == _rung_text(2, axis, index, reason), case
+            assert said == _rung_text(2, axis, index, reason, page=browser_page), case
             assert said != first, case
             assert "undefined" not in said, case
             assert said.startswith(f"{first[:-1]} — "), (case, said, first)
@@ -1925,7 +1947,7 @@ class TestSolverHintLadder_ThirdPressRevealsTheSameSituation:
 
         assert _states(browser_page) == after  # a point, not a second reveal
         assert _hints_shown(browser_page) == 1
-        assert _announced(browser_page) == _rung_text(1, axis, index)
+        assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page)
         assert _lined(browser_page)["cells"] != []
 
 
@@ -1989,7 +2011,7 @@ class TestSolverHintLadder_AnyChangeResetsTheLadder:
         _hint(browser_page).click()
 
         assert _states(browser_page) == after, event  # rung 1 reveals nothing
-        assert _announced(browser_page) == _rung_text(1, axis, index), event
+        assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page), event
         assert _lined(browser_page)["cells"] != [], event
 
     def test_the_control_two_presses_with_no_change_between_them_do_climb(
@@ -2178,7 +2200,7 @@ class TestSolverHintLadder_TheReasonIsNeverALie:
         """
         _open(browser_page, live, live.store(GRID))
         boards = _reason_boards()
-        words = {"runs-complete": "is placed", "overlap": "must overlap"}
+        words = {"runs-complete": "is placed", "overlap": "always covers the same cells"}  # CARD-455: was "must overlap"
         said = {}
         for case, cells in boards.items():
             _set(browser_page, cells)
@@ -2244,7 +2266,7 @@ class TestSolverHintLadder_NeitherRungNorCheckIsSaved:
         # Rung 1, not rung 2 and not a reveal: the first press after a reload
         # points at the line.
         assert _states(browser_page) == before
-        assert _announced(browser_page) == _rung_text(1, axis, index)
+        assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page)
         assert _hints_shown(browser_page) == 0
 
     def test_the_control_rung_three_does_change_the_save(self, browser_page, live) -> None:
@@ -2558,14 +2580,14 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
         _hint(browser_page).click()
         one, said1 = _shots(browser_page), _explained(browser_page)
 
-        assert said1 == _rung_text(1, axis, index)
+        assert said1 == _rung_text(1, axis, index, page=browser_page)
         assert said1 == _announced(browser_page)  # both channels, one sentence
         assert _digests(one) != _digests(blank)
 
         _hint(browser_page).click()
         two, said2 = _shots(browser_page), _explained(browser_page)
 
-        assert said2 == _rung_text(2, axis, index, reason)
+        assert said2 == _rung_text(2, axis, index, reason, page=browser_page)
         assert said2 == _announced(browser_page)
         assert said2 != said1
         assert _digests(two)["line"] != _digests(one)["line"], "rung 2 is invisible again (F-2)"
@@ -2792,10 +2814,19 @@ class TestSolverHintLadder_EveryPressChangesSomethingSeen:
                 full = page.evaluate(_BOXES_AROUND_THE_LINE)
                 assert " — " in _explained(page), width
                 box = page.evaluate(_BOX_IN_THE_VIEWPORT)
-                # AC-1: centred in the VIEWPORT, not against the board — the
-                # ruling is the screen's centre, so the measurement is too.
+                # AC-1: fixed and centred ACROSS the viewport. CARD-455 (UX
+                # review H4, owner 2026-11-17) retires "and down": with a line
+                # lit the box sits at the window's edge away from it; on this
+                # board, at every size here, it covers none of that line.
                 assert box["position"] == "fixed", (width, height, box)
-                assert abs(box["dx"]) <= 2 and abs(box["dy"]) <= 2, (width, height, box)
+                assert abs(box["dx"]) <= 2, (width, height, box)
+                covers = page.evaluate("""() => {
+                  const b = document.getElementById('puzzle-player-explain').getBoundingClientRect();
+                  return [...document.querySelectorAll('.is-hint-line')].filter((e) => {
+                    const r = e.getBoundingClientRect();
+                    return r.bottom > b.top && r.top < b.bottom && r.right > b.left && r.left < b.right;
+                  }).length; }""")
+                assert covers == 0, (width, height, box, covers)
 
                 if (width, height) == (844, 390):
                     page.keyboard.press("Escape")  # AC-3: Escape dismisses too

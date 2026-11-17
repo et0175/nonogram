@@ -1248,6 +1248,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   box-shadow: var(--shadow-modal); pointer-events: none;
 }
 .player-explain:empty, .player-explain[hidden] { display: none; }
+/* CARD-455 (UX review H4, owner 2026-11-17): with a line lit, solver.js's
+   placeExplain puts the box at the window's edge away from that line
+   instead of over the board's middle. */
+.player-explain[data-place="top"] { inset: var(--space-4) 0 auto 0; margin: 0 auto; }
+.player-explain[data-place="bottom"] { inset: auto 0 var(--space-4) 0; margin: 0 auto; }
 /* CARD-412: the Wrong-guess offer, in the hint box's place and look; it
    holds two buttons, so it takes the pointer, and it is a row that wraps.
    CARD-427: it carries .player-explain, so the owner's "contradiction and
