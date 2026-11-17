@@ -1894,6 +1894,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      upright phone (CARD-454); the dashed marks and Keep / Wrong guess show
      that a probe is open. */
   .player-toolbar:not(:has([data-player-action="check"])) .player-probe-note { display: none; }
+  /* CARD-457 (UX review M1, owner 2026-11-17 "go on"): on the public desktop
+     page a small board stopped at the 28 px cell cap with most of the window
+     empty (a 10 x 10 was ~300 px at 1280 x 800); the cap is 36 px there. A
+     big board is bound by the window's height long before either cap. */
+  .player-toolbar:not(:has([data-player-action="check"])) ~ .player-stage-wrap .player-stage { --player-cell-max: 36px; }
 }
 /* The glyphs carry the pair's meaning in colour too, so the phone's
    icon-only Keep (✓) does not read as Check's tick. */
