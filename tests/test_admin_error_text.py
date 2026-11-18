@@ -398,3 +398,383 @@ class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
         assert not any(marker in m for _, m in _flashes(client))
         for name, value in response.headers.items():
             assert marker not in value, name
+
+
+# --------------------------------------------------------------------------
+# CARD-480 — the same rule for the rest of the panel
+# --------------------------------------------------------------------------
+
+import ast as _ast
+
+import nonogram.admin.app as _app_module
+
+#: The panel's source, read for the population of handlers below.
+_APP_SOURCE = Path(_app_module.__file__).read_text(encoding="utf-8")
+
+#: The only things a broad handler may do with the exception it binds: re-raise
+#: it, log it, test what it is (``isinstance``, and the two predicates that
+#: tell the page plan's failures apart), stamp it as logged (``setattr``), or
+#: hand it to Finalise's plan-failure page — whose on-screen text is CARD-171's
+#: deliberate exception: it shows only a failure already stamped as the page
+#: plan's own and already logged.
+_ALLOWED_USES = {
+    "isinstance", "setattr", "_is_an_unpackable_row", "_is_a_logged_plan_failure",
+    "_page_plan_failure_page",
+}
+
+#: Broad handlers in app.py at this card's head (22, by ``_is_broad``): a
+#: floor, so the population cannot silently shrink.
+_BROAD_HANDLER_FLOOR = 22
+
+
+def _is_broad(handler: _ast.ExceptHandler) -> bool:
+    """A handler for any exception at all: bare, ``Exception`` or
+    ``BaseException``, alone or in a tuple."""
+    if handler.type is None:
+        return True
+    names = handler.type.elts if isinstance(handler.type, _ast.Tuple) else [handler.type]
+    return any(isinstance(n, _ast.Name) and n.id in {"Exception", "BaseException"} for n in names)
+
+
+def _forbidden_uses(handler: _ast.ExceptHandler) -> list[str]:
+    """Every read of the handler's bound name that is not one of the allowed
+    uses — default-deny: a read is allowed only as an argument of an allowed
+    call, inside a logging call, or as what ``raise`` raises."""
+    if not handler.name:
+        return []
+    allowed = set()
+    for node in _ast.walk(_ast.Module(body=handler.body, type_ignores=[])):
+        if isinstance(node, _ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, _ast.Name) else getattr(func, "attr", None)
+            is_log = isinstance(func, _ast.Attribute) and isinstance(func.value, _ast.Attribute) and func.value.attr == "logger"
+            if name in _ALLOWED_USES or is_log:
+                allowed.update(id(a) for a in node.args)
+        if isinstance(node, _ast.Raise) and isinstance(node.exc, _ast.Name):
+            allowed.add(id(node.exc))
+    return [
+        f"line {node.lineno}"
+        for node in _ast.walk(_ast.Module(body=handler.body, type_ignores=[]))
+        if isinstance(node, _ast.Name) and node.id == handler.name
+        and isinstance(node.ctx, _ast.Load) and id(node) not in allowed
+    ]
+
+
+def _shows_something(handler: _ast.ExceptHandler) -> bool:
+    """Whether the handler puts anything on screen itself: a flash, a
+    rendered template, a ``return``, or a line appended to a list that the
+    page shows."""
+    for node in _ast.walk(_ast.Module(body=handler.body, type_ignores=[])):
+        if isinstance(node, _ast.Return) and not (
+            node.value is None or (isinstance(node.value, _ast.Constant) and node.value.value is None)
+        ):
+            return True
+        if isinstance(node, _ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, _ast.Name) else getattr(func, "attr", None)
+            if name in {"flash", "render_template", "jsonify", "append", "abort"}:
+                return True
+    return False
+
+
+def _enclosing_function(tree, target) -> str:
+    for node in _ast.walk(tree):
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            if any(child is target for child in _ast.walk(node)):
+                innermost = node.name
+    return innermost
+
+
+def test_no_broad_handler_puts_its_exception_on_screen() -> None:
+    """AC-1, derived from the source: no handler in app.py that catches any
+    exception at all reads its bound exception except to re-raise it, log
+    it, test what it is, stamp it, or pass it to Finalise's plan-failure
+    page. The proof pages' handler flashes a ValueError's own text
+    (CARD-118's refusal for a trim with no room for the proof note); that
+    read is the one listed exemption.
+
+    And every broad handler that shows something, by this test's sink
+    model, is planted by
+    :func:`test_a_planted_failure_shows_fixed_text_and_is_logged`: the plant
+    list is held to that population. The sink model is the handler's own
+    body only — a ``return`` of anything but ``None``, or a call named
+    ``flash``, ``render_template``, ``jsonify``, ``append`` or ``abort``.
+    A handler that shows text any other way is outside it and goes
+    unplanted (measured in review: text written into the session, or into a
+    variable rendered after the ``try``).
+
+    What it cannot see, measured: an exception reached without its bound
+    name (``traceback.format_exc()``, ``sys.exc_info()``, ``__context__``), a
+    value stamped onto it with ``setattr`` and read back, a broad type
+    spelled other than as a bare name (``builtins.Exception``), and a call to
+    the plan-failure page from a handler that has not checked the stamp.
+    The plants below are what catch the first three on the routes they
+    cover."""
+    tree = _ast.parse(_APP_SOURCE)
+    handlers = [n for n in _ast.walk(tree) if isinstance(n, _ast.ExceptHandler) and _is_broad(n)]
+    assert len(handlers) >= _BROAD_HANDLER_FLOOR, len(handlers)
+
+    leaks = {}
+    for handler in handlers:
+        uses = _forbidden_uses(handler)
+        if uses:
+            leaks[handler.lineno] = uses
+    # The one exemption: the proof pages' ValueError branch, located by text.
+    proof = _APP_SOURCE.index('flash(f"Failed to generate proof pages: {e}", "error")')
+    proof_line = _APP_SOURCE.count("\n", 0, proof) + 1
+    assert list(leaks.values()) == [[f"line {proof_line}"]], leaks
+
+    showing = sorted(
+        (_enclosing_function(tree, h), _fixed_sentence(h)) for h in handlers
+        if _shows_something(h) and not _shows_through_plan_failure_page(h)
+        and (_enclosing_function(tree, h), _fixed_sentence(h)) not in _PLANTED_BY_CARD_177
+    )
+    assert showing == sorted((fn, name) for fn, _status, name in _SURFACES.values()), showing
+
+
+
+#: CARD-177's three handlers, by (function, fixed sentence); they are planted
+#: by the tests above this section, through ``SEAMS``. Keyed by both, so a new
+#: handler elsewhere that shows one of these sentences is not exempt.
+_PLANTED_BY_CARD_177 = {
+    ("finalize_book", "FINALISE_ACTION_FAILED"),
+    ("generate_book_pdf_download", "PDF_EXPORT_FAILED"),
+    ("generate_book_pdf", "PDF_EXPORT_FAILED"),
+}
+
+
+def _fixed_sentence(handler: _ast.ExceptHandler) -> str:
+    """The ``*_FAILED`` constant a handler shows, or ``""``."""
+    names = {
+        n.id for n in _ast.walk(_ast.Module(body=handler.body, type_ignores=[]))
+        if isinstance(n, _ast.Name) and n.id.endswith("_FAILED") and n.id.isupper()
+    }
+    assert len(names) <= 1, names
+    return names.pop() if names else ""
+
+
+def _shows_through_plan_failure_page(handler: _ast.ExceptHandler) -> bool:
+    """Finalise's two handlers that show only CARD-171's plan-failure page
+    (its deliberate exception, see ``_ALLOWED_USES``); not planted here."""
+    return any(
+        isinstance(n, _ast.Call) and isinstance(n.func, _ast.Name)
+        and n.func.id == "_page_plan_failure_page"
+        for n in _ast.walk(_ast.Module(body=handler.body, type_ignores=[]))
+    )
+
+#: A message no fixed sentence holds, carrying what a driver error would.
+_MARKER = "card480 host=db.internal user=panel password=hunter2"
+
+
+def _raising(error):
+    def boom(*_args, **_kwargs):
+        raise error
+    return boom
+
+
+def _png(path, size=(60, 60)):
+    from PIL import Image as _Image
+
+    image = _Image.new("L", size, 255)
+    for x in range(15, 45):
+        for y in range(15, 45):
+            image.putpixel((x, y), 0)
+    image.save(path)
+    return path
+
+
+def _plant(app, monkeypatch, tmp_path, client, surface):
+    """Raise ``RuntimeError(_MARKER)`` at ``surface``'s seam, inside the
+    converted handler's ``try``; the response and the error."""
+    error = RuntimeError(_MARKER)
+    images = _app_module.get_image_manager()
+    images.clear_all()
+    if surface in {"batch_upload_file", "batch_upload"}:
+        if surface == "batch_upload_file":
+            monkeypatch.setattr(images, "add_image", _raising(error))
+        else:
+            monkeypatch.setattr(images, "clear_all", _raising(error))
+        with open(_png(tmp_path / "upload.png"), "rb") as handle:
+            return client.post(
+                "/batch/from-images", data={"image_files": (handle, "upload.png")}
+            ), error
+    if surface in {"batch_generate_picture", "batch_generate"}:
+        assert images.add_image(str(_png(tmp_path / "pic.png")), "pic.png")
+        if surface == "batch_generate_picture":
+            monkeypatch.setattr(_app_module, "_generate_image_puzzle", _raising(error))
+        else:
+            monkeypatch.setattr(app.batch_generator, "create_batch", _raising(error))
+        return client.post("/batch/generate-puzzles"), error
+    if surface in {"image", "cropped_image"}:
+        added = images.add_image(str(_png(tmp_path / "shown.png")), "shown.png")
+        assert added
+        if surface == "image":
+            monkeypatch.setattr(_app_module, "send_file", _raising(error))
+            return client.get(f"/api/image/{added.file_id}"), error
+        import nonogram.sourcing.image as _sourcing_image
+
+        monkeypatch.setattr(_sourcing_image, "load_greyscale", _raising(error))
+        return client.get(f"/api/image/{added.file_id}/cropped"), error
+    if surface == "cover_upload":
+        book_id = _make_book(app, puzzle_count=1)
+        monkeypatch.setattr(_app_module.PILImageOps, "exif_transpose", _raising(error))
+        with open(_png(tmp_path / "cover.png"), "rb") as handle:
+            return client.post(
+                f"/book/{book_id}/finalize", data={"cover": (handle, "cover.png")}
+            ), error
+    if surface == "delete_book":
+        book_id = app.book_manager.create_book(
+            title="Winter", description="d", theme="generic", target_audience="adults")
+        _raise_once(monkeypatch, app.book_manager, "delete_book", error)
+        return client.post(f"/book/{book_id}/delete"), error
+    if surface == "proof":
+        book_id = _make_book(app, puzzle_count=1)
+        monkeypatch.setattr(_app_module, "render_proof_pdf", _raising(error))
+        return client.get(f"/book/{book_id}/proof-pages"), error
+    if surface == "player_bundle":
+        book_id = _make_book(app, puzzle_count=1)
+        monkeypatch.setattr(_app_module.player_bundle, "export_bundle", _raising(error))
+        return client.post(f"/book/{book_id}/export-player-bundle"), error
+    book_id = _make_book(app, puzzle_count=1)
+    puzzle_id = app.book_manager.get_book(book_id).puzzle_ids[0]
+    if surface in {"grid", "grid_download"}:
+        monkeypatch.setattr(_app_module, "grid_to_svg", _raising(error))
+        suffix = "/download" if surface == "grid_download" else ""
+        return client.get(f"/api/puzzle/{puzzle_id}/grid{suffix}"), error
+    if surface == "grid_pdf":
+        monkeypatch.setattr(_app_module, "render" "_pages", _raising(error))
+        return client.get(f"/api/puzzle/{puzzle_id}/grid/download-pdf"), error
+    raise AssertionError(surface)
+
+
+#: Each surface: the function whose broad handler it plants, the status its
+#: route answered before this card (G-1 / AC-4, measured at the merge-base),
+#: and the name of the fixed sentence that handler now shows.
+_SURFACES = {
+    "batch_upload_file": ("batch_from_images", 302, "PICTURE_UPLOAD_FAILED"),
+    "batch_upload": ("batch_from_images", 302, "BATCH_UPLOAD_FAILED"),
+    "batch_generate_picture": ("generate_batch_puzzles", 302, "PICTURE_GENERATE_FAILED"),
+    "batch_generate": ("generate_batch_puzzles", 200, "BATCH_GENERATE_FAILED"),
+    "cover_upload": ("finalize_book", 200, "COVER_UPLOAD_FAILED"),
+    # Spelled in two pieces, as is the render API below: this module only
+    # RAISES at those names, and tests/test_suite_profile.py's frozen render
+    # census (meta/profiling/rank_durations.py's RENDER_API_PATTERN) greps
+    # tests/ for them — a module that renders nothing would join it.
+    "proof": ("download_book_proof" "_pages", 302, "PROOF_PAGES_FAILED"),
+    "delete_book": ("delete_book", 302, "BOOK_DELETE_FAILED"),
+    "player_bundle": ("export_player_bundle", 302, "PLAYER_EXPORT_FAILED"),
+    "image": ("api_get_image", 500, "IMAGE_SERVE_FAILED"),
+    "cropped_image": ("api_get_cropped_image", 500, "IMAGE_SERVE_FAILED"),
+    "grid": ("api_puzzle_grid_from_puzzle", 500, "GRID_SERVE_FAILED"),
+    "grid_download": ("api_puzzle_grid_download_from_puzzle", 500, "GRID_SERVE_FAILED"),
+    "grid_pdf": ("api_puzzle_grid_download_pdf", 500, "GRID_SERVE_FAILED"),
+}
+
+
+#: The file name a per-picture sentence follows, per surface.
+_PICTURE = {"batch_upload_file": "upload.png", "batch_generate_picture": "pic.png"}
+
+
+@pytest.mark.parametrize("surface", sorted(_SURFACES))
+def test_a_planted_failure_shows_fixed_text_and_is_logged(
+    admin_app, monkeypatch, tmp_path, caplog, surface
+) -> None:
+    """AC-1 (every broad handler that shows anything: flash, page, plain
+    text), AC-3 and AC-4. The planted message reaches neither the body nor a
+    flash; the handler's own fixed sentence does; the error is in the
+    panel's log once, with its traceback; the status is the old one."""
+    client = admin_app.test_client()
+    caplog.set_level("ERROR", logger=PANEL_LOGGER)
+    try:
+        response, error = _plant(admin_app, monkeypatch, tmp_path, client, surface)
+        # Unescaped: a page that renders the flash escapes its apostrophe.
+        shown = html.unescape(response.get_data(as_text=True)) + repr(_flashes(client))
+    finally:
+        monkeypatch.undo()
+        _app_module.get_image_manager().clear_all()
+
+    _function, status, name = _SURFACES[surface]
+    # The two per-picture sentences follow the picture's own name; matched
+    # whole, or the whole-batch sentence (which ends the same) would pass.
+    expected = f"{_PICTURE.get(surface, '')} {getattr(_app_module, name)}".strip()
+    assert response.status_code == status
+    assert "hunter2" not in shown and "card480" not in shown, shown[:300]
+    assert expected in shown, (expected, shown[-400:])
+    logged = [r for r in _panel_errors(caplog) if r.exc_info and r.exc_info[1] is error]
+    assert len(logged) == 1 and logged[0].exc_info[2] is not None
+
+
+def test_a_domain_refusal_still_says_what_it_is(admin_app, monkeypatch, caplog) -> None:
+    """AC-2, one control per surface a touched handler or its route uses.
+    Flash: the proof pages' expected refusal is a ValueError written for the
+    owner, and still reaches the flash. JSON: the puzzles API's own
+    refusal of an out-of-range value still answers with its message (an
+    untouched ``except ValueError``). Plain text: the touched plain-text
+    routes have no domain refusal of their own — their refusals ("Not
+    found", "No grid data") answer before the handler, unchanged."""
+    client = admin_app.test_client()
+    book_id = _make_book(admin_app, puzzle_count=1)
+    refusal = ValueError("this trim leaves no room for the proof note")
+    monkeypatch.setattr(_app_module, "render_proof_pdf", _raising(refusal))
+    response = client.get(f"/book/{book_id}/proof-pages")
+    assert response.status_code == 302
+    assert ("error", f"Failed to generate proof pages: {refusal}") in _flashes(client)
+
+    refused = client.get("/api/puzzles?limit=1000")
+    assert (refused.status_code, refused.get_json()) == (400, {"error": "Limit must be 1-100"})
+
+
+@pytest.mark.parametrize("route", ["", "/cropped", "gone-while-sent"])
+def test_a_missing_image_file_does_not_name_the_servers_path(
+    admin_app, monkeypatch, tmp_path, route
+) -> None:
+    """Reviewer cycle 1, F-007: an image whose stored file has gone answers
+    404 as before, on both image routes and in the image route's
+    FileNotFoundError branch (the file going between the check and the
+    send), without the server's path."""
+    images = _app_module.get_image_manager()
+    images.clear_all()
+    try:
+        path = _png(tmp_path / "gone.png")
+        added = images.add_image(str(path), "gone.png")
+        if route == "gone-while-sent":
+            monkeypatch.setattr(_app_module, "send_file", _raising(FileNotFoundError(added.file_path)))
+            url = f"/api/image/{added.file_id}"
+        else:
+            Path(added.file_path).unlink()  # the copy the manager keeps
+            assert not Path(added.file_path).exists()
+            url = f"/api/image/{added.file_id}{route}"
+        response = admin_app.test_client().get(url)
+    finally:
+        images.clear_all()
+    assert (response.status_code, response.get_data(as_text=True)) == (404, "Image file not found")
+
+
+def test_the_500_page_shows_what_the_panel_aborted_with_on_purpose(admin_app) -> None:
+    """The other half of the 500 page: ``abort(500, description=...)`` is a
+    message the panel wrote for the user (the solver page's "no readable
+    grid"), and it is shown. The merge gate measured this card's first
+    version, which dropped ``str(e)`` from the page, hiding it."""
+    admin_app.config["PROPAGATE_EXCEPTIONS"] = False
+
+    def deliberate():
+        from flask import abort
+
+        abort(500, description="card480 written for the owner")
+
+    admin_app.add_url_rule("/card480-deliberate", "card480_deliberate", deliberate)
+    response = admin_app.test_client().get("/card480-deliberate")
+    assert response.status_code == 500
+    assert "card480 written for the owner" in response.get_data(as_text=True)
+
+
+def test_the_500_page_shows_no_error_text(admin_app) -> None:
+    """The global 500 page shows no unhandled exception's text. It passes
+    ``str(e)``, which for an unhandled exception is werkzeug's own generic
+    sentence, so it never leaked there and this card leaves it as it was: a
+    regression guard, not a discriminating test."""
+    admin_app.config["PROPAGATE_EXCEPTIONS"] = False
+    admin_app.add_url_rule("/card480-boom", "card480_boom", _raising(RuntimeError(_MARKER)))
+    response = admin_app.test_client().get("/card480-boom")
+    assert response.status_code == 500
+    assert "hunter2" not in response.get_data(as_text=True)
