@@ -1158,6 +1158,23 @@ FINALISE_ACTION_FAILED = (
 #: What a failed book PDF export shows, on each of its three routes (CARD-177).
 PDF_EXPORT_FAILED = "Failed to generate PDF. The details are in the panel's log."
 
+#: CARD-480: the same rule for the rest of the panel. A failure the user did
+#: not cause and cannot fix (anything but a domain refusal) shows one of
+#: these fixed sentences, naming the action, and the exception goes to the
+#: panel's log with its traceback. A domain refusal (a ``NonogramError``, a
+#: form error) is written for the user and keeps its own message.
+_SEE_LOG = "The details are in the panel's log."
+BATCH_UPLOAD_FAILED = f"The pictures could not be loaded. {_SEE_LOG}"
+PICTURE_UPLOAD_FAILED = f"could not be loaded. {_SEE_LOG}"  # after the file's name
+BATCH_GENERATE_FAILED = f"The puzzles could not be generated. {_SEE_LOG}"
+PICTURE_GENERATE_FAILED = f"could not be turned into a puzzle. {_SEE_LOG}"  # after the file's name
+COVER_UPLOAD_FAILED = f"The cover image could not be stored. {_SEE_LOG}"
+PROOF_PAGES_FAILED = f"Failed to generate proof pages. {_SEE_LOG}"
+BOOK_DELETE_FAILED = f"The book could not be deleted. {_SEE_LOG}"
+PLAYER_EXPORT_FAILED = f"Could not export the player bundle. {_SEE_LOG}"
+IMAGE_SERVE_FAILED = f"Error loading image. {_SEE_LOG}"
+GRID_SERVE_FAILED = f"Error generating grid. {_SEE_LOG}"
+
 
 def _about(refusal: str, page_count: int) -> str:
     """``refusal`` with its page count said as "about N" (CARD-153, AC-4).
@@ -1730,8 +1747,9 @@ def create_app(debug=None):
                         else:
                             flash(f"Could not process {file.filename}", "warning")
 
-                    except Exception as e:
-                        flash(f"Error processing {file.filename}: {str(e)}", "warning")
+                    except Exception:
+                        app.logger.exception("Uploaded picture %r could not be loaded", file.filename)
+                        flash(f"{file.filename} {PICTURE_UPLOAD_FAILED}", "warning")
 
             if processed_count == 0:
                 flash("No valid images to process", "error")
@@ -1757,8 +1775,9 @@ def create_app(debug=None):
             flash(f"Loaded {processed_count} image(s) from selected files/folder(s)", "success")
             return redirect(url_for("preview_batch_images"))
 
-        except Exception as e:
-            flash(f"Error: {str(e)}", "error")
+        except Exception:
+            app.logger.exception("The batch's pictures could not be loaded")
+            flash(BATCH_UPLOAD_FAILED, "error")
             return redirect(url_for("batch_select_images"))
 
     @app.route("/batch/select-images", methods=["GET", "POST"])
@@ -2113,8 +2132,10 @@ def create_app(debug=None):
                     # neighbour (CARD-062). Record it and keep processing the rest of the
                     # batch (AC-2) instead of failing the whole request.
                     errors.append(f"Error processing {image.original_filename}: {str(e)}")
-                except Exception as e:
-                    errors.append(f"Error processing {image.original_filename}: {str(e)}")
+                except Exception:
+                    app.logger.exception(
+                        "Picture %r could not be turned into a puzzle", image.original_filename)
+                    errors.append(f"{image.original_filename} {PICTURE_GENERATE_FAILED}")
 
             # Update batch with final puzzle count
             batch_gen._update_batch_status(batch_id, puzzle_count=generated_count)
@@ -2197,8 +2218,9 @@ def create_app(debug=None):
                 "generate_batch.html",
                 images=images,
             )
-        except Exception as e:
-            flash(f"❌ Unexpected error: {str(e)}", "error")
+        except Exception:
+            app.logger.exception("Puzzle generation for the batch failed")
+            flash(f"❌ {BATCH_GENERATE_FAILED}", "error")
             return render_template(
                 "generate_batch.html",
                 images=images,
@@ -5454,8 +5476,9 @@ def create_app(debug=None):
                     session[f"book_{book_id}_cover_path"] = str(cover_path)
                     session[f"book_{book_id}_cover_data"] = True  # Flag it exists
                     flash("Cover image uploaded", "success")
-                except Exception as e:
-                    flash(f"Failed to load image: {str(e)}", "error")
+                except Exception:
+                    app.logger.exception("The cover for book %s could not be stored", book_id)
+                    flash(COVER_UPLOAD_FAILED, "error")
 
         # Get puzzles in order
         puzzles_in_book = members_in_order()
@@ -5944,12 +5967,15 @@ def create_app(debug=None):
         try:
             pdf_bytes = render_proof_pdf(book)
         except Exception as e:
-            # Reported to the owner *and* logged with its traceback: the one
-            # expected refusal (a trim that leaves no room for the proof note)
-            # is a message worth reading, and anything else is a bug worth
-            # keeping the stack of.
+            # Logged with its traceback either way. The one expected refusal —
+            # a trim that leaves no room for the proof note — is a ValueError
+            # whose message is worth reading, so a ValueError keeps its text
+            # (CARD-118); anything else shows fixed text (CARD-480).
             app.logger.exception("Proof pages for book %s could not be built", book_id)
-            flash(f"Failed to generate proof pages: {e}", "error")
+            if isinstance(e, ValueError):
+                flash(f"Failed to generate proof pages: {e}", "error")
+            else:
+                flash(PROOF_PAGES_FAILED, "error")
             return redirect(
                 request.referrer or url_for("setup_print", book_id=book_id)
             )
@@ -5986,8 +6012,9 @@ def create_app(debug=None):
             except OSError as e:
                 app.logger.warning("Could not remove cover of deleted book %s: %s", book_id, e)
             flash(f"Deleted book: {book.metadata.title}", "success")
-        except Exception as e:
-            flash(f"Failed to delete book: {str(e)}", "error")
+        except Exception:
+            app.logger.exception("Book %s could not be deleted", book_id)
+            flash(BOOK_DELETE_FAILED, "error")
 
         return redirect(url_for("books_list"))
 
@@ -6210,9 +6237,9 @@ def create_app(debug=None):
         target = app.config.get("PLAYER_BUNDLE_DIR") or player_bundle.default_output_dir()
         try:
             report = player_bundle.export_bundle(book_mgr, puzzle_review, target)
-        except Exception as e:  # pragma: no cover - defensive, like its siblings
+        except Exception:  # pragma: no cover - defensive, like its siblings
             app.logger.exception("Player bundle export failed for book %s", book_id)
-            flash(f"Could not export the player bundle: {e}", "error")
+            flash(PLAYER_EXPORT_FAILED, "error")
             return redirect(url_for("book_detail", book_id=book_id))
 
         flash(
@@ -6361,8 +6388,9 @@ def create_app(debug=None):
             )
         except FileNotFoundError:
             return f"File missing: {image.file_path}", 404
-        except Exception as e:
-            return f"Error loading image: {str(e)}", 500
+        except Exception:
+            app.logger.exception("Image %s could not be served", file_id)
+            return IMAGE_SERVE_FAILED, 500
 
     @app.route("/api/image/<file_id>/size", methods=["POST"])
     def api_update_image_size(file_id):
@@ -6432,8 +6460,9 @@ def create_app(debug=None):
                 img_bytes,
                 mimetype=f"image/{image.format.lower()}",
             )
-        except Exception as e:
-            return f"Error: {str(e)}", 500
+        except Exception:
+            app.logger.exception("The cropped image %s could not be served", file_id)
+            return IMAGE_SERVE_FAILED, 500
 
     @app.route("/api/puzzle/<puzzle_id>/grid")
     def api_puzzle_grid_from_puzzle(puzzle_id):
@@ -6461,10 +6490,9 @@ def create_app(debug=None):
 
             return svg, 200, {"Content-Type": "image/svg+xml"}
 
-        except TypeError as e:
-            return f"Grid format error: {str(e)}", 500
-        except Exception as e:
-            return f"Error generating grid: {str(e)}", 500
+        except Exception:
+            app.logger.exception("The grid of puzzle %s could not be drawn", puzzle_id)
+            return GRID_SERVE_FAILED, 500
 
     @app.route("/api/puzzle/<puzzle_id>/grid/download")
     def api_puzzle_grid_download_from_puzzle(puzzle_id):
@@ -6492,8 +6520,9 @@ def create_app(debug=None):
                 download_name=filename,
             )
 
-        except Exception as e:
-            return f"Error: {str(e)}", 500
+        except Exception:
+            app.logger.exception("The SVG of puzzle %s could not be built", puzzle_id)
+            return GRID_SERVE_FAILED, 500
 
     @app.route("/api/puzzle/<puzzle_id>/grid/download-pdf")
     def api_puzzle_grid_download_pdf(puzzle_id):
@@ -6553,9 +6582,9 @@ def create_app(debug=None):
                 download_name=filename,
             )
 
-        except Exception as e:
+        except Exception:
             app.logger.exception("PDF generation error for %s", puzzle_id)
-            return f"Error: {str(e)}", 500
+            return GRID_SERVE_FAILED, 500
 
     @app.route("/api/puzzle/<puzzle_id>/details")
     def api_puzzle_details(puzzle_id):
@@ -6757,8 +6786,9 @@ def create_app(debug=None):
 
     @app.errorhandler(500)
     def server_error(e):
-        """Handle 500 errors."""
-        return render_template("500.html", error=str(e)), 500
+        """Handle 500 errors: fixed text, never the error's own (CARD-480).
+        Flask has already logged an unhandled exception with its traceback."""
+        return render_template("500.html"), 500
 
     return app
 

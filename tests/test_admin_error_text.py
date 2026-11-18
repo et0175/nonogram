@@ -398,3 +398,185 @@ class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
         assert not any(marker in m for _, m in _flashes(client))
         for name, value in response.headers.items():
             assert marker not in value, name
+
+
+# --------------------------------------------------------------------------
+# CARD-480 — the same rule for the rest of the panel
+# --------------------------------------------------------------------------
+
+import ast as _ast
+
+import nonogram.admin.app as _app_module
+
+#: The panel's source, read for the population of handlers below.
+_APP_SOURCE = Path(_app_module.__file__).read_text(encoding="utf-8")
+
+#: The only things a broad handler may do with the exception it binds: re-raise
+#: it, log it, test what it is (``isinstance``, and the two predicates that
+#: tell the page plan's failures apart), stamp it as logged (``setattr``), or
+#: hand it to Finalise's plan-failure page — whose on-screen text is CARD-171's
+#: deliberate exception: it shows only a failure already stamped as the page
+#: plan's own and already logged.
+_ALLOWED_USES = {
+    "isinstance", "setattr", "_is_an_unpackable_row", "_is_a_logged_plan_failure",
+    "_page_plan_failure_page",
+}
+
+#: Broad handlers in app.py on 2026-11-18, after this card: a floor, so the
+#: population cannot silently shrink to nothing.
+_BROAD_HANDLER_FLOOR = 15
+
+
+def _is_broad(handler: _ast.ExceptHandler) -> bool:
+    """A handler for any exception at all: bare, ``Exception`` or
+    ``BaseException``, alone or in a tuple."""
+    if handler.type is None:
+        return True
+    names = handler.type.elts if isinstance(handler.type, _ast.Tuple) else [handler.type]
+    return any(isinstance(n, _ast.Name) and n.id in {"Exception", "BaseException"} for n in names)
+
+
+def _forbidden_uses(handler: _ast.ExceptHandler) -> list[str]:
+    """Every read of the handler's bound name that is not one of the allowed
+    uses — default-deny: a read is allowed only as the sole argument of an
+    allowed call, inside a logging call, or as what ``raise`` raises."""
+    if not handler.name:
+        return []
+    allowed = set()
+    for node in _ast.walk(_ast.Module(body=handler.body, type_ignores=[])):
+        if isinstance(node, _ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, _ast.Name) else getattr(func, "attr", None)
+            is_log = isinstance(func, _ast.Attribute) and isinstance(func.value, _ast.Attribute) and func.value.attr == "logger"
+            if name in _ALLOWED_USES or is_log:
+                allowed.update(id(a) for a in node.args)
+        if isinstance(node, _ast.Raise) and isinstance(node.exc, _ast.Name):
+            allowed.add(id(node.exc))
+    return [
+        f"line {node.lineno}"
+        for node in _ast.walk(_ast.Module(body=handler.body, type_ignores=[]))
+        if isinstance(node, _ast.Name) and node.id == handler.name
+        and isinstance(node.ctx, _ast.Load) and id(node) not in allowed
+    ]
+
+
+def test_no_broad_handler_puts_its_exception_on_screen() -> None:
+    """AC-1, derived from the source: no handler in app.py that catches any
+    exception at all reads the exception except to re-raise it, log it, test
+    its type or pass it to Finalise's plan-failure page. The proof pages'
+    handler tests ``isinstance(e, ValueError)`` and flashes that refusal's
+    text (CARD-118's message for a trim with no room for the proof note);
+    the read inside that branch is the one listed exemption below.
+
+    What it cannot see: a broad handler that copies the exception into
+    another name first, and the ``except ValueError`` sites, which this card
+    leaves as they are (see the card's notes)."""
+    tree = _ast.parse(_APP_SOURCE)
+    handlers = [n for n in _ast.walk(tree) if isinstance(n, _ast.ExceptHandler) and _is_broad(n)]
+    assert len(handlers) >= _BROAD_HANDLER_FLOOR, len(handlers)
+
+    leaks = {}
+    for handler in handlers:
+        uses = _forbidden_uses(handler)
+        if uses:
+            leaks[handler.lineno] = uses
+    # The one exemption: the proof pages' ValueError branch, located by text.
+    proof = _APP_SOURCE.index('flash(f"Failed to generate proof pages: {e}", "error")')
+    proof_line = _APP_SOURCE.count("\n", 0, proof) + 1
+    assert list(leaks.values()) == [[f"line {proof_line}"]], leaks
+
+    (server_error,) = [
+        n for n in _ast.walk(tree) if isinstance(n, _ast.FunctionDef) and n.name == "server_error"
+    ]
+    assert not [
+        n for n in _ast.walk(server_error)
+        if isinstance(n, _ast.Name) and n.id == server_error.args.args[0].arg
+        and isinstance(n.ctx, _ast.Load)
+    ], "the 500 page reads its error"
+
+
+#: A message no fixed sentence holds, carrying what a driver error would.
+_MARKER = "card480 host=db.internal user=panel password=hunter2"
+
+
+def _plant(app, monkeypatch, client, surface):
+    """Raise ``RuntimeError(_MARKER)`` at ``surface``'s seam; the response."""
+    error = RuntimeError(_MARKER)
+    if surface == "delete_book":
+        book_id = app.book_manager.create_book(
+            title="Winter", description="d", theme="generic", target_audience="adults")
+        _raise_once(monkeypatch, app.book_manager, "delete_book", error)
+        return client.post(f"/book/{book_id}/delete"), error
+    if surface == "proof_pages":
+        book_id = _make_book(app, puzzle_count=1)
+        monkeypatch.setattr(_app_module, "render_proof_pdf", lambda book: (_ for _ in ()).throw(error))
+        return client.get(f"/book/{book_id}/proof-pages"), error
+    if surface == "player_bundle":
+        book_id = _make_book(app, puzzle_count=1)
+        monkeypatch.setattr(_app_module.player_bundle, "export_bundle", lambda *a, **k: (_ for _ in ()).throw(error))
+        return client.post(f"/book/{book_id}/export-player-bundle"), error
+    puzzle_id = _make_book(app, puzzle_count=1) and app.puzzle_review_service.filter_puzzles(
+        __import__("nonogram.admin.puzzle_review", fromlist=["PuzzleFilter"]).PuzzleFilter(limit=1)
+    ).puzzles[0]["id"]
+    if surface in ("grid", "grid_download"):
+        monkeypatch.setattr(_app_module, "grid_to_svg", lambda *a, **k: (_ for _ in ()).throw(error))
+        path = f"/api/puzzle/{puzzle_id}/grid" + ("/download" if surface == "grid_download" else "")
+        return client.get(path), error
+    raise AssertionError(surface)
+
+
+#: Each surface, and the status its route answered before this card — G-1:
+#: text only, so a redirect stays a redirect and a 500 stays a 500.
+_SURFACES = {
+    "delete_book": 302,
+    "proof_pages": 302,
+    "player_bundle": 302,
+    "grid": 500,
+    "grid_download": 500,
+}
+
+
+@pytest.mark.parametrize("surface", sorted(_SURFACES))
+def test_a_planted_failure_shows_fixed_text_and_is_logged(
+    admin_app, monkeypatch, caplog, surface
+) -> None:
+    """AC-1 (behaviour, one route per surface: flash, plain-text 500), AC-3
+    and AC-4. The planted message reaches neither the body nor a flash; it
+    is in the panel's log with its traceback; the status is unchanged."""
+    client = admin_app.test_client()
+    caplog.set_level("ERROR", logger=PANEL_LOGGER)
+    response, error = _plant(admin_app, monkeypatch, client, surface)
+
+    shown = response.get_data(as_text=True) + repr(_flashes(client))
+    assert response.status_code == _SURFACES[surface]
+    assert "hunter2" not in shown and "card480" not in shown, shown[:300]
+    assert "The details are in the panel's log." in shown
+    logged = [r for r in _panel_errors(caplog) if r.exc_info and r.exc_info[1] is error]
+    assert len(logged) == 1 and logged[0].exc_info[2] is not None
+
+
+def test_a_domain_refusal_still_says_what_it_is(admin_app, monkeypatch, caplog) -> None:
+    """AC-2. The proof pages' one expected refusal is a ValueError whose
+    message is written for the owner; it still reaches the flash, and is
+    logged too. (The JSON and plain-text routes this card touched have no
+    domain refusal of their own: their refusals answer before the handler.)"""
+    client = admin_app.test_client()
+    book_id = _make_book(admin_app, puzzle_count=1)
+    refusal = ValueError("this trim leaves no room for the proof note")
+    monkeypatch.setattr(_app_module, "render_proof_pdf", lambda book: (_ for _ in ()).throw(refusal))
+    response = client.get(f"/book/{book_id}/proof-pages")
+    assert response.status_code == 302
+    assert ("error", f"Failed to generate proof pages: {refusal}") in _flashes(client)
+
+
+def test_the_500_page_shows_no_error_text(admin_app) -> None:
+    """The global 500 page shows no error text. Before this card it passed
+    ``str(e)``, which for an unhandled exception is werkzeug's own generic
+    sentence, so it did not leak there; the template's ``error`` slot is
+    now left to Finalise's plan-failure page alone, and this holds that the
+    original exception never reaches the page."""
+    admin_app.config["PROPAGATE_EXCEPTIONS"] = False
+    admin_app.add_url_rule("/card480-boom", "card480_boom", lambda: (_ for _ in ()).throw(RuntimeError(_MARKER)))
+    response = admin_app.test_client().get("/card480-boom")
+    assert response.status_code == 500
+    assert "hunter2" not in response.get_data(as_text=True)
