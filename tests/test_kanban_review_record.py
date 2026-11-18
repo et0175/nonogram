@@ -2322,7 +2322,8 @@ def test_parse_card_fields_reads_the_header_block_and_last_write_wins() -> None:
 #
 # WHAT IS READ. For every card whose status is not done, skipped or reverted:
 # its ``## Guardrails`` section; in it, each ``test:`` / ``check:`` clause
-# (any case, singular or plural), running from the marker to the parenthesis
+# (any case, singular or plural; a marker spelled inside backticks is prose,
+# not a clause), running from the marker to the parenthesis
 # that closes the group it sits in, or to the end of its bullet; in the
 # clause, every backticked ``test_*`` / ``Test*`` / ``PropertyTest_*`` name.
 # A name is alive when some file under ``tests/`` holds a ``def`` or ``class``
@@ -2349,7 +2350,8 @@ def test_parse_card_fields_reads_the_header_block_and_last_write_wins() -> None:
 #
 # DECLARED BOUND — ways a guardrail can still name a test that does not exist
 # and stay green: the name sits outside a marked clause, or after the clause's
-# closing parenthesis; the token is not a bare test-shaped name (a ``*.py``
+# closing parenthesis; the name is not backticked; the token is not a bare
+# test-shaped name (a ``*.py``
 # path or a ``path::name`` node id is not judged — alone in a clause it is
 # reported as naming nothing, beside a judged name it is passed over); the
 # section's heading is not exactly ``## Guardrails``; the name is carried by a
@@ -2359,7 +2361,7 @@ def test_parse_card_fields_reads_the_header_block_and_last_write_wins() -> None:
 CLOSED_STATUSES = frozenset({"done", "skipped", "reverted"})
 
 _GUARDRAILS_HEADING = re.compile(r"^## Guardrails\s*$", re.M)
-_REF_CLAUSE = re.compile(r"\b(?:test|check)s?\s*:", re.I)
+_REF_CLAUSE = re.compile(r"(?<![\w`])(?:test|check)s?\s*:", re.I)
 _BACKTICKED = re.compile(r"`([^`\n]+)`")
 _TEST_NAME = re.compile(r"(?:test_|Test|PropertyTest_)\w+")
 _NEXT_BULLET = re.compile(r"\n\s*(?:[-*+]\s|\n)")
@@ -2483,8 +2485,11 @@ def test_an_open_cards_guardrail_names_only_tests_that_exist(
 
 
 def test_a_planted_fabricated_guardrail_name_reds_by_card_and_name(tmp_path: Path) -> None:
-    """AC-1 and AC-2. Each plant is its own one-card tree and its own
-    assertion, so no arm rides on another."""
+    """AC-1 and AC-2, on synthetic cards only: no arm reads a real card, so
+    closing a card on the board cannot red this test. The arms are not
+    independent — the test stops at its first failing assertion, and a
+    mutant that breaks clause boundaries fails an earlier arm before it
+    reaches the one written for it."""
     definitions = definitions_under(REPO_ROOT / "tests")
     assert _ALIVE in definitions and _FABRICATED not in definitions
     # AC-2's premise: a text search over tests/ would find the fabricated name.
@@ -2528,6 +2533,29 @@ def test_a_planted_fabricated_guardrail_name_reds_by_card_and_name(tmp_path: Pat
     assert findings(
         "next-bullet", f"- G-1: held, test: `{_ALIVE}`\n- G-2: `{_FABRICATED}` is prose here.\n"
     ) == []
+    # Marker spellings the comment block claims: plural `tests:` (the one
+    # real cards use) and upper case.
+    assert findings("tests-plural", f"- G-1: held (tests: `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    assert findings("upper-case", f"- G-1: held (TEST: `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    # A marker spelled inside backticks is prose about the word, not a clause.
+    assert findings(
+        "backticked-marker", f"- G-1: leave the rule's `check:` alone (test: `{_ALIVE}`).\n"
+    ) == []
+    # The walk reaches every clause of a bullet and every card of a tree, not
+    # only the first of each.
+    assert findings(
+        "second-clause", f"- G-1: held (test: `{_ALIVE}`) and (check: `{_FABRICATED}`).\n"
+    ) == [(card, DEAD_REF, _FABRICATED)]
+    dead = f"- G-1: held (test: `{_FABRICATED}`).\n"
+    two_cards = _synthetic_card(tmp_path / "first-closed", "done", dead) + _synthetic_card(
+        tmp_path / "second-open", "ready", dead
+    )
+    assert [card.status for card in two_cards] == ["done", "ready"]
+    assert guardrail_ref_findings(two_cards, definitions) == [(card, DEAD_REF, _FABRICATED)]
 
 
 def test_the_same_plant_outside_the_scope_is_not_reported(tmp_path: Path) -> None:
