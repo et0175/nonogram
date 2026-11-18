@@ -219,9 +219,8 @@ class TestFlow3PuzzleGeneration:
         assert grid.headers['Content-Type'].startswith('image/svg+xml')
         svg = grid.get_data(as_text=True)
         assert svg.lstrip().startswith('<svg')
-        # The grid is this picture's: one cell per square of the default
-        # 20x20, some inked and some not (the picture is a checkerboard
-        # inside a white border, so a grid of one colour is not it).
+        # The SVG has the default 20x20's 400 cells, some inked and some
+        # not. Which cells are inked is not held here.
         cells = re.findall(r'<rect x="[^"]+" y="[^"]+"[^>]*fill="(#[0-9a-f]{6})"', svg)
         assert len(cells) == 20 * 20
         assert set(cells) == {'#000000', '#ffffff'}
@@ -276,10 +275,14 @@ def test_every_upload_posts_a_field_the_route_reads():
     The second half is held by reference, not by recognising call shapes:
     the route's address is spelled exactly once in this file (the
     ``UPLOAD_ROUTE`` assignment — any other string containing it fails, a
-    docstring included), ``UPLOAD_ROUTE`` and ``UPLOAD_FIELD`` are read only
-    inside ``_upload`` and this test, and the one dict ``_upload`` posts is
-    keyed by ``UPLOAD_FIELD`` and the caller's extra form fields, nothing
-    else. What it cannot see: an address assembled from pieces at run time.
+    docstring included), ``UPLOAD_ROUTE`` and ``UPLOAD_FIELD`` are read by
+    name only inside the module-level ``_upload`` and this module-level test,
+    and the one dict ``_upload`` posts is keyed by ``UPLOAD_FIELD`` and the
+    caller's extra form fields, nothing else.
+
+    What it cannot see: an address that is not spelled whole in this file
+    (concatenated from pieces, or resolved with ``url_for``), and the two
+    constants reached without naming them (``globals()``, ``sys.modules``).
     """
     assert UPLOAD_FIELD in _upload_route_file_fields()
 
@@ -296,7 +299,11 @@ def test_every_upload_posts_a_field_the_route_reads():
     readers = set()
 
     def visit(node, owner):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) and owner is None:
+        # A class owns everything in it, under the class's own name: a
+        # method called ``_upload`` is not the helper and is not exempt.
+        if isinstance(
+            node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+        ) and owner is None:
             owner = getattr(node, 'name', '<lambda>')
         if (
             isinstance(node, ast.Name)
