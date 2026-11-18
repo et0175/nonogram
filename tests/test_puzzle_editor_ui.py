@@ -1184,6 +1184,116 @@ class TestPuzzleEditor_TheListShowsTheEditedPicture:
         assert quote(str(stamp), safe="") in first, (first, stamp)
 
 
+class TestPuzzleEditor_EveryPageShowsTheEditedPicture:
+    """CARD-477: CARD-250 versioned the list row and the detail modal; four
+    other pages drew the same stable url bare, so a hand-edited grid could
+    still be redrawn from the browser's copy of the one it replaced — on two
+    of the pages the owner picks a book's puzzles from.
+
+    What is asserted is the url each page hands the browser, the same claim
+    and the same limit as the class above: no real browser cache is driven.
+    """
+
+    @staticmethod
+    def _pages(admin_app, books):
+        """Every page that draws a stored grid besides the puzzle list, each
+        holding one puzzle that will be edited and one that will not.
+
+        Returns ``{page: (path, edited_id, untouched_id)}``. The book pages
+        need different puzzles: arrange shows the book's own, select shows
+        only the ones in no book."""
+        from nonogram.admin.batch_generator import BatchJob, BatchStatus
+
+        batch_id = "card-477-batch"
+        in_book = [seed_with_real_clues(admin_app, batch_id=batch_id) for _ in range(2)]
+        free = [seed_with_real_clues(admin_app, batch_id=batch_id) for _ in range(2)]
+        admin_app.batch_generator.jobs[batch_id] = BatchJob(
+            batch_id=batch_id, status=BatchStatus.COMPLETE, total_count=4
+        )
+        book_id = books.create_book(
+            title="Winter Pictures", description="Winter pictures",
+            theme="christmas", target_audience="adults",
+        )
+        assert books.add_puzzles_to_book(book_id, in_book) is True
+        assert books.get_book(book_id).puzzle_ids == in_book
+        return {
+            "batch status": (f"/batch/{batch_id}", *in_book),
+            "generated puzzles": (f"/batch/{batch_id}/generated-puzzles", *in_book),
+            "book arrange": (f"/book/{book_id}/arrange-puzzles", *in_book),
+            "book select": (f"/book/{book_id}/select-puzzles?status=all", *free),
+        }
+
+    def test_each_page_hands_the_browser_a_new_url_for_an_edited_grid(
+        self, admin_app, books
+    ) -> None:
+        """AC-1. On each page the edited puzzle's url changes with the edit
+        and carries the row's own stamp, and the untouched puzzle's url is
+        the plain, cacheable one before and after. Every page is read before
+        anything is asserted, so one failure names every page that fails."""
+        pages = self._pages(admin_app, books)
+        client = admin_app.test_client()
+
+        def urls():
+            drawn = {}
+            for page, (path, edited, untouched) in pages.items():
+                response = client.get(path)
+                assert response.status_code == 200, (page, response.status_code)
+                html = response.get_data(as_text=True)
+                drawn[page] = (_thumbnail_of(html, edited), _thumbnail_of(html, untouched))
+            return drawn
+
+        before = urls()
+        for _path, edited, _untouched in pages.values():
+            if not admin_app.puzzle_review_service.get_puzzle(edited)["manually_edited_at"]:
+                # A booked puzzle's save needs the confirmation CARD-251 asks
+                # for; the editor's two posts, with it.
+                assert client.post(VERIFY.format(edited), json={"grid": solid_minus_corner()}).status_code == 200
+                saved = client.post(
+                    SAVE.format(edited), json={"grid": solid_minus_corner(), "confirmed": True}
+                )
+                assert saved.status_code == 200, saved.get_data(as_text=True)
+        after = urls()
+
+        wrong = {}
+        for page, (_path, edited, untouched) in pages.items():
+            stamp = admin_app.puzzle_review_service.get_puzzle(edited)["manually_edited_at"]
+            expected_edited = f"/api/puzzle/{edited}/grid?v={quote(str(stamp), safe='')}"
+            plain = f"/api/puzzle/{untouched}/grid"
+            seen = (before[page][1], after[page][0], after[page][1])
+            if before[page][0] == after[page][0] or seen != (plain, expected_edited, plain):
+                wrong[page] = (before[page], after[page])
+        assert wrong == {}
+
+    def test_no_page_draws_a_stored_grid_from_an_unversioned_url(self) -> None:
+        """AC-2, derived from the templates rather than from a list of them:
+        every ``<img>`` under the panel's templates whose ``src`` is the
+        stored grid route — spelled as a path or through ``url_for`` — has
+        ``?v=`` and the edit stamp inside that ``src``. Tags are read with
+        quoted attributes kept whole, so a ``>`` inside ``onerror`` does not
+        end one early. The count is a floor, so the population cannot
+        silently shrink; the download links are not images and are not read.
+
+        What it cannot see: a grid drawn by anything but an ``<img>`` in a
+        template (none today: no CSS, script or Python-built page uses the
+        route), and a ``src`` that names the stamp without using it."""
+        import nonogram.admin
+
+        templates = Path(nonogram.admin.__file__).parent / "templates"
+        tag_pattern = re.compile(r"""<img\b(?:[^>"']|"[^"]*"|'[^']*')*>""")
+        src_pattern = re.compile(r"""\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+        drawn = []
+        for path in sorted(templates.rglob("*.html")):
+            for tag in tag_pattern.findall(path.read_text(encoding="utf-8")):
+                src = src_pattern.search(tag)
+                value = (src.group(1) if src.group(1) is not None else src.group(2)) if src else ""
+                if re.search(r"/api/puzzle/.*?/grid(?![/\w-])", value) or (
+                    "api_puzzle_grid_from_puzzle" in value
+                ):
+                    drawn.append((path.name, "?v=" in value and "manually_edited_at" in value))
+        assert len(drawn) >= 6, drawn
+        assert [name for name, versioned in drawn if not versioned] == []
+
+
 # --------------------------------------------------------------------------
 # The browser tier
 # --------------------------------------------------------------------------

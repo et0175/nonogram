@@ -75,7 +75,8 @@
             {% for puzzle in puzzles %}
             <div class="result-card" data-status="{{ puzzle.status }}">
                 <div class="thumb thumb-lg">
-                    <img src="/api/puzzle/{{ puzzle.id }}/grid" alt=""
+                    {#- Versioned by the edit stamp, as the puzzle list is (CARD-250, CARD-477). -#}
+                    <img src="/api/puzzle/{{ puzzle.id }}/grid{% if puzzle.manually_edited_at %}?v={{ puzzle.manually_edited_at|urlencode }}{% endif %}" alt=""
                          onerror="this.parentElement.innerHTML='<span class=fallback>No preview</span>'">
                 </div>
                 <div>
