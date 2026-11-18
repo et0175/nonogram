@@ -1,6 +1,6 @@
 # CARD-475: The five hollow upload e2e tests post the field the route reads
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false <!-- test-only card -->
 **Branch:** card/475-hollow-upload-e2e-tests
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-475
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-082, WSJF 5.38); premise re-read against main on 2026-11-18. Origin: CARD-164 review, finding F-002.
 **Idea:** IDEA-082
 **Wave:** 80
@@ -18,11 +18,11 @@
 **Depends on:** —
 **Touches:** tests/e2e/test_admin_workflow.py
 **UI surface:** none
-**Review score:** 9.0 (cycle 3/3 - NOT CERTIFIED, ⚠ max cycles reached; two gating findings fixed after the last cycle)
+**Review score:** 9.0 (cycle 3/3 - NOT CERTIFIED, ⚠ max cycles reached) — merged after a FOURTH pass on the last commit alone, asked for by the owner, which is not a review cycle: cycles_used stays 3
 **Started:** 2026-11-18T09:15Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-18T10:40Z
+**Actual:** 3c — ratio 3/1 = 3.000
+**Merge commit:** 0fc2705069c951167af73022f115b1ab8a6dd347
 **Blocked by:** —
 
 ## Why this card exists
@@ -56,4 +56,6 @@ Apply CARD-164's repair to the five: post the field the route reads, and assert 
 [Declared bound of the field check] It cannot see an address not spelled whole in the file (concatenation, `url_for`) or the constants reached without naming them (`globals()`, `sys.modules`); a value exported from inside `_upload` itself is also unseen and is NOT named in the docstring (reviewer F-013, minor, open).
 [Beyond the card] `admin_app` now redirects the temp root per test: measured +7 files per run in the machine upload directory without it, +0 with it; no test asserts that.
 [Not carded] Thirteen other test modules post to the upload route with no redirect and leave files in the machine temp directory (reviewer F-007; one measured at 4 files per run, twelve unmeasured).
+[Pass 4, owner-requested, 2026-11-18] The same reviewer examined only the last commit, on an export of the branch (the gate was running in the worktree): 9.5, no gating findings, "I would merge the four-commit diff as it stands". F-012 and F-011 confirmed fixed. One new minor, open, not gating (F-014): a second function given an allowed name and then shadowed by the real one is still an allowed reader of the constants — three such plants survive the field check; the behavioural tests are unaffected, and the docstring's bound does not name it.
+[Merge gate] `make test-gate` on the rebased tip: run 1, 4183 passed, 15 skipped (14 database-not-set, 1 setrlimit), 8 deselected, 1 xfailed; run 2 (wave_close_only, lifted file), 4 passed; exit 0.
 [Estimate] 1c estimated, 3 cycles used.
