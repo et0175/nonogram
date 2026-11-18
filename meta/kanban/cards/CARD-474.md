@@ -1,6 +1,6 @@
 # CARD-474: The upload test counts only its own temp directories, so a second worktree cannot red it
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false <!-- the card changes a test helper, not product code -->
-**Branch:** —
-**Worktree:** —
+**Branch:** card/474-upload-test-own-temp-dirs
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-474
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-108, WSJF 10.0); premise re-read against main on 2026-11-18. Origin: wave 37 retrospective (cost CARD-211 a failed run); the same defect is logged a second time as IDEA-069.
 **Idea:** IDEA-108
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_web_upload.py
 **UI surface:** none
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T08:35Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
