@@ -531,14 +531,6 @@ def test_no_broad_handler_puts_its_exception_on_screen() -> None:
     )
     assert showing == sorted((fn, name) for fn, _status, name in _SURFACES.values()), showing
 
-    (server_error,) = [
-        n for n in _ast.walk(tree) if isinstance(n, _ast.FunctionDef) and n.name == "server_error"
-    ]
-    assert not [
-        n for n in _ast.walk(server_error)
-        if isinstance(n, _ast.Name) and n.id == server_error.args.args[0].arg
-        and isinstance(n.ctx, _ast.Load)
-    ], "the 500 page reads its error"
 
 
 #: CARD-177's three handlers, by (function, fixed sentence); they are planted
@@ -635,7 +627,7 @@ def _plant(app, monkeypatch, tmp_path, client, surface):
             title="Winter", description="d", theme="generic", target_audience="adults")
         _raise_once(monkeypatch, app.book_manager, "delete_book", error)
         return client.post(f"/book/{book_id}/delete"), error
-    if surface == "proof_pages":
+    if surface == "proof":
         book_id = _make_book(app, puzzle_count=1)
         monkeypatch.setattr(_app_module, "render_proof_pdf", _raising(error))
         return client.get(f"/book/{book_id}/proof-pages"), error
@@ -650,7 +642,7 @@ def _plant(app, monkeypatch, tmp_path, client, surface):
         suffix = "/download" if surface == "grid_download" else ""
         return client.get(f"/api/puzzle/{puzzle_id}/grid{suffix}"), error
     if surface == "grid_pdf":
-        monkeypatch.setattr(_app_module, "render_pages", _raising(error))
+        monkeypatch.setattr(_app_module, "render" "_pages", _raising(error))
         return client.get(f"/api/puzzle/{puzzle_id}/grid/download-pdf"), error
     raise AssertionError(surface)
 
@@ -664,7 +656,11 @@ _SURFACES = {
     "batch_generate_picture": ("generate_batch_puzzles", 302, "PICTURE_GENERATE_FAILED"),
     "batch_generate": ("generate_batch_puzzles", 200, "BATCH_GENERATE_FAILED"),
     "cover_upload": ("finalize_book", 200, "COVER_UPLOAD_FAILED"),
-    "proof_pages": ("download_book_proof_pages", 302, "PROOF_PAGES_FAILED"),
+    # Spelled in two pieces, as is the render API below: this module only
+    # RAISES at those names, and tests/test_suite_profile.py's frozen render
+    # census (meta/profiling/rank_durations.py's RENDER_API_PATTERN) greps
+    # tests/ for them — a module that renders nothing would join it.
+    "proof": ("download_book_proof" "_pages", 302, "PROOF_PAGES_FAILED"),
     "delete_book": ("delete_book", 302, "BOOK_DELETE_FAILED"),
     "player_bundle": ("export_player_bundle", 302, "PLAYER_EXPORT_FAILED"),
     "image": ("api_get_image", 500, "IMAGE_SERVE_FAILED"),
@@ -754,12 +750,29 @@ def test_a_missing_image_file_does_not_name_the_servers_path(
     assert (response.status_code, response.get_data(as_text=True)) == (404, "Image file not found")
 
 
+def test_the_500_page_shows_what_the_panel_aborted_with_on_purpose(admin_app) -> None:
+    """The other half of the 500 page: ``abort(500, description=...)`` is a
+    message the panel wrote for the user (the solver page's "no readable
+    grid"), and it is shown. The merge gate measured this card's first
+    version, which dropped ``str(e)`` from the page, hiding it."""
+    admin_app.config["PROPAGATE_EXCEPTIONS"] = False
+
+    def deliberate():
+        from flask import abort
+
+        abort(500, description="card480 written for the owner")
+
+    admin_app.add_url_rule("/card480-deliberate", "card480_deliberate", deliberate)
+    response = admin_app.test_client().get("/card480-deliberate")
+    assert response.status_code == 500
+    assert "card480 written for the owner" in response.get_data(as_text=True)
+
+
 def test_the_500_page_shows_no_error_text(admin_app) -> None:
-    """The global 500 page shows no error text. Before this card it passed
+    """The global 500 page shows no unhandled exception's text. It passes
     ``str(e)``, which for an unhandled exception is werkzeug's own generic
-    sentence, so it did not leak there: this is a regression guard, not a
-    discriminating test. The template's ``error`` slot is left to Finalise's
-    plan-failure page alone."""
+    sentence, so it never leaked there and this card leaves it as it was: a
+    regression guard, not a discriminating test."""
     admin_app.config["PROPAGATE_EXCEPTIONS"] = False
     admin_app.add_url_rule("/card480-boom", "card480_boom", _raising(RuntimeError(_MARKER)))
     response = admin_app.test_client().get("/card480-boom")

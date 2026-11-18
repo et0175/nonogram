@@ -6786,9 +6786,8 @@ def create_app(debug=None):
 
     @app.errorhandler(500)
     def server_error(e):
-        """Handle 500 errors: fixed text, never the error's own (CARD-480).
-        Flask has already logged an unhandled exception with its traceback."""
-        return render_template("500.html"), 500
+        """Handle 500 errors."""
+        return render_template("500.html", error=str(e)), 500
 
     return app
 
