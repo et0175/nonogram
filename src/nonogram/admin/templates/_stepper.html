@@ -44,13 +44,17 @@
     of "how many steps there are" (review cycle 2, F-007). -#}
 {% macro book_step_of(key) %}Step {{ book_step_number(key) }} of {{ book_step_count() }}{% endmacro %}
 
-{% macro book_steps(current=None, links=None) -%}
+{#- `hints` maps a step key to the line shown under its label instead of the
+    one in `BOOK_STEPS`, for a page whose own state makes the standing hint
+    untrue: the selection step under a filter other than approved (CARD-478).
+    Every other page passes none and reads `BOOK_STEPS`. -#}
+{% macro book_steps(current=None, links=None, hints=None) -%}
 {% set links = book_step_links() if links is none else links -%}
 <ol class="stepper" aria-label="Book scaffolding steps">
     {% for n, label, hint in BOOK_STEPS -%}
     <li class="{% if current is not none and n < current %}is-done{% elif n == current %}is-current{% endif %}" {% if n == current %}aria-current="step"{% endif %}>
         <span class="step-n">{{ loop.index }}</span>
-        <span>{% if n != current and links.get(n) %}<a href="{{ links[n] }}">{{ label }}</a>{% else %}{{ label }}{% endif %}<small>{{ hint }}</small></span>
+        <span>{% if n != current and links.get(n) %}<a href="{{ links[n] }}">{{ label }}</a>{% else %}{{ label }}{% endif %}<small>{{ hints[n] if hints and n in hints else hint }}</small></span>
     </li>
     {% endfor -%}
 </ol>

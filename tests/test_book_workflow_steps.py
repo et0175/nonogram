@@ -1023,7 +1023,9 @@ class TestBookStepper_KeysAreTheOnesTheStepPagesStillPass:
         source = (
             Path(admin_package.__file__).parent / "templates" / template
         ).read_text(encoding="utf-8")
-        calls = re.findall(r"book_steps\(\s*(\d+)\s*\)", source)
+        # The key is the first argument; a page may pass more after it
+        # (CARD-478: the selection page's `hints=`).
+        calls = re.findall(r"book_steps\(\s*(\d+)\s*[,)]", source)
 
         assert calls == [str(key)], f"{template} calls book_steps{calls}"
 
