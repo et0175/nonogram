@@ -8,6 +8,7 @@ Tests cover:
 - Flow 4: Puzzle management (approve/reject)
 """
 import ast
+import io
 import os
 import re
 import tempfile
@@ -97,6 +98,7 @@ UPLOAD_FIELD = 'image_files'
 PREVIEW_PATH = '/batch/preview-images'
 
 _IMAGE_ID = re.compile(r'/api/image/([0-9a-f]+)/cropped')
+_IMG_SRC = re.compile(r'<img\s+src="(/api/image/[^"]+)"')
 
 
 def _upload(client, *named_paths, follow_redirects=True, **form):
@@ -131,25 +133,35 @@ class TestFlow1ImageUploadPreview:
         assert response.location == PREVIEW_PATH
 
     def test_preview_page_displays_original_image(self, client, test_image):
-        """The preview page draws the uploaded picture, and the address it
-        draws it from serves that picture."""
+        """Two claims. The address the preview's ``<img>`` draws from serves
+        a PNG that decodes; and the picture's own address, under the id that
+        ``<img>`` names, serves the uploaded bytes unchanged."""
         response = _upload(client, (test_image, 'test.png'))
 
         assert response.request.path == PREVIEW_PATH
-        (file_id,) = set(_IMAGE_ID.findall(response.get_data(as_text=True)))
+        page = response.get_data(as_text=True)
+        (drawn_from,) = set(_IMG_SRC.findall(page))
+        drawn = client.get(drawn_from)
+        assert drawn.status_code == 200
+        assert drawn.headers['Content-Type'] == 'image/png'
+        Image.open(io.BytesIO(drawn.data)).load()
+
+        (file_id,) = set(_IMAGE_ID.findall(drawn_from))
         original = client.get(f'/api/image/{file_id}')
         assert original.status_code == 200
         assert original.headers['Content-Type'] == 'image/png'
         assert original.data == Path(test_image).read_bytes()
 
     def test_metadata_shown_on_preview(self, client, test_image):
-        """The preview names the uploaded file and gives its size in pixels."""
+        """The preview names the uploaded file (in the drawn picture's
+        ``alt``) and gives the picture's ink box in pixels: ``test_image``
+        inks a 100x100 square of a 200x200 file."""
         response = _upload(client, (test_image, 'metadata-probe.png'))
 
         assert response.request.path == PREVIEW_PATH
         page = response.get_data(as_text=True)
-        assert 'metadata-probe.png' in page
-        assert re.search(r'\d+×\d+ px', page)
+        assert 'alt="Cropped preview of metadata-probe.png"' in page
+        assert 'Ink box: 100×100 px' in page
 
 
 class TestFlow2BatchImageUpload:
@@ -205,7 +217,14 @@ class TestFlow3PuzzleGeneration:
         grid = client.get(grid_urls.pop())
         assert grid.status_code == 200
         assert grid.headers['Content-Type'].startswith('image/svg+xml')
-        assert grid.data.lstrip().startswith(b'<svg')
+        svg = grid.get_data(as_text=True)
+        assert svg.lstrip().startswith('<svg')
+        # The grid is this picture's: one cell per square of the default
+        # 20x20, some inked and some not (the picture is a checkerboard
+        # inside a white border, so a grid of one colour is not it).
+        cells = re.findall(r'<rect x="[^"]+" y="[^"]+"[^>]*fill="(#[0-9a-f]{6})"', svg)
+        assert len(cells) == 20 * 20
+        assert set(cells) == {'#000000', '#ffffff'}
 
     def test_tc_006_download_svg_file(self, client):
         """TC-006: Download SVG File"""
@@ -251,29 +270,54 @@ def _upload_route_file_fields():
 
 
 def test_every_upload_posts_a_field_the_route_reads():
-    """CARD-475: the field ``_upload`` posts is one the route reads, and no
-    test in this module posts to the upload route any other way — so a
-    renamed field reds here instead of turning five tests hollow again."""
+    """CARD-475: the field ``_upload`` posts is one the route reads, and this
+    module can reach the upload route only through ``_upload``.
+
+    The second half is held by reference, not by recognising call shapes:
+    the route's address is spelled exactly once in this file (the
+    ``UPLOAD_ROUTE`` assignment — any other string containing it fails, a
+    docstring included), ``UPLOAD_ROUTE`` and ``UPLOAD_FIELD`` are read only
+    inside ``_upload`` and this test, and the one dict ``_upload`` posts is
+    keyed by ``UPLOAD_FIELD`` and the caller's extra form fields, nothing
+    else. What it cannot see: an address assembled from pieces at run time.
+    """
     assert UPLOAD_FIELD in _upload_route_file_fields()
 
     tree = ast.parse(Path(__file__).read_text())
-    posts_outside_helper = []
-    for function in ast.walk(tree):
-        if not isinstance(function, ast.FunctionDef) or function.name == '_upload':
-            continue
-        for node in ast.walk(function):
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == 'post'
-                and node.args
-                and (
-                    (isinstance(node.args[0], ast.Constant) and node.args[0].value == UPLOAD_ROUTE)
-                    or (isinstance(node.args[0], ast.Name) and node.args[0].id == 'UPLOAD_ROUTE')
-                )
-            ):
-                posts_outside_helper.append(function.name)
-    assert posts_outside_helper == []
+    spellings = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and UPLOAD_ROUTE in node.value
+    ]
+    assert len(spellings) == 1
+
+    allowed = {'_upload', 'test_every_upload_posts_a_field_the_route_reads'}
+    readers = set()
+
+    def visit(node, owner):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) and owner is None:
+            owner = getattr(node, 'name', '<lambda>')
+        if (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id in ('UPLOAD_ROUTE', 'UPLOAD_FIELD')
+        ):
+            readers.add(owner or '<module>')
+        for child in ast.iter_child_nodes(node):
+            visit(child, owner)
+
+    visit(tree, None)
+    assert readers == allowed
+
+    (helper,) = [
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == '_upload'
+    ]
+    (posted,) = [node for node in ast.walk(helper) if isinstance(node, ast.Dict)]
+    assert [
+        key.id if isinstance(key, ast.Name) else key for key in posted.keys
+    ] == ['UPLOAD_FIELD', None]
 
 
 class TestFlow4PuzzleManagement:
