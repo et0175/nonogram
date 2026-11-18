@@ -47,4 +47,6 @@ Version the grid URL on the four pages the way `_puzzle_table.html` does. If a p
 
 ## Worktree notes
 
-—
+[Route taken] The url is versioned on the four pages; the grid route was not given an ETag and `app.py` is untouched. Every page already receives `puzzle_review` dicts carrying `manually_edited_at`: in memory measured by rendering, in DB mode read from the code (`filter_puzzles` and `get_puzzles` both build rows through `_row_to_dict`, which always writes the key) by the cycle-1 reviewer, not executed — no database is configured for tests.
+[AC-3] Holds because the diff leaves the two download links alone; no test pins them.
+[Review 1/3] Score: 9.0, nothing gating. Minor 1 fixed in a second commit: the template walk passed three bare shapes (stamp only in `alt`, `onerror` before `src`, a `url_for`-built `src`) while its docstring said a bare page reds.
