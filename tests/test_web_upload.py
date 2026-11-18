@@ -184,9 +184,12 @@ def _submit_multipart(
 
 
 def _uploaded_temp_files() -> set[str]:
-    """The names of every temp file this package's upload path has left
-    behind — used to show CARD-021's step 5 (cleanup) actually happens rather
-    than merely trusting the ``finally`` reads correctly."""
+    """The names of the upload temp files in this process's temp directory.
+
+    Read before and after a request to show the upload's temp file is gone
+    once the run is over. Under ``_own_temp_root`` that directory is the
+    test's own; a module that imports this helper without that fixture reads
+    the machine-wide one, and inherits the interference CARD-474 removed."""
     return {
         entry.name
         for entry in Path(tempfile.gettempdir()).glob("nonogram-upload-*")
@@ -196,8 +199,8 @@ def _uploaded_temp_files() -> set[str]:
 def test_the_cleanup_reading_sees_this_process_and_not_the_machine() -> None:
     """CARD-474's control, both directions: an upload-shaped file another
     worktree leaves in the machine temp directory is invisible to the
-    reading, and one this process creates the way the upload path does is
-    visible — so the reading is scoped, not blind."""
+    reading, and one the package's own upload writer creates is visible — so
+    the reading is scoped, not blind."""
     assert tempfile.gettempdir() != _MACHINE_TEMP
 
     descriptor, foreign = tempfile.mkstemp(prefix="nonogram-upload-", dir=_MACHINE_TEMP)
@@ -207,12 +210,11 @@ def test_the_cleanup_reading_sees_this_process_and_not_the_machine() -> None:
         os.close(descriptor)
         Path(foreign).unlink()
 
-    descriptor, own = tempfile.mkstemp(prefix="nonogram-upload-")
+    own = multipart._write_temp_file(b"")
     try:
-        assert Path(own).name in _uploaded_temp_files()
+        assert own.name in _uploaded_temp_files()
     finally:
-        os.close(descriptor)
-        Path(own).unlink()
+        own.unlink()
 
 
 # --------------------------------------------------------------------------
