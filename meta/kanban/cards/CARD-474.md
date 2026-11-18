@@ -1,6 +1,6 @@
 # CARD-474: The upload test counts only its own temp directories, so a second worktree cannot red it
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false <!-- the card changes a test helper, not product code -->
 **Branch:** card/474-upload-test-own-temp-dirs
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-474
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-108, WSJF 10.0); premise re-read against main on 2026-11-18. Origin: wave 37 retrospective (cost CARD-211 a failed run); the same defect is logged a second time as IDEA-069.
 **Idea:** IDEA-108
 **Wave:** 80
@@ -20,9 +20,9 @@
 **UI surface:** none
 **Review score:** 9.0 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-18T08:35Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-18T10:10Z
+**Actual:** 3c — ratio 3/1 = 3.000
+**Merge commit:** c051f9836bd18798a6718cd7f405adcb51bcc09a
 **Blocked by:** —
 
 ## Why this card exists
@@ -53,3 +53,4 @@ Make the before/after listing see only directories this test process can have cr
 [AC-2, as measured] The two cleanup tests red only with BOTH deletion sites neutralised (the store's and the handler's `finally`); either alone survives in this module, before the card as after. The reviewer ruled it legitimate redundancy: the store's deletion is killed by the retry module's tests.
 [Not carded] `tests/test_card_043_clear_message_on_new_image.py` leaves two upload temp files in the machine temp dir per run (reviewer-measured). Not run under pytest-xdist; the project does not use it.
 [Estimate] 1c estimated, 3 cycles used.
+[Merge gate] `make test-gate` on the rebased branch: run 1, 1 failed, 4183 passed, 15 skipped (14 database-not-set, 1 setrlimit), 8 deselected, 1 xfailed; run 2 (wave_close_only, lifted file), 4 passed. The one failure, `test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself`, failed identically on main without this branch: a deploy-record line from that morning spelled two CSS properties as CLI flags. Fixed on main as a wording change (`4fd43167`); the branch was rebased onto it and that module plus the card's six files re-run: 1041 passed, 0 skipped. The full gate selection was NOT re-run after the rebase. During the gate the orchestrator deleted files from the machine upload directory by modification time, some of them the gate's own; no gate test failed for it.
