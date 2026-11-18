@@ -1,6 +1,6 @@
 # CARD-480: A failed admin action tells the user what to do, and the exception text goes to the log
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** compliance
 **Estimate:** 3c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/480-generic-error-text
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-480
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-130, WSJF 2.0); premise re-read against main on 2026-11-18. Origin: CARD-177 drafting note.
 **Idea:** IDEA-130
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, tests/test_admin_error_text.py
 **UI surface:** user-facing
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T20:01Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
