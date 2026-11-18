@@ -154,7 +154,8 @@
                         <div class="item-order">{{ puzzle.order }}</div>
 
                         <div class="item-preview thumb thumb-md">
-                            <img src="/api/puzzle/{{ puzzle.id }}/grid"
+                            {#- Versioned by the edit stamp, as the puzzle list is (CARD-250, CARD-477). -#}
+                            <img src="/api/puzzle/{{ puzzle.id }}/grid{% if puzzle.manually_edited_at %}?v={{ puzzle.manually_edited_at|urlencode }}{% endif %}"
                                  alt=""
                                  onerror="this.parentElement.innerHTML='<span class=&quot;fallback&quot;>No preview</span>'">
                         </div>
