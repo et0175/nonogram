@@ -48,4 +48,6 @@ Observe `.player-stage` directly and re-measure on a change of its box. The exis
 
 ## Worktree notes
 
-—
+[AC-2] Reuses CARD-402's own cell, `tests/test_player_public_mode.py::TestPublicMode_LandscapeToolStrip` (932 x 430, 30 x 29 at Fit, twenty frames); it reds when the new observer loses its key.
+[Review 1/3] Score: 6.5, fail. F-001 (critical): G-1 broken — `TestSolverZoom_Fit::test_fit_shows_the_whole_board_and_says_so` failed at 390x844 and 844x390; the observer keyed on the stage's height, which follows the board below its cap, so every zoom change re-fitted from a board drawn at the old zoom and Fit came out one percent short. Fixed: keyed on the stage's width and max-height. Reviewer's loop sweep (on the cycle-1 key): 128 cells, admin and public, eight viewports, 100% and Fit — 0 board-size changes after the first two frames, on main and branch.
+[G-1, F-006] The extra measure at load changes the PUBLIC page's opening Fit by one percent in 2 of 48 cells (30x29 at 932x430: 69% -> 70%; 30x30 at 667x375: 57% -> 58%); reviewer-measured, and the new value is the true largest fit. Measured on the cycle-1 key; not re-measured.
