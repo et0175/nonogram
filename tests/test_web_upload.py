@@ -31,6 +31,7 @@ from __future__ import annotations
 import html
 import io
 import json
+import os
 import re
 import tempfile
 from collections.abc import Iterator
@@ -61,6 +62,29 @@ _SIZE = 20
 #: generated PNG could collide with it by accident — only the collision tests
 #: below insert it into a part's content on purpose.
 _BOUNDARY = "----NonogramCARD021TestBoundary"
+
+#: The machine-wide temp directory, read once at import, before the fixture
+#: below points this process somewhere else. Every worktree on the box shares
+#: it, which is exactly why the cleanup readings must not be taken there.
+_MACHINE_TEMP = tempfile.gettempdir()
+
+
+@pytest.fixture(autouse=True)
+def _own_temp_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point this process's temp root at a directory only this test owns.
+
+    CARD-474: ``_uploaded_temp_files`` used to list the machine-wide temp
+    directory before and after an upload, so an upload test running in another
+    worktree at the same moment changed the listing between the two readings
+    and reddened a correct tree. The server under test runs in this process
+    and creates its upload with ``tempfile.mkstemp`` and no ``dir``, so
+    redirecting ``tempfile.tempdir`` moves both the upload and the reading to
+    a directory no other process writes to.
+    """
+    root = tmp_path / "upload-temp"
+    root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(root))
+    return root
 
 
 @pytest.fixture
@@ -167,6 +191,28 @@ def _uploaded_temp_files() -> set[str]:
         entry.name
         for entry in Path(tempfile.gettempdir()).glob("nonogram-upload-*")
     }
+
+
+def test_the_cleanup_reading_sees_this_process_and_not_the_machine() -> None:
+    """CARD-474's control, both directions: an upload-shaped file another
+    worktree leaves in the machine temp directory is invisible to the
+    reading, and one this process creates the way the upload path does is
+    visible — so the reading is scoped, not blind."""
+    assert tempfile.gettempdir() != _MACHINE_TEMP
+
+    descriptor, foreign = tempfile.mkstemp(prefix="nonogram-upload-", dir=_MACHINE_TEMP)
+    try:
+        assert Path(foreign).name not in _uploaded_temp_files()
+    finally:
+        os.close(descriptor)
+        Path(foreign).unlink()
+
+    descriptor, own = tempfile.mkstemp(prefix="nonogram-upload-")
+    try:
+        assert Path(own).name in _uploaded_temp_files()
+    finally:
+        os.close(descriptor)
+        Path(own).unlink()
 
 
 # --------------------------------------------------------------------------
