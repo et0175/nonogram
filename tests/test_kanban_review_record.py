@@ -2309,3 +2309,275 @@ def test_parse_card_fields_reads_the_header_block_and_last_write_wins() -> None:
     assert fields["Estimate"] == "2c (1d)"
     assert fields["Status"] == "done"
     assert "\n## " not in header_block(text)
+
+
+# --------------------------------------------------------------------------
+# CARD-476 — an open card's guardrail names a test that exists
+# --------------------------------------------------------------------------
+#
+# A guardrail says "this existing behaviour is held by test X". A review
+# scores the diff, so it cannot notice that X resolves to nothing, and a
+# fabricated name reached four cards in two waves before anyone looked
+# (wave 37). This section resolves the names instead of trusting them.
+#
+# WHAT IS READ. For every card whose status is not done, skipped or reverted:
+# its ``## Guardrails`` section; in it, each ``test:`` / ``check:`` clause
+# (any case, singular or plural; a marker spelled inside backticks is prose,
+# not a clause), running from the marker to the parenthesis
+# that closes the group it sits in, or to the end of its bullet; in the
+# clause, every backticked ``test_*`` / ``Test*`` / ``PropertyTest_*`` name.
+# A name is alive when some file under ``tests/`` holds a ``def`` or ``class``
+# of that name, found by ``ast`` — never by a text search. A clause that
+# yields no such name is reported as naming nothing, unless the whole clause
+# is ``review-lens``.
+#
+# WHAT IS NOT READ, measured on main on 2026-11-18 (20 open cards):
+#
+# * ``## System contract``. Six of the ten open cards that carry one hold a
+#   projection of the architecture model's ``check:`` refs. Their bare
+#   test-shaped names: 92 occurrences, 49 of them with no definition under
+#   ``tests/`` — reading them would red this cell 49 times on its first day.
+#   The architecture validator does NOT report those 49 (it resolves by text
+#   search and reads them as alive); ``tests/test_check_ref_resolution.py`` is
+#   the instrument that knows the model's refs lack definitions. Two of the
+#   dead names are no longer model refs at all — stale projections on four
+#   open cards, listed on CARD-476 for the owner, and seen by nothing.
+# * A test named in a guardrail WITHOUT a ``test:`` / ``check:`` marker
+#   ("`tests/test_x.py` passes unmodified"). Eight such references on six
+#   open cards today, all alive. The marked form is the one this cell holds.
+# * Acceptance criteria (an open card's AC names tests the card will write)
+#   and closed cards (their tests may have been retired since).
+#
+# DECLARED BOUND — ways a guardrail can still name a test that does not exist
+# and stay green: the name sits outside a marked clause, or after the clause's
+# closing parenthesis; the name is not backticked; the token is not a bare
+# test-shaped name (a ``*.py``
+# path or a ``path::name`` node id is not judged — alone in a clause it is
+# reported as naming nothing, beside a judged name it is passed over); the
+# section's heading is not exactly ``## Guardrails``; the name is carried by a
+# helper, a fixture or a nested function rather than a collected test; the
+# test exists but is skipped or never collected.
+
+CLOSED_STATUSES = frozenset({"done", "skipped", "reverted"})
+
+_GUARDRAILS_HEADING = re.compile(r"^## Guardrails\s*$", re.M)
+_REF_CLAUSE = re.compile(r"(?<![\w`])(?:test|check)s?\s*:", re.I)
+_BACKTICKED = re.compile(r"`([^`\n]+)`")
+_TEST_NAME = re.compile(r"(?:test_|Test|PropertyTest_)\w+")
+_NEXT_BULLET = re.compile(r"\n\s*(?:[-*+]\s|\n)")
+
+DEAD_REF = "DEAD_REF"
+NAMES_NOTHING = "NAMES_NOTHING"
+
+
+def guardrails(text: str) -> str:
+    """The body of a card's ``## Guardrails`` section, or ``""``."""
+    heading = _GUARDRAILS_HEADING.search(text)
+    if heading is None:
+        return ""
+    rest = text[heading.end():]
+    following = _ANY_HEADING.search(rest)
+    return rest if following is None else rest[: following.start()]
+
+
+def ref_clauses(section: str) -> list[str]:
+    """Each ``test:`` / ``check:`` clause: from the marker to the parenthesis
+    that closes the group it sits in, or to the end of its bullet."""
+    clauses = []
+    for marker in _REF_CLAUSE.finditer(section):
+        rest = section[marker.end():]
+        bullet_end = _NEXT_BULLET.search(rest)
+        rest = rest if bullet_end is None else rest[: bullet_end.start()]
+        depth = 0
+        for index, char in enumerate(rest):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                if depth == 0:
+                    rest = rest[:index]
+                    break
+                depth -= 1
+        clauses.append(rest)
+    return clauses
+
+
+def definitions_under(tests_dir: Path) -> frozenset[str]:
+    """Every ``def`` and ``class`` name in ``tests_dir``, read by ``ast``."""
+    names: set[str] = set()
+    for path in sorted(tests_dir.rglob("*.py")):
+        module = ast.parse(path.read_text(encoding="utf-8"))
+        names.update(
+            node.name
+            for node in ast.walk(module)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        )
+    return frozenset(names)
+
+
+def judged_names(clause: str) -> list[str]:
+    """The backticked tokens of a clause that are bare test-shaped names."""
+    return [
+        token.strip()
+        for token in _BACKTICKED.findall(clause)
+        if _TEST_NAME.fullmatch(token.strip())
+    ]
+
+
+def guardrail_ref_findings(
+    cards: tuple[Card, ...], definitions: frozenset[str]
+) -> list[tuple[str, str, str]]:
+    """``(card, class, what)`` for every guardrail ref clause of an open card
+    that names a test with no definition, or names no test at all."""
+    findings = []
+    for card in cards:
+        if card.status in CLOSED_STATUSES:
+            continue
+        for clause in ref_clauses(guardrails(card.text)):
+            flat = " ".join(clause.split())
+            names = judged_names(clause)
+            if not names:
+                if flat != "review-lens":
+                    findings.append((card.name, NAMES_NOTHING, flat[:80]))
+                continue
+            findings.extend(
+                (card.name, DEAD_REF, name) for name in names if name not in definitions
+            )
+    return findings
+
+
+#: A name no test carries. It is spelled here, in a tracked file under
+#: ``tests/``, on purpose: a text search over the tree finds it, and the plant
+#: below shows the resolver still calls it dead.
+_FABRICATED = "test_card_476_a_guardrail_names_a_test_nobody_wrote"
+
+#: A name a real test does carry: this module's own real-tree cell.
+_ALIVE = "test_an_open_cards_guardrail_names_only_tests_that_exist"
+
+
+def _synthetic_card(directory: Path, status: str, guardrail_lines: str, criteria: str = "") -> tuple[Card, ...]:
+    """A one-card tree the test writes itself, so no plant depends on which
+    real cards happen to be open — closing a card is a correct board
+    operation and must not be able to red this module."""
+    directory.mkdir()
+    (directory / "CARD-9476.md").write_text(
+        "# CARD-9476: a synthetic card\n\n"
+        f"**Status:** {status}\n\n"
+        "## Acceptance criteria\n\n"
+        f"{criteria}\n"
+        "## Guardrails\n\n"
+        f"{guardrail_lines}\n"
+        "## Worktree notes\n\n—\n",
+        encoding="utf-8",
+    )
+    return read_card_tree(directory)
+
+
+def test_an_open_cards_guardrail_names_only_tests_that_exist(
+    tree: tuple[Card, ...],
+) -> None:
+    """AC-3: on the board as it stands, every ``test:`` / ``check:`` clause in
+    an open card's ``## Guardrails`` names at least one test, and every test
+    it names has a ``def`` or ``class`` under ``tests/``. An empty population
+    passes: the plants below, not this cell, show the reading works."""
+    definitions = definitions_under(REPO_ROOT / "tests")
+    assert _ALIVE in definitions, "the definitions were not read; every name would be dead"
+    assert guardrail_ref_findings(tree, definitions) == []
+
+
+def test_a_planted_fabricated_guardrail_name_reds_by_card_and_name(tmp_path: Path) -> None:
+    """AC-1 and AC-2, on synthetic cards only: no arm reads a real card, so
+    closing a card on the board cannot red this test. The arms are not
+    independent — the test stops at its first failing assertion, and a
+    mutant that breaks clause boundaries fails an earlier arm before it
+    reaches the one written for it."""
+    definitions = definitions_under(REPO_ROOT / "tests")
+    assert _ALIVE in definitions and _FABRICATED not in definitions
+    # AC-2's premise: a text search over tests/ would find the fabricated name.
+    assert _FABRICATED in Path(__file__).read_text(encoding="utf-8")
+    card = "CARD-9476.md"
+
+    def findings(label: str, lines: str) -> list[tuple[str, str, str]]:
+        return guardrail_ref_findings(
+            _synthetic_card(tmp_path / label, "ready", lines), definitions
+        )
+
+    # A dead name, under each marker: reported with the card and the name.
+    assert findings("test-marker", f"- G-1: held (test: `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    assert findings("check-marker", f"- G-1: held (Checks: `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    # A dead name beside a live one, in either order: the dead one is reported.
+    assert findings("live-first", f"- G-1: held (test: `{_ALIVE}`, `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    assert findings("dead-first", f"- G-1: held (test: `{_FABRICATED}` and `{_ALIVE}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    # A live name alone, wrapped over a line: nothing.
+    assert findings("alive", f"- G-1: held (test:\n  `{_ALIVE}`).\n") == []
+    # A clause naming no test: reported — and `review-lens` only when it is
+    # the whole clause.
+    assert findings("nothing", "- G-1: held (test: the usual tests).\n") == [
+        (card, NAMES_NOTHING, "the usual tests")
+    ]
+    assert findings("lens", "- G-1: held (check: review-lens).\n") == []
+    assert findings("lens-plus", f"- G-1: held (check: review-lens, {_FABRICATED}).\n") == [
+        (card, NAMES_NOTHING, f"review-lens, {_FABRICATED}")
+    ]
+    # The clause's two ends, as the declared bound states them: a dead name
+    # after the closing parenthesis, or in the next bullet, is not this
+    # clause's.
+    assert findings("after-paren", f"- G-1: held (test: `{_ALIVE}`), not `{_FABRICATED}`.\n") == []
+    assert findings(
+        "next-bullet", f"- G-1: held, test: `{_ALIVE}`\n- G-2: `{_FABRICATED}` is prose here.\n"
+    ) == []
+    # Marker spellings the comment block claims: plural `tests:` (the one
+    # real cards use) and upper case.
+    assert findings("tests-plural", f"- G-1: held (tests: `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    assert findings("upper-case", f"- G-1: held (TEST: `{_FABRICATED}`).\n") == [
+        (card, DEAD_REF, _FABRICATED)
+    ]
+    # A marker spelled inside backticks is prose about the word, not a clause.
+    assert findings(
+        "backticked-marker", f"- G-1: leave the rule's `check:` alone (test: `{_ALIVE}`).\n"
+    ) == []
+    # The walk reaches every clause of a bullet and every card of a tree, not
+    # only the first of each.
+    assert findings(
+        "second-clause", f"- G-1: held (test: `{_ALIVE}`) and (check: `{_FABRICATED}`).\n"
+    ) == [(card, DEAD_REF, _FABRICATED)]
+    dead = f"- G-1: held (test: `{_FABRICATED}`).\n"
+    two_cards = _synthetic_card(tmp_path / "first-closed", "done", dead) + _synthetic_card(
+        tmp_path / "second-open", "ready", dead
+    )
+    assert [card.status for card in two_cards] == ["done", "ready"]
+    assert guardrail_ref_findings(two_cards, definitions) == [(card, DEAD_REF, _FABRICATED)]
+
+
+def test_the_same_plant_outside_the_scope_is_not_reported(tmp_path: Path) -> None:
+    """G-1 and G-2 as controls on the scope: the same dead name is reported
+    from a card of every open status, from no closed status, and never from
+    the acceptance criteria."""
+    definitions = definitions_under(REPO_ROOT / "tests")
+    dead = f"- G-1: held (test: `{_FABRICATED}`).\n"
+    for status in ("ready", "blocked", "in_progress", "review"):
+        assert guardrail_ref_findings(
+            _synthetic_card(tmp_path / f"open-{status}", status, dead), definitions
+        ) == [("CARD-9476.md", DEAD_REF, _FABRICATED)], status
+    for status in sorted(CLOSED_STATUSES):
+        assert guardrail_ref_findings(
+            _synthetic_card(tmp_path / f"closed-{status}", status, dead), definitions
+        ) == [], status
+    assert sorted(CLOSED_STATUSES) == ["done", "reverted", "skipped"]
+
+    in_criteria = _synthetic_card(
+        tmp_path / "criteria",
+        "ready",
+        f"- G-1: held (test: `{_ALIVE}`).\n",
+        criteria=f"- AC-1: new (test: `{_FABRICATED}`)\n",
+    )
+    assert guardrail_ref_findings(in_criteria, definitions) == []
