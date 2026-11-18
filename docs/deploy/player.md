@@ -1044,3 +1044,15 @@ shared-UI preview assembly (the old command-line flag for it is gone). Productio
 | Preview | `vercel deploy --yes` with the two ids exported: **`nonogram-studio-3402zaitp`**, Ready in 5 s. The seven files above matched. `/library`, `/play/068341a8eb`, `/b/0a958d036e`, `/how-to-solve` and the puzzle file 200; `/nope` 404. Same timing over the network: rotate 0.38–0.39 s, against 2.28–2.45 s on the production of the time. |
 | Production | `vercel promote <preview> --scope et0175s-projects --yes` created **`nonogram-studio-2zr02wx9o`**. `https://nonogram.adverax.io` served the new `admin.css` on poll 1, and the other six files matched. Doors 200, `/nope` 404. Rotate measured 0.38–0.40 s on production, with no page errors. |
 | Rollback target | The pass-2 deployment (`nonogram-studio-570o5qb10`). |
+
+**The stage-observer publish, 2026-11-19.** The owner's "publish phone player please" after wave 1 merged. One player card, **CARD-479** (the board is measured again when the stage's own box changes, merge `c1beebc5`). Built from **`7a4ad2a3`** with `git archive 7a4ad2a3 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-19-479/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. The rest of wave 1 touched admin-only templates, nothing the site serves.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing, `dropped (not in the served schema): title`. Against production before the publish, exactly one file differed: `solver.js` `d3a408d2b19c` → `50166bad3f25` (identical to its `7a4ad2a3` source). `admin.css`, `solver_state.js`, `tokens.css`, `base.css`, `player.css`, `pages.js`, `how-to-solve.js`, `decor.css`, `decor.js` byte-identical to what production served. Play-page viewport still carries `user-scalable=no`. No goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes` with the two ids exported: **`nonogram-studio-afurtkx3k`**, Ready at once. `/library`, `/play/068341a8eb`, `/b/0a958d036e`, `/how-to-solve`, the puzzle and book files 200; `/nope` 404; `solver.js` at the built hash. |
+| Behaviour (412 x 892 phone emulation, puzzle `068341a8eb`) | 290 cells; cell 18.33 px portrait, 14.39 px after turning to 892 x 412, 18.33 px again after turning back; a tap marks one cell; no page errors. |
+| Production | `vercel promote <preview> --scope et0175s-projects --yes` created **`nonogram-studio-i26guy79q`**. `https://nonogram.adverax.io` served the new `solver.js` on poll 3; doors 200, `/nope` 404; the behaviour run gave the same figures, no page errors. |
+| Rollback target | The Galaxy M31 deployment (`nonogram-studio-2zr02wx9o`). |
+
+Not observed: a real phone. CARD-479's AC-4 (the owner's phone check) is still owed, as is the CARD-473 pinch check on Android.
