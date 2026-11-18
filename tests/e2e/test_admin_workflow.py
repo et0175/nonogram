@@ -173,8 +173,9 @@ class TestFlow2BatchImageUpload:
             client, (test_image, 'test1.png'), (landscape_image, 'test2.png')
         )
 
-        # Both pictures are on the preview, each under its own name and each
-        # drawn from its own address.
+        # Both names are on the preview and two distinct picture ids appear.
+        # Not held here: which name goes with which picture, or that each id
+        # is an ``<img>`` source.
         assert response.request.path == PREVIEW_PATH
         page = response.get_data(as_text=True)
         assert 'test1.png' in page and 'test2.png' in page
@@ -299,12 +300,15 @@ def test_every_upload_posts_a_field_the_route_reads():
     readers = set()
 
     def visit(node, owner):
-        # A class owns everything in it, under the class's own name: a
-        # method called ``_upload`` is not the helper and is not exempt.
+        # A class owns everything in it, as ``class <name>``: neither a
+        # method called ``_upload`` nor a class called ``_upload`` is the
+        # helper, and neither is exempt.
         if isinstance(
             node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
         ) and owner is None:
             owner = getattr(node, 'name', '<lambda>')
+            if isinstance(node, ast.ClassDef):
+                owner = f'class {owner}'
         if (
             isinstance(node, ast.Name)
             and isinstance(node.ctx, ast.Load)
