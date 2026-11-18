@@ -1,6 +1,6 @@
 # CARD-478: The book selection page stops saying "approved" when it is showing every status
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -16,9 +16,9 @@
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** src/nonogram/admin/templates/_stepper.html, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_status_filter_default.py
+**Touches:** src/nonogram/admin/templates/_stepper.html, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_status_filter_default.py, tests/test_book_workflow_steps.py
 **UI surface:** user-facing
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-18T15:24Z
 **Closed:** —
 **Actual:** —
@@ -46,4 +46,8 @@ Make both strings follow the status the page is actually filtered to: the curren
 
 ## Worktree notes
 
-—
+[Choice] The stepper's standing hint is unchanged; `book_steps` takes an optional `hints` map that only the selection page passes. Wider than AC-1 on purpose: "approved" is said only under the approved filter, so draft, rejected and unknown statuses read neutral too (reviewer: right, since none of them shows only approved tiles).
+[Touches grew] `tests/test_book_workflow_steps.py`: its key check read `book_steps(N)` exactly and went red when the selection page passed a second argument; it now reads the first argument.
+[Review 1/3] Score: 9.0, nothing gating, certified. Minor F-001 (only the current step's hint was read, so an override applied to all five steps passed) fixed after the cycle in `7d439d91`: no review cycle has seen that commit; the mutant it targets now reds, which is what the merge gate will re-run, nothing more.
+[Not carded, reviewer F-002] Under a filter other than `all` and `approved`, an empty tab still says "No approved puzzles…" — CARD-180's branch tests `status == 'all'`, this card's wording tests `status == 'approved'`. Pre-existing; matters only if the owner wants the empty-tab copy to follow too.
+[Estimate] 1c estimated, 1 cycle used.
