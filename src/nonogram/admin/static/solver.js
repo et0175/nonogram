@@ -1786,18 +1786,25 @@ function start() {
     // CARD-479: and the stage's own box. The observer above answers to what
     // stands above the stage; a change to the stage itself that moves none of
     // that (a style rule, a parent's width) left the clue bands' verdict
-    // measured for the old box (CARD-271's residual). Keyed on the stage's
-    // port, and the key is taken AFTER the re-measure: a re-fit that resizes
-    // the stage (a board smaller than its room) then reads as already seen,
-    // so this cannot feed itself — the shape CARD-402 F-001 measured on the
-    // toolbar strip, a re-fit every frame.
+    // measured for the old box (CARD-271's residual). Keyed on what the
+    // re-measure reads — the stage's width and its max-height, the room —
+    // and NOT its height: below its cap the stage is as tall as the board, so
+    // a height key fired on every zoom step and pinch move and re-fitted from
+    // a board drawn at the old zoom (review cycle 1, F-001: Fit came out one
+    // percent short). A re-fit changes the board, not the room, so it does
+    // not re-key this; the key is read after the re-measure only because
+    // measureStageTop, inside it, can move the max-height (reading it before
+    // made no difference in any test). Without the key the observer loops —
+    // CARD-402 F-001's shape, held by that cell. A window drag re-measures
+    // here as well as through the observer above.
+    const room = () => `${stage.clientWidth}x${getComputedStyle(stage).maxHeight}`;
     let stageKey = "";
     const own = new ResizeObserver(() => {
-      if (`${stage.clientWidth}x${stage.clientHeight}` === stageKey) return;
+      if (room() === stageKey) return;
       keepCluesInView();
       measureFit();
       marking.offerRedrawn();
-      stageKey = `${stage.clientWidth}x${stage.clientHeight}`;
+      stageKey = room();
     });
     own.observe(stage);
   }

@@ -3331,11 +3331,10 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         assert _verdict(after)[0] is False, after
         assert after["keeping"] == _verdict(after), after
 
-        # AC-2's half here: after that one change the board holds still —
-        # counted over twenty frames, not timed. A re-measure that resized
-        # the stage and fed the new observation would re-fit every frame
-        # (CARD-402 F-001's shape; its own 932 x 430 cell is in
-        # tests/test_player_public_mode.py's LandscapeToolStrip class).
+        # After that one change the board holds still, counted over twenty
+        # frames. At this size there is no loop for it to see: the loop case
+        # (CARD-402 F-001, 932 x 430) is held by its own cell,
+        # tests/test_player_public_mode.py's LandscapeToolStrip class.
         sizes = page.evaluate("""() => new Promise((done) => { const out = []; const tick = () => {
           const box = document.querySelector('.player-board').getBoundingClientRect();
           out.push(`${box.width}x${box.height}`);
