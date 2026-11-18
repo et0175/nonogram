@@ -324,6 +324,48 @@ class TestStatusFilter_AllEmptyTabDoesNotSayApproved:
         assert "No approved puzzles with a longest side of 26-30" in default
 
 
+class TestStatusFilter_TheIntroAndStepperFollowTheFilter:
+    """CARD-478: the page's intro and its stepper hint said "approved" under
+    every filter, including ``all``, where the tiles below are of every
+    status. They now say it only when the filter is approved."""
+
+    _LEDE = re.compile(r'(?s)<p class="lede">(.*?)</p>')
+    _HINT = re.compile(r'(?s)<li class="is-current"[^>]*>.*?<small>(.*?)</small>')
+
+    def _read(self, client, url) -> tuple[str, str]:
+        response = client.get(url)
+        assert response.status_code == 200, (url, response.status_code)
+        html = response.get_data(as_text=True)
+        (lede,) = self._LEDE.findall(html)
+        (hint,) = self._HINT.findall(html)
+        return " ".join(lede.split()), hint
+
+    def test_approved_only_under_the_approved_filter(self, measurable) -> None:
+        client, book_id, _ = measurable
+        base = f"/book/{book_id}/select-puzzles"
+        read = {
+            "default": self._read(client, base),
+            "empty": self._read(client, f"{base}?status="),
+            "approved": self._read(client, f"{base}?status=approved"),
+            "all": self._read(client, f"{base}?{_ALL}"),
+            "draft": self._read(client, f"{base}?status=draft"),
+        }
+        assert {key: (lede.count("approved"), hint) for key, (lede, hint) in read.items()} == {
+            "default": (1, "Pick approved grids"),
+            "empty": (1, "Pick approved grids"),
+            "approved": (1, "Pick approved grids"),
+            "all": (0, "Pick the grids"),
+            "draft": (0, "Pick the grids"),
+        }
+        assert "pick the grids that go in" in read["all"][0], read["all"][0]
+        assert "pick the approved grids that go in" in read["default"][0], read["default"][0]
+
+        # The stepper is shared by every book page; the others keep the
+        # standing hint for this step (G-2's "wording only", per page).
+        page = client.get(f"/book/{book_id}/arrange-puzzles").get_data(as_text=True)
+        assert "<small>Pick approved grids</small>" in page
+
+
 class TestStatusFilter_UnknownValueStillMatchesNothing:
     """AC-7 (was CARD-166's pinned ``all`` test): only the exact value ``all``
     is special. Any other value is matched literally and offers nothing, so
