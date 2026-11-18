@@ -1,6 +1,6 @@
 # CARD-476: A guardrail on an open card names a test that exists, or the suite says which one does not
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/476-open-card-guardrail-refs
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-476
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-110, WSJF 12.31); premise re-read against main on 2026-11-18. Origin: wave 37 retrospective: a fabricated test name reached four cards in two waves; resolved by hand since wave 43.
 **Idea:** IDEA-110
 **Wave:** 80
@@ -20,9 +20,9 @@
 **UI surface:** none
 **Review score:** 8.5 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-18T11:15Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-18T14:24Z
+**Actual:** 3c — ratio 3/1 = 3.000
+**Merge commit:** f4c02189add7f394d3e35a817e09f5d9466ead5f
 **Blocked by:** —
 
 ## Why this card exists
@@ -56,4 +56,5 @@ In the existing card census (`tests/test_kanban_review_record.py`, which already
 [Review 1/3] Score: 7.0 (three gating findings). F-001 plants depended on which real cards were open; F-002 the validator claim above was false; F-003 thirteen mutants survived, most on routes with no control. Fix: plants on synthetic cards, the uncontrolled routes deleted, the claim withdrawn.
 [Review 2/3] Score: 8.0 (two gating findings, both from fix 1). F-201: the walk over cards and clauses had no control (every plant one card, one clause). F-202: the rewritten marker regex lost the backtick exclusion, so prose like "leave the rule's `check:` alone" became a clause naming nothing. Both fixed with arms in the existing plant test; minors F-203 (part), F-204, F-205 fixed. Reviewer confirmed every figure copied from its cycle-1 measurement, bar a slip here (474..480 for 476..480), corrected.
 [Review 3/3] Score: 8.5, no gating findings, certified: "merge it as it stands". Each control added in fix 2 reds only the arm written for it (reviewer-measured per arm). Open minors, not gating: F-301 the two-card plant gives both cards one file name, so a mutant naming the wrong card survives; F-302 thirteen statements in the comment block are true of the code but have no control (the reviewer ruled this coverage debt, not a false claim); F-303 the real-tree cell's docstring says every clause names a test, but review-lens clauses are exempt.
+[Merge gate] `make test-gate` on the rebased tip: run 1, 4148 passed, 15 skipped (14 database-not-set, 1 setrlimit), 8 deselected, 1 xfailed; run 2 (wave_close_only, lifted file), 4 passed; exit 0.
 [Estimate] 1c estimated, 3 cycles used.
