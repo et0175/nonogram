@@ -1,6 +1,6 @@
 # CARD-475: The five hollow upload e2e tests post the field the route reads
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/e2e/test_admin_workflow.py
 **UI surface:** none
-**Review score:** —
+**Review score:** 9.0 (cycle 3/3 - NOT CERTIFIED, ⚠ max cycles reached; two gating findings fixed after the last cycle)
 **Started:** 2026-11-18T09:15Z
 **Closed:** —
 **Actual:** —
@@ -46,4 +46,14 @@ Apply CARD-164's repair to the five: post the field the route reads, and assert 
 
 ## Worktree notes
 
-—
+[Start] Implemented by the orchestrating session itself; reviewed by one independent agent across all three cycles. One file, `tests/e2e/test_admin_workflow.py`; four commits on the branch.
+[G-2 withdrawn] The guardrail says the file needs the database. It does not: `admin_app` removes `DATABASE_URL` and runs in memory. 19 passed, 0 skipped.
+[AC-1, measured] Before the card, with the route stubbed to refuse every upload, all five tests stayed green. After it, the same stub reds six: `test_tc_001_single_image_upload`, `test_preview_page_displays_original_image`, `test_metadata_shown_on_preview`, `test_tc_002_multiple_image_batch`, `test_tc_003_svg_generation_display`, and `test_size_configuration_applied` (CARD-164's, already real). Reviewer-re-fired in cycles 1 and 2.
+[Review 1/3] Score: 7.0 (four gating findings, all hollowness in the NEW assertions). F-001 any "N×M px" accepted; F-002 the drawn image never fetched; F-003 an empty SVG accepted; F-004 the field check recognised call shapes instead of denying by reference. All fixed.
+[Review 2/3] Score: 9.0 (two new gating findings, both in fix 1's additions). F-008 the field check exempted any function NAMED `_upload`; F-009 a comment claimed the grid was "this picture's". Both fixed.
+[Review 3/3] Score: 9.0, NOT certified: two gating findings. F-012, introduced by fix 2: a module-level class named `_upload` became an allowed reader. F-011, first-commit code missed in cycles 1 and 2: `test_tc_002_multiple_image_batch`'s comment claimed more than its assertions hold. The reviewer wrote: with those two edits applied and the file re-run, "I would merge without another review pass".
+[Last edit, uncertified] Both were applied after cycle 3, so no review cycle saw the final commit. The F-012 edit is the reviewer's own, verified on its tree; here it was fired again (a class named `_upload` and one named like the check each red the field check; with the two lines removed the first passes). F-011 is a comment-only change. What the merge gate establishes about this commit: that the file and the gate's selection pass, nothing about the claims.
+[Declared bound of the field check] It cannot see an address not spelled whole in the file (concatenation, `url_for`) or the constants reached without naming them (`globals()`, `sys.modules`); a value exported from inside `_upload` itself is also unseen and is NOT named in the docstring (reviewer F-013, minor, open).
+[Beyond the card] `admin_app` now redirects the temp root per test: measured +7 files per run in the machine upload directory without it, +0 with it; no test asserts that.
+[Not carded] Thirteen other test modules post to the upload route with no redirect and leave files in the machine temp directory (reviewer F-007; one measured at 4 files per run, twelve unmeasured).
+[Estimate] 1c estimated, 3 cycles used.
