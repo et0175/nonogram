@@ -472,7 +472,7 @@ def _shows_something(handler: _ast.ExceptHandler) -> bool:
         if isinstance(node, _ast.Call):
             func = node.func
             name = func.id if isinstance(func, _ast.Name) else getattr(func, "attr", None)
-            if name in {"flash", "render_template", "jsonify", "append"}:
+            if name in {"flash", "render_template", "jsonify", "append", "abort"}:
                 return True
     return False
 
@@ -493,9 +493,15 @@ def test_no_broad_handler_puts_its_exception_on_screen() -> None:
     (CARD-118's refusal for a trim with no room for the proof note); that
     read is the one listed exemption.
 
-    And every broad handler that shows anything at all is planted by
-    :func:`test_a_planted_failure_shows_fixed_text_and_is_logged` — the
-    plant list is held to this population, so a new one cannot go unplanted.
+    And every broad handler that shows something, by this test's sink
+    model, is planted by
+    :func:`test_a_planted_failure_shows_fixed_text_and_is_logged`: the plant
+    list is held to that population. The sink model is the handler's own
+    body only — a ``return`` of anything but ``None``, or a call named
+    ``flash``, ``render_template``, ``jsonify``, ``append`` or ``abort``.
+    A handler that shows text any other way is outside it and goes
+    unplanted (measured in review: text written into the session, or into a
+    variable rendered after the ``try``).
 
     What it cannot see, measured: an exception reached without its bound
     name (``traceback.format_exc()``, ``sys.exc_info()``, ``__context__``), a
@@ -521,7 +527,7 @@ def test_no_broad_handler_puts_its_exception_on_screen() -> None:
     showing = sorted(
         (_enclosing_function(tree, h), _fixed_sentence(h)) for h in handlers
         if _shows_something(h) and not _shows_through_plan_failure_page(h)
-        and _fixed_sentence(h) not in _PLANTED_BY_CARD_177
+        and (_enclosing_function(tree, h), _fixed_sentence(h)) not in _PLANTED_BY_CARD_177
     )
     assert showing == sorted((fn, name) for fn, _status, name in _SURFACES.values()), showing
 
@@ -535,9 +541,14 @@ def test_no_broad_handler_puts_its_exception_on_screen() -> None:
     ], "the 500 page reads its error"
 
 
-#: The fixed sentences CARD-177 introduced; its handlers are planted by the
-#: tests above this section, through ``SEAMS``.
-_PLANTED_BY_CARD_177 = {"PDF_EXPORT_FAILED", "FINALISE_ACTION_FAILED"}
+#: CARD-177's three handlers, by (function, fixed sentence); they are planted
+#: by the tests above this section, through ``SEAMS``. Keyed by both, so a new
+#: handler elsewhere that shows one of these sentences is not exempt.
+_PLANTED_BY_CARD_177 = {
+    ("finalize_book", "FINALISE_ACTION_FAILED"),
+    ("generate_book_pdf_download", "PDF_EXPORT_FAILED"),
+    ("generate_book_pdf", "PDF_EXPORT_FAILED"),
+}
 
 
 def _fixed_sentence(handler: _ast.ExceptHandler) -> str:
