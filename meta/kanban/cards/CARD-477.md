@@ -1,6 +1,6 @@
 # CARD-477: The four remaining pages draw an edited puzzle's current grid, not a cached one
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/477-versioned-grid-urls
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-477
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-129, WSJF 2.56); premise re-read against main on 2026-11-18. Origin: CARD-250 review cycle 1, finding F-005.
 **Idea:** IDEA-129
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/templates/batch_status.html, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py
 **UI surface:** user-facing
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T14:45Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
