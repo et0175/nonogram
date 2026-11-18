@@ -1,6 +1,6 @@
 # CARD-476: A guardrail on an open card names a test that exists, or the suite says which one does not
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_kanban_review_record.py
 **UI surface:** none
-**Review score:** —
+**Review score:** 8.5 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-18T11:15Z
 **Closed:** —
 **Actual:** —
@@ -55,3 +55,5 @@ In the existing card census (`tests/test_kanban_review_record.py`, which already
 [Also unseen, by the card's own wording] A test named in a guardrail without a `test:` / `check:` marker: eight references on six open cards today (CARD-275, 279, 315, 340, 397, 479), all alive. None of CARD-397 or CARD-476..480 writes a marked clause, so the cell judges 6 of the 14 genuine references on the board.
 [Review 1/3] Score: 7.0 (three gating findings). F-001 plants depended on which real cards were open; F-002 the validator claim above was false; F-003 thirteen mutants survived, most on routes with no control. Fix: plants on synthetic cards, the uncontrolled routes deleted, the claim withdrawn.
 [Review 2/3] Score: 8.0 (two gating findings, both from fix 1). F-201: the walk over cards and clauses had no control (every plant one card, one clause). F-202: the rewritten marker regex lost the backtick exclusion, so prose like "leave the rule's `check:` alone" became a clause naming nothing. Both fixed with arms in the existing plant test; minors F-203 (part), F-204, F-205 fixed. Reviewer confirmed every figure copied from its cycle-1 measurement, bar a slip here (474..480 for 476..480), corrected.
+[Review 3/3] Score: 8.5, no gating findings, certified: "merge it as it stands". Each control added in fix 2 reds only the arm written for it (reviewer-measured per arm). Open minors, not gating: F-301 the two-card plant gives both cards one file name, so a mutant naming the wrong card survives; F-302 thirteen statements in the comment block are true of the code but have no control (the reviewer ruled this coverage debt, not a false claim); F-303 the real-tree cell's docstring says every clause names a test, but review-lens clauses are exempt.
+[Estimate] 1c estimated, 3 cycles used.
