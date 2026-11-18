@@ -1,6 +1,6 @@
 # CARD-477: The four remaining pages draw an edited puzzle's current grid, not a cached one
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/templates/generated_puzzles.html, src/nonogram/admin/templates/batch_status.html, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py
 **UI surface:** user-facing
-**Review score:** —
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-18T14:45Z
 **Closed:** —
 **Actual:** —
@@ -50,3 +50,7 @@ Version the grid URL on the four pages the way `_puzzle_table.html` does. If a p
 [Route taken] The url is versioned on the four pages; the grid route was not given an ETag and `app.py` is untouched. Every page already receives `puzzle_review` dicts carrying `manually_edited_at`: in memory measured by rendering, in DB mode read from the code (`filter_puzzles` and `get_puzzles` both build rows through `_row_to_dict`, which always writes the key) by the cycle-1 reviewer, not executed — no database is configured for tests.
 [AC-3] Holds because the diff leaves the two download links alone; no test pins them.
 [Review 1/3] Score: 9.0, nothing gating. Minor 1 fixed in a second commit: the template walk passed three bare shapes (stamp only in `alt`, `onerror` before `src`, a `url_for`-built `src`) while its docstring said a bare page reds.
+[Review 2/3] Score: 9.5, nothing gating, certified; a confirmation cycle on the fix commit alone: "I would merge the two-commit diff as it stands". The floor counts exactly the six real grid images.
+[Correction to commit 6e385193's message] It says reading the whole tag instead of the `src` "reds once a tag carries the stamp in alt and a constant ?v= in src". Wrong as written: under that mutant the walk stays GREEN with that tag planted; the real walk is red. That tag is what tells the two readings apart, and no test plants it, so the whole-tag mutant survives the suite. I misread my own run: its one failure was the per-page test, not the walk.
+[Open, not carded — reviewer F-101] The walk skips an `<img>` it cannot parse instead of failing: `SRC=`, `<IMG`, an unquoted `src`, `srcset` or `data-src` only, and an unquoted apostrophe earlier in the file each let a bare grid image pass. None of these shapes exists in the templates today, and the docstring does not list them.
+[Estimate] 1c estimated, 2 cycles used.
