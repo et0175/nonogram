@@ -1,0 +1,15 @@
+# Triage outcomes of the aging ratchet (AGG-019, FR-044/INV-054).
+#
+# Written by skills/roadmap/scripts/aging_ratchet.py and by nothing else.
+# The register carries what its own schema already has — mitigation_ref
+# and status — and meta/kanban/backlog.md is never written at all
+# (forge:roadmap declares it read only), so this is where the DATED
+# reason and the typed outcome of every mandatory triage live.
+schema_version: 1
+outcomes:
+  - finding_ref: "IDEA-214"
+    finding_class: "repeated_backlog_item"
+    outcome: "slotted_into_wave"
+    outcome_ref: "IDEA-004"
+    reason: null
+    at: "2026-11-18"

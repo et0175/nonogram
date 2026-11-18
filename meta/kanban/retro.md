@@ -1877,7 +1877,7 @@ three cards but produces no signal.
 
 ---
 
-## Wave 74 — three for three, and the first calibration signal this board has been able to export
+## Wave 74 — three for three, and the first calibration signal this board has been able to export (2026-11-04)
 
 Closed 2026-11-04. **CARD-278 8.8** (cycle 1 of 3), **CARD-336 8.6** (cycle 1 of 3),
 **CARD-339 8.4** (cycle 2 of 3). None escalated. Opened on the owner's *"open the next wave on
@@ -2049,7 +2049,7 @@ wave's real output: three cards closed and twelve defects named, measured and ow
 
 ---
 
-## Wave 75 — two for two, the first signal that points somewhere, and five instrument failures
+## Wave 75 — two for two, the first signal that points somewhere, and five instrument failures (2026-11-04)
 
 Closed 2026-11-04. **CARD-335 8.0** (cycle 1 of 3), **CARD-337 8.5** (cycle 1 of 3). None escalated.
 Back at the owner's standing cap of 2 after wave 74's one-wave override.
@@ -2187,7 +2187,7 @@ registry (CARD-366).
   discipline from Goodhart on the estimate, and nothing else does.
 - Nothing here is effort calibration beyond the first bullet, so `calibrate` ignores the rest.
 
-## Wave 76 — one card closed at 9.0, one carried mid-cycle, and the family is still instruments that cannot fail
+## Wave 76 — one card closed at 9.0, one carried mid-cycle, and the family is still instruments that cannot fail (2026-11-04)
 
 **Closed 2026-11-04, on the owner's instruction, as a ONE-card wave.** CARD-348 landed; CARD-363
 was mid-review-cycle-3 and the wave was closed **around** it rather than on it. The owner was asked
@@ -2331,7 +2331,7 @@ CARD-373 (AC-4's table durable only inside a failure message a green run never p
   while `skipped`, so both waves read larger than they were. Wave 15 has no cards at all. Not acted
   on; recorded for whoever touches the wave census next.
 
-## Wave 77 — one card, NOT certified, landed on authorisation — and the first ratio that carries shape
+## Wave 77 — one card, NOT certified, landed on authorisation — and the first ratio that carries shape (2026-11-04)
 
 **Closed 2026-11-04.** A one-card wave by construction: CARD-363 was carried out of wave 76 when
 that wave closed around it on the owner's instruction.

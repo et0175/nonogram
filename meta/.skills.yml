@@ -1,0 +1,33 @@
+# forge skill configuration. Created 2026-11-18 by /forge:roadmap rescore, owner-approved.
+# Stage, methodology and language are the project's already-recorded choices
+# (backlog-scored.yml's `config` block). Keys not listed keep the forge defaults.
+
+# Stays pre-launch on purpose (owner, 2026-11-18): `growth`/`mature` make the forge
+# validator escalate missing AC tests and dead check refs from WARN to ERROR, which
+# reds /forge:ci on 20 known items. The capacity mix below is set independently.
+stage: pre-launch
+language: en
+
+# Owner choice 2026-10-03: RICE reach is meaningless for a single-owner admin tool.
+methodology:
+  default: wsjf
+  per_category:
+    feature: wsjf
+    enabler: wsjf
+    tech-debt: wsjf
+    compliance: wsjf
+    ops: fifo
+
+# The `mature` stage mix, chosen explicitly (owner, 2026-11-18): the backlog is
+# mostly tech-debt and the old pre-launch 60/15/5/15/5 no longer described the board.
+capacity:
+  feature: 40
+  enabler: 15
+  tech-debt: 25
+  compliance: 10
+  ops: 10
+
+# Declared so the roadmap aging ratchet (Step 2.5b) can run; 6 is the forge default.
+risk_register:
+  enabled: true
+  high_score_threshold: 6

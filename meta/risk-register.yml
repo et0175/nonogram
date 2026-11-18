@@ -1,0 +1,7 @@
+# meta/risk-register.yml
+# Created empty on 2026-11-18 so /forge:roadmap's aging ratchet has a register to read.
+# `risks: []` means NO RISK HAS BEEN CAPTURED YET, not that the project has none.
+# Capture real ones with /forge:risk.
+schema_version: 1
+last_updated: 2026-11-18
+risks: []

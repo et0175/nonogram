@@ -1,0 +1,16 @@
+# REGENERATED per screening by /forge:roadmap Step 2.5b from retro.md's
+# "### Finding families" prose (this copy: 2026-11-18). Not a durable artifact;
+# history lives in triage-outcomes.yml. Only families that name a backlog.md item
+# are listed -- a family with no backlog line (e.g. ADR-0039/R1's "claim wider than
+# its mechanism", promoted to a rule) has nothing here to age.
+schema_version: 1
+families:
+  - item: IDEA-109
+    family: a figure or a document's claim about the code goes stale and is never re-derived
+    match: "superseded baselines cost no runtime"
+    reviews: [CARD-227-cycle1, CARD-267-cycle1, CARD-297-cycle1, CARD-298-cycle2, CARD-301-cycle1]
+    scheduling_ref: CARD-304
+  - item: IDEA-214
+    family: a check ref resolves to a mention rather than a definition
+    match: "A review YAML can revive a dead check ref"
+    reviews: [CARD-284-cycle2, CARD-297-cycle1, CARD-298-cycle2, CARD-301-cycle1]

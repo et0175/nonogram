@@ -1,135 +1,163 @@
 # Product Roadmap
 
-_Generated: 2026-10-30 · mode: `plan` (scoring deliberately NOT run — see "Why 107 ideas were not scored")_
-_Stage: **pre-launch** · Methodology: **WSJF for every scored category**, FIFO for ops_
+_Generated: 2026-11-18 · mode: `rescore` (full triage, then score, then plan)_
+_Stage: **pre-launch** (kept so the forge validator does not escalate 20 known findings to errors) · capacity mix: **mature** 40/15/25/10/10 · Methodology: **WSJF for every scored category**, FIFO for ops_
 
-## Config of record, and a correction
+## What this rescore did
 
-`meta/.skills.yml` **does not exist** in this project, so the roadmap skill's defaults
-would apply: `stage=growth`, **RICE for features**, capacity 55/20/15/5/5. **Those
-defaults were not used.** `backlog-scored.yml`'s own `config` block carries the
-project's recorded choices, including an explicit owner decision:
+All **186 open items** in `backlog.md` were checked against cards 300–473 and the current tree (read-only; no test was run, so "unverified" below means exactly that). The 2026-10-30 roadmap had left 107 of them unscored.
 
-> `methodology_note: 'owner choice 2026-10-03: RICE reach is meaningless for a
-> single-owner admin tool'`
-
-Running the defaults would have silently overturned that and changed the capacity mix.
-**The recorded config governs.** If the stage has genuinely moved (see below), change it
-deliberately — not by letting a missing file decide.
-
-## THE HEADLINE: the capacity plan no longer describes this project
-
-| Category | Plan % | Scored ideas | Verdict |
-|----------|-------:|-------------:|---------|
-| feature | **60** | **3** | plan reserves most of the budget for work that barely exists |
-| enabler | 15 | **0** | nothing to spend it on |
-| tech-debt | **5** | **71** | 93% of the backlog competing for 5% of the budget |
-| compliance | 15 | **0** | nothing to spend it on |
-| ops | 5 | 2 | roughly proportionate |
-
-**The plan describes a pre-launch product push. The backlog is 93% tech-debt.** No wave
-allocation computed from these percentages would mean anything: filling the feature
-bucket exhausts the entire feature backlog in one wave, while the tech-debt bucket admits
-roughly one idea per wave against 71 waiting.
-
-This is the same divergence the waves 63–65 retrospective measured from the other
-direction — **compliance −15pp, feature +10pp** — and it is now large enough that the
-percentages are the thing to fix, not the input to a plan.
-
-**Two readings, and they need different actions:**
-1. **The stage moved.** `pre-launch` (60/15/5/15/5) stopped describing reality some waves
-   ago; `mature` (40/15/**25**/10/10) is far closer to what the board actually does. That
-   is a one-line change to a recorded decision — make it explicitly.
-2. **Most of the "tech-debt" is not product work at all** — see the next section. If so,
-   it should not be competing for product capacity under any percentage.
-
-Both are probably true. (1) is cheap and (2) is the real cleanup.
-
-## Why 107 ideas were not scored
-
-`backlog.md` holds **186 open ideas**; `backlog-scored.yml` represents **79** of them.
-The skill's smart default would score the missing **107**. It was not run, measured:
-
-| What the 107 are about | Count |
+| Outcome | Ideas |
 |---|---:|
-| process / discipline only | 34 |
-| process **and** code (mostly a lesson that names a file) | 71 |
-| **code only** | **2** |
+| Scored and waiting (`backlog`, with a score) | 113 |
+| Waiting on the owner (not scored as work) | 14 |
+| Already carded (`in_kanban`) | 2 |
+| `done` (shipped or made moot) | 63 |
+| `screened` / `rejected` (permanent record) | 25 |
+| **Total in `backlog-scored.yml`** | **217** |
 
-**Two of 107 are about the product.** The rest are review-cycle findings — several
-beginning literally *"Promote to a standing rule:"*. Scoring a discipline lesson with
-WSJF's `user_business_value` is meaningless: it has none by construction.
+Changed by this pass: **35 ideas marked done** on evidence (9 already-scored ideas flipped, 26 unscored items recorded as done), **17 screened out-of-scope** (process lessons and forge-plugin issues, owner-approved), **51 newly scored**, 9 new owner items, 2 recorded against existing cards (CARD-279, CARD-315).
 
-`backlog.md` has become the overflow bin for review findings, and the right home for that
-material already exists and was exercised today — **finding-family promotion into ADR
-rules** (ADR-0039's R1–R4 are exactly this). Routing them through a prioritised *product*
-queue converts a standing rule into a ticket that never gets picked.
+Not re-checked: IDEA-106, 107, 111 and 112 come from retrospectives and have no `backlog.md` line, so the triage did not reach them; their October scores stand.
 
-## The scored backlog, ranked (ranking unchanged by the ×1.87 recalibration)
+## Capacity allocation
 
-A uniform factor rescales absolute job sizes; it reorders nothing.
+Wave budget 3.0 d (`day_calibration.wave_budget_d`, set 2026-10-04 and not re-measured since — treat the wave numbers as an ordering guide, not a schedule).
 
-### feature — WSJF, 3 ideas
-| Score | ID | job_size | Depends | Idea |
-|------:|----|---------:|---------|------|
-| 6.92 | IDEA-105 | 1.3 | — | Finalise guide preview needs changes after the owner look |
-| 0.62 | IDEA-058 | 6.5 | IDEA-064 | Keyboard marking of player cells |
-| 0.61 | IDEA-075 | 26.2 | — | Online solver public phase: hosting, QR URLs, no solution |
+| Category | % | Budget per wave (d) | Scored ideas | Total (d) |
+|---|--:|--:|--:|--:|
+| feature | 40 | 1.20 | 10 | 7.12 |
+| enabler | 15 | 0.45 | 0 | 0.00 |
+| tech-debt | 25 | 0.75 | 102 | 24.38 |
+| compliance | 10 | 0.30 | 1 | 0.75 |
+| ops | 10 | 0.30 | 0 | 0.00 |
 
-### tech-debt — WSJF, 71 ideas (top 6)
-| Score | ID | job_size | Idea |
-|------:|----|---------:|------|
-| 14.62 | IDEA-109 | 1.3 | Re-measure "superseded baselines cost no runtime" |
-| 12.31 | IDEA-110 | 1.3 | Resolve every card's backticked `test:`/`check:` name against the test tree |
-| 10.00 | IDEA-108 | 1.3 | `test_web_upload.py` sweeps the machine-wide temp dir |
-| 7.69 | IDEA-111 | 1.3 | Review reports disagree with themselves on severity |
-| 6.15 | IDEA-007 | 2.6 | Validator ERROR: ADR-0025 ↔ ADR-0031 circular supersession |
-| 5.38 | IDEA-082 | 2.6 | Five hollow e2e tests post the dead `images` field |
+Empty buckets roll over: enabler has no ideas, so its 0.45 d goes to tech-debt (1.20 d per wave); ops has only owner actions, so its 0.30 d goes to feature (1.50 d per wave).
 
-### ops — FIFO, 2 ideas
-IDEA-065 (CI `playwright install chromium`), IDEA-080 (fill `render.md` TODO(owner) rows).
+**The mix still under-serves tech-debt**: about 24 d of scored tech-debt against 1.2 d per wave is some 25 waves, while the whole feature list fits in 5. Most of that tail is single-line minors that the cut bar says to fix inline when the file is next touched rather than to card.
 
-**The top of the tech-debt list and today's retrospective converged independently.**
-IDEA-110 is CARD-319's family (a ref resolved by mention, not definition) and IDEA-109 is
-ADR-0039/R4's family (a figure whose instrument is unproven). The two highest-scoring
-tech-debt ideas on the board are the two families that cost waves 63–66 the most — and
-**both already have cards**: CARD-319 (blocked, code outside this repo) and CARD-304
-(stamped into wave 67 today). IDEA-007's validator ERROR is the ADR-0025 regex artefact
-already known to be a false positive in the plugin-cache copy.
+## Waiting on the owner (nothing here is scheduled)
+
+- **IDEA-002** Per-directory READMEs: adopt or drop the docs step
+- **IDEA-028** Image-mode difficulty sweep vs the 90.0 cutoff
+- **IDEA-080** Fill render.md TODO(owner) rows from the Render dashboard
+- **IDEA-104** CARD-174 minors: 47.9999 comment; "on both sides" wording
+- **IDEA-105** Finalise guide preview needs changes after the owner look (owner to specify)
+- **IDEA-114** Should the editor show the pre-edit (stored) difficulty?
+- **IDEA-137** Owner check: CARD-177 generic flash wording
+- **IDEA-139** Owner check: CARD-178 18.89 reopen renders
+- **IDEA-142** Owner check: CARD-180 ?status=all renders
+- **IDEA-144** Owner action: back up and apply migration 014
+- **IDEA-153** Owner check: CARD-190 review-page longest-side renders
+- **IDEA-158** Owner check: CARD-191 Sort by size renders
+- **IDEA-162** Owner check: CARD-192 band filter renders
+- **IDEA-198** Decide whether gates run with the database armed
+
+## Wave 1 (next)
+
+### feature  (1.25 / 1.50 d)
+1. **IDEA-209** ResizeObserver on .player-stage to re-measure clue bands by construction (WSJF 4.62) — 0.125 d (partly done)
+2. **IDEA-143** Selection page still says approved under ?status=all (WSJF 3.08) — 0.125 d
+3. **IDEA-129** Grid image route needs ETag; four pages show stale grids (WSJF 2.56) — 0.375 d
+4. **IDEA-149** Hint minors: double announcement, focus, animation window, stale text (WSJF 1.54) — 0.25 d ⚑ verify first
+5. **IDEA-178** Degraded drawing can touch the header rule on thin bands (WSJF 1.54) — 0.375 d
+
+### tech-debt  (0.62 / 1.20 d)
+1. **IDEA-110** Resolve every card's backticked test:/check: name against tests/ at the decompose station (WSJF 12.31) — 0.125 d
+2. **IDEA-108** test_web_upload.py sweeps the machine-wide temp dir and reds on concurrent worktrees (WSJF 10.0) — 0.125 d
+3. **IDEA-111** Review reports disagree with themselves on severity (markdown Important vs YAML medium) (WSJF 7.69) — 0.125 d
+4. **IDEA-082** Five hollow e2e tests post the dead `images` field (WSJF 5.38) — 0.25 d
+
+### compliance  (0.75 / 0.30 d)
+1. **IDEA-130** Handlers still flash or return raw exception text (WSJF 2.0) — 0.75 d  ⚠ exceeds the bucket: split it, or spend another category's budget
+
+## Wave 2
+
+### feature  (1.50 / 1.50 d)
+6. **IDEA-176** Is the two-up folio reserve still needed? It costs pairings (WSJF 1.23) — 0.75 d
+7. **IDEA-192** Order and name hints by the solver's per-cell technique grade (WSJF 1.23) — 0.75 d (partly done)
+
+### tech-debt  (1.00 / 1.20 d)
+5. **IDEA-004** Fix dead check: refs on mandatory rules (CON-005, INV-*) (WSJF 5.08) — 0.75 d (partly done)
+6. **IDEA-021** book_proof.render_proof_pdf still writes DeviceRGB (WSJF 5.0) — 0.25 d
+
+## Ranked by category
+
+### feature — WSJF, 10 ideas
+
+| Rank | Wave | ID | Idea | Score | Days | Depends | State |
+|--:|--:|---|---|--:|--:|---|---|
+| 1 | 1 | IDEA-209 | ResizeObserver on .player-stage to re-measure clue bands by construction | 4.62 | 0.125 | — | partly |
+| 2 | 1 | IDEA-143 | Selection page still says approved under ?status=all | 3.08 | 0.125 | — | open |
+| 3 | 1 | IDEA-129 | Grid image route needs ETag; four pages show stale grids | 2.56 | 0.375 | — | open |
+| 4 | 1 | IDEA-149 | Hint minors: double announcement, focus, animation window, stale text | 1.54 | 0.25 | — | unverified |
+| 5 | 1 | IDEA-178 | Degraded drawing can touch the header rule on thin bands | 1.54 | 0.375 | — | open |
+| 6 | 2 | IDEA-176 | Is the two-up folio reserve still needed? It costs pairings | 1.23 | 0.75 | — | open |
+| 7 | 2 | IDEA-192 | Order and name hints by the solver's per-cell technique grade | 1.23 | 0.75 | — | partly |
+| 8 | 3 | IDEA-168 | Eight dormant minors carried from CARD-202's review | 0.77 | 0.375 | — | partly |
+| 9 | 4 | IDEA-125 | Second QR: generate your own puzzle from a picture | 0.53 | 2 | — | open |
+| 10 | 5 | IDEA-126 | Persist user-generated puzzles | 0.36 | 2 | IDEA-125 | open |
+
+### compliance — WSJF, 1 ideas
+
+| Rank | Wave | ID | Idea | Score | Days | Depends | State |
+|--:|--:|---|---|--:|--:|---|---|
+| 1 | 1 | IDEA-130 | Handlers still flash or return raw exception text | 2.0 | 0.75 | — | open |
+
+### tech-debt — WSJF, 102 ideas (top 30; the rest are in `backlog-scored.yml`)
+
+| Rank | Wave | ID | Idea | Score | Days | Depends | State |
+|--:|--:|---|---|--:|--:|---|---|
+| 1 | 1 | IDEA-110 | Resolve every card's backticked test:/check: name against tests/ at the decompos | 12.31 | 0.125 | — | open |
+| 2 | 1 | IDEA-108 | test_web_upload.py sweeps the machine-wide temp dir and reds on concurrent workt | 10.0 | 0.125 | — | open |
+| 3 | 1 | IDEA-111 | Review reports disagree with themselves on severity (markdown Important vs YAML  | 7.69 | 0.125 | — | not re-checked |
+| 4 | 1 | IDEA-082 | Five hollow e2e tests post the dead `images` field | 5.38 | 0.25 | — | open |
+| 5 | 2 | IDEA-004 | Fix dead check: refs on mandatory rules (CON-005, INV-*) | 5.08 | 0.75 | — | partly |
+| 6 | 2 | IDEA-021 | book_proof.render_proof_pdf still writes DeviceRGB | 5.0 | 0.25 | — | open |
+| 7 | 3 | IDEA-069 | Upload tests glob shared temp dir (parallel interference) | 5.0 | 0.25 | — | partly |
+| 8 | 3 | IDEA-107 | Install pytest-testmon so review.test_scope: impact stops falling back to full | 5.0 | 0.25 | — | not re-checked |
+| 9 | 4 | IDEA-106 | ADR-0039's repo-wide guard audit: make R1-R3 reach a guard written tomorrow | 4.46 | 0.75 | — | not re-checked |
+| 10 | 4 | IDEA-112 | Promote the remaining wave-37 discipline rules into the model (one architect pas | 4.1 | 0.375 | IDEA-106 | not re-checked |
+| 11 | 5 | IDEA-006 | ADR-0029/R4 check can't test its rule (overlap masks) | 3.85 | 0.25 | — | open |
+| 12 | 5 | IDEA-017 | Pin migrations/env.py URL-not-logged by assertion (CARD-148) | 3.85 | 0.125 | — | unverified |
+| 13 | 5 | IDEA-034 | db_required hook pings DATABASE_URL before _test guard | 3.85 | 0.125 | — | open |
+| 14 | 5 | IDEA-044 | validate_margins accepts below 0.635 cm minimum | 3.85 | 0.125 | — | open |
+| 15 | 5 | IDEA-083 | Size test not tied to the form's field names (mutant M8) | 3.85 | 0.125 | — | open |
+| 16 | 5 | IDEA-100 | CARD-175 minors: summary focus ring token; test comments | 3.85 | 0.125 | — | open |
+| 17 | 6 | IDEA-009 | NFR + check for the deployed panel's 512 MB memory limit | 3.59 | 0.375 | — | open |
+| 18 | 6 | IDEA-011 | Hand-edit mark not released on revert (CARD-120 F-007) | 3.46 | 0.25 | — | open |
+| 19 | 6 | IDEA-024 | Undrawable row shown between page labels w/o marker | 3.46 | 0.25 | — | open |
+| 20 | 7 | IDEA-031 | Concurrent runs share nonogram_test; DROP SCHEMA races | 3.33 | 0.375 | — | partly |
+| 21 | 7 | IDEA-014 | Memory mode get_book returns live Book (CARD-136) | 3.08 | 0.25 | — | open |
+| 22 | 7 | IDEA-029 | Stale 'four members' enum_note + ADR-0025 test narrative | 3.08 | 0.125 | — | open |
+| 23 | 7 | IDEA-035 | diagnose_postgres.sh hardcodes nonogram_poc | 3.08 | 0.125 | — | open |
+| 24 | 7 | IDEA-038 | admin_scripts helper imports private test names | 3.08 | 0.125 | — | open |
+| 25 | 7 | IDEA-054 | Public read instead of _as_readable_grid (CARD-160 F-006) | 3.08 | 0.125 | — | open |
+| 26 | 8 | IDEA-062 | Player shows tier 'MEDIUM' upper-case | 3.08 | 0.125 | — | open |
+| 27 | 8 | IDEA-068 | Vacuous trim assertion in DB mode (CARD-120 F-009) | 3.08 | 0.25 | — | unverified |
+| 28 | 8 | IDEA-081 | scripts/README Manual Commands run pytest against nonogram_poc | 3.08 | 0.125 | — | open |
+| 29 | 8 | IDEA-093 | CARD-176 minors: pin bare-token echo row; AC-1 echo check per case | 3.08 | 0.125 | — | open |
+| 30 | 8 | IDEA-097 | CARD-172 minors: cap-height comment source; square page-2 docstring claim | 3.08 | 0.125 | — | partly |
+
+## Notes that change how to read the ranking
+
+- **IDEA-004 carries a registry defect worth knowing regardless of rank.** CON-005, the one mandatory solver property, names the check `PropertyTest_Solver_NeverFalsePositiveUniqueness`, which is defined nowhere; the real test is `test_never_false_positive_uniqueness` in `tests/property/test_solver_uniqueness.py`. The property is tested; the registry's pointer to it is dead. The aging triage slotted IDEA-214 (the "check ref resolves to a mention" family, four independent reviews) into IDEA-004.
+- **IDEA-108 and IDEA-069 are the same defect** (the upload tests glob the machine-wide temp dir); one fix closes both.
+- **The kill-matrix items overlap heavily** (IDEA-182, IDEA-183, IDEA-184, IDEA-185, IDEA-187, IDEA-188, IDEA-196, IDEA-203): IDEA-185, IDEA-187 and IDEA-188 are one job on the AC-7 anchors, and IDEA-196 and IDEA-203 share one missing `setattr`; card them together if at all.
+- **IDEA-176** (two-up folio reserve): its payoff figures predate CARD-392's footer change; re-measure before sizing.
+- **IDEA-125 / IDEA-126** (second QR, persisting user puzzles) need a public generator that does not exist, and the one-QR ruling of 2026-11-07 may have settled the first. They are ranked last and are really owner questions.
+- **IDEA-178** (header-rule ink on thin bands) sits in wave 1 by score, but no stored print profile reaches the band where it shows; whether to fix it at all is an owner call.
+- **⚑ verify first** marks an item whose current state could not be established without running a test.
 
 ## Signals consulted
 
-- **⚑ Historical drift**: compliance **−15pp** under plan, feature **+10pp** over
-  (waves 63–65). Consistent with the headline above.
-- **⚑ Tech-debt aging — the signal is BROKEN and must not be used.** 29 cards tracked,
-  21 open, and **every one reads `Deferred waves: 0`**, including CARD-220 created in wave
-  37 and still `ready` at wave 66. The retro's Step 4c increments only cards *in the
-  current wave scope*, so a card never scheduled never ages. Its `estimated_interest_d:
-  1.0d` is an artefact of a stuck counter; **real open tech-debt is ~19d across 21 cards**.
-- Effort calibration: python-pro/feature avg **2.05×** (4 cards) — `confidence: low`, so
-  not surfaced per-idea; and the entry carries `bimodal: true` because the mean is true of
-  no card in the sample.
-- No risk register, no `intents.md`, no `weights.md`, no `constraints.md`, no research
-  synthesis → no risk, interest-weight, constraint or anti-positioning screens ran.
-  `assumptions.md` exists but no idea binds to an ASM.
+- **Aging ratchet (Step 2.5b)**: ran for the first time. One mandatory item (IDEA-214), slotted into IDEA-004 and recorded in `meta/kanban/triage-outcomes.yml`; `verify` exits 0.
+- **Risk register**: `meta/risk-register.yml` was created **empty** on 2026-11-18 so the ratchet could read it. It records no risks because none have been captured, not because none exist. Run `/forge:risk`.
+- **ASM-0001** (unvalidated, non-fatal; its check is overdue): no scored idea rests on large grids.
+- **Effort calibration**: new job sizes use the same cumulative ×1.3 the October scores carry. The python-pro/feature signal (2.05×, 4 cards) is `confidence: low` and bimodal, so it was not applied.
+- No `intents.md`, `weights.md`, `constraints.md` or research synthesis → no intent, interest-weight, constraint or anti-positioning screens ran.
+- No `waves.duration` configured → no velocity forecast.
 
-## No Wave 1 allocation is published, and that is deliberate
+## Next step
 
-There is no `waves.duration` or `waves.capacity_d` configured, so there is no wave budget
-in days or person-weeks to fill — and with the category mix above, percentages of an
-unknown budget would be a fabricated number. **More decisively: throughput is not
-backlog-constrained.** The board carries **49 open cards**, of which **14 claim
-`src/nonogram/admin/book_pdf_generator.py`**, and the card that would end that contention
-(CARD-273) `Depends on:` 21 others. Adding scored ideas to the front of that queue changes
-nothing downstream.
-
-## Next step — triage, not architect
-
-`/forge:architect` is the skill's usual next step and it is **not** the right one here:
-the top-ranked items are tech-debt with cards already cut, and the feature list is three
-items one of which is an owner-look follow-up.
-
-What would actually move: **(1)** decide the stage/capacity question above; **(2)** triage
-the 107 — route the ~105 process findings out of the product backlog into rule promotions
-or card amendments, and score the genuine remainder; **(3)** resolve CARD-273's ordering,
-which is the actual throughput constraint.
+Not `/forge:architect`: wave 1 is small fixes and one compliance item, none needing design. What would move things: answer the owner items above, card wave 1 through `/forge:kanban`, and capture real risks with `/forge:risk`.

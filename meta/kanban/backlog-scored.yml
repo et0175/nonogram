@@ -1,13 +1,13 @@
-generated: '2026-10-17'
+generated: '2026-11-18'
 source: meta/kanban/backlog.md
 config:
   stage: pre-launch
   capacity:
-    feature: 60
+    feature: 40
     enabler: 15
-    tech-debt: 5
-    compliance: 15
-    ops: 5
+    tech-debt: 25
+    compliance: 10
+    ops: 10
   methodology:
     feature: wsjf
     enabler: wsjf
@@ -46,6 +46,7 @@ config:
       13: 2
       20: 3
     wave_budget_d: 3.0
+  triage_2026_11_18: 'rescore: all 186 open backlog.md items checked against cards 300-473 and the tree (read-only, no test run). Resolved items flipped to done; process lessons and forge-plugin items screened out-of-scope (owner-approved); new items scored on the existing WSJF scale. Config now lives in meta/.skills.yml (stage pre-launch, capacity mix 40/15/25/10/10). wave/rank are assigned below by the Step 5 plan.'
 ideas:
 - id: IDEA-001
   title: Fixture superseded_by back-pointers (CARD-147 F-007)
@@ -100,8 +101,10 @@ ideas:
   depends_on: []
   needs_owner_decision: true
   source_line: 10
-  wave: 8
-  rank: 72
+  triage_state: "open"
+  triage_note: "Either branch is small; the choice is the open part."
+  triaged_at: "2026-11-18"
+  owner_item: True
 - id: IDEA-003
   title: 'Render: adopt Blueprint or record dashboard settings'
   raw: '- [ ] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the
@@ -118,8 +121,6 @@ ideas:
   priority_score: null
   depends_on: []
   source_line: 11
-  wave: 1
-  rank: 7
   card: CARD-168
   owner_decision: dashboard stays authoritative; document it (2026-10-04)
 - id: IDEA-004
@@ -150,8 +151,12 @@ ideas:
   priority_score: 5.08
   depends_on: []
   source_line: 14
+  triage_state: "partly"
+  triage_note: "CON-005 is the one mandatory correctness property and its ref still names a test that does not exist; the real test file is tests/property/test_solver_uniqueness.py."
+  triaged_at: "2026-11-18"
+  absorbs: "IDEA-214 (aging triage 2026-11-18: slotted here; see meta/kanban/triage-outcomes.yml)"
   wave: 2
-  rank: 15
+  rank: 5
 - id: IDEA-005
   title: system_rules.py --verify-refs resolves node ids
   raw: '- [ ] `system_rules.py --verify-refs` matches text, so a name inside a comment counts as "found":
@@ -197,15 +202,18 @@ ideas:
   priority_score: 3.85
   depends_on: []
   source_line: 16
-  wave: 2
-  rank: 18
+  triage_state: "open"
+  triage_note: "The registry line I read is the one near the R4 heading; confirm it is R4's own check before editing."
+  triaged_at: "2026-11-18"
+  wave: 5
+  rank: 11
 - id: IDEA-007
   title: 'Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession'
   raw: '- [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031
     → ADR-0025`. The guess-tier ADR chain cannot be resolved   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -223,8 +231,8 @@ ideas:
   depends_on: []
   source_line: 17
   route: architect station (cards cannot commit under meta/)
-  wave: 1
-  rank: 8
+  resolved_evidence: "forge_1 commit 9cf3dd1a 'a superseded-by back-pointer is not a second supersession edge' (validators/adr_integrity.py); ADR-0025 is 'Superseded by ADR-0031' and ADR-0031 'Supersedes: ADR-0025' - one edge, no cycle."
+  triaged_at: "2026-11-18"
 - id: IDEA-008
   title: 'CON-020: test 10 pt floor on every interior face'
   raw: '- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor
@@ -247,8 +255,6 @@ ideas:
   priority_score: 7.0
   depends_on: []
   source_line: 18
-  wave: 1
-  rank: 9
   card: CARD-184
 - id: IDEA-009
   title: NFR + check for the deployed panel's 512 MB memory limit
@@ -272,8 +278,11 @@ ideas:
   priority_score: 3.59
   depends_on: []
   source_line: 19
-  wave: 3
-  rank: 25
+  triage_state: "open"
+  triage_note: "Needs a check as well as the statement; tests/test_book_pdf_memory.py is the natural home."
+  triaged_at: "2026-11-18"
+  wave: 6
+  rank: 17
 - id: IDEA-010
   title: Formalise wave-30 card-only behaviours as ACs (FR-043)
   raw: '- [ ] Wave-30 goal-check (lean b, requirements incomplete): behaviours shipped by CARD-158/159
@@ -299,8 +308,11 @@ ideas:
   priority_score: 2.56
   depends_on: []
   source_line: 20
-  wave: 4
-  rank: 41
+  triage_state: "open"
+  triage_note: "Established by absence of wording, so an AC phrased differently could have been missed."
+  triaged_at: "2026-11-18"
+  wave: 9
+  rank: 36
 - id: IDEA-011
   title: Hand-edit mark not released on revert (CARD-120 F-007)
   raw: '- [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn''t release
@@ -323,8 +335,11 @@ ideas:
   priority_score: 3.46
   depends_on: []
   source_line: 23
-  wave: 3
-  rank: 26
+  triage_state: "open"
+  triage_note: "The first half of the finding (typing back to the prefill) reads as handled; only the count-change case remains - worth a second look."
+  triaged_at: "2026-11-18"
+  wave: 6
+  rank: 18
 - id: IDEA-012
   title: Refusal page Planned row reads stored plan (CARD-120 F-008)
   raw: '- [ ] CARD-120 F-008: the refusal page''s Planned row is read from the stored plan, not the submitted
@@ -347,8 +362,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 24
-  wave: 4
-  rank: 43
+  triage_state: "unverified"
+  triage_note: "src/nonogram/admin/app.py `setup_print` and templates/book_setup_print.html ('Planned' row) located, but I did not trace which plan the refusal render passes."
+  triaged_at: "2026-11-18"
+  wave: 10
+  rank: 38
 - id: IDEA-013
   title: Empty ?status= disables approved-only default
   raw: '- [ ] A hand-typed empty `?status=` turns off the approved-only default on the book-selection
@@ -362,8 +380,6 @@ ideas:
   priority_score: null
   depends_on: []
   source_line: 25
-  wave: 1
-  rank: 8
   card: CARD-166
 - id: IDEA-014
   title: Memory mode get_book returns live Book (CARD-136)
@@ -388,8 +404,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 26
-  wave: 3
-  rank: 29
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/book_manager.py `get_book` still returns `self.books.get(book_id)` in memory mode - no copy."
+  triaged_at: "2026-11-18"
+  wave: 7
+  rank: 21
 - id: IDEA-015
   title: 'CARD-118 minors: exc text flash, referrer redirect, utcnow'
   raw: '- [ ] CARD-118 reviewer minors: the proof route''s broad `except Exception` flashes raw exception
@@ -413,8 +432,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 27
-  wave: 4
-  rank: 44
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/app.py `generate_book_pdf_download` still uses `request.referrer or url_for(...)` (and a second site near setup_print); book_manager.py has ten `datetime.utcnow()` calls. The proof route's except clause and the ast import"
+  triaged_at: "2026-11-18"
+  wave: 10
+  rank: 39
 - id: IDEA-016
   title: _scheme_of echoes credentials in RuntimeError (CARD-148)
   raw: '- [ ] CARD-148 F-001: `db/session.py`''s `_scheme_of` echoes anything before the first `://`,
@@ -437,8 +459,6 @@ ideas:
   priority_score: 8.0
   depends_on: []
   source_line: 28
-  wave: 1
-  rank: 10
   card: CARD-176
 - id: IDEA-017
   title: Pin migrations/env.py URL-not-logged by assertion (CARD-148)
@@ -464,8 +484,11 @@ ideas:
   priority_score: 3.85
   depends_on: []
   source_line: 29
-  wave: 2
-  rank: 19
+  triage_state: "unverified"
+  triage_note: "tests/test_db_url_driver.py drives migrations/env.py's online branch in a subprocess, but I found no assertion on stderr not containing the URL by grep; not read in full."
+  triaged_at: "2026-11-18"
+  wave: 5
+  rank: 12
 - id: IDEA-018
   title: CARD-150 script-test precision (F-003/4/5/7)
   raw: '- [ ] CARD-150 F-003/F-004/F-005/F-007: the 14-of-18 figure is an artifact of `--check-only` not
@@ -490,8 +513,11 @@ ideas:
   priority_score: 1.28
   depends_on: []
   source_line: 30
-  wave: 9
-  rank: 79
+  triage_state: "open"
+  triage_note: "tests/helpers/admin_scripts.py still asserts bare `run.returncode != 0`; scripts/start_admin_local.sh Docker branches still probe by `-d \"$DB_NAME\"` only. The 14-of-18 figure and G-3 launch-target clauses were not found by grep and not re-c"
+  triaged_at: "2026-11-18"
+  wave: 22
+  rank: 96
 - id: IDEA-019
   title: 'CARD-147 dead code: guard, redundant UPDATE, mode default'
   raw: '- [ ] CARD-147 F-002/F-003/F-005: `_write_pdf`''s unreachable ValueError guard; the migration''s
@@ -516,8 +542,11 @@ ideas:
   priority_score: 1.54
   depends_on: []
   source_line: 31
-  wave: 8
-  rank: 73
+  triage_state: "partly"
+  triage_note: "These writers now serve only what stayed raster after CARD-416; check they are still reachable before spending on them."
+  triaged_at: "2026-11-18"
+  wave: 16
+  rank: 78
 - id: IDEA-020
   title: 'CARD-147 F-006: split the welded digest/colour-space claim'
   raw: '- [ ] CARD-147 F-006: the card''s sentence welds two claims the digests can''t both carry. The
@@ -525,7 +554,7 @@ ideas:
     already says so)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -541,8 +570,8 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 32
-  wave: 4
-  rank: 45
+  resolved_evidence: "The digests it refers to lived in baseline fixtures that are no longer on disk (tests/fixtures has only card206 and the vector golden); CARD-337 done re-based the ink-mode claim for the vector medium."
+  triaged_at: "2026-11-18"
 - id: IDEA-021
   title: book_proof.render_proof_pdf still writes DeviceRGB
   raw: '- [ ] CARD-147 F-008: `book_proof.render_proof_pdf` still writes DeviceRGB. It''s now the one
@@ -566,8 +595,11 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 33
+  triage_state: "open"
+  triage_note: "The interior is vector now (CARD-322/416), so the proof is the one interior-like raster path in a stronger sense than when written."
+  triaged_at: "2026-11-18"
   wave: 2
-  rank: 16
+  rank: 6
 - id: IDEA-022
   title: 'Arrange labels keyed by id(row): add count check (CARD-140)'
   raw: '- [ ] CARD-140 F-005: the arrange screen''s page labels are keyed by `id(row)`. Safe today, but
@@ -591,8 +623,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   source_line: 34
-  wave: 6
-  rank: 64
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/app.py arrange route still does `places.get(id(puzzle), {})`; `page_plan_failed` is set only in the two except arms, no labelled-rows vs `len(plan.printed)` comparison found."
+  triaged_at: "2026-11-18"
+  wave: 14
+  rank: 67
 - id: IDEA-023
   title: puzzle_section ValueError lands with no traceback (CARD-140)
   raw: '- [ ] CARD-140 F-006: `puzzle_section`''s `ValueError("ids must be parallel to payloads")` is
@@ -616,8 +651,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 35
-  wave: 5
-  rank: 46
+  triage_state: "open"
+  triage_note: "Unreachable today by the item's own account."
+  triaged_at: "2026-11-18"
+  wave: 10
+  rank: 40
 - id: IDEA-024
   title: Undrawable row shown between page labels w/o marker
   raw: '- [ ] CARD-140 F-007: a row the interior can''t draw renders between the "page 3" and "page 4"
@@ -640,8 +678,11 @@ ideas:
   priority_score: 3.46
   depends_on: []
   source_line: 36
-  wave: 3
-  rank: 27
+  triage_state: "open"
+  triage_note: "templates/book_arrange_puzzles.html has only the `page_plan_failed` branch - no 'Not printed' marker. The book page route does emit 'Not printed: cannot be drawn' (app.py, from CARD-165 commit 6b71decb), but that is a different screen."
+  triaged_at: "2026-11-18"
+  wave: 6
+  rank: 19
 - id: IDEA-025
   title: 'CARD-145 minors: byte-length assertion, cover RGBA memory'
   raw: '- [ ] CARD-145 minors: a same-length byte change would still pass the interior byte-length assertion;
@@ -664,8 +705,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   source_line: 37
-  wave: 6
-  rank: 65
+  triage_state: "partly"
+  triage_note: "tests/test_book_pdf_memory.py was rewritten (CARD-313, CARD-355 done) and no longer has a byte-length assertion or any RGBA mention; so the first half is gone and the uploaded-cover RGBA path is still unmeasured."
+  triaged_at: "2026-11-18"
+  wave: 14
+  rank: 68
 - id: IDEA-026
   title: export_book docstring claims every route uses it
   raw: '- [ ] CARD-135 F-008: `export_book`''s docstring still claims every route goes through it. Site:
@@ -688,8 +732,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 38
-  wave: 5
-  rank: 47
+  triage_state: "open"
+  triage_note: "Docstring only; book_proof.render_proof_pdf is the route that bypasses it."
+  triaged_at: "2026-11-18"
+  wave: 10
+  rank: 41
 - id: IDEA-027
   title: Rename answer_page_number() test helper (CARD-134)
   raw: '- [ ] CARD-134: `answer_page_number()` in `tests/test_book_pdf_band.py` still encodes one-answer-page-per-puzzle
@@ -712,8 +759,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 39
-  wave: 5
-  rank: 48
+  triage_state: "open"
+  triage_note: "tests/test_book_pdf_band.py still defines `answer_page_number`."
+  triaged_at: "2026-11-18"
+  wave: 10
+  rank: 42
 - id: IDEA-028
   title: Image-mode difficulty sweep vs the 90.0 cutoff
   raw: '- [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived
@@ -736,8 +786,10 @@ ideas:
   priority_score: 2.05
   depends_on: []
   source_line: 40
-  wave: 6
-  rank: 63
+  triage_state: "open"
+  triage_note: "Owner deferred it; the ADR-0029/R6 ceiling formula and prod regrade (memory: guess puzzles in c1) may have changed what the cutoff means."
+  triaged_at: "2026-11-18"
+  owner_item: True
 - id: IDEA-029
   title: Stale 'four members' enum_note + ADR-0025 test narrative
   raw: '- [ ] CARD-155 out of scope: `meta/architecture/requirements.yml:1834` enum_note still says `difficulty.Tier`
@@ -761,8 +813,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 41
-  wave: 3
-  rank: 30
+  triage_state: "open"
+  triage_note: "requirements.yml enum_note still says ADR-0025 fixes `guess` as the fourth member and '`difficulty.Tier` with four members'; tests/test_difficulty_tiers.py still narrates ADR-0025 in several comments/docstrings."
+  triaged_at: "2026-11-18"
+  wave: 7
+  rank: 22
 - id: IDEA-030
   title: Docstring regression regex misses lowercase guess
   raw: '- [ ] CARD-155 F-005 (minor): the docstring regression test''s regex catches only uppercase `GUESS`
@@ -785,8 +840,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 42
-  wave: 5
-  rank: 49
+  triage_state: "open"
+  triage_note: "tests/test_difficulty_tiers.py still uses `(?<![_A-Z])GUESS\\b|\\bor Guess\\b`."
+  triaged_at: "2026-11-18"
+  wave: 10
+  rank: 43
 - id: IDEA-031
   title: Concurrent runs share nonogram_test; DROP SCHEMA races
   raw: '- [ ] CARD-156 F-005: two test runs at once share `nonogram_test`, and the per-session `DROP SCHEMA
@@ -810,8 +868,11 @@ ideas:
   priority_score: 3.33
   depends_on: []
   source_line: 43
-  wave: 3
-  rank: 28
+  triage_state: "partly"
+  triage_note: "Remaining case was considered and skipped as CARD-378."
+  triaged_at: "2026-11-18"
+  wave: 7
+  rank: 20
 - id: IDEA-032
   title: Schema-once test fails when run alone (CARD-156 F-006)
   raw: '- [ ] CARD-156 F-006 (minor): the second `TestDbFixture_SchemaIsBuiltOncePerSession` test fails
@@ -835,8 +896,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   source_line: 44
-  wave: 6
-  rank: 66
+  triage_state: "unverified"
+  triage_note: "`class TestDbFixture_SchemaIsBuiltOncePerSession` still exists in tests/test_card_156_db_fixture.py; I did not read whether its second test still depends on the first's recorded state, and could not run it."
+  triaged_at: "2026-11-18"
+  wave: 14
+  rank: 69
 - id: IDEA-033
   title: DROP SCHEMA needs public ownership; grants lost (CARD-156)
   raw: '- [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the
@@ -859,8 +923,11 @@ ideas:
   priority_score: 1.54
   depends_on: []
   source_line: 45
-  wave: 8
-  rank: 74
+  triage_state: "open"
+  triage_note: "tests/conftest.py `_rebuild_public_schema` still runs `DROP SCHEMA public CASCADE`; no GRANT statement anywhere in conftest.py."
+  triaged_at: "2026-11-18"
+  wave: 17
+  rank: 79
 - id: IDEA-034
   title: db_required hook pings DATABASE_URL before _test guard
   raw: '- [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT
@@ -883,8 +950,11 @@ ideas:
   priority_score: 3.85
   depends_on: []
   source_line: 46
-  wave: 2
-  rank: 20
+  triage_state: "open"
+  triage_note: "tests/conftest.py `pytest_runtest_setup`: a DATABASE_URL other than the resolved test database still goes to `_unreachable_reason`, which connects and runs `SELECT 1` ('probed exactly as before'). CARD-349 done changed the unmarked-test pat"
+  triaged_at: "2026-11-18"
+  wave: 5
+  rank: 13
 - id: IDEA-035
   title: diagnose_postgres.sh hardcodes nonogram_poc
   raw: '- [ ] CARD-152 out of scope: `scripts/diagnose_postgres.sh:90` still hardcodes `nonogram_poc`,
@@ -907,8 +977,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 47
-  wave: 3
-  rank: 31
+  triage_state: "open"
+  triage_note: "scripts/diagnose_postgres.sh still greps for and suggests `createdb nonogram_poc`."
+  triaged_at: "2026-11-18"
+  wave: 7
+  rank: 23
 - id: IDEA-036
   title: run_admin_tests.sh default DB name vs test guard
   raw: '- [ ] CARD-152 (owner decision): `run_admin_tests.sh`''s default database `nonogram_poc` passes
@@ -923,8 +996,6 @@ ideas:
   priority_score: null
   depends_on: []
   source_line: 48
-  wave: 1
-  rank: 9
   card: CARD-168
   owner_decision: default to nonogram_test (2026-10-04)
 - id: IDEA-037
@@ -949,8 +1020,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 49
-  wave: 5
-  rank: 50
+  triage_state: "unverified"
+  triage_note: "The message line `Database '$DB_NAME' is not reachable` is present in run_admin_tests.sh, setup_admin_local.sh and start_admin_local.sh; I did not read the cause lines that follow it."
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 44
 - id: IDEA-038
   title: admin_scripts helper imports private test names
   raw: '- [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from
@@ -974,8 +1048,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 50
-  wave: 3
-  rank: 32
+  triage_state: "open"
+  triage_note: "tests/helpers/admin_scripts.py still has `from tests.test_start_admin_local import (_DOCKER_STUB, ...)`."
+  triaged_at: "2026-11-18"
+  wave: 7
+  rank: 24
 - id: IDEA-039
   title: Stale 'Python 3.11+' and docstring (CARD-152 F-007)
   raw: '- [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14);
@@ -998,8 +1075,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 51
-  wave: 5
-  rank: 51
+  triage_state: "open"
+  triage_note: "scripts/README.md still says 'Python 3.11+'. The stale docstring in tests/test_start_admin_local.py was not identified (the item cites it by line number only)."
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 45
 - id: IDEA-040
   title: finalize_book outer except never logs (CARD-153 F-010)
   raw: '- [ ] CARD-153 F-010 (pre-existing): `finalize_book`''s outer `except Exception` only flashes,
@@ -1021,8 +1101,6 @@ ideas:
   priority_score: 6.0
   depends_on: []
   source_line: 52
-  wave: 1
-  rank: 11
   card: CARD-171
 - id: IDEA-041
   title: Name page-plan error on GET Finalise (500 handler)
@@ -1045,8 +1123,6 @@ ideas:
   priority_score: 2.5
   depends_on: []
   source_line: 53
-  wave: 1
-  rank: 4
   card: CARD-171
 - id: IDEA-042
   title: Public read-only gate instead of private BookManager call
@@ -1070,8 +1146,11 @@ ideas:
   priority_score: 1.54
   depends_on: []
   source_line: 54
-  wave: 8
-  rank: 75
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/app.py still calls `book_mgr._refuse_unless_the_planned_book(...)`; book_manager.py has no public equivalent."
+  triaged_at: "2026-11-18"
+  wave: 17
+  rank: 80
 - id: IDEA-043
   title: Double-logged plan tripwire; spy scope (CARD-153 minors)
   raw: '- [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper +
@@ -1095,8 +1174,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 55
-  wave: 5
-  rank: 52
+  triage_state: "unverified"
+  triage_note: "Finalise GET code in app.py read around the gate call only; the double-logging and the G-1 spy's reach were not traced."
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 46
 - id: IDEA-044
   title: validate_margins accepts below 0.635 cm minimum
   raw: '- [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but
@@ -1121,8 +1203,11 @@ ideas:
   priority_score: 3.85
   depends_on: []
   source_line: 56
-  wave: 2
-  rank: 21
+  triage_state: "open"
+  triage_note: "Unreachable today by the item's own account (no margin field on Print setup)."
+  triaged_at: "2026-11-18"
+  wave: 5
+  rank: 14
 - id: IDEA-045
   title: Remaining one-session-per-puzzle loops (CARD-157 F-004)
   raw: '- [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the
@@ -1145,8 +1230,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   source_line: 57
-  wave: 6
-  rank: 67
+  triage_state: "open"
+  triage_note: "/books was measured at 131 s against the production DB, so this one is user-visible."
+  triaged_at: "2026-11-18"
+  wave: 14
+  rank: 70
 - id: IDEA-046
   title: 'Book page # column shows list order, not printed number'
   raw: '- [ ] CARD-158 F-004 (pre-existing): the book page''s # column is list order, not the printed
@@ -1168,8 +1256,6 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 58
-  wave: 1
-  rank: 3
   card: CARD-165
 - id: IDEA-047
   title: /books rows ~650 px tall at 390 px
@@ -1192,8 +1278,6 @@ ideas:
   priority_score: 1.5
   depends_on: []
   source_line: 59
-  wave: 1
-  rank: 7
   card: CARD-175
 - id: IDEA-048
   title: Limits box '18.90 in' exceeds the real 18.89 in max
@@ -1217,8 +1301,6 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 60
-  wave: 4
-  rank: 37
   card: CARD-174
 - id: IDEA-049
   title: Trim refusals worded in cm after inches submission
@@ -1241,8 +1323,6 @@ ideas:
   priority_score: 2.0
   depends_on: []
   source_line: 61
-  wave: 1
-  rank: 6
   card: CARD-174
 - id: IDEA-050
   title: Route tests for below-min trims; wrong alert on New book
@@ -1267,8 +1347,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 62
-  wave: 5
-  rank: 53
+  triage_state: "open"
+  triage_note: "Second half (wrong alert text on a refused New book) is product behaviour and was not verified."
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 47
 - id: IDEA-051
   title: CARD-159 owner look + plan inputs clip '20' at 390 px
   raw: '- [ ] CARD-159 owner check pending: G-3, the owner''s look at ~/Documents/nonogram-reviews/CARD-159/
@@ -1292,8 +1375,6 @@ ideas:
   depends_on: []
   note: owner action
   source_line: 63
-  wave: 1
-  rank: 1
   card: CARD-166
 - id: IDEA-052
   title: 'No-puzzle book: /books offers download /book disables'
@@ -1317,8 +1398,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   source_line: 64
-  wave: 7
-  rank: 69
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/templates/books_list.html posts `download-pdf` part=interior unconditionally; book_detail.html guards the same button with `book.puzzle_ids|length > 0`"
+  triaged_at: "2026-11-18"
+  wave: 15
+  rank: 71
 - id: IDEA-053
   title: Player cell bounds to tokens.css (CARD-160 F-004)
   raw: '- [ ] CARD-160 F-004 (minor): the player''s cell bounds (14px/28px) and thin-rule color-mix live
@@ -1341,8 +1425,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 65
-  wave: 5
-  rank: 54
+  triage_state: "open"
+  triage_note: "Refactor only, nothing a user sees."
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 48
 - id: IDEA-054
   title: Public read instead of _as_readable_grid (CARD-160 F-006)
   raw: '- [ ] CARD-160 F-006 (minor): the /puzzle/<id>/solve route calls the private `PuzzleReviewService._as_readable_grid`;
@@ -1365,15 +1452,18 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 66
-  wave: 3
-  rank: 33
+  triage_state: "open"
+  triage_note: "Refactor only."
+  triaged_at: "2026-11-18"
+  wave: 7
+  rank: 25
 - id: IDEA-055
   title: isBoard reads value.cells (mutant survived)
   raw: '- [ ] CARD-160 F-012 (minor): `isBoard` reads `value.cells` instead of own data (mutant survived);
     outside the trusted-in-page scope the owner set, still refused before painting   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -1389,8 +1479,8 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 67
-  wave: 3
-  rank: 34
+  resolved_evidence: "src/nonogram/admin/static/solver_state.js `isBoard` now reads width/height/cells and every cell through `ownData(...)`"
+  triaged_at: "2026-11-18"
 - id: IDEA-056
   title: 'CARD-161 minors: hint visibility, comments, old test'
   raw: '- [ ] CARD-161 F-008/F-009/F-010 (minor): the usage hint is never asserted visible (mutant survived);
@@ -1415,8 +1505,11 @@ ideas:
   priority_score: 1.54
   depends_on: []
   source_line: 68
-  wave: 8
-  rank: 76
+  triage_state: "partly"
+  triage_note: "Only the isZ comment is confirmed left."
+  triaged_at: "2026-11-18"
+  wave: 17
+  rank: 81
 - id: IDEA-057
   title: Player cells ~18 px at 390 px (tap target)
   raw: '- [ ] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160
@@ -1438,8 +1531,6 @@ ideas:
   priority_score: 1.33
   depends_on: []
   source_line: 69
-  wave: 1
-  rank: 6
   card: CARD-182
 - id: IDEA-058
   title: Keyboard marking of player cells
@@ -1447,7 +1538,7 @@ ideas:
     keyboard-reachable). Needs its own card if wanted   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -1464,8 +1555,8 @@ ideas:
   depends_on:
   - IDEA-064
   source_line: 70
-  wave: 6
-  rank: 61
+  resolved_evidence: "solver.js 'keyboard play' block (arrow keys move a cursor cell, Space/Enter mark, X white, Delete clears), commit 8e46e4d4 (review 2026-11-17 pass 2)"
+  triaged_at: "2026-11-18"
 - id: IDEA-059
   title: 'Investigate flake: save_plan_returns_the_book_to_draft[db]'
   raw: '- [ ] Flake watch: `tests/test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]`
@@ -1488,8 +1579,11 @@ ideas:
   priority_score: 2.56
   depends_on: []
   source_line: 71
-  wave: 4
-  rank: 42
+  triage_state: "unverified"
+  triage_note: "CARD-244 (done, per-worktree test DB) removed the likeliest cause; a watch item with no fix of its own."
+  triaged_at: "2026-11-18"
+  wave: 9
+  rank: 37
 - id: IDEA-060
   title: 'CARD-163 minors: header comment, Redo aria-disabled'
   raw: '- [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…"
@@ -1513,8 +1607,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 72
-  wave: 5
-  rank: 55
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/templates/puzzle_solve.html header comment still reads 'Its text is announced through #puzzle-player-announce'; tests/test_puzzle_solver_progress.py 'redo-button-noop' still clicks with force=True, pre-click assert not co"
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 49
 - id: IDEA-061
   title: Player size '25x15' vs '×' (owner call)
   raw: '- [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323''s literal)
@@ -1536,8 +1633,6 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 73
-  wave: 1
-  rank: 4
   card: CARD-166
   owner_decision: use × (2026-10-04)
 - id: IDEA-062
@@ -1562,8 +1657,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 74
-  wave: 4
-  rank: 35
+  triage_state: "open"
+  triage_note: "Admin page only; the public title was redone by CARD-452."
+  triaged_at: "2026-11-18"
+  wave: 8
+  rank: 26
 - id: IDEA-063
   title: Picture name in player page source before solve
   raw: '- [ ] Wave-31 goal-check: the picture name is in the player''s page source before solve (hidden
@@ -1607,15 +1705,18 @@ ideas:
   priority_score: 2.31
   depends_on: []
   source_line: 76
-  wave: 5
-  rank: 56
+  triage_state: "open"
+  triage_note: "The second half reversed: cells are now keyboard-markable (see line 157), and FR-044 does not say that either."
+  triaged_at: "2026-11-18"
+  wave: 11
+  rank: 50
 - id: IDEA-065
   title: CI step 'playwright install chromium' (ADR-0038/R8)
   raw: '- [ ] ADR-0038/R8 requires CI to run `playwright install chromium`, but the repo has no CI configuration;
     add it when CI exists (or record the rule as local-only)   @ops'
   category: ops
   intent: null
-  status: backlog
+  status: done
   method: fifo
   scores: null
   created_at: 65
@@ -1623,8 +1724,8 @@ ideas:
   depends_on: []
   source_line: 77
   route: 'architect station: no CI exists — record ADR-0038/R8 as local-only, or add CI (owner call)'
-  wave: 1
-  rank: 12
+  resolved_evidence: "meta/architecture/decisions/adr/0038-puzzle-player-plain-js-and-playwright.md revision of 2026-10-06 makes the CI clause conditional and records 'no CI' as a known gap"
+  triaged_at: "2026-11-18"
 - id: IDEA-066
   title: 'Red on main: test_size_configuration_applied'
   raw: '- [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`
@@ -1647,8 +1748,6 @@ ideas:
     risk_reduction: A clean exit-0 gate stops hiding new failures behind the known two
     job_size: Investigate one e2e test (stale expectation or real regression)
   category_note: re-categorised @ops → tech-debt by owner 2026-10-04 (backlog.md tag unchanged)
-  wave: 1
-  rank: 5
   card: CARD-164
 - id: IDEA-067
   title: Stale assertion test_wave3_e2e:366 ('New batch')
@@ -1671,8 +1770,6 @@ ideas:
   priority_score: 24.0
   depends_on: []
   source_line: 81
-  wave: 1
-  rank: 6
   card: CARD-164
 - id: IDEA-068
   title: Vacuous trim assertion in DB mode (CARD-120 F-009)
@@ -1696,8 +1793,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   source_line: 82
-  wave: 4
-  rank: 36
+  triage_state: "unverified"
+  triage_note: "the trim tests still exist in tests/test_book_plan_storage.py; which assertion was meant, and whether it is still vacuous, was not established"
+  triaged_at: "2026-11-18"
+  wave: 8
+  rank: 27
 - id: IDEA-069
   title: Upload tests glob shared temp dir (parallel interference)
   raw: '- [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system
@@ -1720,8 +1820,11 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 83
-  wave: 2
-  rank: 17
+  triage_state: "partly"
+  triage_note: "tests/test_web_upload.py still globs `tempfile.gettempdir()` for `nonogram-upload-*`; no such glob remains in a test_card_037 file"
+  triaged_at: "2026-11-18"
+  wave: 3
+  rank: 7
 - id: IDEA-070
   title: 'Square/landscape trims: no room for proof foot note'
   raw: '- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5,
@@ -1744,8 +1847,6 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 86
-  wave: 1
-  rank: 3
   card: CARD-172
 - id: IDEA-071
   title: 'Guide page: worked-example rows and title wording'
@@ -1768,8 +1869,6 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 87
-  wave: 1
-  rank: 2
   card: CARD-167
   owner_decision: small fix now, full tutorial later (2026-10-04)
 - id: IDEA-072
@@ -1793,8 +1892,6 @@ ideas:
   priority_score: 2.33
   depends_on: []
   source_line: 88
-  wave: 1
-  rank: 5
   card: CARD-173
 - id: IDEA-073
   title: Store a targeted batch's requested tier (column+migration)
@@ -1817,8 +1914,6 @@ ideas:
   priority_score: 1.67
   depends_on: []
   source_line: 89
-  wave: 1
-  rank: 5
   card: CARD-181
 - id: IDEA-074
   title: Online solver hint button
@@ -1840,8 +1935,6 @@ ideas:
   priority_score: 1.33
   depends_on: []
   source_line: 90
-  wave: 1
-  rank: 7
   owner_decision: '2026-10-05: reveal one cell — an unknown cell line-logic could deduce now, set to its
     correct state, counted as a hint, undoable'
   card: CARD-183
@@ -1852,7 +1945,7 @@ ideas:
     inside the page, which a public solver must not   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 8
@@ -1870,9 +1963,9 @@ ideas:
   depends_on: []
   note: scope unconfirmed
   source_line: 91
-  wave: 7
-  rank: 68
   bucket_overflow: true
+  resolved_evidence: "CARD-282, 283, 284, 285 (all done); live at the production player; src/nonogram/admin/player_bundle.py ships no solution or picture name"
+  triaged_at: "2026-11-18"
 - id: IDEA-076
   title: Card-text defects for decompose (process)
   raw: '- [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of"
@@ -1961,8 +2054,10 @@ ideas:
   needs_owner_decision: true
   owner_action: true
   scored_at: '2026-10-04'
-  wave: 1
-  rank: 13
+  triage_state: "open"
+  triage_note: "An owner action (copy from the Render dashboard), not a choice."
+  triaged_at: "2026-11-18"
+  owner_item: True
 - id: IDEA-081
   title: scripts/README Manual Commands run pytest against nonogram_poc
   raw: '- [ ] CARD-168 F-002 (pre-existing): scripts/README.md "Manual Commands" still runs bare `pytest`
@@ -1986,8 +2081,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 4
-  rank: 37
+  triage_state: "open"
+  triage_note: "Docs only. render.md now has its own 'Evidence: the 2026-09-23 incident' section; whether that answers F-003 was not established."
+  triaged_at: "2026-11-18"
+  wave: 8
+  rank: 28
 - id: IDEA-082
   title: Five hollow e2e tests post the dead `images` field
   raw: '- [ ] CARD-164 F-002: five sibling tests in tests/e2e/test_admin_workflow.py (test_tc_001, test_preview_page_displays_original_image,
@@ -2011,8 +2109,11 @@ ideas:
   priority_score: 5.38
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 2
-  rank: 14
+  triage_state: "open"
+  triage_note: "tests/e2e/test_admin_workflow.py: test_tc_001_single_image_upload, test_preview_page_displays_original_image, test_metadata_shown_on_preview, test_tc_002_multiple_image_batch, test_tc_003_svg_generation_display all still post `images`"
+  triaged_at: "2026-11-18"
+  wave: 1
+  rank: 4
 - id: IDEA-083
   title: Size test not tied to the form's field names (mutant M8)
   raw: '- [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the
@@ -2035,8 +2136,11 @@ ideas:
   priority_score: 3.85
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 2
-  rank: 22
+  triage_state: "open"
+  triage_note: "tests/e2e/test_admin_workflow.py `test_size_configuration_applied` still posts `image_files`/`default_size` directly with no GET of the form"
+  triaged_at: "2026-11-18"
+  wave: 5
+  rank: 15
 - id: IDEA-084
   title: Printed-number test minors (two-up fixture, banner text, fallback dup)
   raw: '- [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the
@@ -2059,8 +2163,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 7
-  rank: 70
+  triage_state: "open"
+  triage_note: "Only the banner half is confirmed; the interior's conversion to vector may have changed the band-reading test."
+  triaged_at: "2026-11-18"
+  wave: 15
+  rank: 72
 - id: IDEA-085
   title: Finalise guide preview still shows the old "How to use this book" text
   raw: '- [ ] CARD-167 follow-up: the Finalise screen''s guide preview (book_finalize.html) still says
@@ -2081,8 +2188,6 @@ ideas:
   priority_score: 9.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 1
-  rank: 1
   card: CARD-169
 - id: IDEA-086
   title: Guide 10 pt test measures top-to-baseline; spacing untested; stale docstrings
@@ -2090,7 +2195,7 @@ ideas:
     lines without capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing
     after each example drawing is untested; CARD-149''s type-test docstrings quote the old guide text   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -2106,8 +2211,8 @@ ideas:
   priority_score: 1.54
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 8
-  rank: 77
+  resolved_evidence: "`create_guide_page` has no definition left in src/; the guide is drawn as operators (CARD-296 done) on a rewritten spread (CARD-229/230 done) and the raster readers were deleted (CARD-416 done)"
+  triaged_at: "2026-11-18"
 - id: IDEA-087
   title: Divider and cover pages set type in px, not pt (CON-020)
   raw: '- [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020
@@ -2132,8 +2237,6 @@ ideas:
   priority_score: 5.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 3
-  rank: 24
   card: CARD-184
   note: divider half folded into CARD-184; cover half stays (cover is not interior, INV-013)
 - id: IDEA-088
@@ -2157,8 +2260,6 @@ ideas:
   depends_on: []
   scored_at: '2026-10-04'
   held: 'owner call pending: list every status, or remove the "all" option'
-  wave: 1
-  rank: 4
   owner_decision: '2026-10-05: "all" lists every status'
   card: CARD-180
 - id: IDEA-089
@@ -2183,8 +2284,11 @@ ideas:
   priority_score: 1.54
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 8
-  rank: 78
+  triage_state: "open"
+  triage_note: "CARD-397 (ready) reworks the same fixtures' setup; do the move there or after it."
+  triaged_at: "2026-11-18"
+  wave: 17
+  rank: 82
 - id: IDEA-090
   title: 'Check: answer-key band drawn twice in an export (printed duplicate?)'
   raw: '- [ ] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle
@@ -2206,8 +2310,6 @@ ideas:
   priority_score: 16.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 1
-  rank: 8
   card: CARD-170
 - id: IDEA-091
   title: Finalise flash echoes str(e) — DB error text on a public panel
@@ -2230,8 +2332,6 @@ ideas:
   priority_score: 13.0
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 1
-  rank: 11
   card: CARD-177
 - id: IDEA-092
   title: Lone puzzles render a discarded solved page (COMP-007 render_pages)
@@ -2239,7 +2339,7 @@ ideas:
     which also renders the solved page that `_blank_page` throws away: one wasted full-size page image
     per lone puzzle (memory/time). Needs a `render_pages` change in COMP-007   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -2256,8 +2356,8 @@ ideas:
   priority_score: 2.31
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 5
-  rank: 57
+  resolved_evidence: "no `def _blank_page` remains in src/ (only a docstring mention in book_pdf_generator.py); puzzle pages are operators (CARD-309, CARD-416 done)"
+  triaged_at: "2026-11-18"
 - id: IDEA-093
   title: 'CARD-176 minors: pin bare-token echo row; AC-1 echo check per case'
   raw: '- [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token
@@ -2279,8 +2379,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 4
-  rank: 38
+  triage_state: "open"
+  triage_note: "tests/test_db_url_driver.py has rows for `hunter2:x://` and `postgresqlhunter2://` but none for bare `hunter2://`; the AC-1 echo check was not re-read"
+  triaged_at: "2026-11-18"
+  wave: 8
+  rank: 29
 - id: IDEA-094
   title: Leading-whitespace DATABASE_URL gets <malformed scheme>
   raw: '- [ ] CARD-176 F-003: a URL with leading whitespace (`'' postgresql://…''`) now gets `<malformed
@@ -2302,8 +2405,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 5
-  rank: 58
+  triage_state: "open"
+  triage_note: "src/nonogram/db/session.py `_scheme_of` partitions the raw string with no strip"
+  triaged_at: "2026-11-18"
+  wave: 12
+  rank: 51
 - id: IDEA-095
   title: 'Guide strip --strip-cell local value: token or record as local'
   raw: '- [ ] CARD-169 F-002 (minor): the guide strip''s cell size `--strip-cell: 1.5rem` is a local value
@@ -2325,8 +2431,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 5
-  rank: 59
+  triage_state: "open"
+  triage_note: "Refactor only."
+  triaged_at: "2026-11-18"
+  wave: 12
+  rank: 52
 - id: IDEA-096
   title: CARD-169 owner check pending (superseded by the owner look item)
   raw: '- [ ] CARD-169 owner check pending: look at ~/Documents/nonogram-reviews/CARD-169/finalise-guide-preview.png
@@ -2362,8 +2471,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 4
-  rank: 39
+  triage_state: "partly"
+  triage_note: "no '1493' or cap-height-from-OS/2 claim found in tests/ for the proof; the `_annotate` docstring half was not checked"
+  triaged_at: "2026-11-18"
+  wave: 8
+  rank: 30
 - id: IDEA-098
   title: 'Proof note: narrow side strip beats a corner that fits'
   raw: '- [ ] CARD-172 F-003: `_annotate` takes a narrow outer side strip before a clue corner that fits
@@ -2386,8 +2498,11 @@ ideas:
   priority_score: 1.92
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 8
-  rank: 71
+  triage_state: "open"
+  triage_note: "Not reached on any trim in use."
+  triaged_at: "2026-11-18"
+  wave: 15
+  rank: 73
 - id: IDEA-099
   title: Proof-note wrap splits "4.58 / mm" and starts lines with ×
   raw: '- [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start
@@ -2408,8 +2523,6 @@ ideas:
   priority_score: 5.0
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 1
-  rank: 3
   card: CARD-179
 - id: IDEA-100
   title: 'CARD-175 minors: summary focus ring token; test comments'
@@ -2433,8 +2546,11 @@ ideas:
   priority_score: 3.85
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 2
-  rank: 23
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/static/admin.css has no focus rule for `.plan-hints > summary` (the shared rule lists form controls, .btn and a); tests/test_books_list_mobile.py still says 'about 176 px'"
+  triaged_at: "2026-11-18"
+  wave: 5
+  rank: 16
 - id: IDEA-101
   title: set_book_status refusals other than the plan gate go unlogged
   raw: '- [ ] CARD-171 note: catching ValueError around `set_book_status` in Finalise sends its other
@@ -2457,8 +2573,11 @@ ideas:
   priority_score: 3.08
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 4
-  rank: 40
+  triage_state: "open"
+  triage_note: "src/nonogram/admin/app.py still catches `ValueError` around `set_book_status` and flashes it (`flash(f\"Error: {gate_refusal}\")`, `flash(f\"Error: {str(e)}\")`) with no logging"
+  triaged_at: "2026-11-18"
+  wave: 8
+  rank: 31
 - id: IDEA-102
   title: Band test class docstring states the detection rule loosely
   raw: '- [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other
@@ -2480,8 +2599,11 @@ ideas:
   priority_score: 2.31
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 5
-  rank: 60
+  triage_state: "open"
+  triage_note: "Docstring only; the file was reworked by CARD-356 and the wording survived."
+  triaged_at: "2026-11-18"
+  wave: 12
+  rank: 53
 - id: IDEA-103
   title: 48.0 cm book reopens in inches as 18.90 (> 18.89 max)
   raw: '- [ ] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated
@@ -2502,8 +2624,6 @@ ideas:
   priority_score: 6.0
   depends_on: []
   scored_at: '2026-10-05'
-  wave: 1
-  rank: 2
   card: CARD-178
 - id: IDEA-104
   title: 'CARD-174 minors: 47.9999 comment; "on both sides" wording'
@@ -2528,8 +2648,9 @@ ideas:
   depends_on: []
   scored_at: '2026-10-05'
   needs_owner_decision: true
-  wave: 6
-  rank: 62
+  triage_state: "open"
+  triage_note: "The wording half is the owner's call."
+  triaged_at: "2026-11-18"
 - id: IDEA-105
   title: Finalise guide preview needs changes after the owner look (owner to specify)
   raw: '- [ ] CARD-169 owner look (2026-10-05): the deferred visual check found the Finalise guide preview
@@ -2552,9 +2673,11 @@ ideas:
   depends_on: []
   scored_at: '2026-10-05'
   needs_owner_decision: true
-  wave: 1
-  rank: 1
   held: owner to describe the change (2026-10-05)
+  triage_state: "unverified"
+  triage_note: "Ask whether the November guide rework answered it."
+  triaged_at: "2026-11-18"
+  owner_item: True
 - id: IDEA-106
   title: 'ADR-0039''s repo-wide guard audit: make R1-R3 reach a guard written tomorrow'
   category: tech-debt
@@ -2578,6 +2701,8 @@ ideas:
   priority_score: 4.46
   depends_on: []
   source: wave 43 retrospective - finding families
+  wave: 4
+  rank: 9
 - id: IDEA-107
   title: 'Install pytest-testmon so review.test_scope: impact stops falling back to full'
   category: tech-debt
@@ -2600,6 +2725,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source: wave 43 retrospective - suggestions
+  wave: 3
+  rank: 8
 - id: IDEA-108
   title: test_web_upload.py sweeps the machine-wide temp dir and reds on concurrent worktrees
   category: tech-debt
@@ -2622,10 +2749,15 @@ ideas:
   priority_score: 10.0
   depends_on: []
   source: wave 37 retrospective, re-verified wave 43
+  triage_state: "open"
+  triage_note: "Same defect is logged again at backlog line 255 (outside this slice)."
+  triaged_at: "2026-11-18"
+  wave: 1
+  rank: 2
 - id: IDEA-109
   title: Re-measure "superseded baselines cost no runtime" before CARD-220 starts
   category: tech-debt
-  status: backlog
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -2645,6 +2777,8 @@ ideas:
   priority_score: 14.62
   depends_on: []
   source: wave 37 retrospective, re-verified wave 43
+  resolved_evidence: "CARD-220 Status: done; `class TestBookPdfMemory_NonDrawingPagesAreByteIdentical` has no definition under tests/; book_baseline_card200/203/204/205.json are not on disk."
+  triaged_at: "2026-11-18"
 - id: IDEA-110
   title: 'Resolve every card''s backticked test:/check: name against tests/ at the decompose station'
   category: tech-debt
@@ -2667,6 +2801,11 @@ ideas:
   priority_score: 12.31
   depends_on: []
   source: wave 37 retrospective, applied manually in wave 43
+  triage_state: "open"
+  triage_note: "Could equally be a repo-side test over meta/kanban/cards; memory note says the AC/EC gate is unwired."
+  triaged_at: "2026-11-18"
+  wave: 1
+  rank: 1
 - id: IDEA-111
   title: Review reports disagree with themselves on severity (markdown Important vs YAML medium)
   category: tech-debt
@@ -2688,6 +2827,8 @@ ideas:
   priority_score: 7.69
   depends_on: []
   source: wave 43 retrospective - process defects
+  wave: 1
+  rank: 3
 - id: IDEA-112
   title: Promote the remaining wave-37 discipline rules into the model (one architect pass)
   category: tech-debt
@@ -2714,3 +2855,2427 @@ ideas:
   depends_on:
   - IDEA-106
   source: wave 37 retrospective, unpromoted
+  wave: 4
+  rank: 10
+- id: IDEA-113
+  title: Globals guard ignores AugAssign/AnnAssign, passes by silence
+  raw: '- [ ] CARD-258 deferred (declared as its bound 9, not as a code comment — the mechanical deferral
+    scan'
+  source_line: 24
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_db_engine_lifecycle.py `_global_names_assigned_by` still collects only `ast.Assign`
+      targets; docstring still claims it biases to red.
+  priority_score: 3.08
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 8
+  rank: 32
+- id: IDEA-114
+  title: Should the editor show the pre-edit (stored) difficulty?
+  raw: '- [ ] **Should the editor page show the PRE-EDIT difficulty — the grade of the grid as stored
+    — anywhere?** Carried out of wave 46 as owner decision 2 and left open on purpose when **CARD-249**
+    was cut on 2026-10-19. CARD-246 removed the tier badge from `/puzzle/<id>/editor` for a reason that
+    still holds (review cycle 1, F-008: a badge is a fact about a *stored* grid, and this page rewrites
+    the st […]'
+  source_line: 38
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: true
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-115
+  title: Implementation agents should not run the full suite
+  raw: '- [ ] **Stop asking implementation agents to run the full suite; let the orchestrator''s merge
+    gate be the only full run.** Observed in wave 37: every card brief ended with "run the full suite
+    once at the end", and the orchestrator ALSO runs the full suite at the merge gate — so each card pays
+    for two ~17-minute runs, and when two cards are active their suites overlap. Measured at the worst
+    point:  […]'
+  source_line: 44
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: A process/discipline observation with no concrete code change; owner cut bar 2026-11-05 (a finding
+    earns work only if the fix exceeds the card, needs a decision, or blocks something).
+  revival_trigger: the same lesson recurs as a gating review finding
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: The machinery half landed; the brief-wording half is a discipline I could not check from
+    the tree.
+  scored_at: '2026-11-18'
+- id: IDEA-116
+  title: 'Standing rule: answer-slot figure has two consumers'
+  raw: '- [ ] **Promote to a standing rule: `_draw_solved_slot`''s return value has two consumers that
+    must change together.** Observed three times across two cards, each time as a real print defect: CARD-203
+    cycle 1 (F-001) fixed the caption/folio corner on the full page and missed the packed page; CARD-203
+    cycle 2 (F-101) fixed the packed page and got the parity gate wrong; CARD-204 Fix 7 fixed the capti
+    […]'
+  source_line: 46
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'No `def _draw_solved_slot`, `def solved_puzzle_page` or `def _packed_answer_page`
+    in src/ (removed by commit ab4cdfbd). Successor src/nonogram/admin/book_answer_vector.py: `answer_page_stream`
+    and `packed_answer_page_stream` both call `draw_answer_slot`, and `answer_page`/`packed_answer_page`
+    both t'
+  triage_note: Resolved structurally by the vector conversion; I did not check that a long-caption packed-page
+    test exists.
+  scored_at: '2026-11-18'
+- id: IDEA-117
+  title: Re-derive a guardrail's mechanism clause when its subject shrinks
+  raw: '- [ ] **When a card shrinks the thing a guardrail protects, re-derive the guardrail''s mechanism
+    clause — do not just re-run its test.** CARD-205''s G-1 asserted that "the folio-sized reservation
+    in `_toc_entries_per_page` is load-bearing, not a margin". True of CARD-200''s per-puzzle TOC; false
+    the moment this card made the TOC 8 fixed rows against a per-page capacity of ≥10 on the shortest
+    trim tha […]'
+  source_line: 50
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: duplicate
+  screen_ref: IDEA-112
+  reason: A discipline lesson with no code change of its own; IDEA-112 (promote the wave-37 rules into
+    the model) already carries it.
+  revival_trigger: IDEA-112 is rejected or closes without this rule
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  scored_at: '2026-11-18'
+- id: IDEA-118
+  title: 'Skip-gate position: assertions above a host skip must be host-independent'
+  raw: '- [ ] **A host gate added inside a fix for a missing-evidence finding hid the evidence again.**
+    CARD-205 Fix 3 added `test_the_toc_page_moved_under_card205_not_card204` to close review F-002 (an
+    attribution asserted in prose only), then gated the whole test on `same_face` — but its first two
+    assertions compare three *stored* fixtures and hold on any machine. So the clause the test is named
+    for did […]'
+  source_line: 52
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: duplicate
+  screen_ref: IDEA-112
+  reason: A discipline lesson with no code change of its own; IDEA-112 (promote the wave-37 rules into
+    the model) already carries it.
+  revival_trigger: IDEA-112 is rejected or closes without this rule
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  scored_at: '2026-11-18'
+- id: IDEA-119
+  title: Edit one claim at a time, grep for the old text
+  raw: '- [ ] **An edit script that raises writes nothing, and "I verified by running the test" does not
+    catch it.** CARD-221''s fix cycle left four stale narrated figures, and the agent''s own root cause
+    is worth the rule: its first script bundled a docstring rewrite and an assertion rewrite behind one
+    `assert old in s`; the assertion half missed by a word, the script raised, **neither** edit landed,
+    and i […]'
+  source_line: 54
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: duplicate
+  screen_ref: IDEA-112
+  reason: A discipline lesson with no code change of its own; IDEA-112 (promote the wave-37 rules into
+    the model) already carries it.
+  revival_trigger: IDEA-112 is rejected or closes without this rule
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  scored_at: '2026-11-18'
+- id: IDEA-120
+  title: A station claiming 'untestable' must state what it tried
+  raw: '- [ ] **"This shape cannot exercise it" is not "nothing can" — a gate''s impossibility claim needs
+    the same scepticism as a card''s.** CARD-205''s AC/EC/G gate found a surviving mutant on `_toc_entries_per_page`''s
+    folio reservation, concluded correctly that a structural TOC never fills a page, and then concluded
+    too far: that re-anchoring the guardrail was impossible. CARD-221''s N1 mutant found the w […]'
+  source_line: 56
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: duplicate
+  screen_ref: IDEA-112
+  reason: A discipline lesson with no code change of its own; IDEA-112 (promote the wave-37 rules into
+    the model) already carries it.
+  revival_trigger: IDEA-112 is rejected or closes without this rule
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  scored_at: '2026-11-18'
+- id: IDEA-121
+  title: An 'X now passes' AC must say what fails on revert
+  raw: '- [ ] **An AC can be true, green and evidence nothing, when an earlier card already delivered
+    its outcome.** CARD-221''s AC-2 said the gutter scenarios pass off-host — and they did, at its own
+    base, because **CARD-205** had removed those failures. Restoring the full defect left all 126 green
+    on both faces, and the test carrying the card''s headline risk passed too. The card would have merged
+    with it […]'
+  source_line: 58
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: duplicate
+  screen_ref: IDEA-112
+  reason: A discipline lesson with no code change of its own; IDEA-112 (promote the wave-37 rules into
+    the model) already carries it.
+  revival_trigger: IDEA-112 is rejected or closes without this rule
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  scored_at: '2026-11-18'
+- id: IDEA-122
+  title: Environment-simulating harnesses must clear caches between halves
+  raw: '- [ ] **`functools.lru_cache` can blind a determinism harness.** CARD-221''s `_both_faces` runs
+    the on-host half first; `_band_font` is `@lru_cache(maxsize=8)`, so the Arial faces survive into the
+    off-host half and a mutated host lookup stays green across all four of the card''s determinism tests.
+    Its structural watch was blinded the same way — in a cold process it kills only the first parametrizati
+    […]'
+  source_line: 60
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: duplicate
+  screen_ref: IDEA-112
+  reason: A discipline lesson with no code change of its own; IDEA-112 (promote the wave-37 rules into
+    the model) already carries it.
+  revival_trigger: IDEA-112 is rejected or closes without this rule
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: The specific `_both_faces`/`_band_font` harness was not re-checked after the raster deletion.
+  scored_at: '2026-11-18'
+- id: IDEA-123
+  title: A public online solver for readers
+  raw: '- [ ] **A public online solver** — the reader-facing player the book''s QR codes would point at.
+    Keep it as simple as puzzle-nonograms.com: black/white/undecided tools, region marking, undo/redo,
+    error count, optional hint, a solved animation. Almost all of it already exists as the admin panel''s
+    player (FR-044, ADR-0038), so the work is hosting + the public surface, not the game: CON-021 and
+    ADR-00 […]'
+  source_line: 66
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: player/ directory on disk (player.css, pages.js, library.html, book.html, how-to-solve.html,
+    assemble.py); CARD-385, CARD-386, CARD-399 done; cards 400-473 are public-player work; memory records
+    production at nonogram.adverax.io.
+  triage_note: 'Its ''blocks CARD-210'' clause is moot: CARD-210 is skipped and per-puzzle QR was retired
+    by CARD-391.'
+  scored_at: '2026-11-18'
+- id: IDEA-124
+  title: A stable URL namespace for printed QR codes
+  raw: '- [ ] **A stable per-puzzle URL namespace** for printed QR codes — opaque slug vs row id vs grid
+    hash. A printed code cannot be re-pointed, so this is decided once, before any book ships with real
+    codes. **Blocks CARD-210**   @enabler'
+  source_line: 67
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: CARD-389 done (landing address computed once, /b/<slug>); src/nonogram/admin/player_bundle.py
+    `landing_address`; CARD-390 done (Play online page), CARD-391 done (per-puzzle QR retired).
+  triage_note: Decided as one per-book slug rather than a per-puzzle namespace.
+  scored_at: '2026-11-18'
+- id: IDEA-125
+  title: 'Second QR: generate your own puzzle from a picture'
+  raw: '- [ ] **A second QR code: "generate your own puzzle from a picture"** → download an A4 PDF or
+    solve online. Deferred with the generator; needs the public generator surface and the same URL decision   @feature'
+  source_line: 68
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 16.9
+  reasoning:
+    basis: 'kind=product-code; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 13 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: No card 300-473 covers a public generator surface; the book carries one QR (CARD-390/391).
+  priority_score: 0.53
+  raw_size: 13
+  depends_on: []
+  triage_state: open
+  triage_note: Depends on a public generator that does not exist; one-QR ruling of 2026-11-07 may make
+    this an owner question first.
+  scored_at: '2026-11-18'
+  wave: 4
+  rank: 9
+- id: IDEA-126
+  title: Persist user-generated puzzles
+  raw: '- [ ] **Persist user-generated puzzles** (owner: "yes, if they downloaded pdfs or solved them
+    online") — needs the public phase, a user/ownership notion and a retention rule; the `givens` column
+    CARD-216 adds is a prerequisite, not this   @enabler'
+  source_line: 69
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 3
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 16.9
+  reasoning:
+    basis: 'kind=product-code; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 13 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: No card 300-473 introduces a user/ownership notion or public generation.
+  priority_score: 0.36
+  raw_size: 13
+  depends_on:
+  - IDEA-125
+  triage_state: open
+  triage_note: Blocked behind the item at line 68.
+  scored_at: '2026-11-18'
+  wave: 5
+  rank: 10
+- id: IDEA-127
+  title: Registry amendments owed from the puzzle-page-layout artifact
+  raw: '- [ ] **Amendments owed from the owner''s "Puzzle page layout" artifact (2026-10-14), carded as
+    CARD-222..CARD-233.** Each is a registry statement the new interior design contradicts. They are listed
+    together because the artifact is one coherent frame and amending it piecemeal would leave the registry
+    describing a page that no longer exists.'
+  source_line: 89
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=architect-delta; cut bar: needs-owner-decision; verified state: partly'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'requirements.yml: CON-018, FR-032, NFR-008, INV-013+FR-043 marked AMENDED 2026-10-17 in
+      the item itself and in FR-043''s comment block; FR-033 carries `resolved_question: CLOSED 2026-10-25`
+      with 0.3/0.8/1.3 pt; FR-043 states ''no blank page is ever inserted'' (CARD-231 skipped). Still
+      as before: pyproj'
+  priority_score: 1.92
+  raw_size: 2
+  depends_on: []
+  triage_state: partly
+  triage_note: What remains is the Pillow upper-bound decision and a read of ADR-0037/R1 against the current
+    band.
+  scored_at: '2026-11-18'
+  wave: 15
+  rank: 74
+- id: IDEA-128
+  title: Wave-37 amendments owed at the architect station
+  raw: '- [ ] **Wave-37 amendments owed at the architect station — one `/forge:architect` pass, collected
+    here because they are currently flagged only inside four separate cards.** Each is a statement in
+    `meta/architecture/**` that the merged code has outgrown; kanban cards read that tree and never write
+    it, so none of these can be closed from a card.'
+  source_line: 105
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=architect-delta; cut bar: fix-bigger-than-card; verified state: partly'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'Done: FR-040 has ''AMENDED 2026-10-18 at the architect station'' (and later CARD-391/392
+      amendments); FR-032 sub-item cancelled in the item. Not done: `POL-008` appears nowhere under meta/architecture;
+      INV-002 in domain/aggregates.yml has no given-cells clause; `_create_table_of_contents` is still
+      def'
+  priority_score: 0.92
+  raw_size: 5
+  depends_on: []
+  triage_state: partly
+  triage_note: FR-043's structural-TOC amendment was not conclusively located; treat that sub-item as
+    unverified.
+  scored_at: '2026-11-18'
+  wave: 25
+  rank: 102
+- id: IDEA-129
+  title: Grid image route needs ETag; four pages show stale grids
+  raw: '- [ ] **CARD-250 F-005 (review cycle 1, 2026-10-19):** four more surfaces still draw the *unversioned*
+    stable grid URL and so can redraw a hand-edited puzzle from a cached SVG — `book_select_puzzles.html:210`,
+    `book_arrange_puzzles.html:148`, `generated_puzzles.html:53`, `batch_status.html:78`. CARD-250 fixed
+    the two its ACs named (list row + detail modal) by versioning the URL with `manually_edit […]'
+  source_line: 120
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 2
+    risk_reduction: 3
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=product-code; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/admin/app.py has no ETag/Last-Modified handling; templates book_select_puzzles.html,
+      book_arrange_puzzles.html, generated_puzzles.html, batch_status.html still use bare `/api/puzzle/{{
+      puzzle.id }}/grid` with no `manually_edited_at` version.
+  priority_score: 2.56
+  raw_size: 3
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 1
+  rank: 3
+- id: IDEA-130
+  title: Handlers still flash or return raw exception text
+  raw: '- [ ] CARD-177 drafting: other handlers still flash/return raw exception text — `delete_book`
+    (pure DB call; strongest), the Finalise cover upload, proof pages (owner refusal mixed with real errors),
+    batch upload/generate, and five API routes returning plain-text 500 bodies   @compliance'
+  source_line: 194
+  intent: null
+  category: compliance
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 3
+    time_criticality: 2
+    risk_reduction: 8
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=product-code; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'src/nonogram/admin/app.py: `delete_book` flashes ''Failed to delete book: {str(e)}'', proof
+      pages flash ''{e}'', batch upload/generate flash str(e), and the API routes return f''Error: {str(e)}'',
+      500'
+  priority_score: 2.0
+  raw_size: 5
+  depends_on: []
+  triage_state: open
+  triage_note: About 30 sites; tests/test_admin_error_text.py covers only the PDF download.
+  scored_at: '2026-11-18'
+  wave: 1
+  rank: 1
+- id: IDEA-131
+  title: Amend FR-044 with the hint ACs
+  raw: '- [ ] Architect delta (CARD-183): FR-044 says "Hints are out of scope"; the owner chose a reveal-one-cell
+    hint (2026-10-05) — amend FR-044 with the hint ACs   @tech-debt'
+  source_line: 195
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'requirements.yml FR-044 `amended_2026_10_06`: ''Hint (CARD-183, shipped; supersedes
+    Hints are out of scope)'''
+  scored_at: '2026-11-18'
+- id: IDEA-132
+  title: 'CON-020: exempt clue digits or raise the cell floor'
+  raw: '- [ ] Architect decision (CARD-184): puzzle-page clue digits scale with the cell (8.6 pt on Book
+    1 30×30, 3.6 pt at the 10 cm trim; the 4.8 mm cell floor caps them ~8.4 pt) — should CON-020 exclude
+    clue digits, or the cell floor rise? CARD-184 exempts them by name in its test; also flip CON-020
+    to its new test   @tech-debt'
+  source_line: 196
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'requirements.yml CON-020 notes: clue digits inside clue cells exempt, check moved
+    to TestInteriorType_EveryFaceHoldsTheFloor (owner decision 2026-10-06)'
+  scored_at: '2026-11-18'
+- id: IDEA-133
+  title: FR-044 and CON-021 must admit ?, circling, percent, brush clicks, resume
+  raw: '- [ ] Architect delta (owner solver test doc 2026-10-05, CARD-185..189): FR-044 gains the "?"
+    mark (186), clue circling (188), % solved (187), brush-led click sequences superseding AC-303/AC-304
+    (189) and browser-local resume (185); CON-021 "play state is never persisted" and FR-044''s "no play
+    state is persisted" must allow this-browser localStorage BEFORE CARD-185 runs   @tech-debt'
+  source_line: 198
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: requirements.yml FR-044 `amended_2026_10_06` lists all five; header note 'CON-021
+    AMENDED - play state may be kept in this browser's localStorage only'
+  scored_at: '2026-11-18'
+- id: IDEA-134
+  title: _wrapped docstring omits the over-wide x rule
+  raw: '- [ ] CARD-179 F-003 (minor): `_wrapped` docstring doesn''t say the token after an over-wide ×
+    is taken as M with no other rule   @tech-debt'
+  source_line: 200
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/admin/book_proof.py `_wrapped` docstring does not contain the 'taken as M'
+      rule
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  triage_note: Docstring only.
+  scored_at: '2026-11-18'
+  wave: 12
+  rank: 54
+- id: IDEA-135
+  title: 'Owner check: CARD-184 answer-page and divider renders'
+  raw: '- [ ] CARD-184 owner check pending: answer-page and no-Arial divider renders in ~/Documents/nonogram-reviews/CARD-184/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 202
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: interior is drawn as operators (CARD-322 done), answer tiles redone (CARD-233, CARD-297
+    done), dividers redone (CARD-305, CARD-311 done)
+  triage_note: 'moot: the rendered thing was replaced and the owner has since reviewed its successor.'
+  scored_at: '2026-11-18'
+- id: IDEA-136
+  title: Redundant exemption test; stale card147 docstring
+  raw: '- [ ] CARD-184 F-001 (minor): `test_only_the_two_clue_writers_are_exempt` passes by construction
+    (redundant with test_the_exemption_rule_by_name); stale ''card147'' docstring at tests/test_book_pdf_memory.py:1163   @tech-debt'
+  source_line: 203
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: no `def test_only_the_two_clue_writers_are_exempt` or `def test_the_exemption_rule_by_name`
+    in tests/; no 'card147' in tests/test_book_pdf_memory.py (rewritten by CARD-313/355)
+  scored_at: '2026-11-18'
+- id: IDEA-137
+  title: 'Owner check: CARD-177 generic flash wording'
+  raw: '- [ ] CARD-177 owner check pending: the new generic flash wording (renders in ~/Documents/nonogram-reviews/CARD-177/;
+    merged on evidence by owner choice)   @feature'
+  source_line: 205
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: false
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-138
+  title: Log-before-flash untested; redirect only without Referer; double flash
+  raw: '- [ ] CARD-177 F-001/F-002 + OOS-3 (minor): no test asserts log-before-flash; AC-2 redirect tested
+    only without Referer; /generate-pdf can show both success and failure flashes if sending the file
+    fails (pre-existing)   @tech-debt'
+  source_line: 206
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_admin_error_text.py asserts logged but its only redirect case is 'With no Referer';
+      the /generate-pdf double flash was not checked
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 18
+  rank: 83
+- id: IDEA-139
+  title: 'Owner check: CARD-178 18.89 reopen renders'
+  raw: '- [ ] CARD-178 owner check pending: 18.89 reopen renders in ~/Documents/nonogram-reviews/CARD-178/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 208
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: false
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-140
+  title: Tests resetting db.session's engine do not restore module globals
+  raw: '- [ ] CARD-178 F-001/F-003: tests that reset db.session''s engine don''t restore module globals
+    (fixed per test in CARD-178) — add an autouse conftest fixture snapshotting engine/SessionLocal/_engine_url   @tech-debt'
+  source_line: 209
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: partly'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: CARD-252 and CARD-254 (both done) put a guard on engine/SessionLocal/_engine_url (tests/conftest.py
+      prose names it); no autouse snapshot fixture was found
+  priority_score: 1.92
+  raw_size: 2
+  depends_on: []
+  triage_state: partly
+  triage_note: Not established whether the guard makes the snapshot fixture unnecessary.
+  scored_at: '2026-11-18'
+  wave: 16
+  rank: 75
+- id: IDEA-141
+  title: Keep the literal-pytest-output rule in the review brief
+  raw: '- [ ] Retro note (CARD-178 F-005): reviewers this wave cited test counts/ids no run produced (CARD-178
+    cycles 1–2); the 8h spot-check caught it — keep the ''literal pytest output for every ✓'' rule in
+    the brief   @tech-debt'
+  source_line: 210
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: A process/discipline observation with no concrete code change; owner cut bar 2026-11-05 (a finding
+    earns work only if the fix exceeds the card, needs a decision, or blocks something).
+  revival_trigger: the same lesson recurs as a gating review finding
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  scored_at: '2026-11-18'
+- id: IDEA-142
+  title: 'Owner check: CARD-180 ?status=all renders'
+  raw: '- [ ] CARD-180 owner check pending: ?status=all renders in ~/Documents/nonogram-reviews/CARD-180/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 212
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: false
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-143
+  title: Selection page still says approved under ?status=all
+  raw: '- [ ] CARD-180 F-001: the selection page intro (''pick the approved grids'') and the stepper subtitle
+    (''Pick approved grids'') still say approved under ?status=all   @feature'
+  source_line: 213
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=product-code; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/admin/templates/_stepper.html BOOK_STEPS 'Pick approved grids' and book_select_puzzles.html
+      lede 'pick the approved grids' are unconditional
+  priority_score: 3.08
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 1
+  rank: 2
+- id: IDEA-144
+  title: 'Owner action: back up and apply migration 014'
+  raw: '- [ ] OWNER ACTION (CARD-181): back up nonogram_poc and apply migration 014 (`alembic upgrade
+    head`) before using the panel; check Render''s database (`alembic current` → 014) before deploying
+    — batch pages 500 at 013   @ops'
+  source_line: 215
+  intent: null
+  category: ops
+  status: backlog
+  method: fifo
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: true
+  depends_on: []
+  triage_state: unverified
+  triage_note: 'Almost certainly stale: the panel and production have been run and published on later
+    code.'
+  scored_at: '2026-11-18'
+- id: IDEA-145
+  title: requested_tier_label docstring; Tier.label unpinned; migration 014 claim
+  raw: '- [ ] CARD-181 F-001..F-003 (minor): requested_tier_label docstring says unknown → None but ''guess''
+    reads Hard; no test pins Tier.label; migration 014 ''no puzzle row touched'' claim untested   @tech-debt'
+  source_line: 216
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/admin/app.py `requested_tier_label` docstring still says None for any non-tier;
+      tests/test_admin_tier_surfaces.py compares against `tier.label` itself, not a literal; no migration-014
+      test found
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 12
+  rank: 55
+- id: IDEA-146
+  title: 'Owner check: CARD-188 clue-circle renders'
+  raw: '- [ ] CARD-188 owner check pending: clue-circle renders in ~/Documents/nonogram-reviews/CARD-188/
+    incl. the ~0.5 px pill/heavy-rule overlap on 30×30 (F-005) (merged on evidence by owner choice)   @feature'
+  source_line: 218
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: clue circling redone by CARD-213, CARD-400, CARD-434, CARD-456 (all done), published
+    and owner-reviewed 2026-11-16/17 (cards 452-473)
+  triage_note: 'moot: the rendered thing was replaced and the owner has since reviewed its successor.'
+  scored_at: '2026-11-18'
+- id: IDEA-147
+  title: No device-scale-1 render for the 14 px floor
+  raw: '- [ ] CARD-188 F-008 (minor): no render at device scale 1 for the 14 px floor   @tech-debt'
+  source_line: 219
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: no `device_scale_factor=1` in tests/test_puzzle_solver_clues.py; the clue sizing model changed
+      under CARD-404 and CARD-456
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: Probably moot after the clue-strip rework.
+  scored_at: '2026-11-18'
+  wave: 12
+  rank: 56
+- id: IDEA-148
+  title: 'Flake watch: largest-board test 500 with DATABASE_URL set'
+  raw: '- [ ] Flake watch (CARD-183 merge gate): tests/test_puzzle_solver_page.py::TestSolverPageFits::test_the_largest_board_fits_a_laptop_screen[row-clues]
+    returned a server 500 reading the puzzle with DATABASE_URL set, once; passed 3/3 alone   @tech-debt'
+  source_line: 221
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 2
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: nothing run; CARD-244, CARD-252, CARD-349 (all done) changed how the test DB is reached
+  priority_score: 1.92
+  raw_size: 2
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: Watch item with no fix of its own.
+  scored_at: '2026-11-18'
+  wave: 16
+  rank: 76
+- id: IDEA-149
+  title: 'Hint minors: double announcement, focus, animation window, stale text'
+  raw: '- [ ] CARD-183 minors F-011..F-014: two polite announcements per hint; Hint by keyboard during
+    the reset confirm moves focus to Reset; 440 ms animation-test window; after Undo the announce region
+    keeps the old hint text   @tech-debt'
+  source_line: 222
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=product-code; cut bar: none; verified state: unverified'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: the hint was replaced by the ladder (CARD-269 done) and its text moved twice (CARD-409,
+      CARD-455 done); the four behaviours were not re-tested
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: Likely moot; would need a browser run to say.
+  scored_at: '2026-11-18'
+  wave: 1
+  rank: 4
+- id: IDEA-150
+  title: 'Owner check: CARD-186 ? mark and toolbar changes'
+  raw: '- [ ] CARD-186 owner check pending: "?" mark and toolbar changes (narrower tool padding; banner
+    in the tools'' box on solve; "Hints" on a second row at 1180–1259 px) — renders in ~/Documents/nonogram-reviews/CARD-186/   @feature'
+  source_line: 224
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: toolbar redone by CARD-247, 401, 438, 458, 461 (done); ? glyph by CARD-339 (done);
+    owner-reviewed 2026-11-16/17
+  triage_note: 'moot: the rendered thing was replaced and the owner has since reviewed its successor.'
+  scored_at: '2026-11-18'
+- id: IDEA-151
+  title: '? glyph centring untested; long solved name moves the board'
+  raw: '- [ ] CARD-186 F-002/F-003 (minor): "?" glyph centring untested (only containment); a solved name
+    of ~40+ chars moves the board 13 px at desktop widths   @tech-debt'
+  source_line: 225
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'src/nonogram/admin/static/admin.css `.player-solved-box { contain: inline-size }` with
+      `overflow-wrap: anywhere` suggests the shift was dealt with; the centring test was not looked for'
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  scored_at: '2026-11-18'
+  wave: 12
+  rank: 57
+- id: IDEA-152
+  title: setBoard histories unsaved; G-1 exception naming; redo no-op coverage
+  raw: '- [ ] CARD-185 F-003/F-004/F-005: setBoard-started histories aren''t saved (AC-365 wording needs
+    an architect touch-up); G-1 exception should name test_puzzle_solver_hint.py:870; no-op redo corruption
+    only tested at the top of the redo stack   @tech-debt'
+  source_line: 227
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: not established; requirements.yml still marks AC-360..AC-365 test names as the cards' planned
+      names
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: Three unrelated halves, one of them an architect wording touch-up.
+  scored_at: '2026-11-18'
+  wave: 18
+  rank: 84
+- id: IDEA-153
+  title: 'Owner check: CARD-190 review-page longest-side renders'
+  raw: '- [ ] CARD-190 owner check pending: review-page longest-side renders in ~/Documents/nonogram-reviews/CARD-190/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 229
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: false
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-154
+  title: _side_bounds edge unpinned; stale either-side comment; filter untraced
+  raw: '- [ ] CARD-190 F-002/F-003 + O-001/O-004/O-005 (minor): no test pins _side_bounds'' 10..30 edge
+    (E1/E4 mutants survive, pre-existing); AC-4 API test doesn''t assert the store; pagination test passes
+    under both meanings; stale ''either side'' comment in puzzle_review.py; no FR traces the review filter   @tech-debt'
+  source_line: 230
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: no test names `_side_bounds` (git grep over tests/ empty); src/nonogram/admin/puzzle_review.py
+      still has the 'either side' comment; the other three halves not checked
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 18
+  rank: 85
+- id: IDEA-155
+  title: 'Flake: loopback port test depends on the LAN interface'
+  raw: '- [ ] Flake watch: test_admin_binding.py::…test_the_port_stays_free_on_every_other_interface failed
+    once under parallel pipelines (port held on the LAN interface); passed 3/3 alone   @tech-debt'
+  source_line: 231
+  intent: null
+  category: tech-debt
+  status: in_kanban
+  card: CARD-279
+  method: wsjf
+  scores: null
+  priority_score: null
+  depends_on: []
+  triage_note: Already carded as CARD-279; do not score twice.
+  scored_at: '2026-11-18'
+- id: IDEA-156
+  title: 'Owner check: CARD-189 click-sequence renders and help line'
+  raw: '- [ ] CARD-189 owner check pending: click-sequence renders and the help line (Undecided''s first
+    click on a blank cell shows black) in ~/Documents/nonogram-reviews/CARD-189/   @feature'
+  source_line: 233
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: click rules and brush control redone by CARD-447 and CARD-461, help by CARD-413 (all
+    done); owner-reviewed 2026-11-16/17
+  triage_note: 'moot: the rendered thing was replaced and the owner has since reviewed its successor.'
+  scored_at: '2026-11-18'
+- id: IDEA-157
+  title: Reset Escape path untested; summaries omit a click rule
+  raw: '- [ ] CARD-189 F-004/F-005 (minor): only the ''Keep marks'' cancel path of Reset is tested for
+    ending a repeat run (Escape path untested); the solver.js/puzzle_solve.html summaries omit the ''first
+    click on a cell already in the brush''s state moves on'' rule   @tech-debt'
+  source_line: 234
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: not established; solver.js and its tests were reworked through the November player cards
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  scored_at: '2026-11-18'
+  wave: 12
+  rank: 58
+- id: IDEA-158
+  title: 'Owner check: CARD-191 Sort by size renders'
+  raw: '- [ ] CARD-191 owner check pending: Sort by size button, confirm text and before/after renders
+    in ~/Documents/nonogram-reviews/CARD-191/; the printed order and page count follow the sort (merged
+    on evidence by owner choice)   @feature'
+  source_line: 236
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: false
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-159
+  title: INV-009 says move where it should say reorder
+  raw: '- [ ] CARD-191 (architect): INV-009 says a level''s order changes only by an explicit move — reword
+    to ''reorder'' (EC-026 already does); AC-7 wording: a DB-mode unsized puzzle is an id with no row   @tech-debt'
+  source_line: 237
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=architect-delta; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: meta/architecture/domain/aggregates.yml INV-009 still reads 'changed only by an explicit
+      move'
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 12
+  rank: 59
+- id: IDEA-160
+  title: 'Owner check: CARD-187 Progress counter renders'
+  raw: '- [ ] CARD-187 owner check pending: Progress counter renders in ~/Documents/nonogram-reviews/CARD-187/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 239
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: counters redone by CARD-458 and CARD-469 (done); owner-reviewed 2026-11-16/17
+  triage_note: 'moot: the rendered thing was replaced and the owner has since reviewed its successor.'
+  scored_at: '2026-11-18'
+- id: IDEA-161
+  title: Two comment rationales in puzzle_solve.html and admin.css
+  raw: '- [ ] CARD-187 C2-1/C2-2 (minor): template comment rationale covers focus only, not WCAG 1.3.2;
+    admin.css comment cites a test that doesn''t assert it   @tech-debt'
+  source_line: 240
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: no 'WCAG 1.3.2' text in either file; the cited comments were not located
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: Comments only.
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 60
+- id: IDEA-162
+  title: 'Owner check: CARD-192 band filter renders'
+  raw: '- [ ] CARD-192 owner check pending: band filter and left/over renders in ~/Documents/nonogram-reviews/CARD-192/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 242
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: false
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+- id: IDEA-163
+  title: CARD-192 card text differs from the shipped wording
+  raw: '- [ ] CARD-192 minor: reorder-off note reads ''Show all sizes to move puzzles or sort them.''
+    (card quotes it without ''or sort them''); card says ''Print setup (step 1)'' but stepper shows step
+    2   @tech-debt'
+  source_line: 243
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: A process/discipline observation with no concrete code change; owner cut bar 2026-11-05 (a finding
+    earns work only if the fix exceeds the card, needs a decision, or blocks something).
+  revival_trigger: the same lesson recurs as a gating review finding
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: A done card's prose; nothing in the product is wrong.
+  scored_at: '2026-11-18'
+- id: IDEA-164
+  title: Commit 04791f4 carries a Sonnet trailer
+  raw: '- [ ] Commit trailer on 04791f4 (CARD-192 implementation) reads Claude Sonnet 5, not the project''s
+    Opus 5.5 — history not rewritten; note only   @tech-debt'
+  source_line: 244
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: A process/discipline observation with no concrete code change; owner cut bar 2026-11-05 (a finding
+    earns work only if the fix exceeds the card, needs a decision, or blocks something).
+  revival_trigger: the same lesson recurs as a gating review finding
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: Note only by its own text; can be closed without action.
+  scored_at: '2026-11-18'
+- id: IDEA-165
+  title: 'Owner check: CARD-196 clue-number renders'
+  raw: '- [ ] CARD-196 owner check pending: clue-number renders in ~/Documents/nonogram-reviews/CARD-196/
+    (merged on evidence by owner choice)   @feature'
+  source_line: 246
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: clue numbers redone by CARD-404 and CARD-456 (done); owner-reviewed 2026-11-16/17
+  triage_note: 'moot: the rendered thing was replaced and the owner has since reviewed its successor.'
+  scored_at: '2026-11-18'
+- id: IDEA-166
+  title: Four stale comments carried from CARD-196's review
+  raw: '- [ ] CARD-196 F-002/F-003/F-007/F-008 (minor, carried from review): a stale admin.css comment
+    still claims the old two-digit column clearance; a stale class comment in test_puzzle_solver_phone.py
+    about row-gutter width; a test docstring overclaims OWNER_ROW is the only adjacent single-digit row
+    pair; an admin.css comment implies a mixed digit-count row pair is covered by a check it isn''t   @tech-
+    […]'
+  source_line: 247
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: admin.css still has several two-digit clearance comments, rewritten since; `OWNER_ROW` was
+      not found in tests/test_puzzle_solver_phone.py
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: Comments only; the code under them was reworked by CARD-404/456.
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 61
+- id: IDEA-167
+  title: AC-343 still names the 24 px phone floor
+  raw: '- [ ] Architect delta (CARD-193, after it ships): FR-044 AC-343''s "given" clause still says "cells
+    at the 24 px phone floor" — CARD-193 removes that flat floor; amend to the CARD-196 numeral-driven
+    floor wording   @tech-debt'
+  source_line: 249
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=architect-delta; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'requirements.yml AC-343 given: ''(cells at the 24 px phone floor)'''
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 62
+- id: IDEA-168
+  title: Eight dormant minors carried from CARD-202's review
+  raw: '- [ ] CARD-202 review cycle 2 (minor, carried, not gating — all 8 confirmed dormant/non-live by
+    the reviewer): `_packed_tile_layout` sets `Layout.margin` to a tile''s absolute y-offset instead of
+    the real top margin (export/layout.py, unused today, same bug class `_slot_layout` avoids); `interior_stream`''s
+    own docstring still claims the measured extent is "no longer used to pack anything" (stale, r […]'
+  source_line: 251
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=product-code; cut bar: none; verified state: partly'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: '`_packed_tile_layout` and `compute_packed_solved_layout` are still defined in src/nonogram/export/layout.py,
+      the latter called from both book_pdf_generator.py and book_answer_vector.py; `_packed_column_left_mm`
+      still in tests/property/test_book_export_interior.py; the stale ''no longer used to pack a'
+  priority_score: 0.77
+  raw_size: 3
+  depends_on: []
+  triage_state: partly
+  triage_note: 'CARD-232 (ready: solutions as fixed 2x2 tiles) replaces the packed path; most of this
+    dies with it.'
+  scored_at: '2026-11-18'
+  wave: 3
+  rank: 8
+- id: IDEA-169
+  title: Replace the placeholder QR slot with a real code
+  raw: '- [ ] CARD-204 ships a placeholder QR-code slot (2x2cm) on book puzzle pages with no real link;
+    this is the project that eventually replaces it with a real code pointing at a real page — do it once
+    hosting/URL namespace/puzzle-number mapping above is decided   @feature'
+  source_line: 259
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: 'CARD-388, 389, 390, 391 (all done): per-puzzle QR retired, one Play online page
+    with a real QR to /b/<slug>'
+  scored_at: '2026-11-18'
+- id: IDEA-170
+  title: Dispatcher staleness check parsed a UTC timestamp as local time
+  raw: '- [ ] Near miss (CARD-199, 2026-10-07): the dispatcher''s own full-suite-lock staleness check
+    used `date -j -f` without `-u`, parsing a UTC owner timestamp as local time and misjudging a ~6-min-old
+    lock (held by CARD-193) as stale (>30 min), breaking it and possibly running two full suites concurrently
+    for a few minutes. No corruption observed this time (both runs'' results matched), but the script  […]'
+  source_line: 266
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: The fix is in the forge plugin, outside this repository; not product work for this backlog.
+  revival_trigger: the forge plugin is opened for changes, or the defect costs a gate again
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: The offending shell was ad hoc and seems gone; confirm the Python lock's staleness rule
+    before closing.
+  scored_at: '2026-11-18'
+- id: IDEA-171
+  title: Full-suite lock does not protect the shared nonogram_test database
+  raw: '- [ ] **The full-suite lock does not protect the shared `nonogram_test` database, and that has
+    been corrupting this wave''s evidence.** Found 2026-10-17 while clearing CARD-222''s gate, and it
+    is the most consequential finding of the wave. `tests/conftest.py`''s `db_session` **TRUNCATEs the
+    shared `nonogram_test` before every test**, so two concurrently running cards do not merely slow each
+    other dow […]'
+  source_line: 313
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'CARD-244 (done): each worktree gets its own test database; CARD-255 and CARD-370
+    (done) for the lock itself'
+  triage_note: 'Residue is carded separately: CARD-378 (skipped, two actors in one worktree) and CARD-375
+    (ready, leftover databases).'
+  scored_at: '2026-11-18'
+- id: IDEA-172
+  title: Stub tests with pass bodies that hold a DB fixture
+  raw: '- [ ] **20 tests are TODO stubs with `pass` bodies that nonetheless hold a DB fixture, so they
+    pass vacuously when Postgres is up and skip when it is down** — `tests/test_wave3_image_generation.py`
+    (16) and `tests/test_wave3_e2e.py` (4). They carry no evidence in either state, which is worse than
+    not existing: they inflate the collected count, they inflate the skip count when the database is away  […]'
+  source_line: 314
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: partly'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'ast walk: tests/test_wave3_image_generation.py has 22 test functions whose body is only
+      a docstring and `pass` (of 23); tests/test_wave3_e2e.py has none (of 19)'
+  priority_score: 2.31
+  raw_size: 2
+  depends_on: []
+  triage_state: partly
+  triage_note: The count is 22 where the item says 16, and the e2e four are gone.
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 63
+- id: IDEA-173
+  title: Test files still name the retired 4.8 mm floor
+  raw: '- [ ] **11 test files still name the retired 4.8 mm floor.** `property/test_book_layout.py`, `property/test_book_membership_floor.py`,
+    `test_book_finalise_gutter.py`, `test_book_published_confirm.py`, `test_book_ready_gate.py`, `test_book_trim_persistence.py`,
+    `test_book_workflow_steps.py`, `test_books_list_mobile.py`, `test_books_list_plan_stats.py`, `test_layout_page_spec.py`,
+    `test_puzzle_revie […]'
+  source_line: 315
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: '`git grep -l ''4.8 mm'' -- tests` lists 13 files (the item''s 11 plus test_book_cell_size.py
+      and test_book_interior_type_floor.py); tests/test_layout_page_spec.py still asserts `cell >= 4.8`'
+  priority_score: 1.03
+  raw_size: 3
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 24
+  rank: 100
+- id: IDEA-174
+  title: test_db_connect_timeout.py flakes under host contention
+  raw: '- [ ] **`tests/test_db_connect_timeout.py` is contention-flaky and will bite a gate run that shares
+    the host** — one isolated run of the DB file set reported `409 passed, 1 error`, the next `410 passed`,
+    same tree. Timing-sensitive and unrelated to any card, but it means a red gate can be the host rather
+    than the code, which is exactly the ambiguity a gate exists to remove. Related to the `nonogra […]'
+  source_line: 316
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 2
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: unverified'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'tests/test_db_connect_timeout.py is on disk and unchanged in substance since the item was
+      written (only commit since: f226eed2, CARD-381, a hang-guard text edit); its timing bounds (_ALLOWED_SECONDS
+      = 15, child pytest timeout=60) are as before. No card targets it. The single ''1 error'' was never
+      repr'
+  priority_score: 1.92
+  raw_size: 2
+  depends_on: []
+  triage_state: unverified
+  verify_before_carding: true
+  triage_note: One unreproduced observation from 2026-10-18; no recurrence recorded in any later card
+    I read, so it may simply be droppable.
+  scored_at: '2026-11-18'
+  wave: 16
+  rank: 77
+- id: IDEA-175
+  title: Gate cannot evidence ACs whose test is db_required
+  raw: '- [ ] **The merge gate cannot evidence any acceptance criterion whose test is `db_required` —
+    a systemic evidence hole, measured 2026-10-18 on CARD-244.** The board''s documented gate condition
+    is `nonogram_test` reachable with **`DATABASE_URL` unset**, which is what produces 8 of the suite''s
+    9 normal skips. So every `db_required` test skips at the gate, *by design*, and an AC whose named
+    test is o […]'
+  source_line: 318
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: The fix is in the forge plugin, outside this repository; not product work for this backlog.
+  revival_trigger: the forge plugin is opened for changes, or the defect costs a gate again
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: The generalising half (a skipped test is not evidence) lives in the forge AC/EC gate; the
+    repo-side half would be making make test-gate refuse or announce an unarmed run. Kind is a judgement
+    call between forge-machinery and test-debt.
+  scored_at: '2026-11-18'
+- id: IDEA-176
+  title: Is the two-up folio reserve still needed? It costs pairings
+  raw: '- [ ] **Does a two-up page still need `_folio_reserve_px`''s 108 px of outer margin, now that
+    CARD-248 moved its folio into the footer? It costs 18 pairs.** Found 2026-10-18 by *looking at the
+    rendered page* after CARD-248 merged — no test shows it, because nothing is wrong. `_folio_reserve_px`
+    (`book_pdf_generator.py:1873`) takes **108 px of width off a pair''s lower slot** so CARD-200''s folio
+    has  […]'
+  source_line: 323
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=product-code; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/admin/book_pdf_generator.py still defines _folio_reserve_px and passes folio_reserve_px=_folio_reserve_px(self.dpi)
+      into pair layout at two call sites; src/nonogram/admin/book_sheet_vector.py's furniture-drawing
+      docstring still describes the corner-folio fallback 'where _folio_reserve_p
+  priority_score: 1.23
+  raw_size: 5
+  depends_on: []
+  triage_state: open
+  triage_note: The '18 pairs' and '25x10 pairs at 7.3269 mm' figures predate CARD-392's footer shrink
+    and are stale; the payoff must be re-measured before scoring.
+  scored_at: '2026-11-18'
+  wave: 2
+  rank: 6
+- id: IDEA-177
+  title: Passing -q to pytest gives -qq and no summary line
+  raw: '- [ ] **A gate command that passes `-q` runs pytest at `-qq`, where pytest prints NO summary count
+    line at all.** `pyproject.toml:89` already sets `addopts = "-q"`, so any `-q` a gate or helper script
+    adds is a second one. Found 2026-10-18 by CARD-245''s implementation agent, confirmed against `pyproject.toml`.
+    **This is very probably the mechanism behind the CARD-223 incident**, where the orchestr […]'
+  source_line: 325
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: A process/discipline observation with no concrete code change; owner cut bar 2026-11-05 (a finding
+    earns work only if the fix exceeds the card, needs a decision, or blocks something).
+  revival_trigger: the same lesson recurs as a gating review finding
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: The only concrete ask is a one-line comment in pyproject.toml; the discipline itself (EXIT
+    is the authority, never add -q) is already held.
+  scored_at: '2026-11-18'
+- id: IDEA-178
+  title: Degraded drawing can touch the header rule on thin bands
+  raw: '- [ ] **The band''s-foot fallback can put a degraded drawing''s ink on the HEADER rule, and unlike
+    the footer rule there is no omission branch to fall back on.** Found 2026-10-18 by CARD-224''s fix
+    cycle 2, which fixed the footer half and **declined to fix this half**, correctly: closing it means
+    moving the drawing *down* off the band''s foot with nothing to omit, which is a different design decision,
+    […]'
+  source_line: 327
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=product-code; cut bar: needs-owner-decision; verified state: open'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/export/layout.py _placed_drawing_top's docstring still carries the paragraph
+      'One limit, pre-existing and not closed here' about the header rule. No card addresses it.
+  priority_score: 1.54
+  raw_size: 3
+  depends_on: []
+  triage_state: open
+  triage_note: Reachable only at a band of 3.0 mm or less; the item says no stored PrintProfile gets there
+    (BOOK1 is 12 mm) - I did not re-measure that after ADR-0042.
+  scored_at: '2026-11-18'
+  wave: 1
+  rank: 5
+- id: IDEA-179
+  title: Rename property test whose name encodes a retired rule
+  raw: '- [ ] **`PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent`''s NAME still encodes the
+    rule CARD-224 retired, and the card that was asked to rename it has closed.** `trace.yml` recorded
+    the rename as "CARD-224''s to rename" on 2026-10-17; CARD-224 merged (`c65bb3b`) having deleted **AC-190''s
+    own class** instead and left this one''s name alone. **The test itself is sound** and carries EC-022''
+    […]'
+  source_line: 329
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent still exists in tests/property/test_book_layout.py,
+      and its _pdf_pages twin is still named in tests/property/test_book_pdf_geometry.py; meta/architecture/requirements.yml
+      (EC-022 test: field) and meta/architecture/trace.yml still c'
+  priority_score: 1.15
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: Also needs a matching edit in meta/architecture (requirements.yml EC-022, trace.yml FR-032
+    row), so it is partly an architect-delta.
+  scored_at: '2026-11-18'
+  wave: 24
+  rank: 99
+- id: IDEA-180
+  title: First run on a missing test database fails 5 tests
+  raw: '- [ ] **On a machine where the derived test database does not yet exist, 5 tests FAIL rather than
+    skip or wait — the suite is order-dependent on a fresh database.** Found 2026-10-18 by the first full
+    suite ever run from `main`''s own derived database (`nonogram_pythonproject4_543f9f3f05e1_test`),
+    as the wave-46 post-merge verification: `EXIT=1, 5 failed, 8287 passed`, every failure `FATAL: database
+    […]'
+  source_line: 331
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'CARD-349 (Status: done, merge 597cdf57): tests/conftest.py''s session-scoped autouse
+    fixture _armed_database_is_ready prepares the armed database before the first test, and tests/test_card_349_cold_database.py''s
+    TestColdDatabase_ThePreparationHappensBeforeTheFirstTest::test_a_cold_armed_run_is_green_'
+  scored_at: '2026-11-18'
+- id: IDEA-181
+  title: PAGE_ISOLATION glob misses browser tests outside test_puzzle_solver_*
+  raw: '- [ ] **CARD-235''s `PAGE_ISOLATION` glob cannot see browser-test files outside `tests/test_puzzle_solver_*.py`,
+    so nothing makes the next out-of-glob browser file declare its page isolation at all.** CARD-246 is
+    the 13th browser-test file and the first outside the glob; it **declared its own isolation locally**
+    (a `PAGE_ISOLATION_DECLARATION` plus a test checking it against CARD-235''s own categori […]'
+  source_line: 333
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 2
+    risk_reduction: 5
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=test-debt; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_browser_fixture_scope.py _family_files() still globs only tests/test_puzzle_solver_*.py.
+      A text search for the browser marker now finds 13 files outside the glob (e.g. test_public_player.py,
+      test_player_viewport_matrix.py, test_book_landing_page.py), and PAGE_ISOLATION_DECLARATION is defi
+  priority_score: 1.38
+  raw_size: 5
+  depends_on: []
+  triage_state: open
+  triage_note: The gap grew from 1 out-of-glob file to roughly 13 since the item was written; the count
+    is from a marker text search, not from collection.
+  scored_at: '2026-11-18'
+  wave: 21
+  rank: 94
+- id: IDEA-182
+  title: 'CARD-260: five kill-matrix controls weaker than they read'
+  raw: '- [ ] **CARD-260 leaves five controls weaker than they read, each enumerated and each one assert
+    from closed.** None gated; all were recorded at the AC/EC/G gate or carried as `low` from the review
+    loop. (a) **F-502** — the `(\S*/)?git(\s|$)` literal is restated in prose at `test_kill_matrix.py:1013`
+    and in the README''s G-5 paragraph; neither restatement reds when `GIT_COMMAND` changes. One assert
+    […]'
+  source_line: 335
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'tests/test_kill_matrix.py: (a) no assert on GIT_COMMAND.pattern exists and test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere''s
+      docstring still restates the regex in prose; (e) test_ac3_one_transformer_and_the_recording_pass_is_its_failing_state
+      still calls km._Recorder(reraise) with l'
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: Sub-items (b) F-402 and (c) F-403 are docstring-level and were not verified one by one.
+  scored_at: '2026-11-18'
+  wave: 18
+  rank: 86
+- id: IDEA-183
+  title: CARD-260 G-2 'never writes a lock' has no behavioural control
+  raw: '- [ ] **CARD-260''s G-2 "never writes a lock" has no behavioural control, and declining to plant
+    one was correct.** It rests on a structural enumeration of every write site in `kill_matrix.py` —
+    three: the plugin''s per-pid jsonl under its temp records dir, the mutated target in `_apply`, and
+    the generated plugin file — which is complete over the card''s own code, plus the argv-head equality
+    `["cp"," […]'
+  source_line: 336
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_kill_matrix.py has four test_g2_* tests (lock watched, foreign lock refuses,
+      own lock does not refuse, refusal is owner's verdict) plus test_card_396_a_foreign_lock_refuses_before_any_lane_exists;
+      none plants a lock write, and test_g2_the_lock_it_watches_is_the_one_the_gates_write still d
+  priority_score: 1.03
+  raw_size: 3
+  depends_on: []
+  triage_state: open
+  triage_note: CARD-370/377 (done) made tests/full_suite_lock acquire()/release() real writers elsewhere;
+    kill_matrix.py still only reads the lock, so the item stands as written.
+  scored_at: '2026-11-18'
+  wave: 24
+  rank: 101
+- id: IDEA-184
+  title: 'Kill matrix: three spawn-alias routes and one exception class uncontrolled'
+  raw: '- [ ] **CARD-260''s instrument has three unnamed spawn-alias routes and one uncontrolled exception
+    class.** `import subprocess as sp; sp.run(...)`, `run = subprocess.run`, and `functools.partial(subprocess.run,
+    ...)` are invisible to both spawn censuses — the import census inspects only `ast.ImportFrom`, and
+    the G-5 docstring names only the `from subprocess import run` route as refused. These are * […]'
+  source_line: 337
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_kill_matrix.py _aliased_spawn_imports still inspects only ast.ImportFrom; no
+      plant for 'import subprocess as sp', 'run = subprocess.run' or functools.partial exists in the file.
+      tests/kill_matrix.py still has 'except (OSError, subprocess.CalledProcessError)' and the only control
+      is test_g
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: Its trailing 'mkdtemp / in-tree mutation window' clause is the item at line 345, now carded
+    as CARD-315 (ready).
+  scored_at: '2026-11-18'
+  wave: 19
+  rank: 87
+- id: IDEA-185
+  title: Kill-matrix AC-7 anchors pin content by count and substring
+  raw: '- [ ] **CARD-260''s AC-7 anchors pin content, not commit identity — and the forward hazard is
+    live.** `LOCK_GUARD_TEST` and `LIFECYCLE` read the working tree directly (there is no git call; G-5
+    forbids one), so what reds is content drift, via the hard-coded `counted == 130` with its "re-derive
+    the bound rather than the expectation" message and the four arms re-derived from a fresh parse. A
+    file rep […]'
+  source_line: 338
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_kill_matrix.py test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached
+      still hard-codes the count (now 'counted == 165', re-derived by hand at b3e73fb8 after CARD-370/377),
+      and the session.py pin is still a substring count ('SESSION_PY.read_text().count(declaration) ==
+      2'). No
+  priority_score: 1.54
+  raw_size: 2
+  depends_on:
+  - IDEA-188
+  triage_state: open
+  triage_note: The hand re-derivation 130 -> 165 at b3e73fb8 is a second measured instance of the forward
+    hazard; same anchors as lines 341 and 343, best scored as one job.
+  scored_at: '2026-11-18'
+  wave: 19
+  rank: 89
+- id: IDEA-186
+  title: Review findings filed as info have no owner
+  raw: '- [ ] **A review finding filed `info` is a finding nobody acts on — measured on CARD-260.** Cycle
+    2 found **both** of the card-text defects the AC/EC/G gate later failed the card on: F-205 (G-4''s
+    parenthetical names `hashlib`, which the instrument does not import) and F-206 (G-2''s literal wording
+    is narrower than the code). Both were filed `severity: info`, F-205 explicitly "routed to decompose",  […]'
+  source_line: 339
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: The fix is in the forge plugin, outside this repository; not product work for this backlog.
+  revival_trigger: the forge plugin is opened for changes, or the defect costs a gate again
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: The alternative closure is pure discipline (do not file true defects in a card's own text
+    as info), which would make it a process-lesson.
+  scored_at: '2026-11-18'
+- id: IDEA-187
+  title: Kill-matrix AC-7 anchor cannot tell its four arms apart
+  raw: '- [ ] **CARD-260''s own AC-7 anchor cannot tell its four arms apart from any four asserts — the
+    misattribution shape it documents is standing inside its own control.** Found 2026-10-22 by CARD-259''s
+    implementation, which had to re-derive those anchors. `test_ac7_the_four_arm_grid_of_card_257_reproduces`''
+    precondition is `assert set(arms) <= linenos` — a **membership** test, satisfied by *any* four  […]'
+  source_line: 341
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_kill_matrix.py test_ac7_the_four_arm_grid_of_card_257_reproduces still has the
+      precondition 'assert set(arms) <= linenos', and its docstring still records the membership-test
+      limit as 'Recorded, not routed around'.
+  priority_score: 1.28
+  raw_size: 3
+  depends_on:
+  - IDEA-188
+  triage_state: open
+  triage_note: Same fix as line 343 (hold arms by label, not position); score the two together.
+  scored_at: '2026-11-18'
+  wave: 23
+  rank: 97
+- id: IDEA-188
+  title: Kill-matrix anchors index another file by absolute line number
+  raw: '- [ ] **CARD-260''s anchors index another card''s file by absolute line number, so every card
+    that edits `tests/test_db_engine_lifecycle.py` must also edit `tests/test_kill_matrix.py` — and the
+    first one did, three hours after the instrument merged.** Measured: CARD-259 cut CARD-252''s record
+    out of two of three texts, shifting every occurrence below the edit (`816, 859, 914, 960, 1087` →
+    `818, 877,  […]'
+  source_line: 343
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 2
+    risk_reduction: 3
+    job_size: 3.9
+  reasoning:
+    basis: 'kind=test-debt; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 3 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'tests/test_kill_matrix.py still stores the arms as positions: ''PREAMBLE, NAMES, HEADS,
+      POINTER = 1060, 1136, 1143, 1149'' indexing tests/test_db_engine_lifecycle.py, and the anchor docstring
+      lists the previous addresses it replaced, so the coupling has recurred since the item was written.'
+  priority_score: 1.54
+  raw_size: 3
+  depends_on: []
+  triage_state: open
+  triage_note: One job with line 341; CARD-315 (ready) touches the same two files, so sequence them.
+  scored_at: '2026-11-18'
+  wave: 19
+  rank: 88
+- id: IDEA-189
+  title: Kill-matrix run transiently mutates live source files
+  raw: '- [ ] **Running `tests/test_kill_matrix.py` transiently mutates `src/nonogram/db/session.py` and
+    `tests/test_db_engine_lifecycle.py`, so any measurement taken on those files while it runs is a reading
+    of a mutated tree that can still look clean.** Found 2026-10-22 by CARD-259''s implementation, which
+    hit it: a mid-run `shasum -a 256` of `session.py` read `0fd37d9d…` where the pristine file is `03a8
+    […]'
+  source_line: 345
+  intent: null
+  category: tech-debt
+  status: in_kanban
+  card: CARD-315
+  method: wsjf
+  scores: null
+  priority_score: null
+  depends_on: []
+  triage_note: Already carded as CARD-315 (ready); CARD-315's text predates CARD-396 and its premise should
+    be re-read before dispatch.
+  scored_at: '2026-11-18'
+- id: IDEA-190
+  title: Invalid escape sequence in dog_in_house.py template
+  raw: '- [ ] **`src/nonogram/sourcing/templates/dog_in_house.py` carries an invalid escape sequence (`"\,"`),
+    which is a `SyntaxWarning` today and a `SyntaxError` in a future Python.** Found 2026-10-22 while
+    building `scripts/impact_set.py`, which parses every file under `src/` and so surfaced it once per
+    scan. **The fix is value-preserving and that is the point worth recording:** an invalid escape is
+    le […]'
+  source_line: 347
+  intent: null
+  category: feature
+  status: done
+  resolved_evidence: 'CARD-376 (Status: done, commit 6dd77626 ''escape six invalid sequences in src/,
+    add the guard''): src/nonogram/sourcing/templates/dog_in_house.py now writes the backslashes escaped,
+    with a SyntaxWarning guard in tests/test_cli.py. Confirmed by compiling every .py under src/, tests/,
+    scripts/ and playe'
+  scored_at: '2026-11-18'
+- id: IDEA-191
+  title: Conflict predictor trusts Touches, which understates real footprint
+  raw: '- [ ] **The merge-conflict predictor reads `Touches`, and on the interior-redesign chain `Touches`
+    understates the real footprint by ~4.5x — two ready cards would be dispatched into a guaranteed collision.**
+    Measured 2026-10-22 on CARD-206: declared 6 files, actually changed **27**, because inserting one
+    interior page shifts every page number after it and the page map is written out across the boo […]'
+  source_line: 349
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: The fix is in the forge plugin, outside this repository; not product work for this backlog.
+  revival_trigger: the forge plugin is opened for changes, or the defect costs a gate again
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: What remains is the general 'Touches does two jobs' design point in the forge decompose/run
+    steps, with no live instance.
+  scored_at: '2026-11-18'
+- id: IDEA-192
+  title: Order and name hints by the solver's per-cell technique grade
+  raw: '- [ ] **The deduction hint could be ordered and named by the solver''s own per-cell technique
+    grade, which the player never receives.** Raised with the owner 2026-10-22 and deliberately split
+    out of **CARD-263** because it needs a server change where that card needs none. `SolveResult.rung_tags`
+    is a `list[list[str | None]]` naming, **per cell**, which technique settled it — `simple_overlap`,
+    `line […]'
+  source_line: 351
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=product-code; cut bar: needs-owner-decision; verified state: partly'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'Part (c), a line-level hint needing no answer, exists: `hintLine` and `hintCell`''s PUBLIC
+      MODE branch in src/nonogram/admin/static/solver_state.js (CARD-327 done, CARD-385 done, CARD-455
+      done). Parts (a) and (b) do not: `git grep rung_tags -- src player` hits only orchestrator.py and
+      solver/, nothin'
+  priority_score: 1.23
+  raw_size: 5
+  depends_on: []
+  triage_state: partly
+  triage_note: Remaining work is lowest-rung ordering plus technique naming, admin-only because the rung
+    grid derives from the solution; sibling CARD-263 is still blocked on a requirements delta.
+  scored_at: '2026-11-18'
+  wave: 2
+  rank: 7
+- id: IDEA-193
+  title: Impact selector returns FULL for CLAUDE.md and other root files
+  raw: '- [ ] **`scripts/impact_set.py` models a root-level file by its prefix, so it fails closed on
+    `CLAUDE.md` where it should resolve to one test.** Found 2026-10-22 at CARD-261''s build gate. `KNOWN_ROOTS`
+    is `("src/", "tests/", "meta/", "docs/", "scripts/", "migrations/")` and a path matching none of them
+    returns `FULL` — right in direction (an unmodelled path must not narrow) and wrong in outcome fo […]'
+  source_line: 353
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'Ran `scripts/impact_set.py CLAUDE.md` (and README.md, Procfile, runtime.txt, render.yaml):
+      each prints FULL, rule outside-known-roots. `KNOWN_ROOTS` unchanged; `OUTSIDE_ROOT_DERIVABLE` covers
+      only .css/.js/.html/.py and its comment says a root-level .md stays FULL.'
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: Fails closed, so the cost is an unnecessary full suite on a CLAUDE.md edit, never a wrong
+    narrowing.
+  scored_at: '2026-11-18'
+  wave: 19
+  rank: 90
+- id: IDEA-194
+  title: Makefile PY default fails with exit 127 in a card worktree
+  raw: '- [ ] **`make impact-set` and `make test-impact` cannot run from a card worktree: `PY` defaults
+    to `./.venv/bin/python`, which no worktree has, so both fail with `Error 127`.** Found 2026-10-22
+    by CARD-262''s implementation, which hit it and worked around it by hand. The `Makefile` already exposes
+    `PY ?=` for exactly this, so the mechanism is right and only the default is wrong **for the one place  […]'
+  source_line: 355
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: partly'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: Makefile still has `PY ?= ./.venv/bin/python`; the workaround is now documented in the Makefile's
+      `test-gate` comment and in CLAUDE.md ('pass PY=<main checkout>/.venv/bin/python'), from CARD-395
+      (done). The default itself was not changed, so a bare `make impact-set` in a worktree still fails.
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: partly
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 64
+- id: IDEA-195
+  title: Why pytest's pass-count line sometimes disappears at a gate
+  raw: '- [ ] **A gate cannot rely on pytest''s pass-count summary line: it appeared in one run on this
+    board and not in two later ones, and nobody has established why.** Found 2026-10-22 across CARD-261''s
+    three build gates. The `604cc542` gate printed `8009 passed, 16 skipped, 22880 warnings`; the `feb3e6b5`
+    and `335c641e` gates printed no such line, including a run whose output filter explicitly matched  […]'
+  source_line: 359
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'Cause established, not fixed in code: pyproject.toml `addopts = "-q"` stacks with
+    a command-line -q to -qq, where pytest prints no summary line; measured both ways in the backlog item
+    at line 380 (''Third instance''), and `pytest_terminal_summary`''s docstring in tests/full_suite_lock.py
+    states the -q '
+  triage_note: The trap is still live (addopts unchanged, nothing in tests/README.md mentions -qq); only
+    the 'nobody knows why' ask is closed.
+  scored_at: '2026-11-18'
+- id: IDEA-196
+  title: Kill matrix cannot measure tests that monkeypatch their own module
+  raw: '- [ ] **`tests/kill_matrix.py` cannot measure any test that `monkeypatch.setattr`s a dotted target
+    in its own module, and the cause is a one-line omission in the instrument''s plugin.** Found 2026-10-22
+    by CARD-264''s implementation, which isolated it off the child''s own output rather than guessing:
+    pytest resolves a dotted `setattr` target by attribute walk from the package, and the plugin register
+    […]'
+  source_line: 361
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'tests/kill_matrix.py plugin source `pytest_configure` still does only `sys.modules[name]
+      = module`; no `setattr` on the package anywhere in the file. `test_a_source_sweep_fails_when_the_glob_finds_nothing`
+      in tests/test_web_server.py still uses `monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])`. '
+  priority_score: 3.08
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  triage_note: Same root cause as the first half of the item at line 382; one card would cover both.
+  scored_at: '2026-11-18'
+  wave: 8
+  rank: 33
+- id: IDEA-197
+  title: Web package docstring still says the guard knows two adapters
+  raw: '- [ ] **A fourth stale "two adapters" claim, in `src/nonogram/web/__init__.py:21` — and the guard
+    that exists to catch exactly this does not reach it.** Measured 2026-10-22 by CARD-264, which fixed
+    the other three and left this one because it edits no `src/` file (which is what let G-6 hold by construction).
+    The docstring says *"the structural guard in `tests/test_cli.py` knows exactly two adapter […]'
+  source_line: 363
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/web/__init__.py module docstring still reads 'knows exactly two adapter names
+      — cli and web'; `_ADAPTERS` in tests/test_cli.py is {cli, web, admin}. `TestWebDocstrings_MatchTheShippedPackage`
+      in tests/test_web_server.py has no reference to adapters or `_ADAPTERS`. Related CARD-265 is sk
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 65
+- id: IDEA-198
+  title: Decide whether gates run with the database armed
+  raw: '- [ ] **The second half of that item is still open, and it is the half that matters: `CLAUDE.md`
+    defines the suite as `pytest` with no `DATABASE_URL`, so every gate on this board has measured the
+    no-database path while the live admin panel runs on Postgres.** Separated from the migration above
+    on 2026-10-22 because they are different decisions and only one of them was taken. The gap is invisible
+    b […]'
+  source_line: 367
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores: null
+  priority_score: null
+  owner_item: true
+  needs_owner_decision: true
+  depends_on: []
+  triage_state: open
+  triage_note: Arming DATABASE_URL at a gate is current practice only by orchestrator habit, not by any
+    recipe in the tree.
+  scored_at: '2026-11-18'
+- id: IDEA-199
+  title: AC-186 and AC-370 share one geometry and a thin margin
+  raw: '- [ ] **AC-186''s boundary margin is now 0.012 mm, and it shares its geometry with NFR-008''s
+    AC-370.** The propagation re-measured AC-186 from 4.842 → 4.762 mm against a floor that moved 4.8
+    → 4.75, so its headroom collapsed from 0.042 to 0.012 mm — and 4.7625 mm is exactly 40 cells across
+    the amended 190.500 mm usable width, i.e. the single depth step the lower floor buys. The two criteria
+    must mo […]'
+  source_line: 374
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'The coupling is recorded where it applies: the comment above AC-186 in meta/architecture/requirements.yml
+    says the two ''must move together''. Both tests exist as classes: `TestBookAddPuzzles_AcceptsCellJustAboveFloor`
+    (tests/test_book_floor.py) and `TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedF'
+  triage_note: A reading note, not a defect; I did not re-measure whether the 0.012 mm margin survived
+    CARD-392's footer change.
+  scored_at: '2026-11-18'
+- id: IDEA-200
+  title: Standing rules scoped package-wide cannot be narrowed per card
+  raw: '- [ ] **A standing rule scoped `src/nonogram/**` cannot narrow, and a large `## System contract`
+    measurably produces FAKE coverage.** Found at the 2026-10-17 decompose. The lens returns **60 rules**
+    for a book card, of which **57 are scoped `src/nonogram/**`** — package-wide, so they match every
+    card in the project and `system_rules.py --card` has nothing to narrow with. Only 3 named a file CARD-2
+    […]'
+  source_line: 375
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 5
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=architect-delta; cut bar: fix-bigger-than-card; verified state: partly'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'Ran the read-only lens (forge_1 system_rules.py): 91 rules now, 13 with `src/nonogram/**`
+      in scope, 12 more with an eleven-glob near-package-wide scope, 5 global; down from 57 of 60 package-wide.
+      But `--card CARD-340` (touches admin.css, one template, one test) still returns 57 rules, so the
+      project'
+  priority_score: 1.23
+  raw_size: 5
+  depends_on: []
+  triage_state: partly
+  triage_note: Scopes live in the ADR rule blocks under meta/architecture/decisions/adr; the item's 6-14
+    curated-contract workaround is presumably still in use.
+  scored_at: '2026-11-18'
+  wave: 23
+  rank: 98
+- id: IDEA-201
+  title: Render-heavy snapshot trigger is a grep over API names
+  raw: '- [ ] **`RENDER_HEAVY_SNAPSHOT`''s trigger is a grep over eight API names, not "a card added a
+    test file"** — a file joins the live set the moment it *names* `interior(`, `solved_puzzle_page`,
+    `interior_stream`, `render_pages`, `puzzle_pages`, `export_book`, `create_guide_page` or `proof_pages`.
+    Measured 2026-10-17: 29 live, 29 in the snapshot, zero drift. Latent risk on CARD-223/224/227/229/230:
+    e […]'
+  source_line: 378
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: The latent risk named five cards; CARD-223, 224, 227, 229 and 230 are all done. `RENDER_API_PATTERN`
+    in meta/profiling/rank_durations.py is unchanged (still the eight names, helpers not included), and
+    commit e3868463 has since frozen the ranking after the raster deletion.
+  triage_note: 'Resolved by expiry, not by a fix: the trigger was neither widened nor documented, but
+    no scheduled card is exposed to it.'
+  scored_at: '2026-11-18'
+- id: IDEA-202
+  title: A requirement check id that selects no test reads as a pass
+  raw: '- [ ] **A card''s hand-written `-k` evidence selection that matches nothing exits 0 and reads
+    as a pass — the board''s gate has a vacuity check, a card''s own evidence line does not.** Found 2026-10-23
+    on CARD-264, which **twice** recorded *"CON-009 + CON-010 … 6 passed, exit 0"* while `-k ''PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest''`
+    collects **0**: the compound selection  […]'
+  source_line: 380
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 2
+    risk_reduction: 5
+    job_size: 6.5
+  reasoning:
+    basis: 'kind=test-debt; cut bar: fix-bigger-than-card; verified state: open'
+    job_size: raw 5 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'No registry from declared check ids to node ids exists: scripts/ has no such file, and
+      an earlier grep shows `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest` still
+      named in requirements.yml and trace.yml with no def or class behind it (tests/test_web_server.py
+      mentions it in p'
+  priority_score: 1.38
+  raw_size: 5
+  depends_on: []
+  triage_state: open
+  triage_note: The cheap half (name test functions, state collected, passed and exit code) exists only
+    as a brief-writing rule; nothing in the tree refuses a -k that selects nothing.
+  scored_at: '2026-11-18'
+  wave: 22
+  rank: 95
+- id: IDEA-203
+  title: Kill matrix accepts a red baseline and cannot measure one class
+  raw: '- [ ] **`tests/kill_matrix.py` cannot measure `tests/test_web_server.py`''s `TestWebGuards_EveryStructuralLoopAssertsNonEmpty`
+    — symptom recorded by three consecutive review cycles, cause never reproduced.** CARD-264''s cycles
+    1, 2 and 3 each hit it and each excluded the class from the measurement selection so SHIPPED stayed
+    trustworthy; the set-axis vacuity case inside it therefore has only an ordi […]'
+  source_line: 382
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: Same missing package attribute as line 361 (tests/kill_matrix.py plugin `pytest_configure`).
+      `_refuse_unless_clean` still checks only FAIL-free, reached and equal-to-baseline; its docstring
+      says it is 'deliberately not a rule about the exit code'. `TestWebGuards_EveryStructuralLoopAssertsNonEmpty`
+      s
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: First half duplicates line 361; the exit-code half contradicts a documented design choice,
+    so it needs a ruling on distinguishing an out-of-domain kill from a red baseline.
+  scored_at: '2026-11-18'
+  wave: 20
+  rank: 91
+- id: IDEA-204
+  title: A full suite that never took the board lock goes unnoticed
+  raw: '- [ ] **A full-suite gate that forgets to write the board''s lock is indistinguishable from one
+    that took it and released it — and the guard that reads the lock cannot, by construction, notice.**
+    Found 2026-10-23 by the orchestrator against itself, on CARD-264''s post-fix gate: the suite ran to
+    completion, green, while `meta/kanban/.full-suite.lock` **did not exist**. The division of labour
+    is corre […]'
+  source_line: 383
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'CARD-370 (done) and CARD-377 (done): `_Session.pytest_collection_finish` in tests/full_suite_lock.py
+    decides full-suite from the collection (`is_full_suite`) and calls `acquire()` itself, `pytest_unconfigure`
+    calls `release()`, and the outcome is announced in the terminal summary. A gate can no long'
+  triage_note: The proposed --require-board-lock flag was not built; a marker-deselected `make test-gate`
+    is not a full suite by `is_full_suite` and takes no lock, by design.
+  scored_at: '2026-11-18'
+- id: IDEA-205
+  title: Reviewers read a stale worktree copy of orchestrator-owned card fields
+  raw: '- [ ] **A review cycle reads the card''s ORCHESTRATOR-owned fields from the copy that is never
+    updated, so it files findings against text the merging card does not contain.** Measured twice on
+    CARD-264, the second time as cycle 5''s F-004: the reviewer read `meta/kanban/cards/CARD-264.md` **in
+    the worktree** and filed *"AC-7 left live naming a test that exists nowhere"*, while **main''s** copy
+    — the  […]'
+  source_line: 384
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: The fix is in the forge plugin, outside this repository; not product work for this backlog.
+  revival_trigger: the forge plugin is opened for changes, or the defect costs a gate again
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  triage_note: I searched the skill text for a main-to-worktree direction and found none, but did not
+    read every reference file end to end.
+  scored_at: '2026-11-18'
+- id: IDEA-206
+  title: impact_set.py blind to static assets, fails open on CSS/JS cards
+  raw: '- [ ] **`scripts/impact_set.py` is blind to static assets, so an impact-scoped gate on a CSS/JS
+    card runs ZERO tests that exercise the change — and the script''s own docstring says this is the one
+    direction it must never fail.** Measured 2026-10-23 at CARD-271''s fix pre-gate: `scripts/impact_set.py
+    src/nonogram/admin/static/admin.css src/nonogram/admin/static/solver.js` returns **23 files**, and
+    th […]'
+  source_line: 385
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'CARD-286 (Status: done; commit d98a4a31 ''impact_set: derive the edges an import
+    graph cannot carry''). scripts/impact_set.py now defines _derive_asset, asset_key, ASSET_RULES and
+    the FULL reasons RULE_NO_READER / RULE_UNKNOWN_ASSET; tests/test_impact_set.py references them. Ran
+    the item''s own command'
+  scored_at: '2026-11-18'
+- id: IDEA-207
+  title: Element screenshot fires resize; no single helper owns the capture window
+  raw: '- [ ] **A Playwright ELEMENT screenshot makes the page fire `resize`, and CARD-212''s debounce
+    then redraws the board a moment later — so a capture and a geometry reading taken either side of it
+    can describe two different tables.** Measured 2026-10-23 by CARD-271''s fix round, in-tree, on `tests/test_puzzle_solver_fifth_rule.py`''s
+    own 20×20 at 390×844: `innerWidth`/`innerHeight` never change (390×84 […]'
+  source_line: 387
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'tests/test_puzzle_solver_fifth_rule.py still holds the only guarded capture (_quiet + _board
+      with the draw-count assertion). `.screenshot(` sites in tests/ have grown from 4 to 8, and a second
+      ELEMENT screenshot now exists outside that helper: tests/test_puzzle_solver_hint.py::_shots (page.locator(s'
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: 'The item''s bound (''exactly one element screenshot'') no longer holds: _shots in test_puzzle_solver_hint.py
+    is a second one, though it reads pixels only, not geometry beside the capture.'
+  scored_at: '2026-11-18'
+  wave: 20
+  rank: 92
+- id: IDEA-208
+  title: Capture settle doubles fifth_rule test time; poll draw count instead
+  raw: '- [ ] **CARD-271''s capture settle doubles the wall-clock of `tests/test_puzzle_solver_fifth_rule.py`,
+    and the only cheaper shape that stays deterministic is polling, not a shorter sleep.** Measured 2026-10-23
+    at that card''s review cycle 2: **27.35 s with the settle, 13.84 / 13.40 / 12.96 s with it deleted**
+    (three runs), and about **+4 %** on the 17-file selector gate (354.4 s → 367.8 s). It is no […]'
+  source_line: 389
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 1
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: tests/test_puzzle_solver_fifth_rule.py::_quiet still does page.wait_for_timeout(4 * _RESIZE_SETTLE)
+      and then reads the draw count once; no polling form exists in the file.
+  priority_score: 2.31
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  scored_at: '2026-11-18'
+  wave: 13
+  rank: 66
+- id: IDEA-209
+  title: ResizeObserver on .player-stage to re-measure clue bands by construction
+  raw: '- [ ] **The residual of CARD-271''s F-001 — anything that moves `.player-stage`''s box WITHOUT
+    firing `resize` — was hunted and refuted, and the durable fix for the class is a `ResizeObserver`.**
+    Measured 2026-10-23 at that card''s review cycle 2, in-tree, probe deleted after: on a 30×30 at 1280×720
+    the stage''s `client` box is `[980, 492]` and stays there after 12 marks, after opening the brush
+    menu, […]'
+  source_line: 391
+  intent: null
+  category: feature
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 3
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=product-code; cut bar: none; verified state: partly'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: src/nonogram/admin/static/solver.js now has a ResizeObserver that calls keepCluesInView()
+      (added by CARD-403, commit 9facc38b; widened in the 2026-11-17 review to observe document.body).
+      It observes the toolbar, .player-head and body and is keyed on the stage's top and the toolbar's
+      width, i.e. what
+  priority_score: 4.62
+  raw_size: 1
+  depends_on: []
+  triage_state: partly
+  triage_note: CARD-402's F-001 (an observer loop on landscape phones) is why the key is narrow; observing
+    the stage directly would need the same loop guard.
+  scored_at: '2026-11-18'
+  wave: 1
+  rank: 1
+- id: IDEA-210
+  title: Browser-fixture node-id registry unreachable from inner-loop gate selections
+  raw: '- [ ] **The browser-fixture family''s node-id registry is discoverable only by a run nobody makes
+    in the inner loop — and it cost CARD-271 a red merge gate.** Measured 2026-10-23. `tests/test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+    holds the family''s collected node ids against CARD-217''s committed `--durations` art […]'
+  source_line: 393
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'Fix (b), reachability, holds on main: ran `scripts/impact_set.py --gate tests/test_puzzle_solver_hint.py`
+    read-only and the selection includes tests/test_browser_fixture_scope.py, with its marked tests lifted
+    (''rule S, subject edge''). tests/wave_close_marker.py lists TestBrowserFixtures_NoTestAddedO'
+  triage_note: 'Fix (a) was not taken: ADDED_SINCE_BEFORE in tests/test_browser_fixture_scope.py is still
+    an id-keyed allowlist; the item offered (a) and (b) as alternatives.'
+  scored_at: '2026-11-18'
+- id: IDEA-211
+  title: CARD-218 curation helpers duplicated in two test files
+  raw: '- [ ] **CARD-218''s curation controls live in two byte-identical copies with nothing asserting
+    they agree, and CARD-219 would make a third.** Measured 2026-10-24 at CARD-218''s fix-round pre-gate.
+    Fix round 1 added nine helper functions to **both** `tests/test_book_puzzle_frame.py` and `tests/test_book_pdf_band.py`
+    — `_page_digest`, `_case_of`, `_declares`, `_declared_consumers`, `_consumers_among`, […]'
+  source_line: 395
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: 'CARD-219 (Status: done), commit 6677cbf0 ''one home for the shared-render controls'':
+    tests/helpers/shared_fixture_controls.py now defines page_digest, case_of, declared_consumers, refuse_unless_nothing_takes_it_later,
+    retained_bitmap_bytes, with tests/test_shared_fixture_controls.py beside it. No `de'
+  scored_at: '2026-11-18'
+- id: IDEA-212
+  title: _set_once cache in test_book_pdf_band.py retains about 111 MB
+  raw: '- [ ] **`tests/test_book_pdf_band.py`''s `_set_once` cache retains 24.4 MB for the rest of every
+    session that touches the file, and it has been doing so since before CARD-218.** Measured 2026-10-24
+    at CARD-218''s review cycle 2 and re-derived by the orchestrator with a `gc.get_referents` walk sizing
+    numpy by `nbytes`: `_set_once` is `@lru_cache(maxsize=None)` at `tests/test_book_pdf_band.py:1111`
+    an […]'
+  source_line: 397
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'tests/test_book_pdf_band.py: _set_once and _font_bytes are still `@lru_cache(maxsize=None)`,
+      and _set_once still returns `_cropped(...)`, whose body is a plain slice (a numpy view keeping the
+      uncropped base alive) with no .copy(). Not re-measured (would need a test run).'
+  priority_score: 1.54
+  raw_size: 2
+  depends_on: []
+  triage_state: open
+  triage_note: The byte figures are the item's own from 2026-10-24; only the code shape was confirmed
+    today.
+  scored_at: '2026-11-18'
+  wave: 20
+  rank: 93
+- id: IDEA-213
+  title: forge:review manifest path unresolved, reports say reviewer_version unknown
+  raw: '- [ ] **`forge:review`''s own manifest path does not resolve on this box, so a review that follows
+    it literally records `reviewer_version: unknown`.** Observed 2026-10-24 by CARD-218''s review cycle
+    2. The skill reads `skills/review/../../.claude-plugin/plugin.json`; the real manifest is one level
+    deeper, `forge/.claude-plugin/plugin.json`, version **2026.8.17**. Every review report on this board
+    ca […]'
+  source_line: 400
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: /Users/omelnikova/MyProjects/forge_1/forge/skills/review/SKILL.md reads `${CLAUDE_SKILL_DIR}/../../.claude-plugin/plugin.json`,
+    which resolves to forge_1/forge/.claude-plugin/plugin.json (exists, version 2026.10.29); the plugin-cache
+    copy resolves too (.claude-plugin/ exists there). Local meta/revie
+  triage_note: forge_1 is not a git repository, so I could not date the skill change; the verdict rests
+    on the path resolving today and on recent reports carrying a version.
+  scored_at: '2026-11-18'
+- id: IDEA-214
+  title: Review YAMLs can revive dead check refs in the validator
+  raw: '- [ ] **A review YAML can revive a dead check ref, so `kind: test` is a weaker instrument than
+    it reads.** Found 2026-10-28 by CARD-284''s fix round 1 and verified independently by the orchestrator.
+    `validators/utils.code_search()` builds the pathspec `[":(exclude)meta/architecture", ":(exclude)*.md"]`
+    and `symbol_exists()` runs `git grep -lw <ref> -- . <excludes>`. The registry therefore cannot se
+    […]'
+  source_line: 402
+  intent: null
+  category: tech-debt
+  status: screened
+  rejection_class: out-of-scope
+  screen_ref: null
+  reason: The fix is in the forge plugin, outside this repository; not product work for this backlog.
+  revival_trigger: the forge plugin is opened for changes, or the defect costs a gate again
+  sunk_cost: triage 2026-11-18
+  what_changed_since: null
+  rejected_at: '2026-11-18'
+  slotted_into: IDEA-004 (aging triage, meta/kanban/triage-outcomes.yml)
+  triage_note: The remainder is exactly CARD-319 (blocked on forge code); tests/test_check_ref_resolution.py's
+    docstring argues the `:(exclude)meta/review` pathspec this item proposes is insufficient.
+  scored_at: '2026-11-18'
+- id: IDEA-215
+  title: Independently re-fire CARD-276's six mutants or declare them unfired
+  raw: '- [ ] **Fire CARD-276''s six unfired mutants, or declare them unfired with a reason — split out
+    of CARD-300 on 2026-10-28, ~0.25d.** N8, N12b, N13, N14, N16, N18 against `ac479658` and CARD-276''s
+    HEAD. This was CARD-300''s AC-5, and it is the only part of that card with epistemic value: CARD-276''s
+    cycle 2 called it "the largest single thing I did not measure", and what sits unverified is **a correct
+    […]'
+  source_line: 404
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 1
+    time_criticality: 1
+    risk_reduction: 2
+    job_size: 1.3
+  reasoning:
+    basis: 'kind=test-debt; cut bar: none; verified state: open'
+    job_size: raw 1 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'CARD-300 (which carried this as AC-5) is Status: skipped; no card 300-473 other than 300
+      mentions N12b. CARD-276 (done) section ''5. The six unfired cells (AC-5)'' does hold a table from
+      its implementation round (N8 = 1 FAIL, N12b = 5, N13/N16/N18 = 1, N14 = 2), but its review text
+      says ''Accepted on t'
+  priority_score: 3.08
+  raw_size: 1
+  depends_on: []
+  triage_state: open
+  triage_note: '''Unfired'' overstates it: the cells were fired once by the implementing round; what is
+    owed is an independent re-run or a written declaration, with no code change.'
+  scored_at: '2026-11-18'
+  wave: 9
+  rank: 34
+- id: IDEA-216
+  title: Registry check refs naming tests that exist nowhere
+  raw: '- [ ] **40 registry check refs name tests that exist nowhere in any tree, and each reads as mechanically
+    checked.** Measured 2026-10-28 by sweeping every `test:`/`check:`/`tests:` ref in `requirements.yml`
+    against an index of every `def`/`class` name in `tests/**/*.py` (8952 symbols, 250 files), then classifying
+    each ref three ways rather than two — because the first sweep said "189 dead" and that […]'
+  source_line: 406
+  intent: null
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 2
+    time_criticality: 1
+    risk_reduction: 5
+    job_size: 2.6
+  reasoning:
+    basis: 'kind=architect-delta; cut bar: none; verified state: partly'
+    job_size: raw 2 x1.3 (the cumulative calibration the earlier scored ideas carry)
+    evidence: 'Re-swept today with ast: every `test:` ref in meta/architecture/requirements.yml (432)
+      against all def/class names in tests/**/*.py: 272 defined, 148 mentioned only (logical-name convention
+      or prose), about 11 found nowhere, down from 40. Residue: AC-038 (TestGenerate_50x50_RespectsTimeoutBound),
+      AC'
+  priority_score: 3.08
+  raw_size: 2
+  depends_on: []
+  triage_state: partly
+  triage_note: My sweep is a simpler two-bucket reading than the item's three; the 'mentioned only' bucket
+    of 148 was not split into logical-name vs prose, so 11 is a floor for dead refs, not a full count.
+  scored_at: '2026-11-18'
+  wave: 9
+  rank: 35
+- id: IDEA-217
+  title: ADR-0025 circular-supersession error is a validator-copy false positive
+  raw: '- [ ] **The board''s standing "1 error — ADR-0025 circular supersession" is a FALSE POSITIVE of
+    one validator install, and the other install already fixed it. Standardise on `forge_1`''s copy.**
+    Root-caused 2026-10-28 by CARD-284''s fix round 2 and confirmed independently here. Three rounds on
+    this board reported three different validator figures (1 error/114, 0/109, 0/112) and each was recorded
+    as a […]'
+  source_line: 408
+  intent: null
+  category: tech-debt
+  status: done
+  resolved_evidence: meta/kanban/config.yml has the `architecture_validator:` key pointing at /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py,
+    with a comment recording the plugin-cache error as a regex artefact and the honest count as 0 (commit
+    7c68a7b1, added for CARD-308, Statu
+  triage_note: The plugin cache still ships the buggy regex, so anyone running the cached validator will
+    see the phantom error again.
+  scored_at: '2026-11-18'
