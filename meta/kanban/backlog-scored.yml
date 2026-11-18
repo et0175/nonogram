@@ -134,7 +134,8 @@ ideas:
     of them as covered. Fix each ref (write the test, or re-type the check as `review-lens`)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-481
   method: wsjf
   scores:
     user_business_value: 5
@@ -578,7 +579,8 @@ ideas:
     interior-like path that does   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-482
   method: wsjf
   scores:
     user_business_value: 3
@@ -2093,7 +2095,8 @@ ideas:
     dead `images` field and pass on the "No images selected" redirect — hollow the same way test_size_configuration_applied
     was   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: done
+  card: CARD-475
   method: wsjf
   scores:
     user_business_value: 3
@@ -2730,7 +2733,8 @@ ideas:
 - id: IDEA-108
   title: test_web_upload.py sweeps the machine-wide temp dir and reds on concurrent worktrees
   category: tech-debt
-  status: backlog
+  status: done
+  card: CARD-474
   method: wsjf
   scores:
     user_business_value: 3
@@ -2782,7 +2786,8 @@ ideas:
 - id: IDEA-110
   title: 'Resolve every card''s backticked test:/check: name against tests/ at the decompose station'
   category: tech-debt
-  status: backlog
+  status: done
+  card: CARD-476
   method: wsjf
   scores:
     user_business_value: 5
@@ -3220,7 +3225,8 @@ ideas:
   source_line: 120
   intent: null
   category: feature
-  status: backlog
+  status: done
+  card: CARD-477
   method: wsjf
   scores:
     user_business_value: 5
@@ -3248,7 +3254,8 @@ ideas:
   source_line: 194
   intent: null
   category: compliance
-  status: backlog
+  status: done
+  card: CARD-480
   method: wsjf
   scores:
     user_business_value: 3
@@ -3483,7 +3490,8 @@ ideas:
   source_line: 213
   intent: null
   category: feature
-  status: backlog
+  status: done
+  card: CARD-478
   method: wsjf
   scores:
     user_business_value: 2
@@ -4211,7 +4219,8 @@ ideas:
   source_line: 323
   intent: null
   category: feature
-  status: backlog
+  status: in_kanban
+  card: CARD-483
   method: wsjf
   scores:
     user_business_value: 5
@@ -4639,7 +4648,8 @@ ideas:
   source_line: 351
   intent: null
   category: feature
-  status: backlog
+  status: in_kanban
+  card: CARD-484
   method: wsjf
   scores:
     user_business_value: 5
@@ -5074,7 +5084,8 @@ ideas:
   source_line: 391
   intent: null
   category: feature
-  status: backlog
+  status: done
+  card: CARD-479
   method: wsjf
   scores:
     user_business_value: 2

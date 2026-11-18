@@ -53,7 +53,9 @@ Empty buckets roll over: enabler has no ideas, so its 0.45 d goes to tech-debt (
 - **IDEA-162** Owner check: CARD-192 band filter renders
 - **IDEA-198** Decide whether gates run with the database armed
 
-## Wave 1 (next)
+## Wave 1 — DONE 2026-11-19
+
+Seven cards merged: CARD-474 (IDEA-108), CARD-475 (IDEA-082), CARD-476 (IDEA-110), CARD-477 (IDEA-129), CARD-478 (IDEA-143), CARD-479 (IDEA-209, published 2026-11-19), CARD-480 (IDEA-130). Wave close: full suite on `main` at `0d8e43f9`, 10663 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 32 min. Not carded, still open: IDEA-149 (verify first), IDEA-178 (owner layout call), IDEA-111 (forge-plugin defect).
 
 ### feature  (1.25 / 1.50 d)
 1. **IDEA-209** ResizeObserver on .player-stage to re-measure clue bands by construction (WSJF 4.62) — 0.125 d (partly done)
@@ -71,7 +73,7 @@ Empty buckets roll over: enabler has no ideas, so its 0.45 d goes to tech-debt (
 ### compliance  (0.75 / 0.30 d)
 1. **IDEA-130** Handlers still flash or return raw exception text (WSJF 2.0) — 0.75 d  ⚠ exceeds the bucket: split it, or spend another category's budget
 
-## Wave 2
+## Wave 2 (next) — carded 2026-11-19 as CARD-481 (IDEA-004), CARD-482 (IDEA-021), CARD-483 (IDEA-176), CARD-484 (IDEA-192)
 
 ### feature  (1.50 / 1.50 d)
 6. **IDEA-176** Is the two-up folio reserve still needed? It costs pairings (WSJF 1.23) — 0.75 d
