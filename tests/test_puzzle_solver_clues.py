@@ -3298,6 +3298,65 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         assert (loose["band"], loose["overflow"], loose["port"]) == (
             stuck["band"], stuck["overflow"], stuck["port"]), (stuck, loose)
 
+    def test_a_change_of_the_stages_own_box_is_measured_again(
+        self, browser_page, live
+    ) -> None:
+        """CARD-479 AC-1. The stage's box can change with no window resize and
+        without moving what stands above it — here a style set on the stage
+        alone. The clue bands' verdict must follow, because it is a reading
+        of the stage's port. Before this card nothing observed the stage
+        itself: the verdict stayed the one measured for the old box.
+
+        The premise is asserted, not assumed: the change narrows the port,
+        flips the row axis's verdict, and leaves the stage's top and the
+        toolbar's width where they were (what the older observer keys on)."""
+        page = browser_page
+        page.set_viewport_size({"width": 600, "height": 844})
+        _open(page, live, live.store(GRID_30x30))
+        _settled(page)
+        above = """() => [
+          Math.round(document.querySelector('.player-stage').getBoundingClientRect().top + scrollY),
+          Math.round(document.getElementById('puzzle-player-controls').getBoundingClientRect().width)]"""
+
+        before = _room(page)
+        before_above = page.evaluate(above)
+        assert before["keeping"] == _verdict(before) == [True, True], before
+
+        page.evaluate("document.querySelector('.player-stage').style.width = '360px'")
+        _settled(page)
+
+        after = _room(page)
+        assert page.evaluate(above) == before_above
+        assert after["port"][0] < before["port"][0], (before, after)
+        assert _verdict(after)[0] is False, after
+        assert after["keeping"] == _verdict(after), after
+
+        # AC-2's half here: after that one change the board holds still —
+        # counted over twenty frames, not timed. A re-measure that resized
+        # the stage and fed the new observation would re-fit every frame
+        # (CARD-402 F-001's shape; its own 932 x 430 cell is in
+        # tests/test_player_public_mode.py's LandscapeToolStrip class).
+        sizes = page.evaluate("""() => new Promise((done) => { const out = []; const tick = () => {
+          const box = document.querySelector('.player-board').getBoundingClientRect();
+          out.push(`${box.width}x${box.height}`);
+          if (out.length < 20) requestAnimationFrame(tick); else done(out); };
+          requestAnimationFrame(tick); })""")
+        assert len(set(sizes)) == 1, sizes
+
+        # And a board already AT Fit is re-fitted to the stage's new box, not
+        # left at the zoom that fitted the old one: one step out of 100% is
+        # Fit (it re-measures on the way in), then the stage narrows again
+        # with no zoom step, and at Fit nothing may scroll.
+        overflow = """() => { const s = document.querySelector('.player-stage');
+          return [s.scrollWidth - s.clientWidth, s.scrollHeight - s.clientHeight]; }"""
+        page.locator('[data-player-zoom-action="out"]').click(force=True)
+        _settled(page)
+        at_fit = page.locator("[data-player-zoom-readout]").text_content()
+        assert page.evaluate(overflow) == [0, 0], at_fit
+        page.evaluate("document.querySelector('.player-stage').style.width = '300px'")
+        _settled(page)
+        assert page.evaluate(overflow) == [0, 0], (at_fit, page.locator("[data-player-zoom-readout]").text_content())
+
 
 def test_the_sticky_gutter_rules_declare_no_colour_but_the_one_token(
 ) -> None:

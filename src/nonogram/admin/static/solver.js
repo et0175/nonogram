@@ -1783,6 +1783,23 @@ function start() {
     for (const element of [toolbar, document.querySelector(".player-head"), document.body]) {
       if (element) above.observe(element);
     }
+    // CARD-479: and the stage's own box. The observer above answers to what
+    // stands above the stage; a change to the stage itself that moves none of
+    // that (a style rule, a parent's width) left the clue bands' verdict
+    // measured for the old box (CARD-271's residual). Keyed on the stage's
+    // port, and the key is taken AFTER the re-measure: a re-fit that resizes
+    // the stage (a board smaller than its room) then reads as already seen,
+    // so this cannot feed itself — the shape CARD-402 F-001 measured on the
+    // toolbar strip, a re-fit every frame.
+    let stageKey = "";
+    const own = new ResizeObserver(() => {
+      if (`${stage.clientWidth}x${stage.clientHeight}` === stageKey) return;
+      keepCluesInView();
+      measureFit();
+      marking.offerRedrawn();
+      stageKey = `${stage.clientWidth}x${stage.clientHeight}`;
+    });
+    own.observe(stage);
   }
   const viewportChanged = () => {
     const key = sizeKey();
