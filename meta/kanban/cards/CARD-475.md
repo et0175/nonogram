@@ -1,6 +1,6 @@
 # CARD-475: The five hollow upload e2e tests post the field the route reads
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false <!-- test-only card -->
-**Branch:** —
-**Worktree:** —
+**Branch:** card/475-hollow-upload-e2e-tests
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-475
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-082, WSJF 5.38); premise re-read against main on 2026-11-18. Origin: CARD-164 review, finding F-002.
 **Idea:** IDEA-082
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/e2e/test_admin_workflow.py
 **UI surface:** none
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T09:15Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
