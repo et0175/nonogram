@@ -6380,14 +6380,14 @@ def create_app(debug=None):
             # Verify file exists
             import os
             if not os.path.exists(image.file_path):
-                return f"File not found: {image.file_path}", 404
+                return "Image file not found", 404  # no server path (CARD-480)
 
             return send_file(
                 image.file_path,
                 mimetype=f"image/{image.format.lower()}",
             )
         except FileNotFoundError:
-            return f"File missing: {image.file_path}", 404
+            return "Image file not found", 404  # no server path (CARD-480)
         except Exception:
             app.logger.exception("Image %s could not be served", file_id)
             return IMAGE_SERVE_FAILED, 500
@@ -6440,7 +6440,7 @@ def create_app(debug=None):
         try:
             # Verify file exists
             if not os.path.exists(image.file_path):
-                return f"File not found: {image.file_path}", 404
+                return "Image file not found", 404  # no server path (CARD-480)
 
             target_width, target_height = image.predict_size()
 
