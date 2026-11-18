@@ -3023,7 +3023,7 @@ class TestSolverClues_DoubledGuttersAreNotStuck:
         # Both bands would scroll clean out of view without the fix: the
         # overflow on each axis is past that axis's whole band (567.9 px and
         # 347.4 px here), so this is a case and not a formality.
-        assert seen["overflow"] == [275, 187], seen["overflow"]  # [778, 487] until CARD-403/404: the capped bands are 317 x 194; 172 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
+        assert seen["overflow"] == [274, 187], seen["overflow"]  # [778, 487] until CARD-403/404: the capped bands are 317 x 194; 172 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop); 275 until the 2026-11-18 M31 speed fix (the cell size resolved once per board rounds 1 px less overflow)
         # 567.9 x 347.4 until CARD-404 capped the clue numerals at 14 px.
         assert seen["bands"] == [pytest.approx(317.05, abs=0.5),
                                  pytest.approx(194.28, abs=0.5)], seen["bands"]

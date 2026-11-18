@@ -547,6 +547,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    the Line sheet's (CARD-439). */
 .player-stage-wrap > .player-stage { overscroll-behavior: contain; }
 .player-fallback { color: var(--color-text-secondary); font-style: italic; }
+/* Speed (owner report 2026-11-18, Samsung Galaxy M31: a 10 x 29 sat on
+   "Drawing the board..." and turning the phone took seconds). The cell size
+   below is one long calc() over a dozen custom properties, cqi and svh. An
+   UNREGISTERED custom property is only text, so every element that reads
+   var(--player-cell) — each cell three times, each clue, each ring — pasted
+   that text in and resolved it again: measured at 6x CPU throttle on a
+   10 x 29 at 412 x 892, ~95% of load and rotation was style recalculation
+   (3.0 s to an interactive board, 6.5 s for one turn of the phone).
+   Registered as a <length>, it is resolved ONCE, on the .player-board that
+   declares it (cqi and svh read the same container and viewport there as
+   in each cell), and the cells inherit a plain px value: 0.6 s and 0.65 s on
+   the same run. Every reader is inside .player-board, so the initial value
+   is never what is drawn. */
+@property --player-cell { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --player-clue-cell { syntax: "<length>"; inherits: true; initial-value: 0px; }
 .player-board {
   /* The cell (CARD-196). Its floor is the wider of the stage's floor and the
      widest column numeral (--player-col-floor: its digits at the 12 px

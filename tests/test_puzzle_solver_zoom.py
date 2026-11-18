@@ -1309,7 +1309,7 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
             # taller instead, re-measured.
             ("plain 30x30 at 900x800", _GRID_30x30, {"width": 900, "height": 800}, 0, 125,
              [212, 252]),  # 237 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop)
-            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [275, 187]),  # 172 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop); [778, 487] until CARD-403/404: the capped bands are 317 x 194, not 568 x 347
+            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [274, 187]),  # 172 until CARD-411 (owner ruling 2026-11-10, option "A": the probe line a full control row, 14.78 px less stage on desktop); [778, 487] until CARD-403/404: the capped bands are 317 x 194, not 568 x 347; 275 until the 2026-11-18 M31 speed fix (the cell size resolved once per board rounds 1 px less overflow)
         ],
         ids=lambda value: value if isinstance(value, str) else "",
     )
