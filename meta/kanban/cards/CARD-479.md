@@ -1,6 +1,6 @@
 # CARD-479: The clue bands are re-measured whenever the stage's own box changes
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/479-observe-the-stage
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-479
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-209, WSJF 4.62); premise re-read against main on 2026-11-18. Origin: CARD-271 review cycle 2, residual of finding F-001.
 **Idea:** IDEA-209
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py
 **UI surface:** user-facing
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T18:29Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
