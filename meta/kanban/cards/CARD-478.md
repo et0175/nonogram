@@ -1,6 +1,6 @@
 # CARD-478: The book selection page stops saying "approved" when it is showing every status
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/478-select-page-status-wording
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-478
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-143, WSJF 3.08); premise re-read against main on 2026-11-18. Origin: CARD-180 review, finding F-001.
 **Idea:** IDEA-143
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/_stepper.html, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_status_filter_default.py
 **UI surface:** user-facing
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T15:24Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
