@@ -360,6 +360,17 @@ class TestStatusFilter_TheIntroAndStepperFollowTheFilter:
         assert "pick the grids that go in" in read["all"][0], read["all"][0]
         assert "pick the approved grids that go in" in read["default"][0], read["default"][0]
 
+        # Only this step's hint moves: the other four steps keep theirs.
+        all_page = client.get(f"{base}?{_ALL}").get_data(as_text=True)
+        (stepper,) = re.findall(r'(?s)<ol class="stepper".*?</ol>', all_page)
+        assert re.findall(r"<small>(.*?)</small>", stepper) == [
+            "Title, theme and audience",
+            "Trim size and units",
+            "Pick the grids",
+            "Order and title them",
+            "Cover, guide page, PDF",
+        ]
+
         # The stepper is shared by every book page; the others keep the
         # standing hint for this step (G-2's "wording only", per page).
         page = client.get(f"/book/{book_id}/arrange-puzzles").get_data(as_text=True)
