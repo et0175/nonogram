@@ -1,6 +1,6 @@
 # CARD-476: A guardrail on an open card names a test that exists, or the suite says which one does not
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/476-open-card-guardrail-refs
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-476
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-110, WSJF 12.31); premise re-read against main on 2026-11-18. Origin: wave 37 retrospective: a fabricated test name reached four cards in two waves; resolved by hand since wave 43.
 **Idea:** IDEA-110
-**Wave:** —
+**Wave:** 80
 **Created wave:** 80
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_kanban_review_record.py
 **UI surface:** none
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-18T11:15Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
