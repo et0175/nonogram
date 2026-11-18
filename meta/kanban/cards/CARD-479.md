@@ -1,6 +1,6 @@
 # CARD-479: The clue bands are re-measured whenever the stage's own box changes
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/479-observe-the-stage
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-479
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-209, WSJF 4.62); premise re-read against main on 2026-11-18. Origin: CARD-271 review cycle 2, residual of finding F-001.
 **Idea:** IDEA-209
 **Wave:** 80
@@ -20,9 +20,9 @@
 **UI surface:** user-facing
 **Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-18T18:29Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-18T19:57Z
+**Actual:** 2c — ratio 2/2 = 1.000
+**Merge commit:** c1beebc575171c789b82db62166692b633d6e13e
 **Blocked by:** —
 
 ## Why this card exists
@@ -53,4 +53,6 @@ Observe `.player-stage` directly and re-measure on a change of its box. The exis
 [G-1, F-006] The extra measure at load changes the PUBLIC page's opening Fit by one percent in 2 of 48 cells (30x29 at 932x430: 69% -> 70%; 30x30 at 667x375: 57% -> 58%); reviewer-measured, and the new value is the true largest fit. Confirmed on the room key in cycle 2 (same two cells, same amounts, 3 of 3 runs); the admin page is identical to main in all 24 cells.
 [Review 2/3] Score: 9.0, nothing gating, certified. Reviewer re-measured on the room key: the full player set 932 passed, 0 skipped; the loop sweep (128 cells) 0 board-size changes after the first two frames; zoom-step and pinch call counts identical to main, so cycle 1's extra layouts are gone. Open, low: a window drag re-measures through both observers (stated in the code comment); `offerRedrawn` in the new observer has no test.
 [For whoever adds a height rule to .player-stage — reviewer F-008] The new observer is keyed on the stage's width and max-height, deliberately not its height (cycle 1's defect). A future rule that changes the stage's height without changing its max-height will not re-measure through it; the key would have to follow that rule.
+[Merge gate] The player set plus the cheap guards (owner rule 2026-11-09; 32 files): 1 failed, 1438 passed, 9 skipped (database-not-set). The one failure was the browser-family census, `TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`: the new test was recorded nowhere. Fixed after certification by one `ADDED_SINCE_BEFORE` entry (`5d589e95`, no review cycle saw it); that module plus `test_collected_names.py` and `test_guard_integrity.py` then 213 passed. The rest of the set was not re-run after that commit. The reviewer's own player-set run in cycle 2: 932 passed.
+[AC-4, owed] The owner looks at the play page on a phone after publish.
 [Estimate] 2c estimated, 2 cycles used.
