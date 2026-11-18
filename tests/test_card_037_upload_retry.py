@@ -37,6 +37,7 @@ import pytest
 from nonogram.web import pages, server, uploads
 from tests.test_web_submission import _outcome
 from tests.test_web_upload import (
+    _own_temp_root,  # noqa: F401 — autouse fixture (CARD-474): this module's readings are per-test too
     _png_bytes,
     _submit_multipart,
     _uploaded_temp_files,

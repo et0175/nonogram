@@ -31,6 +31,7 @@ from __future__ import annotations
 import html
 import io
 import json
+import os
 import re
 import tempfile
 from collections.abc import Iterator
@@ -61,6 +62,33 @@ _SIZE = 20
 #: generated PNG could collide with it by accident — only the collision tests
 #: below insert it into a part's content on purpose.
 _BOUNDARY = "----NonogramCARD021TestBoundary"
+
+#: The machine-wide temp directory, read once at import, before the fixture
+#: below points this process somewhere else. Every worktree on the box shares
+#: it, which is exactly why the cleanup readings must not be taken there.
+_MACHINE_TEMP = tempfile.gettempdir()
+
+
+@pytest.fixture(autouse=True)
+def _own_temp_root(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Point this process's temp root at a directory only this test owns.
+
+    CARD-474: ``_uploaded_temp_files`` used to list the machine-wide temp
+    directory before and after an upload, so an upload test running in another
+    worktree at the same moment changed the listing between the two readings
+    and reddened a correct tree. The server under test runs in this process
+    and creates its upload with ``tempfile.mkstemp`` and no ``dir``, so
+    redirecting ``tempfile.tempdir`` moves both the upload and the reading to
+    a directory no other process writes to.
+    """
+    # Its own directory, not one under ``tmp_path``: a test that lists
+    # ``tmp_path`` to show something was written (the retry module has one)
+    # must not find this directory there and pass on it.
+    root = tmp_path_factory.mktemp("upload-temp")
+    monkeypatch.setattr(tempfile, "tempdir", str(root))
+    return root
 
 
 @pytest.fixture
@@ -160,13 +188,37 @@ def _submit_multipart(
 
 
 def _uploaded_temp_files() -> set[str]:
-    """The names of every temp file this package's upload path has left
-    behind — used to show CARD-021's step 5 (cleanup) actually happens rather
-    than merely trusting the ``finally`` reads correctly."""
+    """The names of the upload temp files in this process's temp directory.
+
+    Read before and after a request to show the upload's temp file is gone
+    once the run is over. Under ``_own_temp_root`` that directory is the
+    test's own; a module that imports this helper without that fixture reads
+    the machine-wide one, and inherits the interference CARD-474 removed."""
     return {
         entry.name
         for entry in Path(tempfile.gettempdir()).glob("nonogram-upload-*")
     }
+
+
+def test_the_cleanup_reading_sees_this_process_and_not_the_machine() -> None:
+    """CARD-474's control, both directions: an upload-shaped file another
+    worktree leaves in the machine temp directory is invisible to the
+    reading, and one the package's own upload writer creates is visible — so
+    the reading is scoped, not blind."""
+    assert tempfile.gettempdir() != _MACHINE_TEMP
+
+    descriptor, foreign = tempfile.mkstemp(prefix="nonogram-upload-", dir=_MACHINE_TEMP)
+    try:
+        assert Path(foreign).name not in _uploaded_temp_files()
+    finally:
+        os.close(descriptor)
+        Path(foreign).unlink()
+
+    own = multipart._write_temp_file(b"")
+    try:
+        assert own.name in _uploaded_temp_files()
+    finally:
+        own.unlink()
 
 
 # --------------------------------------------------------------------------
