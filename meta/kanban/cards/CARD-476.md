@@ -1,0 +1,51 @@
+# CARD-476: A guardrail on an open card names a test that exists, or the suite says which one does not
+
+**Status:** ready
+**Priority:** P2
+**Category:** tech-debt
+**Estimate:** 1c
+**Complexity:** standard
+**Revision pending:** false
+**Skill:** python-pro
+**TDD:** —
+**Branch:** —
+**Worktree:** —
+**Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-110, WSJF 12.31); premise re-read against main on 2026-11-18. Origin: wave 37 retrospective: a fabricated test name reached four cards in two waves; resolved by hand since wave 43.
+**Idea:** IDEA-110
+**Wave:** —
+**Created wave:** 80
+**Deferred waves:** 0
+**Depends on:** —
+**Touches:** tests/test_kanban_review_record.py
+**UI surface:** none
+**Review score:** —
+**Started:** —
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
+**Blocked by:** —
+
+## Why this card exists
+
+A card's `## Guardrails` and `## System contract` lines say "this existing behaviour is held by test X". A review scores the diff, so it cannot notice that X resolves to nothing, and a guardrail with a dead name protects nothing. The architecture model's refs are already resolved by `tests/test_check_ref_resolution.py`; the cards' are resolved only when the orchestrator remembers.
+
+## What to implement
+
+In the existing card census (`tests/test_kanban_review_record.py`, which already reads every `meta/kanban/cards/CARD-*.md`): for every card whose status is not `done`, `skipped` or `reverted`, take each backticked name given as `test:` or `check:` under `## Guardrails` and `## System contract`, and resolve it to a `def` or `class` line under `tests/` by `ast`, not by text search. A name that resolves nowhere fails with the card and the name.
+
+## Acceptance criteria
+
+* **AC-1**: a planted open card whose guardrail names a test that does not exist fails the cell, and the message carries the card id and the name.
+* **AC-2**: a name that appears only in prose (a comment, a review YAML, another card) does not count as resolved — one planted control.
+* **AC-3**: the cell is green on main as it stands, or the card's notes list every open card it reds and each dead name, for the owner to rule on — the card does not edit other cards.
+* **AC-4**: net test count: at most +3 (the cell and its two plants).
+
+## Guardrails
+
+* **G-1**: acceptance-criteria refs are out of scope: an open card's AC legitimately names a test the card will write.
+* **G-2**: closed cards are out of scope: their tests may have been retired since.
+* **G-3**: no edit to `meta/kanban/cards/**` from the worktree (the branch copy is frozen; a dead name found is reported, not repaired here).
+
+## Worktree notes
+
+—
