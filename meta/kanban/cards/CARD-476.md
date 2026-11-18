@@ -48,4 +48,6 @@ In the existing card census (`tests/test_kanban_review_record.py`, which already
 
 ## Worktree notes
 
-—
+[Scope narrowed at implementation, 2026-11-18 — the card's body above is NOT what was built] "What to implement" and AC-1 say `## Guardrails` AND `## System contract`. Measured before writing the cell: `## System contract` is a projection of the architecture model's check refs, and of the test-shaped names the 20 open cards carry there, dozens have no definition under `tests/` — the model's own dead refs, already reported by the architecture validator and owned by IDEA-004. Reading them here would re-count that list under a second name and red main on day one. The cell reads `## Guardrails` only, and only `test:` / `check:` clauses there (a guardrail may spell a test-shaped name in prose precisely to say it resolves to nothing — CARD-279 does).
+[AC-3, measured] Green on main as it stands: 7 clauses on open cards, 6 names judged, all resolve, 2 `review-lens` clauses, no finding. No open card is reddened.
+[AC-4] +3 tests, as allowed.
