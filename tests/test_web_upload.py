@@ -70,7 +70,9 @@ _MACHINE_TEMP = tempfile.gettempdir()
 
 
 @pytest.fixture(autouse=True)
-def _own_temp_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _own_temp_root(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Path:
     """Point this process's temp root at a directory only this test owns.
 
     CARD-474: ``_uploaded_temp_files`` used to list the machine-wide temp
@@ -81,8 +83,10 @@ def _own_temp_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     redirecting ``tempfile.tempdir`` moves both the upload and the reading to
     a directory no other process writes to.
     """
-    root = tmp_path / "upload-temp"
-    root.mkdir()
+    # Its own directory, not one under ``tmp_path``: a test that lists
+    # ``tmp_path`` to show something was written (the retry module has one)
+    # must not find this directory there and pass on it.
+    root = tmp_path_factory.mktemp("upload-temp")
     monkeypatch.setattr(tempfile, "tempdir", str(root))
     return root
 
