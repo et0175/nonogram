@@ -60,11 +60,22 @@ _STAGE = """() => {
 }"""
 #: Two points 60 px apart on a diagonal through the middle of the part of the
 #: board the stage shows, so a drag between them starts and ends on cells.
-#: The cell under the middle of the stage's visible box, as [row, col].
+#: The point under the middle of the stage's visible box, in CELL units
+#: ([row, col], fractional: 7.5 is the middle of column 7). In cell units and
+#: not "which cell", because a zoom step rounds the scroll to a whole pixel,
+#: which moves the point by a few hundredths of a cell; read as a cell, a
+#: point that happens to sit on a cell's edge flips to the neighbour on that
+#: rounding alone (2026-11-18: 7.97 -> 8.00 after two steps, with the board
+#: at 844 x 390 one sub-pixel narrower). The bug this guards slid the board
+#: a whole cell per step, so the check below allows a quarter of one.
 _CENTRE_CELL = """() => {
   const s = document.querySelector('.player-stage').getBoundingClientRect();
-  const cell = document.elementFromPoint(s.left + s.width / 2, s.top + s.height / 2)?.closest('td.player-cell');
-  return cell ? [Number(cell.dataset.row), Number(cell.dataset.col)] : null;
+  const x = s.left + s.width / 2, y = s.top + s.height / 2;
+  const cells = [...document.querySelectorAll('td.player-cell')];
+  const cell = cells.find((c) => { const b = c.getBoundingClientRect(); return x >= b.left && x < b.right && y >= b.top && y < b.bottom; });
+  if (!cell) return null;
+  const b = cell.getBoundingClientRect();
+  return [Number(cell.dataset.row) + (y - b.top) / b.height, Number(cell.dataset.col) + (x - b.left) / b.width];
 }"""
 _DRAWN = "() => [...document.querySelectorAll('td.player-cell')].filter((c) => c.dataset.state !== 'unknown').length"
 _PAN_POINTS = """() => {
@@ -189,7 +200,9 @@ def test_every_option_of_the_player_works_at_this_screen(screen, preview_host) -
     assert middle is not None
     for _ in range(2):
         press(page.locator('[data-player-zoom-action="in"]'))
-        assert page.evaluate(_CENTRE_CELL) == middle
+        now = page.evaluate(_CENTRE_CELL)
+        assert now is not None
+        assert max(abs(now[0] - middle[0]), abs(now[1] - middle[1])) < 0.25, (middle, now)
     stage = page.evaluate(_STAGE)
 
     # ---- scroll: a finger (or the wheel) pans the board and marks nothing -
