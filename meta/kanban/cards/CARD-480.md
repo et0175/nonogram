@@ -1,6 +1,6 @@
 # CARD-480: A failed admin action tells the user what to do, and the exception text goes to the log
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** compliance
 **Estimate:** 3c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/480-generic-error-text
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-480
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 1 (IDEA-130, WSJF 2.0); premise re-read against main on 2026-11-18. Origin: CARD-177 drafting note.
 **Idea:** IDEA-130
 **Wave:** 80
@@ -20,9 +20,9 @@
 **UI surface:** user-facing
 **Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-18T20:01Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-18T21:37Z
+**Actual:** 2c — ratio 2/3 = 0.667
+**Merge commit:** 26e2ff3ac4e4180371034d367bd87740161ef5b0
 **Blocked by:** —
 
 ## Why this card exists
@@ -55,4 +55,6 @@ Sort the sites into two kinds, by `ast` and not by eye: (a) a domain refusal the
 [Out of scope, not carded] `batch_generator.create_batch` stores `error_message=str(e)`, which `batch_status.html` and the batch-status API show (reviewer F-008); that file is outside this card.
 [Review 1/3] Score: 7.5, one gating finding. F-001 AC-1 planted on 5 of 13 converted handlers, and the static check blind to reads without the bound name. Fixed: all 13 planted, the plant list held to the derived population, plants verified against the merge-base (all leaked there, same statuses). Minors F-003..F-007 fixed in the same commit, including the image routes' 404s, which named the server's file path.
 [Review 2/3] Score: 9.0, nothing gating, certified: "I would merge the two-commit diff as it stands". The plant test passes in reverse and three shuffled orders, and across modules. Minor F-201 (the static test's population check overclaimed: its sink model is the handler's own body) fixed after the cycle in a third commit — docstring states the model, `abort` added, CARD-177's exemption keyed per site; two of the reviewer's survivors now red. No review cycle saw that commit. Still unseen, and stated: text written into the session, or into a variable rendered after the `try`. Low, open: the plant test's `monkeypatch.undo()` also reverts the fixture's patches before its assertions (harmless today). The fix commit's sentence "all 13 failed at the marker assertion" is wrong as worded: against the merge-base the committed test fails first on the missing constants; the reviewer's own probe confirmed the substance (13 old statuses, 13 leaks).
+[Merge gate, first run] RED, 7 failed, both causes this card's, neither seen by either review (their selections did not include these modules): (1) `TestSolverPageStoredRows::test_an_unreadable_stored_grid_is_a_500_not_a_board` x5 — the card had dropped `str(e)` from the global 500 page, which hid the solver's deliberate `abort(500, description="Puzzle ... has no readable grid")`; for an unhandled exception `str(e)` is werkzeug's generic sentence, so the change bought nothing. `server_error` restored to main's text byte for byte, with a new guard for the deliberate message. (2) `tests/test_suite_profile.py`'s frozen render census: the test module named two render idioms while rendering nothing; spelled in pieces, with the reason beside them. Fixed in `87eab5a4`, after both cycles: no review saw it.
+[Merge gate, second run] `make test-gate`: 9020 passed, 30 skipped (29 database-not-set, 1 setrlimit), 13 deselected, 1 xfailed, of 9062 selected; run 2 (wave_close_only), 11 passed; exit 0.
 [Estimate] 3c estimated, 2 cycles used.
