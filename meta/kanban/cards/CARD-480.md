@@ -1,6 +1,6 @@
 # CARD-480: A failed admin action tells the user what to do, and the exception text goes to the log
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** compliance
 **Estimate:** 3c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, tests/test_admin_error_text.py
 **UI surface:** user-facing
-**Review score:** —
+**Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-18T20:01Z
 **Closed:** —
 **Actual:** —
@@ -54,3 +54,5 @@ Sort the sites into two kinds, by `ast` and not by eye: (a) a domain refusal the
 [Kept on purpose] The proof pages' ValueError still flashes its text (CARD-118's refusal); Finalise's plan-failure page still shows its stamped, logged error (CARD-171's AC-1 requires it — a conflict between cards, not a defect).
 [Out of scope, not carded] `batch_generator.create_batch` stores `error_message=str(e)`, which `batch_status.html` and the batch-status API show (reviewer F-008); that file is outside this card.
 [Review 1/3] Score: 7.5, one gating finding. F-001 AC-1 planted on 5 of 13 converted handlers, and the static check blind to reads without the bound name. Fixed: all 13 planted, the plant list held to the derived population, plants verified against the merge-base (all leaked there, same statuses). Minors F-003..F-007 fixed in the same commit, including the image routes' 404s, which named the server's file path.
+[Review 2/3] Score: 9.0, nothing gating, certified: "I would merge the two-commit diff as it stands". The plant test passes in reverse and three shuffled orders, and across modules. Minor F-201 (the static test's population check overclaimed: its sink model is the handler's own body) fixed after the cycle in a third commit — docstring states the model, `abort` added, CARD-177's exemption keyed per site; two of the reviewer's survivors now red. No review cycle saw that commit. Still unseen, and stated: text written into the session, or into a variable rendered after the `try`. Low, open: the plant test's `monkeypatch.undo()` also reverts the fixture's patches before its assertions (harmless today). The fix commit's sentence "all 13 failed at the marker assertion" is wrong as worded: against the merge-base the committed test fails first on the missing constants; the reviewer's own probe confirmed the substance (13 old statuses, 13 leaks).
+[Estimate] 3c estimated, 2 cycles used.
