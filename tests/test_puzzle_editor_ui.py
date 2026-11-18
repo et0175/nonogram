@@ -1266,18 +1266,30 @@ class TestPuzzleEditor_EveryPageShowsTheEditedPicture:
 
     def test_no_page_draws_a_stored_grid_from_an_unversioned_url(self) -> None:
         """AC-2, derived from the templates rather than from a list of them:
-        every ``<img>`` under the panel's templates whose source is the stored
-        grid route carries the edit stamp. A fifth page added bare reds here.
-        The count is a floor, so the population cannot silently shrink to
-        nothing; the two download links are not images and are not read."""
+        every ``<img>`` under the panel's templates whose ``src`` is the
+        stored grid route — spelled as a path or through ``url_for`` — has
+        ``?v=`` and the edit stamp inside that ``src``. Tags are read with
+        quoted attributes kept whole, so a ``>`` inside ``onerror`` does not
+        end one early. The count is a floor, so the population cannot
+        silently shrink; the download links are not images and are not read.
+
+        What it cannot see: a grid drawn by anything but an ``<img>`` in a
+        template (none today: no CSS, script or Python-built page uses the
+        route), and a ``src`` that names the stamp without using it."""
         import nonogram.admin
 
         templates = Path(nonogram.admin.__file__).parent / "templates"
+        tag_pattern = re.compile(r"""<img\b(?:[^>"']|"[^"]*"|'[^']*')*>""")
+        src_pattern = re.compile(r"""\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)')""")
         drawn = []
         for path in sorted(templates.rglob("*.html")):
-            for tag in re.findall(r"<img\b[^>]*>", path.read_text(encoding="utf-8")):
-                if re.search(r"/api/puzzle/[^\"'\n]*?/grid(?![/\w-])", tag):
-                    drawn.append((path.name, "manually_edited_at" in tag))
+            for tag in tag_pattern.findall(path.read_text(encoding="utf-8")):
+                src = src_pattern.search(tag)
+                value = (src.group(1) if src.group(1) is not None else src.group(2)) if src else ""
+                if re.search(r"/api/puzzle/.*?/grid(?![/\w-])", value) or (
+                    "api_puzzle_grid_from_puzzle" in value
+                ):
+                    drawn.append((path.name, "?v=" in value and "manually_edited_at" in value))
         assert len(drawn) >= 6, drawn
         assert [name for name, versioned in drawn if not versioned] == []
 
