@@ -114,17 +114,17 @@ stored data; a re-grade (CARD-077) reassigns such a row on its own terms.
 - id: ADR-0031/R1
   statement: Tier has exactly three members — easy, medium, hard — and every one has a score band. classify takes the score alone; no module derives a tier from branch_nodes.
   scope: {code: ["src/nonogram/difficulty.py"]}
-  check: {kind: test, ref: TestTiers_ThreeBandsAndNoFourthTier}
+  check: {kind: test, ref: test_tiers_three_bands_and_no_fourth_tier}
   severity: mandatory
 - id: ADR-0031/R2
   statement: A solve that branched is reported as the `guess` strategy (solver.STRATEGY_GUESS) in FR-029's strategies list, never as a tier.
   scope: {code: ["src/nonogram/orchestrator.py", "src/nonogram/admin/regrade.py", "src/nonogram/admin/puzzle_review.py"]}
-  check: {kind: test, ref: TestTiers_BranchingIsAStrategyNotATier}
+  check: {kind: test, ref: test_tiers_branching_is_a_strategy_not_a_tier}
   severity: mandatory
 - id: ADR-0031/R3
   statement: A stored difficulty_tier of "guess" reads back as Tier.HARD and is never rewritten by this decision; no migration runs and no production database is touched.
   scope: {code: ["src/nonogram/difficulty.py"]}
-  check: {kind: test, ref: TestTiers_LegacyGuessRowReadsAsHard}
+  check: {kind: test, ref: test_tiers_legacy_guess_row_reads_as_hard}
   severity: mandatory
 ```
 

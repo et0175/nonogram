@@ -240,17 +240,17 @@ abandonment message keeps ADR-0002's uniform `GenerationAbandoned`.
 - id: ADR-0024/R1
   statement: A repaired random-mode grid is accepted only after a fresh solver run on its own re-derived clues reports solution_count exactly 1. The orchestrator never assumes uniqueness from the fact that a grid was repaired.
   scope: {code: ["src/nonogram/orchestrator.py"]}
-  check: {kind: test, ref: PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound}
+  check: {kind: test, ref: test_a_recovered_grid_is_reverified_by_the_solver, test_accepted_grids_have_real_verdicts_within_one_bound}
   severity: mandatory
 - id: ADR-0024/R2
   statement: Repairs and redraws advance the same RetryCounter bounded by MAX_RETRY_ATTEMPTS (30 since ADR-0002/R1; 20 when this rule was written). K, the consecutive-repair limit on one lineage, is a named constant beside it and is never a second bound; exhausting the counter raises GenerationAbandoned whichever kind of attempt came last.
   scope: {code: ["src/nonogram/orchestrator.py"]}
-  check: {kind: test, ref: TestRecovery_RepairAttemptsCountAgainstRetryBound}
+  check: {kind: test, ref: test_repair_attempts_count_against_the_retry_bound}
   severity: mandatory
 - id: ADR-0024/R3
   statement: A repair flips exactly one filled cell and one empty cell of the parent grid, both inside the witness-disagreement set (falling back to the undecided mask only when that set holds no filled/empty pair), so the filled count is preserved and no cell outside the region changes.
   scope: {code: ["src/nonogram/orchestrator.py"]}
-  check: {kind: test, ref: TestRecovery_RepairKeepsFilledCountExact}
+  check: {kind: test, ref: test_repair_keeps_the_filled_count_exact, test_repair_flips_one_pair_inside_the_undecided_mask, test_repair_leaves_every_cell_outside_the_mask_untouched}
   severity: mandatory
 - id: ADR-0024/R4
   statement: The repair's pair choice is a deterministic function of the grid and the solver's witnesses — the region's filled and empty cells ranked by (row, column) — and draws nothing from the injected Random or from host state, so a seed replays the same repair lineage everywhere.

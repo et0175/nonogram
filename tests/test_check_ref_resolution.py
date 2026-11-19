@@ -95,8 +95,10 @@ The three ref forms, and the one the board cannot resolve
 ``bare`` — ``TestFoo_DoesBar``
     a **label**, not a symbol. On this board the convention never required the
     model's bare ref to be the test's Python name: ADR-0022/R4's
-    ``PropertyTest_BareSize_Derives…SourceShape`` is implemented
-    by ``def test_a_bare_size_derives_the_shorter_side_from_the_source_shape``.
+    ``PropertyTest_BareSize_Derives…SourceShape`` was implemented
+    by ``def test_a_bare_size_derives…source_shape``. (CARD-481 re-pointed
+    R4 at that ``def``'s own name, which is why it is truncated here now: a
+    declared ref spelled whole in this file would be revived by it, G-2.)
     **191** bare refs therefore have no containing definition, and flagging all
     of them would be a census of a naming convention rather than a detector of
     erosion. (This sentence read 163 until review cycle 1, which is two
@@ -1195,6 +1197,15 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 #: ``meta/review/*.yml`` review reports (the owner action CARD-335 bounded).**
 #: Every move below is that untracking and nothing else: the refs those
 #: reports alone kept alive are now honestly dead, which is the point.
+# CARD-481 (2026-11-19) measured this class NOT moving: 2 -> 2, OUT 0, IN 0. What
+# moved is its stored SNAPSHOT's recoverability: six of BOOKKEEPING_ONLY_MEMBERS'
+# twelve digests are INV-011's FR-042 criteria AC-261, AC-263, AC-264, AC-266,
+# AC-270 and AC-290 (members once, honestly dead at the base), whose `test:` this
+# card dropped -- see HONEST_DEAD. Their declarations left, so nothing hashes to
+# them now and `_refuse_unexplained_departures` issues its documented withdrawal
+# UserWarning for this class ("lost 6 member(s) whose digest matches no ref"),
+# where at the base it issued none. That warning is the honest residual, not a
+# regression: the snapshot is deliberately not trimmed (HONEST_DEAD_MEMBERS' note).
 BOOKKEEPING_ONLY = (2, "d48df7862ca775e1")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
@@ -1249,7 +1260,25 @@ BOOKKEEPING_ONLY = (2, "d48df7862ca775e1")
 # alone, defined now) and -2 the retired AC-325/AC-326 classes, whose only live
 # text was a docstring this card rewrote and whose registry refs were re-pointed
 # at live classes.
-FALSELY_ALIVE = (144, "35673be200447b44")  # CARD-362: was 152 before the review reports were untracked
+# CARD-481 (2026-11-19), the mandatory-rule ref repair -- RE-DERIVED on the
+# branch, not pasted. Base e32da31b, where this module's derivation reproduces all
+# nine stored pins exactly; whole classes dumped at base and at the branch tip and
+# diffed as SETS; every entrant resolved against a def line by an independent `ast`
+# index of tests/ AND collected by pytest by node id. Refs identified by site (G-2).
+# 144 -> 114: OUT 30, IN 0. All 30 are WITHDRAWALS, not revivals: each was a
+# logical CamelCase name (PropertyTest_/Test prefix) that no def/class defines and
+# that read alive only through prose -- chiefly the docstring name tables of the
+# very modules that test it. 29 of them were re-pointed; their declaration sites -- CON-005/010/012/014/019's check blocks
+# and the EC-001/004/007/016/020 criteria naming the same name; the INV-001,
+# INV-002 and INV-003 criteria (AC-014, AC-019, AC-027, AC-030, AC-035, AC-039,
+# AC-048, AC-112, AC-113, EC-013); the ADR-0022/R2-R4, ADR-0023/R2, ADR-0024/R1-R3,
+# ADR-0026/R1, ADR-0027/R1-R2, ADR-0029/R1, R3, R5, R6 and ADR-0031/R1-R3 checks;
+# the FR-025/026/027/028 criteria sharing an ADR rule's name; and their trace.yml
+# rows -- now name the collected test that asserts the rule, each read, so no
+# declaration of any of the 29 survives (CENSUS below). The 30th is INV-011's
+# AC-293, retired with CARD-198's packed answer key: its `test:` was dropped
+# rather than re-pointed, because no test asserts that criterion any more.
+FALSELY_ALIVE = (114, "c0d2276320cfe4bc")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1362,7 +1391,18 @@ FALSELY_DEAD = (18, "223d7a6c87854dfe")  # CARD-362: +5, the five warnings the v
 # nor :data:`CENSUS` moves -- while the validator of record flips that criterion's warning
 # from "has no 'test'" back to a dead ref. For the four of FR-001 the only instrument that
 # sees the change in either direction is the validator, not this module.
-HONEST_DEAD = (17, "9e24d165c56049af")  # CARD-362: +8, refs only the review reports kept alive
+# CARD-481 (2026-11-19), 17 -> 11: OUT 6, IN 0 (method at FALSELY_ALIVE). The six
+# are INV-011's FR-042 criteria AC-261, AC-263, AC-264, AC-266, AC-270 and AC-290:
+# zero def/class lines and zero loose resolvers, because CARD-198 retired their
+# tests with the packed 6-up/4-up answer key. Each `test:` was DROPPED (CARD-316's
+# AC-378 precedent; the validator ignores an AC's `kind:`), and their trace.yml
+# FR-042 entries with them. Withdrawals. None of the six is in this class's own
+# stored snapshot (its residual stays the 12 withdrawn digests measured at the
+# base, unchanged); all six ARE in BOOKKEEPING_ONLY_MEMBERS' -- see the note on
+# BOOKKEEPING_ONLY. CENSUS's exact pin is the gate. The validator of record
+# moved one-for-one in kind: one INV-011 dead-ref warning (it bundled six of the
+# seven) OUT, seven "acceptance criterion has no 'test'" warnings IN.
+HONEST_DEAD = (11, "ee3c6c612e2a0aa2")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -1558,7 +1598,14 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # guide's Play online sentence (FR-047): 584 - 3 - 3 + 3 + 4 = 585.
 # Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only.
 # 2026-11-09: same count; the AC-269 trace ref retargeted (PDF test curation).
-CENSUS = (585, "6c39aa72017826c8")
+# CARD-481 (2026-11-19): 585 -> 585, OUT 36, IN 36 -- the +1/-1 pairs hide inside
+# an unchanged count, which is why the sets were diffed. OUT: the 29 withdrawn
+# names of FALSELY_ALIVE's note that were not INV-011's, plus AC-293's and the six
+# of HONEST_DEAD's note (30 + 6 = 36). IN: 36 names of real, collected tests, none
+# declared anywhere at the base; 36 departures balancing 36 entrants is a
+# coincidence of this repair (several rules now name two or three tests, and the
+# seven dropped criteria name none), not an identity.
+CENSUS = (585, "cac799cfd5236679")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1606,7 +1653,12 @@ CENSUS = (585, "6c39aa72017826c8")
 # repeat two of them, which this list does not count twice).
 # Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
 # 2026-11-09: same count; AC-269 retargeted to the packed-page custom title test.
-TRACE_TESTS = (514, "11576827c231d1c7")
+# CARD-481 (2026-11-19): 514 -> 510, OUT 28, IN 24. OUT: the trace.yml spellings of
+# the withdrawn names (the ADR-only ones were never listed there) and the seven
+# INV-011 entries on FR-042's row, which are deleted with no replacement. IN: the
+# collected tests the re-pointed criteria now name, written into the same rows
+# (CON-012/014/019's rows and their EC rows gain two each). 514 - 28 + 24 = 510.
+TRACE_TESTS = (510, "375838017b674409")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1717,7 +1769,10 @@ TRACE_TESTS = (514, "11576827c231d1c7")
 # Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
 # 2026-11-09: same count; AC-269 and ADR-0036/R3 retargeted from tests the PDF
 # curation deleted to their surviving equivalents.
-DEFINED = (424, "49bf5cef85772c29")
+# CARD-481 (2026-11-19): 424 -> 460, OUT 0, IN 36 -- exactly CENSUS's 36 entrants,
+# every one a def line under tests/ found by an independent `ast` index and
+# collected by pytest by node id. Nothing left this class.
+DEFINED = (460, "686ea9dc059c4329")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

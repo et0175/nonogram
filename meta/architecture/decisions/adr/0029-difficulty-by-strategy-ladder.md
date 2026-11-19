@@ -483,7 +483,7 @@ reproducibility promise would stay broken under `--difficulty`.
 - id: ADR-0029/R1
   statement: The difficulty of a line-solvable puzzle is derived from the rung of the hardest technique its verifying solve required (simple_overlap < line_dp < probe_contradiction) and the share of cells settled at that rung; each rung is the fixed point of its technique, so the rung of a cell is a function of the clue set alone; a deeper solve of the same extent scores strictly higher, and the line-solvable corpus populates every score band.
   scope: {code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**"]}
-  check: {kind: test, ref: TestScoreDifficulty_DeeperLineReasoningScoresHigher}   # AC-119; AC-118's TestScoreDifficulty_LineSolvableCorpusSpansAllThreeBands covers the band-coverage half
+  check: {kind: test, ref: test_deeper_line_reasoning_scores_higher, test_monotone_in_rung_order}   # AC-119; AC-118's TestScoreDifficulty_LineSolvableCorpusSpansAllThreeBands covers the band-coverage half
   severity: mandatory
 - id: ADR-0029/R2
   statement: Technique classification and the strategies list are computed inside the one verifying solve, never by re-solving; the ordered rung list the solver reports IS the puzzle's strategies list, and the tier is derived from that same list — no second derivation, no second solver entry. The ladder's fixed points are phases of that one monotone forward solve — each continues from the board the previous left, the board is never reset and the search is never re-entered — so running a cheaper technique to exhaustion before a dearer one is not re-solving.
@@ -493,7 +493,7 @@ reproducibility promise would stay broken under `--difficulty`.
 - id: ADR-0029/R3
   statement: No clock reading — elapsed_seconds or any other — and no size or density term enters the difficulty score, the tier decision or the strategies list; the score is a pure function of the rung tags of the solve and branch_nodes, identical on every machine.
   scope: {code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**", "src/nonogram/orchestrator.py"]}
-  check: {kind: test, ref: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime}   # EC-016; EC-018's PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd covers the list
+  check: {kind: test, ref: test_independent_of_elapsed_time, test_independent_of_elapsed_time_across_the_whole_input_space}   # EC-016; EC-018's PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd covers the list
   severity: mandatory
 - id: ADR-0029/R4
   statement: The overlap masks that define the simple_overlap rung are computed relative to the line's already-known cells (the leftmost and rightmost placements consistent with them, intersected), and are re-derived natively inside the solver package; the solver never imports clues.py or any other capability module for the purpose (ADR-0007).
@@ -503,11 +503,11 @@ reproducibility promise would stay broken under `--difficulty`.
 - id: ADR-0029/R5
   statement: Rung attribution is reported only for a clue set with exactly one solution; a clue set with 0 or >= 2 solutions is not a puzzle, has no grade, and carries no attribution at all (empty or None per-cell tags, an all-zero per-rung histogram, an empty rung list). For uniquely-solvable clue sets, rung attribution is invariant under transposition and under line-visit order — a clue set and its transpose yield the same per-rung cell counts, the same rung list and the same score — and a change to the solver's iteration order may change how a fixed point is reached but never which cells belong to which rung. The invariance holds trivially for the non-unique ones too, since both orientations report nothing.
   scope: {code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py"]}
-  check: {kind: test, ref: PropertyTest_SolveStrategies_RungsInvariantUnderTransposition}
+  check: {kind: test, ref: test_rungs_are_invariant_under_transposition}
   severity: mandatory
 - id: ADR-0029/R6
   statement: A solve that branched (branch_nodes > 0) scores SCORE_MAX (100) before any rung is read — the ceiling rule. Its cells were settled by search, outside the ladder, and scoring it by its probe share inverts (the heavier the search, the fewer probe-settled cells, the lower the number — measured 2026-10-24 on seven production puzzles, all at the bottom of Medium). No line-solvable grade moves, cross-rung monotonicity is preserved (the ceiling ties only the full-share probe histogram), and there is deliberately no ordering among branching solves — ADR-0032/R3 makes them unpublishable, so the number's one job is to not lie. classify stays unary; the ceiling lands in Hard's band.
   scope: {code: ["src/nonogram/difficulty.py"]}
-  check: {kind: test, ref: TestScoreDifficulty_BranchingSolvePinsTheCeiling}
+  check: {kind: test, ref: test_a_branching_solve_pins_the_ceiling_and_outranks_every_ladder_score}
   severity: mandatory
 ```

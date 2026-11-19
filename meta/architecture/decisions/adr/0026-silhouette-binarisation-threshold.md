@@ -270,7 +270,7 @@ cell vanish, a second binarisation path is introduced, and the module's
 - id: ADR-0026/R1
   statement: For silhouette input the per-cell binarisation is a plain inclusive 50% ink-coverage threshold applied to the grey value of the cell AFTER the LANCZOS resize to the grid extent — never a threshold on the source pixels before the resize, and never error diffusion. Exactly 50% coverage is a filled cell.
   scope: {code: ["src/nonogram/sourcing/image.py"]}
-  check: {kind: test, ref: TestBinarize_ExactlyHalfCoverageIsFilled}
+  check: {kind: test, ref: test_binarize_exactly_half_coverage_is_filled}
   # Binding once Status flips to Accepted (FR-027 gate); the check ref goes
   # live with the card that implements FR-027 and is expected to be the
   # AC-126 test. Accepted 2026-09-17: this is the contract, for pictures the

@@ -561,7 +561,10 @@ functional:
         then: decoding each clue against the grid confirms it exactly matches that line's run-length encoding
         kind: boundary
         invariant: INV-001
-        test: TestComputeClues_MatchesGridExactly
+        # CARD-481 (2026-11-19): was the logical name `TestComputeClues_MatchesGridExactly`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_matches_grid_exactly
 
   - id: FR-006
     # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
@@ -604,7 +607,10 @@ functional:
           (the uniqueness check must never produce a false positive).
         kind: consistency
         instances: [AC-015]
-        test: PropertyTest_Solver_NeverFalsePositiveUniqueness
+        # CARD-481 (2026-11-19): was the logical name `PropertyTest_Solver_NeverFalsePositiveUniqueness`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_never_false_positive_uniqueness
 
   - id: FR-007
     # AMENDMENT NOTE 2026-09-12 (raw-requirements.md, 2026-09-12 review,
@@ -638,7 +644,10 @@ functional:
         kind: boundary
         invariant: INV-003
         policy: POL-005
-        test: TestRegenerate_StopsAtMaxRetryBound
+        # CARD-481 (2026-11-19): was the logical name `TestRegenerate_StopsAtMaxRetryBound`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_regenerate_stops_at_max_retry_bound
 
   - id: FR-008
     # AMENDED 2026-09-13 (CARD-076, delivering ADR-0025/DEC-030). The selector
@@ -801,7 +810,10 @@ functional:
         kind: boundary
         invariant: INV-003
         policy: POL-005
-        test: TestResample_StopsAtMaxRetryBound
+        # CARD-481 (2026-11-19): was the logical name `TestResample_StopsAtMaxRetryBound`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_stops_at_max_retry_bound
 
   - id: FR-011
     statement: >-
@@ -827,7 +839,10 @@ functional:
         then: export is rejected and nothing is written, because the puzzle is not ready
         kind: negative
         invariant: INV-002
-        test: TestExport_RejectsUnverifiedPuzzle
+        # CARD-481 (2026-11-19): was the logical name `TestExport_RejectsUnverifiedPuzzle`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_export_rejects_an_unverified_puzzle
 
   - id: FR-012
     statement: >-
@@ -953,7 +968,10 @@ functional:
         kind: boundary
         invariant: INV-003
         policy: POL-003
-        test: TestNudge_ReportsFailureAtCap
+        # CARD-481 (2026-11-19): was the logical name `TestNudge_ReportsFailureAtCap`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_nudge_reports_failure_at_cap
       - id: AC-036
         given: a reported nudge-cap failure
         when: the failure is presented to the user
@@ -1111,7 +1129,10 @@ functional:
         then: export is rejected and no PDF file is written, because the puzzle is not ready
         kind: negative
         invariant: INV-002
-        test: TestExport_RejectsUnverifiedPuzzleForPDF
+        # CARD-481 (2026-11-19): was the logical name `TestExport_RejectsUnverifiedPuzzleForPDF`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_export_rejects_an_unverified_puzzle_for_pdf
 
   - id: FR-017
     statement: >-
@@ -1388,7 +1409,10 @@ functional:
           dithering or solver work runs.
         kind: consistency
         instances: [AC-075, AC-076, AC-078]
-        test: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore
+        # CARD-481 (2026-11-19): was the logical name `PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more, test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary
 
   - id: FR-022
     statement: >-
@@ -1701,7 +1725,10 @@ functional:
         then: it is accepted only after a fresh solver run on its clues reports solution_count 1
         kind: boundary
         invariant: INV-002
-        test: TestRecovery_RecoveredGridIsReverifiedBySolver
+        # CARD-481 (2026-11-19): was the logical name `TestRecovery_RecoveredGridIsReverifiedBySolver`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_a_recovered_grid_is_reverified_by_the_solver
       # holds under every alternative
       - id: AC-113
         given: a random-mode request whose every candidate and every repair of it stays non-unique
@@ -1710,14 +1737,20 @@ functional:
         kind: boundary
         invariant: INV-003
         policy: POL-005
-        test: TestRecovery_RepairAttemptsCountAgainstRetryBound
+        # CARD-481 (2026-11-19): was the logical name `TestRecovery_RepairAttemptsCountAgainstRetryBound`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_repair_attempts_count_against_the_retry_bound
       # alternative: pure_repair / redraw_then_repair
       - id: AC-114
         given: a 20x20 candidate at density 40 (160 filled cells) that is repaired 5 times in a row
         when: the filled cells of each repaired grid are counted
         then: every repaired grid has exactly 160 filled cells
         kind: negative
-        test: TestRecovery_RepairKeepsFilledCountExact
+        # CARD-481 (2026-11-19): was the logical name `TestRecovery_RepairKeepsFilledCountExact`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_repair_keeps_the_filled_count_exact
     engineering_constraints:
       - id: EC-013
         statement: >-
@@ -1732,7 +1765,10 @@ functional:
         kind: consistency
         invariant: INV-003
         instances: [AC-112, AC-113, AC-114, AC-132]
-        test: PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound
+        # CARD-481 (2026-11-19): was the logical name `PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_accepted_grids_have_real_verdicts_within_one_bound
 
   - id: FR-026
     # New 2026-09-12 (raw-requirements.md, 2026-09-12 review, entry 4 —
@@ -1781,7 +1817,10 @@ functional:
         when: both are scored
         then: B's score is strictly greater than A's
         kind: boundary
-        test: TestScoreDifficulty_DeeperLineReasoningScoresHigher
+        # CARD-481 (2026-11-19): was the logical name `TestScoreDifficulty_DeeperLineReasoningScoresHigher`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_deeper_line_reasoning_scores_higher
       # AC-120, AC-121 and EC-015 are RETIRED 2026-09-18 (CARD-098, ADR-0031).
       # They described the requires-guessing attribute as a TIER; the tier is
       # gone. What they asserted survives one level along: a solve that
@@ -1794,7 +1833,10 @@ functional:
         when: each is classified
         then: both receive the same tier — the band their score falls in — and the branching one additionally reports the `guess` strategy
         kind: boundary
-        test: TestTiers_BranchingIsAStrategyNotATier
+        # CARD-481 (2026-11-19): was the logical name `TestTiers_BranchingIsAStrategyNotATier`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_tiers_branching_is_a_strategy_not_a_tier
     engineering_constraints: []
 
   - id: FR-027
@@ -1874,7 +1916,10 @@ functional:
         when: the cell is binarised under the threshold path
         then: the cell is filled — the boundary is inclusive ("at least 50%")
         kind: boundary
-        test: TestBinarize_ExactlyHalfCoverageIsFilled
+        # CARD-481 (2026-11-19): was the logical name `TestBinarize_ExactlyHalfCoverageIsFilled`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_binarize_exactly_half_coverage_is_filled
       # holds under every alternative — this is the hypothesis, measured
       # Re-worded 2026-09-17 (CARD-079): shipped conversion vs dither-everywhere,
       # regressions counted case by case. (a) is the suite test at 25x25; (b)
@@ -1936,7 +1981,10 @@ functional:
         when: each is generated
         then: each is refused with InvalidDensity before any grid is drawn
         kind: negative
-        test: TestGenerateRandom_RefusesDensityZeroAndHundred
+        # CARD-481 (2026-11-19): was the logical name `TestGenerateRandom_RefusesDensityZeroAndHundred`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_generate_random_refuses_density_zero_and_hundred
       # alternative: refuse_degenerate_density
       # NB CARD-033 uses AC-133 for a different criterion of its own (CARD-106)
       - id: AC-133
@@ -1984,7 +2032,10 @@ functional:
         when: it is generated
         then: the verdict on that density — refusal or acceptance — is made by validate_density, and neither the uniqueness check nor the difficulty scorer raises on density grounds afterwards
         kind: boundary
-        test: TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam
+        # CARD-481 (2026-11-19): was the logical name `TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_the_degenerate_density_verdict_is_made_at_the_validate_density_seam
 
   - id: FR-029
     # New 2026-09-12 (b) (raw-requirements.md, "solving strategies saved
@@ -2382,7 +2433,10 @@ functional:
           (CON-019), under whichever alternative the geometry DEC selects.
         kind: compatibility
         instances: [AC-180]
-        test: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
+        # CARD-481 (2026-11-19): was the logical name `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_property_cli_exports_byte_identical_whatever_the_book_geometry, test_property_web_ui_exports_byte_identical_whatever_the_book_geometry
 
   - id: FR-031
     # New 2026-09-22 (BK-2, BK-UI-7). Today there is no cell-size check
@@ -4382,7 +4436,15 @@ functional:
         then: the answer key is 2 pages, the first holding answers 1-6 and the second answers 7-12, each in 2 columns x 3 rows read left to right, top to bottom
         kind: happy
         invariant: INV-011
-        test: TestBookAnswerKey_SixUpInPuzzleNumberOrder
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_SixUpInPuzzleNumberOrder`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       # REWORDED 2026-09-22 (d): "on a 6-up page" -> "on a 6-up page that is
       # not the first answer page of its level" (a level-first page carries
       # the heading line; that case is AC-295).
@@ -4398,14 +4460,30 @@ functional:
         then: the first answer page is a 6-up page holding answers 1-5, and answer 6 starts the next page
         kind: boundary
         invariant: INV-011
-        test: TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       - id: AC-264
         given: a Book 1 profile book whose puzzles 1-3 are 15x15, puzzle 4 is 25x25 and puzzle 5 is 15x15
         when: the book PDF is generated
         then: the first answer page is a 4-up page (2 x 2) holding answers 1-4, and answer 5 starts the next page
         kind: boundary
         invariant: INV-011
-        test: TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       - id: AC-265
         given: a Book 1 profile book whose answer key holds a 30x30 answer on a 4-up page
         when: the answer's grid is measured
@@ -4418,7 +4496,15 @@ functional:
         then: the answer key is one 6-up page holding answers 1-6 — a longest side of exactly 20 keeps the page 6-up
         kind: boundary
         invariant: INV-011
-        test: TestBookAnswerKey_LongestSideTwentyStaysSixUp
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LongestSideTwentyStaysSixUp`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       - id: AC-267
         given: a Book 1 profile book holding a 15x15 puzzle whose row and column clues are non-empty
         when: its answer tile is rendered
@@ -4489,7 +4575,15 @@ functional:
         then: the answer key is 30 answer pages (the SOLUTIONS divider not counted) — 15 six-up pages then 15 four-up pages — where one page per answer would take 150
         kind: happy
         invariant: INV-011
-        test: TestBookAnswerKey_DefaultPlanTakesThirtyPages
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanTakesThirtyPages`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       # REWORDED 2026-09-22 (d): the page count is the INTERIOR PDF's
       # (FR-043) — "pages before the answer key" now reads from the guide
       # page through the SOLUTIONS divider, and the cover file is not
@@ -4507,7 +4601,15 @@ functional:
         then: the answer key is 2 answer pages — answers 1-4 on the first and answers 5-7 on the second — the medium level starts a new page although the first had room for 2 more
         kind: happy
         invariant: INV-011
-        test: TestBookAnswerKey_EachLevelStartsNewAnswerPage
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_EachLevelStartsNewAnswerPage`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       - id: AC-291
         given: a Book 1 profile book of 8 easy puzzles then 1 medium puzzle, all 15x15
         when: its answer pages are read
@@ -4531,7 +4633,15 @@ functional:
         then: the answer key is 31 answer pages — easy 11, medium 13, hard 7 — after 1 SOLUTIONS divider page (32 pages; 30 before level-first pages)
         kind: boundary
         invariant: INV-011
-        test: TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`,
+        # which no def/class defines: CARD-198 retired it with the packed
+        # 6-up/4-up answer key, which it replaced with one full solved page
+        # per puzzle -- so this criterion (and INV-011's packing clauses)
+        # no longer describe the book PDF, and no test asserts it. Dropped
+        # rather than re-typed `review-lens`, per CARD-316's measured precedent
+        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
+        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
+        # "Not in this card" item, still open.
       # New 2026-10-28 (CARD-305) — the off case for this FR's own divider.
       - id: AC-403
         given: the book of AC-253 with its divider-pages setting turned off
@@ -6085,7 +6195,10 @@ non_functional:
         then: it stops after at most the configured maximum retry count (20 regenerate/resample attempts, 5 pixel-nudge attempts — ADR-0002) and reports a clear failure instead of looping indefinitely
         kind: boundary
         invariant: INV-003
-        test: TestRetryLoop_BoundedIterations
+        # CARD-481 (2026-11-19): was the logical name `TestRetryLoop_BoundedIterations`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_retry_loop_bounded_iterations
 
   - id: NFR-003
     # Scope note (2026-09-14, ADR-0030/CARD-085): this NFR's condition names
@@ -6198,7 +6311,10 @@ non_functional:
           request and never routes it to a handler, for any such input.
         kind: consistency
         instances: [AC-054, AC-055, AC-056]
-        test: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
+        # CARD-481 (2026-11-19): was the logical name `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_every_cross_origin_or_foreign_authority_request_is_refused
 
   - id: NFR-005
     # AMENDED 2026-09-01 (raw-requirements.md, entry dated 2026-09-01: "AMENDS
@@ -6582,7 +6698,10 @@ non_functional:
         kind: consistency
         instances: [AC-122]
         nfr: NFR-007
-        test: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
+        # CARD-481 (2026-11-19): was the logical name `PropertyTest_ScoreDifficulty_IndependentOfElapsedTime`,
+        # which pytest never defined or collected; re-pointed to the
+        # collected test(s) that assert this statement.
+        test: test_independent_of_elapsed_time, test_independent_of_elapsed_time_across_the_whole_input_space
 
   - id: NFR-008
     # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17", bullet 2;
@@ -6788,9 +6907,12 @@ constraints:
       solutions. This is the mandatory correctness property the whole
       tool depends on.
     source: intake requirements document, NFR-3
+    # CARD-481 (2026-11-19): was the logical name `PropertyTest_Solver_NeverFalsePositiveUniqueness`,
+    # which pytest never defined or collected; re-pointed to the
+    # collected test(s) that assert this statement.
     check:
       kind: test
-      ref: PropertyTest_Solver_NeverFalsePositiveUniqueness
+      ref: test_never_false_positive_uniqueness
     severity: mandatory
   - id: CON-006
     type: technical
@@ -6860,9 +6982,12 @@ constraints:
       CARD-019 (meta/review/20260830T163436Z-CARD-019-posthoc.yml,
       findings F-001/F-002), 2026-08-30
     bcon_ref: BCON-0001
+    # CARD-481 (2026-11-19): was the logical name `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`,
+    # which pytest never defined or collected; re-pointed to the
+    # collected test(s) that assert this statement.
     check:
       kind: test
-      ref: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest
+      ref: test_every_cross_origin_or_foreign_authority_request_is_refused
     severity: mandatory
   - id: CON-011
     type: technical
@@ -6905,9 +7030,12 @@ constraints:
       exactly 50% (a ratio difference of exactly 2x) is ACCEPTED — the
       boundary is inclusive.
     source: US-018, FR-021, AC-075, AC-076, 2026-08-30
+    # CARD-481 (2026-11-19): was the logical name `PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore`,
+    # which pytest never defined or collected; re-pointed to the
+    # collected test(s) that assert this statement.
     check:
       kind: test
-      ref: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore
+      ref: test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more, test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary
     severity: mandatory
   - id: CON-013
     type: technical
@@ -6933,9 +7061,12 @@ constraints:
     source: docs/GENERATION_ALGORITHM.md §10.2 finding 3, raw-requirements.md 2026-09-12 entry 5
     scope:
       code: ["src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]
+    # CARD-481 (2026-11-19): was the logical name `PropertyTest_ScoreDifficulty_IndependentOfElapsedTime`,
+    # which pytest never defined or collected; re-pointed to the
+    # collected test(s) that assert this statement.
     check:
       kind: test
-      ref: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
+      ref: test_independent_of_elapsed_time, test_independent_of_elapsed_time_across_the_whole_input_space
     severity: mandatory
   - id: CON-015
     # New 2026-09-13 (CARD-081, from CARD-077 review cycle 1 finding F-003).
@@ -7124,9 +7255,12 @@ constraints:
       FR-030
     scope:
       code: ["src/nonogram/export/**"]
+    # CARD-481 (2026-11-19): was the logical name `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`,
+    # which pytest never defined or collected; re-pointed to the
+    # collected test(s) that assert this statement.
     check:
       kind: test
-      ref: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
+      ref: test_property_cli_exports_byte_identical_whatever_the_book_geometry, test_property_web_ui_exports_byte_identical_whatever_the_book_geometry
     severity: mandatory
   - id: CON-020
     # New 2026-09-30, promoted from CARD-149's cycle-1 review (F-005, info):
