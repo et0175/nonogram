@@ -96,3 +96,42 @@ tests/test_impact_set.py: **708 passed, 1 xfailed, 0 skipped, 0 failed**.
 
 **Net test count: 0** (`--collect-only -q -o addopts=` over tests/: 10704 base,
 10704 branch).
+
+**Fix round 1 (review cycle 1, F-1..F-3).** The round-0 finding above was
+only partly right: the existing tests pinned (a) at the extremes level and on
+one hand-picked mask case only. A mask plant that ignored just the known-empty
+cells stayed green on every test the ref named.
+* F-1: `test_overlap_deduction_never_claims_more_than_every_placement_agrees_on`
+  now also asserts `(filled, empty)` EQUALS the masks built from the
+  enumeration's per-run start range (min/max start over every feasible
+  placement), never from solver code; docstring updated. No new test.
+  Plants on a scratch `git archive` copy (overlap selection, `-o addopts=`):
+  unplanted 11 passed; A (extremes ignore known) 5 failed; B (deduction from
+  blank extremes) 4 failed; C1 (feasibility kept, masks blank) 2 failed; C2
+  (masks from known-empty only) 2 failed; C3 (masks from known-filled only)
+  1 failed. That test reds under all five, each time on its new exactness
+  assertion ("not the overlap relative to the known cells"). Under C3 it is the
+  only test that reds.
+* R4's `check:` now names four: that test, the textbook-rule test, the
+  extreme-start test, and `test_every_import_in_the_package_points_inward`.
+* F-2: the ADR ref comment and the CENSUS comment now say which plants each
+  test reds under, instead of "each reds".
+* Frozen counts: `CENSUS` 596 -> 599 and `DEFINED` 471 -> 474 against the base
+  (598 -> 599 and 473 -> 474 against round 0). OUT is 0 each. IN is the three
+  overlap test names against the base; against round 0 it is only the
+  never-claims-more test.
+  Derived as sets with the module's own `_declared_refs` / `_verdicts`, the ADR
+  swapped to its base and round-0 versions. Those fingerprints reproduced the
+  stored baselines. The new name has one `ast`-found def and was undeclared
+  under meta/architecture/ at the base.
+* F-3: `test_the_two_directions_of_disagreement_are_exactly_the_measured_ones`
+  warns "the 'honest-dead' class lost 12 member(s)" in the worktree with the
+  card's three changed files set back to the base commit's contents. It still
+  warns with the synced review YAML (meta/review/, cycle 1) moved aside. So it
+  predates this branch and is not caused by the review YAML. Fresh-repo archive
+  copies fail this test outright, base and branch alike, so they could not
+  serve as the comparison. Not fixed here.
+* Gate (`-o addopts= -rfs`: tests/test_solver*.py, tests/property/test_solver*.py,
+  tests/property/test_solve_strategies.py, tests/test_check_ref_resolution.py,
+  tests/test_cli.py): 266 passed, 0 skipped, 0 failed. Net test count 0
+  (10704 collected).
