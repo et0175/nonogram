@@ -49,4 +49,129 @@
 
 ## Worktree notes
 
-—
+**Step 1, the measurement (AC-1), on the branch base before any edit.** The sweep is CARD-248's "depth-1 equal pairs": every
+`(columns, rows)` in `MIN_SIZE..MAX_SIZE` (441), both members
+`tests/helpers/book_corpus._gutter_grid(c, r, 1)`, on `corpus_book()` (Book 1,
+8.5 x 11 in, 12.7/12.7 mm). Each pair is asked exactly as `puzzle_pages` asks
+it: `compute_pair_layout(m, m, gen._puzzle_page_spec(5,
+gen._pair_cell_mm(p, p, gen.cell_sizes([p, p]))), folio_reserve_px=R,
+footer_reserve_px=interior_frame(spec).footer_depth)`, once with
+`R = _folio_reserve_px(300)` (= 108, read off the function) and once with
+`R = 0`. A pair is "refused only by the reserve" when the first is `None`
+and the second is not. Script (scratch, not committed):
+`PYTHONDONTWRITEBYTECODE=1 .venv/bin/python sweep.py` from the worktree root.
+
+* **Book 1: 10 of 441.** 75 pair with the reserve, 10 more pair only without
+  it, 356 refuse either way. The 10 are 25 x 10..14 (cell 7.3269 mm, 7.3195
+  for 25 x 14) and 26 x 10..14 (7.0556 mm); identical with and without the
+  book cell map. Every one is also confirmed refused by `puzzle_pages` itself
+  (two single plans).
+* **The 25 x 10 pair: refused on main; pairs at 7.3269 mm without the
+  reserve** (190.5 / 26 mm: realised `PairLayout.cell_mm`, width-bound, not
+  the cap).
+* Other trims, same sweep and margins (reserve-only / pairing with reserve):
+  8.25 x 11 10/70, 8 x 10 3/42, 7.5 x 9.25 2/24, 7 x 10 3/30, 8.5 x 8.5 2/15,
+  6 x 9 4/12.
+* The backlog's 18 is stale as the card warned (it predates CARD-392's
+  footer); not carried.
+
+**The two call sites.** `book_pdf_generator.py`'s `puzzle_pages` passes the
+reserve to `compute_pair_layout` -- the only place it enters a pairing
+verdict. `_sheet_furniture` passes it into `SheetFurniture.folio_reserve_px`,
+where `footer_pointer` uses it as the width to keep the Play-online pointer
+clear of the **centred** folio, on every page kind. That second use is not a
+corner reservation and is kept. **There is no raster two-up path any more**:
+`ab4cdfbd` deleted the raster interior writers (`_draw_page_frame` with
+them); every puzzle page, single or two-up, is drawn by
+`vector_puzzle_page`/`vector_two_up_page` from the one `puzzle_pages` plan.
+So G-2 holds by construction: one walk feeds the only renderer.
+
+**Step 3, reachability (measured, not argued).** The branch is
+`SheetFurniture.footer_is_clear` false, i.e. `lower.drawing_bottom >
+footer_rule.y`.
+* (A) Every pair that pairs, reserve 108 and 0: 17 trims x 3 margin sets
+  (12.7/12.7, 6.35/6.35, 19/7) x parity 5/6 x columns 10..30 x rows 10..30 x
+  {equal, lower one row taller}: 10890 layouts, max(`drawing_bottom -
+  footer_rule.y`) = **0** (touches, never passes).
+* (B) F-4, every storable trim height (cm to 2 dp, 10.00..48.00 = 3801), the
+  strip's top as `compute_pair_layout` computes it (px -> float mm -> exact
+  px): max exact residue below the rule 0.49606 px = 126/254, rounded residue
+  **0** on all. Why it cannot round over: the sheet's millimetres are 0.1 mm
+  multiples, so the fraction moves in 1/254 px steps and stays < 1/2 by
+  `_round_px`'s half-up definition; the float detour is ~1e-13 px.
+* (C) Hypothetical bottom margins 5.00..40.00 mm (0.01 mm) on three heights:
+  10503 sheets, rounded residue > 0 on **none**. (Production's bottom margin is
+  the profile constant; `book_page_spec` stores no bottom margin.)
+* Since the lower drawing ends at `round(strip top - gap)` with `gap >= 0`, no
+  two-up page can take the corner branch. **Unreachable**, so the code change
+  went ahead.
+
+**What changed.** `puzzle_pages` no longer passes `folio_reserve_px` (one
+line); docstrings that described the reserve as a live pairing input are
+corrected (module docstring, `_folio_reserve_px`, `_draw_folio`'s (c),
+`puzzle_pages`, `puzzle_section`). `compute_pair_layout` keeps its
+`folio_reserve_px` parameter (default 0, still exercised by
+`test_layout_two_up.py`); `layout.py` is not edited. Single pages never
+received the reserve (`compute_layout` has no such parameter), so G-1 holds
+without a guard of its own; the corner-folio fallback stays for every page
+whose content reaches the footer.
+
+**Guard (AC-2)**, `tests/test_book_page_numbers.py::TestTwoUpNeverTakesTheCornerFolio`:
+* `test_no_pair_the_walk_makes_reaches_below_the_footer_rule` -- 6 trims x 2
+  parities x 21 x 21 x {equal, +1 row} through `puzzle_pages` and
+  `_sheet_furniture(...).footer_is_clear`: 1110 pairs, 304 end exactly on the
+  rule; floors 1000/250 asserted. Control in the same test: the walk with the
+  strip planted one pixel short (`compute_pair_layout` wrapped) makes 20 of 20
+  touching pairs take the corner branch. Also pins AC-3: on Book 1 the 10
+  recovered pairs pair, 25 x 10 named, and the equal pairs that pair are
+  exactly 85 (75 + 10).
+* `test_the_strip_never_rounds_below_the_rule_on_any_storable_trim_height` --
+  all 3801 heights; control per height: one pixel less strip rounds past the
+  rule.
+
+**AC-3, single pages don't move.** Pinned by the page-digest goldens
+(`test_book_pdf_memory`, `test_book_pdf_ink_mode`, `test_book_interior_face`
+read `load_baseline()`), which pass unedited.
+
+**Other tests the change moved** (each was modelling the reserve the walk
+passed): `tests/property/test_book_pairing.py`'s oracle drops its `reserve`
+flag, and `test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber`
+(name kept, it is in the wave-close registry) now holds three shapes on the
+production walk: 23-col pairs at the 7.5 cap, the 25-col depth-2 pair
+(across 27) that the reserve refused now **pairs** at 190.5/27 mm in every
+regime (an AC-3 pin), a 26-col pair refuses in every regime.
+`tests/test_book_arrange_page_breaks.py`'s hand walk drops the reserve; its
+flip measurement re-asks with the footer strip the walk's verdicts used
+(it had been re-asked without it since CARD-248, so the comparison was not
+"only the clues"): 96 offered, 7/7 flips -> **95, 5/5**. Measured apart: the
+strip fix alone on the old walk gives 96, 1/1; the reserve drop alone 95,
+12/12. `tests/property/test_book_pdf_geometry.py`'s gap oracle drops the
+reserve re-fit. `tests/test_book_export_interior_cover.py`'s AST call census
+727 -> 726 / 467 -> 466 (the removed `_folio_reserve_px(self.dpi)` call),
+read off the test. The docstring edits shift `book_pdf_generator.py` by
++13 lines; no test pins that module by line (`OUTSIDE_CALLERS_WITH_A_POSITION`
+names `book_proof.py`; the two other `book_pdf_generator.py:NNNN` mentions in
+tests are prose), and `test_book_export_interior_cover.py` passes in full.
+
+**Mutations (both on 4c1557ad, restored with `git checkout --`, clean
+status after).** M1, the reserve put back in `puzzle_pages`: reds
+`TestTwoUpNeverTakesTheCornerFolio::test_no_pair_the_walk_makes_reaches_below_the_footer_rule`,
+the pairing property above and `test_PropertyTest_ArrangeBreaks_AgreeWithTheGeneratedBook`
+(3 failed, 19 passed). M2, the walk's strip one pixel short
+(`footer_depth - 1`): reds the guard at the Book 1 10 x 14/14 pair (1 failed).
+
+**Tests run** (`-o addopts= -q -rfs`, from the worktree): two_up, layout_two_up,
+page_numbers, qr_slot, puzzle_frame **196 passed**; property pairing,
+property two_up, arrange_page_breaks, suite_profile, check_ref_resolution,
+browser_fixture_scope **539 passed**; puzzle_page_vector, property
+export_interior, property pdf_geometry **69 passed**; export_interior_cover,
+pdf_ink_mode, interior_face, pdf_memory **264 passed, 1 skipped** (the known
+`setrlimit(RLIMIT_AS)` platform skip). Net test count **+2** (the two guard
+tests); every other change edits an existing test.
+
+**AC-4.** `~/Documents/nonogram-reviews/CARD-483/`: two-up pages (PDF + 100
+dpi PNG) of three recovered Book 1 pairs drawn by `vector_two_up_page` from
+`puzzle_pages`' own plan: 25 x 10 (page 5, 7.3269 mm), 26 x 12 (page 6,
+7.0556 mm), 25 x 14 (page 5, 7.3195 mm). They are corpus geometry puzzles
+(depth-1 clues), not real pictures; the footer group (rule, pointer, centred
+folio) is present on all three.
