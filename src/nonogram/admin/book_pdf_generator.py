@@ -62,9 +62,12 @@ admin's to decide (ADR-0036/R2 forbids fitting cells and placing rules, not
 wording), and it is set in the packaged DejaVu Sans the export already uses
 (ADR-0006/DEC-027), which covers the middle dot.
 
-One full solved page per puzzle (FR-042, CARD-134, CARD-198)
---------------------------------------------------------------
-The answer section was a **packed** key — six answers to a page (2 x 3) or
+The answer section (FR-042; CARD-134, CARD-198, CARD-202, CARD-232)
+--------------------------------------------------------------------
+**Today** every solution is a tile, up to four to a page in a 2x2 grid, each
+with its clues; the rule and its tables are ``docs/BOOK_PAGE_PACKING.md``,
+held to the code by ``tests/test_book_page_packing_doc.py``. The history
+below is how it got there. The answer section was a **packed** key — six answers to a page (2 x 3) or
 four (2 x 2) — from CARD-134 until CARD-198 replaced it: a "SOLUTIONS" divider
 immediately after the last puzzle page (AC-292, unchanged), and then one full
 solved page per puzzle, in book order, each captioned with its number and the
@@ -5780,8 +5783,8 @@ class BookPDFGenerator:
         prints (CARD-140) — then an eager validation pass over every answer
         (CARD-198: the same rectangle check the old packed key made, kept
         because the abort contract is load-bearing — see
-        :func:`_is_an_unpackable_row` in ``app.py`` — though its result is no
-        longer used to pack anything), the page-plan tripwire, the guide
+        :func:`_is_an_unpackable_row` in ``app.py`` — and, since CARD-202, also
+        the extent the answer section is packed by), the page-plan tripwire, the guide
         page's tier counts, the Arrangement step's custom titles, and all
         three page counts. None of it draws a pixel, and all of it can fail —
         so an export that is going to be refused is refused before its file
@@ -5790,7 +5793,8 @@ class BookPDFGenerator:
         *Drawn later, lazily, one page per :func:`next`.* The guide page, the
         table of contents (CARD-200, :meth:`create_toc_page`), each level's
         divider and the puzzle pages the walk planned, the SOLUTIONS divider
-        and one full solved page per puzzle (CARD-198), each on the spec of
+        and the answer pages, up to four solutions each in a 2x2 grid
+        (CARD-202, CARD-232; docs/BOOK_PAGE_PACKING.md), each on the spec of
         its own interior position (FR-043), each built when it is asked for
         and released when the next one is.
         The returned generator is single-use and holds no page: see
@@ -5822,8 +5826,8 @@ class BookPDFGenerator:
         #
         # The positions every page is built on: 1 the guide page, then the
         # puzzle section — a divider per non-empty level and the puzzle pages
-        # the walk planned — then the SOLUTIONS divider and one answer page
-        # per puzzle. The section walk runs before a single page is drawn,
+        # the walk planned — then the SOLUTIONS divider and the answer
+        # pages (up to four solutions each). The section walk runs before a single page is drawn,
         # because how many pages it takes is what puts the divider and every
         # answer page where it goes.
         decided = self.section_plan(puzzles)
@@ -5870,10 +5874,11 @@ class BookPDFGenerator:
 
         # CARD-202's packing walk: pure, over extents and levels alone, no
         # sheet involved (ADR-0036/R2 — the geometry it implies is only
-        # measured later, per page, by `compute_packed_solved_layout`). A
-        # large answer (anything over width<=15/height<=20) still plans as
-        # itself, one page, unconditionally (G-1); a run of small answers of
-        # one level packs 4-or-2 (G-6).
+        # measured later, per page, by `compute_packed_solved_layout`). Every
+        # size up to MAX_SIZE qualifies since 2026-11-09, so a run of one
+        # level packs four to a page, its last page holding the 1-3 left in
+        # the same 2x2 positions (CARD-232 AC-4); the degrade pass below is
+        # what still sends a page to 2-up or to one answer per page.
         answer_plan = plan_small_answer_pages(answers)
 
         # Every page of the section — dividers included — sits between the

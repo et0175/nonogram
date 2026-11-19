@@ -620,8 +620,8 @@ def _grid_extent(row: Any, number: int) -> Tuple[int, int]:
     The same two numbers the packed key is tiled by, taken from the grid and
     not from the row's ``width``/``height`` columns, for the reason
     ``book_pdf_generator`` takes them from there: the grid is what the key
-    prints, and a row whose columns disagree with its grid would otherwise land
-    a 25-cell answer on a six-up page.
+    prints, and a row whose columns disagree with its grid would otherwise be
+    planned at a size it is not drawn at.
 
     **CARD-202 Fix 2** added the clue-agreement check below, mirroring the
     identical widening of ``book_pdf_generator._answer_extent`` (read that

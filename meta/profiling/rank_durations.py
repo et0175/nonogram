@@ -186,6 +186,11 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_landing_address.py",
     "tests/test_book_page_frame.py",
     "tests/test_book_page_numbers.py",
+    # CARD-232 (2026-11-19): the packing doc's test calls the real planner
+    # (`puzzle_pages`) to generate the doc's tables, and names
+    # `interior_stream` in prose, so it matches RENDER_API_PATTERN. Added
+    # rather than dodged; it draws no page and runs in about a second.
+    "tests/test_book_page_packing_doc.py",
     "tests/test_book_pdf.py",
     "tests/test_book_pdf_band.py",
     "tests/test_book_pdf_ink_mode.py",

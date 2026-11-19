@@ -4897,11 +4897,11 @@ def _answer_tile(
 # ``STRUCTURE``, why this is a third sibling function rather than a
 # parameterised "reserve clue gutters" mode of either existing one.
 
-#: The two packed-slot counts this card defines: 4 whenever that many
-#: qualifying answers are next in the book's packing walk, 2 only for a
-#: leftover one or two at the end of a qualifying run (owner decision,
-#: resolved 2026-10-08) — never 6, unlike the old packed key's ``SIX_UP``: a
-#: six-up tile has no clue gutter to spare at this card's cap.
+#: The two packed-slot counts: 4, the 2x2 tiling every answer page is planned
+#: at, a level's short last page included (owner decisions 2026-11-07 and
+#: 2026-11-09, CARD-232); and 2, used only when four tiles cannot reach
+#: :data:`MIN_CELL_MM` (``book_pdf_generator._degrade_infeasible_packed_pages``).
+#: Nothing larger: a with-clues tile has no clue gutter to spare beyond four.
 SOLVED_TILE_CAPACITIES = (2, 4)
 
 #: A packed solved page is always two tiles across — the same fact
@@ -5307,7 +5307,9 @@ def _packed_tile_layout(
         columns=columns,
         orientation="portrait",
         cell=math.floor(pitch),
-        margin=_round_px(band_top),
+        # The page's real top margin, as `_slot_layout` gives a two-up slot --
+        # not the tile's own top, which is `page.usable_top` (IDEA-168, CARD-232).
+        margin=_round_px(_exact_px(page_spec.top_mm)),
         row_gutter_cells=row_gutter_cells,
         column_gutter_cells=column_gutter_cells,
         width=_round_px(_exact_px(page_spec.width_mm)),

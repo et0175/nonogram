@@ -191,3 +191,7 @@ class TestPackedSolvedLayout_EverySurvivingSlotActuallyFitsItsOwnTile:
         for slot in layout.slots:
             assert slot.page is not None
             assert slot.page.fits
+            # IDEA-168 (CARD-232): `Layout.margin` is the page's top margin,
+            # as on a two-up slot, never the tile's own top (the two tile
+            # rows would then disagree about it).
+            assert abs(slot.margin - KDP_MIN_ODD.top_mm * DPI / 25.4) <= 0.5
