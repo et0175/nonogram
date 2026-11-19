@@ -79,7 +79,7 @@ class TestDbFixture_RefusesANonTestDatabase:
         return attempts
 
     def test_db_session_fails_without_connecting(
-        self, request, refused_case, connection_attempts
+        self, request, refused_case, connection_attempts, test_db_url, monkeypatch
     ):
         # Requested here rather than as a parameter, so the refusal is
         # something this test can catch instead of a setup error.
@@ -98,6 +98,31 @@ class TestDbFixture_RefusesANonTestDatabase:
         message = str(refused.value)
         assert refused_case[1] in message
         assert _SECRET not in message
+
+        # [CARD-488 AC-1, IDEA-034] The ``db_required`` gate runs before any
+        # fixture and used to probe DATABASE_URL with ``SELECT 1`` before the
+        # ``_test`` refusal was asked. With the same refused URL armed, the
+        # gate must skip on the refusal without building an engine: the spies
+        # above record the probe of the old order (TEST-NET-1 host, G-2).
+        import tests.conftest as suite_conftest
+
+        class _Marker:
+            name = "db_required"
+
+        class _Item:
+            def iter_markers(self):
+                return [_Marker()]
+
+        monkeypatch.setenv("DATABASE_URL", test_db_url)
+        try:
+            with pytest.raises(pytest.skip.Exception) as gated:
+                suite_conftest.pytest_runtest_setup(_Item())
+        finally:
+            assert connection_attempts == [], (
+                f"the db_required gate probed a refused URL: {connection_attempts}"
+            )
+        assert "refused, not probed" in str(gated.value)
+        assert _SECRET not in str(gated.value)
 
     def test_an_unparseable_url_is_refused_without_echoing_it(self):
         # A port that is not a number makes make_url raise; the refusal must
