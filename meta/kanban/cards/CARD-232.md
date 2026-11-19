@@ -1,6 +1,6 @@
 # CARD-232: Solutions become fixed tiles, four to a page in a 2x2 grid, each with its clues
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/232-solution-tiles-rest
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-232
+**Worktree:** —
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "Solutions: fixed tiles, with clues"
 **Idea:** IDEA-168
 **Wave:** 82
@@ -19,9 +19,9 @@
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_solved_answer_key.py, tests/test_book_solved_page.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card232.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/, docs/BOOK_PAGE_PACKING.md, tests/test_book_page_packing_doc.py, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T17:49Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T19:52Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** 34938a8d0f0e7b0ca2b7e550d16d8dc37c98579f
 **Blocked by:** —
 
 ## [OWNER RULING 2026-11-07, page packing]
