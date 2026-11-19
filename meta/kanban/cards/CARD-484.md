@@ -34,7 +34,7 @@
 Admin solve page only. The grade derives from the solution, so CON-021 / ADR-0038/R6 keep it behind the door. Public mode is untouched.
 
 1. **Owner's decision 2026-11-19: solve on page open.** The admin solve route runs the solver once on the puzzle's clues, under a bounded deadline, and passes the resulting rung grid to the page. No schema change, no migration.
-2. The hint picks the undecided cell with the lowest rung that the current marks force, iterating `lineForced` to a fixed point; it breaks ties in row-major order.
+2. Among the undecided cells today's single `lineForced` pass forces from the current marks, the hint picks the one with the lowest rung; ties go row-major. (Amended 2026-11-19 after review cycle 1: not a fixed point, because `hintLine` needs the cell forced by one line, G-2.)
 3. Where no rung grid is available (the solve timed out or failed), behave exactly as today; the page still opens.
 
 ## Acceptance criteria
