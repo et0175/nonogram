@@ -647,7 +647,10 @@ class TestSolverProgress_ResetAfterConfirm:
         assert dialogs == []
 
     # A change to the board while the confirmation is open closes it, as
-    # "Keep marks" does (focus back to Reset), after recording the change.
+    # "Keep marks" does, after recording the change. Focus goes back to Reset
+    # only from inside the confirmation (or from nowhere); a button pressed
+    # outside it keeps the focus (CARD-486, CARD-183 review F-012), so the
+    # two button changes below end on their own button.
     # "redo-key-noop" is a redo with an empty redo stack (the precondition
     # click below drops it): the history does not change, and the
     # confirmation still closes (PROGRESS "reset": "even one that changes
@@ -664,6 +667,8 @@ class TestSolverProgress_ResetAfterConfirm:
         "redo-button-noop": lambda page: _button(page, "Redo").click(force=True),
     }
 
+    _FOCUS_AFTER = {"undo-button": "Undo", "redo-button-noop": "Redo"}
+
     @pytest.mark.parametrize("change", list(_CHANGES))
     def test_a_board_change_while_asking_closes_the_confirmation(self, browser_page, live, change) -> None:
         _open_named(browser_page, live)
@@ -672,12 +677,17 @@ class TestSolverProgress_ResetAfterConfirm:
         reset.click()
         assert browser_page.locator("#puzzle-player-confirm").is_visible()
         before = _states(browser_page)
+        if change == "undo-key":
+            # CARD-486 review F-001: focus on nothing (the page body) also
+            # goes back to Reset, as focus inside the confirmation does.
+            browser_page.evaluate("document.activeElement.blur()")
+            assert browser_page.evaluate("document.activeElement === document.body")
 
         self._CHANGES[change](browser_page)
 
         assert not browser_page.locator("#puzzle-player-confirm").is_visible()
         assert reset.get_attribute("aria-expanded") == "false"
-        assert browser_page.evaluate(_FOCUSED) == "Reset"
+        assert browser_page.evaluate(_FOCUSED) == self._FOCUS_AFTER.get(change, "Reset")
         if change in ("redo-key-noop", "redo-button-noop"):
             assert _states(browser_page) == before  # really a no-op
             assert _is_disabled(browser_page, "Redo")

@@ -426,7 +426,10 @@
 //             every recorded stroke, undo or redo (button or key — even one
 //             that changes nothing) and setBoard while it is open: the board
 //             it asked about is gone, so it closes as "Keep marks" does,
-//             after that change is recorded. Undoing a reset
+//             after that change is recorded — except that focus returns to
+//             Reset only when it was inside the confirmation (or nowhere): a
+//             control pressed outside it (Hint, Undo, Redo) keeps the focus
+//             (CARD-486, CARD-183 review F-012). Undoing a reset
 //             made from the solved state brings the solved board back, and
 //             with it the lock (see "solved").
 //
@@ -1304,6 +1307,7 @@ function start() {
       // explanation standing over a cell that is now revealed.
       const said = hintText(hint);
       announce.textContent = said;
+      announce.dataset.said = said; // CARD-486: as say() does (see commit)
       // Review of 2026-11-17: the box is placed for THIS sentence, away from
       // the cell it names. Rungs 1-2 place it through say(); this branch
       // wrote past that and kept rung 2's edge, and bringIntoView had just
@@ -3291,6 +3295,7 @@ function wireMarking(container, player) {
   function say(text) {
     closeOffer(); // CARD-412 review cycle 1, F-303: one strip at a time
     announce.textContent = text;
+    announce.dataset.said = text; // CARD-486: commit() clears it while it stands
     placeExplain();
     showExplain(text);
   }
@@ -3481,9 +3486,22 @@ function wireMarking(container, player) {
     // Cleared BEFORE player.commit, so rung 3's own reveal — which arrives
     // through showProgress's hint branch inside that call — writes its answer
     // over an empty line rather than racing the clear.
+    // CARD-486 (CARD-183 review F-014): and the live region goes with it
+    // while it still holds a ladder/Check sentence (say() and rung 3's reveal
+    // note what they wrote in data-said). Leaving it standing kept an undone
+    // hint's "row R, column C is black" in the accessibility tree over a cell
+    // that was undecided again. Compared by text, not by the visible line,
+    // which any pointerdown dismisses (wireExplainDismiss); and anything
+    // written since — Region's automatic disarm, "Region off.", made by this
+    // very change before it is recorded — differs, and stays.
+    if (announce.textContent === announce.dataset.said) announce.textContent = "";
     showExplain("");
     player.commit(next, hint, replay);
-    if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
+    // CARD-486 (CARD-183 review F-012): focus goes back to Reset only from
+    // inside the confirmation (or from nowhere). A control pressed outside it
+    // — Hint, Undo, Redo by keyboard — keeps the focus, so its next Enter
+    // presses it again instead of reopening the confirmation.
+    if (!confirm.hidden) closeConfirm(confirm.contains(document.activeElement) || document.activeElement === document.body);
     refresh();
   }
 
@@ -4232,10 +4250,10 @@ function wireMarking(container, player) {
   });
 
   // Reset asks first, in the page (see PROGRESS "reset").
-  function closeConfirm() {
+  function closeConfirm(refocus = true) {
     confirm.hidden = true;
     actions.reset.setAttribute("aria-expanded", "false");
-    actions.reset.focus();
+    if (refocus) actions.reset.focus();
   }
   actions.reset.addEventListener("click", () => {
     if (gesture || actions.reset.getAttribute("aria-disabled") === "true") return;
@@ -4254,7 +4272,7 @@ function wireMarking(container, player) {
     commit(record(player.getHistory(), resetStroke(player.getHistory().board)));
     player.forget(); // a confirmed reset clears the save (see SAVE)
   });
-  keep.addEventListener("click", closeConfirm);
+  keep.addEventListener("click", () => closeConfirm());
   // On the document, not on the dialog (review of 2026-11-17): a press on any
   // other control while the confirmation is open takes the focus out of it,
   // and Escape then did nothing while the question stayed on screen.
