@@ -852,7 +852,7 @@ def test_the_overlap_greedy_finds_the_true_extreme_start_of_every_run() -> None:
 
 
 def test_overlap_deduction_never_claims_more_than_every_placement_agrees_on() -> None:
-    """ADR-0029/R4: the rule is sound, so it can define a rung.
+    """ADR-0029/R4: the rule is sound, and it is exactly the overlap rule.
 
     What the overlap rule settles must be a *subset* of what enumeration says
     every feasible placement agrees on. If it ever claimed more, a cell would
@@ -860,17 +860,28 @@ def test_overlap_deduction_never_claims_more_than_every_placement_agrees_on() ->
     this classifier could lie about a solve — and, worse, the level-1 fixed
     point would write a cell some solution contradicts, which is CON-005.
 
+    Soundness alone cannot pin R4's first half: an overlap computed from
+    scratch, ignoring the line's known cells, is still sound, only weaker. So
+    the masks are also held *equal* to the ones the enumeration's own per-run
+    start range gives — ``lo``/``hi`` the min/max start of run ``i`` over every
+    feasible placement; filled is the known filled cells plus ``[hi, lo+run)``,
+    empty the known empty cells plus every cell outside all ``[lo, hi+run)``
+    windows. Built from the placements alone, never from the code under test,
+    and it reds when either known mask is dropped from the extremes (CARD-487).
+
     The same loop pins the other side of the rung's definition: overlap is
     *weaker* than the placement DP it is distinguished from, so anything it
     settles ``line_intersection`` settles too. Were that ever false, "only the
     DP could reach this cell" would stop meaning anything.
     """
     checked = 0
+    both_known = 0
     for clue, length, known_filled, known_empty in OVERLAP_CORPUS:
         placements = _feasible_placements(clue, length, known_filled, known_empty)
         if not placements:
             continue
         checked += 1
+        both_known += bool(known_filled) and bool(known_empty)
         context = f"runs={clue} length={length} filled={known_filled:b} empty={known_empty:b}"
 
         full = (1 << length) - 1
@@ -883,6 +894,21 @@ def test_overlap_deduction_never_claims_more_than_every_placement_agrees_on() ->
         deduced = overlap_deduction(clue, length, known_filled, known_empty)
         assert deduced is not None, context
         filled, empty = deduced
+        # Exactness against the enumeration's own extremes (ADR-0029/R4, the
+        # masks are relative to the known cells): from the placements alone.
+        expected_filled = known_filled
+        reachable = 0
+        for index, run in enumerate(clue):
+            lo = min(starts[index] for starts, _mask in placements)
+            hi = max(starts[index] for starts, _mask in placements)
+            for cell in range(hi, lo + run):
+                expected_filled |= 1 << cell
+            for cell in range(lo, hi + run):
+                reachable |= 1 << cell
+        expected_empty = known_empty | (full & ~reachable)
+        assert (filled, empty) == (expected_filled, expected_empty), (
+            f"{context}: not the overlap relative to the known cells"
+        )
         assert filled & ~agreed_filled == 0, f"{context}: unsound filled"
         assert empty & ~agreed_empty == 0, f"{context}: unsound empty"
         # Supersets of what was already known, as ``line_intersection`` is.
@@ -895,3 +921,6 @@ def test_overlap_deduction_never_claims_more_than_every_placement_agrees_on() ->
         assert empty & ~dp[1] == 0, f"{context}: overlap outran the DP (empty)"
 
     assert checked >= 200, f"only {checked} feasible triples in the corpus"
+    # CARD-487 review F-4: the exactness check bites only where known cells
+    # exist; 30 feasible lines carry both kinds today (seeded, measured).
+    assert both_known >= 25, f"only {both_known} feasible lines carry both known kinds"
