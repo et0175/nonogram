@@ -4,16 +4,16 @@
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
-**Estimate:** 4c (1.5d)
+**Estimate:** 2c
 <!-- RESTATED in review cycles 2026-11-07 at the owner's page-packing ruling (was `1d`): the card now also lands the packing rule's documentation (docs/BOOK_PAGE_PACKING.md with generated tables and a test that holds them to the code) and drops the wide-but-short exception, so the same tile rule covers every solution. The owner lifted the 1d cap for deliverables on 2026-11-06. -->
 **Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/232-solution-tiles
+**Branch:** —
 **Worktree:** —
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "Solutions: fixed tiles, with clues"
-**Idea:** —
-**Wave:** —
+**Idea:** IDEA-168
+**Wave:** 82
 **Depends on:** CARD-222 (the frame), CARD-225 (the cell size rule the tiles inherit), CARD-322
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_solved_answer_key.py, tests/test_book_solved_page.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card232.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/, docs/BOOK_PAGE_PACKING.md, tests/test_book_page_packing_doc.py, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md
@@ -179,3 +179,14 @@ Mostly built: every answer up to 30x30 packs four to a page with shaded clues an
 - Minimum cell: keep `MIN_CELL_MM = 2.0`. A page whose four tiles cannot reach it still falls back to two tiles, or a full page. That is no longer an open point.
 - AC-4, agreed with the owner the same day: a level's last page of one to three answers keeps the 2x2 positions. `plan_small_answer_pages` cuts pages of up to four, all at capacity 4, and `PackedAnswerPage.capacity` is now a field (default 4) that only the degrade path sets to 2.
 - Still open: the packing doc (AC-8) and the old 6-up wording (AC-9).
+
+## Wave 82 scope (2026-11-19)
+
+Re-read against main and the owner's live book (interior downloaded 2026-11-19): every answer page already prints four solutions in a 2x2 grid with shaded clues and one shared cell, centred per the owner's option B, and a level's short last page keeps the 2x2 positions. AC-1..AC-7 are built (Triage 2026-11-09 above). **This wave's scope is what is left:**
+
+1. **AC-8**: `docs/BOOK_PAGE_PACKING.md` with its constants block and its puzzles-per-page / solutions-per-page tables generated from the code and held by a test (with the two plants the AC names). It must state CARD-485's rule: a single-puzzle page reserves the footer strip like a two-up page.
+2. **AC-9**: the old rule (6-up, the 20-cell longest-side threshold, grid-only tiles, a 5 mm answer cap) gone from FR-042 and the named docs, held by a grep cell with a plant.
+3. **IDEA-168** (folded in): CARD-202's eight dormant minors in the packed path, e.g. `_packed_tile_layout` setting `Layout.margin` to a tile's absolute y-offset and `interior_stream`'s stale "no longer used to pack anything" docstring. Re-verify each; fix the live ones inline, one line each in the notes for the dead ones.
+
+Estimate restated from 4c to 2c for this remainder. The old branch name `card/232-solution-tiles` no longer exists and is not reused.
+

@@ -73,7 +73,23 @@ Seven cards merged: CARD-474 (IDEA-108), CARD-475 (IDEA-082), CARD-476 (IDEA-110
 ### compliance  (0.75 / 0.30 d)
 1. **IDEA-130** Handlers still flash or return raw exception text (WSJF 2.0) — 0.75 d  ⚠ exceeds the bucket: split it, or spend another category's budget
 
-## Wave 2 (next) — carded 2026-11-19 as CARD-481 (IDEA-004), CARD-482 (IDEA-021), CARD-483 (IDEA-176), CARD-484 (IDEA-192)
+## Wave 2 — DONE 2026-11-19
+
+Five cards merged: CARD-481 (IDEA-004), CARD-482 (IDEA-021), CARD-483 (IDEA-176), CARD-484 (IDEA-192), and CARD-485 (no idea: the owner's report on the live book that single-puzzle pages lost their footer; 15 pages in that book, 0 after). Wave close: full suite on `main`, figures in the close commit.
+
+## Wave 3 (next) — carded 2026-11-19 (board wave 82)
+
+Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069** (done by CARD-474), **IDEA-107** (superseded by `make test-gate`). Not carded: **IDEA-178** (owner layout call; reachable only on a band of 3 mm or less, which no stored profile has), **IDEA-106** (repo-wide guard audit: open-ended instrument work, held for the owner's say under the cut bar).
+
+### feature  (1.00 / 1.50 d)
+- **CARD-232** (IDEA-168 folded in) Solution tiles: what is left — the packing doc and its test (AC-8), the old 6-up wording (AC-9), CARD-202's dormant minors — 2c
+- **CARD-486** (IDEA-149) Hint minors, verified first, fixed only where live — 1c
+
+### tech-debt  (0.75 / 1.20 d)
+- **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
+- **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
+
+## Wave 2 as planned
 
 ### feature  (1.50 / 1.50 d)
 6. **IDEA-176** Is the two-up folio reserve still needed? It costs pairings (WSJF 1.23) — 0.75 d

@@ -134,7 +134,7 @@ ideas:
     of them as covered. Fix each ref (write the test, or re-type the check as `review-lens`)   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-481
   method: wsjf
   scores:
@@ -186,7 +186,8 @@ ideas:
     catch a check that can''t test its rule   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-487
   method: wsjf
   scores:
     user_business_value: 2
@@ -468,7 +469,8 @@ ideas:
     subprocess''s stderr   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-488
   method: wsjf
   scores:
     user_business_value: 1
@@ -579,7 +581,7 @@ ideas:
     interior-like path that does   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-482
   method: wsjf
   scores:
@@ -936,7 +938,8 @@ ideas:
     1` to whatever `DATABASE_URL` names, before the `_test` guard applies   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-488
   method: wsjf
   scores:
     user_business_value: 1
@@ -1806,7 +1809,8 @@ ideas:
     temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: done
+  card: CARD-474
   method: wsjf
   scores:
     user_business_value: 2
@@ -1823,7 +1827,7 @@ ideas:
   depends_on: []
   source_line: 83
   triage_state: "partly"
-  triage_note: "tests/test_web_upload.py still globs `tempfile.gettempdir()` for `nonogram-upload-*`; no such glob remains in a test_card_037 file"
+  triage_note: "Closed 2026-11-19 at the wave-3 card cut: CARD-474 (IDEA-108) scoped the upload glob to a per-test temp dir; tests/test_web_upload.py `test_the_cleanup_reading_sees_this_process_and_not_the_machine` holds it."
   triaged_at: "2026-11-18"
   wave: 3
   rank: 7
@@ -2123,7 +2127,8 @@ ideas:
     route, so renaming the step-1 form''s `default_size` select leaves it green (mutant M8) — GET /batch/create
     and assert the field names, or narrow the docstring   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-488
   method: wsjf
   scores:
     user_business_value: 1
@@ -2533,7 +2538,8 @@ ideas:
     ring, not the `--color-focus` ring; plural-test comments name per-cell hints the test doesn''t assert;
     a test comment still says ~176 px (now ~169 px)   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-488
   method: wsjf
   scores:
     user_business_value: 2
@@ -2709,7 +2715,10 @@ ideas:
 - id: IDEA-107
   title: 'Install pytest-testmon so review.test_scope: impact stops falling back to full'
   category: tech-debt
-  status: backlog
+  status: rejected
+  revival_trigger: "a per-cycle gate is measured running the full suite where make test-gate would not"
+  triage_note: "Closed 2026-11-19 at the wave-3 card cut: the gate already narrows without it. `make test-gate` (CARD-395, impact_set) is option (a) of config.yml's own test_scope comment; pytest-testmon would be a new dev dependency for no remaining gap."
+  rejection_class: superseded
   method: wsjf
   scores:
     user_business_value: 5
@@ -3630,7 +3639,8 @@ ideas:
   source_line: 222
   intent: null
   category: feature
-  status: backlog
+  status: in_kanban
+  card: CARD-486
   method: wsjf
   scores:
     user_business_value: 2
@@ -4027,7 +4037,8 @@ ideas:
   source_line: 251
   intent: null
   category: feature
-  status: backlog
+  status: in_kanban
+  card: CARD-232
   method: wsjf
   scores:
     user_business_value: 1
@@ -4219,7 +4230,7 @@ ideas:
   source_line: 323
   intent: null
   category: feature
-  status: in_kanban
+  status: done
   card: CARD-483
   method: wsjf
   scores:
@@ -4648,7 +4659,7 @@ ideas:
   source_line: 351
   intent: null
   category: feature
-  status: in_kanban
+  status: done
   card: CARD-484
   method: wsjf
   scores:
