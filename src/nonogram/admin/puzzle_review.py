@@ -2604,18 +2604,25 @@ def hint_rungs(
 
     Returns ``None`` — and the page hints row-major, as before — when the
     solve passes ``deadline_seconds`` (default
-    :data:`HINT_GRADE_DEADLINE_SECONDS`, read at call time) or the clue set is
-    not uniquely solvable, which has no grade (ADR-0029/R5).
+    :data:`HINT_GRADE_DEADLINE_SECONDS`, read at call time), the solve fails,
+    or the clue set is not uniquely solvable, which has no grade (ADR-0029/R5).
     """
     if deadline_seconds is None:
         deadline_seconds = HINT_GRADE_DEADLINE_SECONDS
     row_clues, column_clues = compute_clues(grid)
     try:
         result = solve(row_clues, column_clues, deadline=time.monotonic() + deadline_seconds)
-    except SolverTimeout as exc:
-        _log.info("hint grade skipped, the page hints row-major: %s", exc)
+    except SolverTimeout:
+        _log.info(
+            "hint grade skipped: the solve passed its %.1f s page-open deadline;"
+            " the page hints row-major", deadline_seconds)
+        return None
+    except Exception:  # card item 3: a failed grade degrades, the page still opens
+        _log.exception("hint grade failed; the page hints row-major")
         return None
     if not result.is_unique:
+        # ADR-0032/R1 says a stored puzzle is unique; one that is not is worth a line.
+        _log.warning("hint grade skipped: the clue set is not uniquely solvable")
         return None
     rank = {name: index for index, name in enumerate(RUNG_ORDER)}
     return [[None if tag is None else rank[tag] for tag in row] for row in result.rung_tags]

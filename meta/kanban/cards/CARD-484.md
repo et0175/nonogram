@@ -34,7 +34,7 @@
 Admin solve page only. The grade derives from the solution, so CON-021 / ADR-0038/R6 keep it behind the door. Public mode is untouched.
 
 1. **Owner's decision 2026-11-19: solve on page open.** The admin solve route runs the solver once on the puzzle's clues, under a bounded deadline, and passes the resulting rung grid to the page. No schema change, no migration.
-2. The hint picks the undecided cell with the lowest rung that the current marks force, iterating `lineForced` to a fixed point; it breaks ties in row-major order.
+2. Among the undecided cells today's single `lineForced` pass forces from the current marks, the hint picks the one with the lowest rung; ties go row-major. (Amended 2026-11-19 after review cycle 1: not a fixed point, because `hintLine` needs the cell forced by one line, G-2.)
 3. Where no rung grid is available (the solve timed out or failed), behave exactly as today; the page still opens.
 
 ## Acceptance criteria
@@ -76,3 +76,5 @@ Admin solve page only. The grade derives from the solution, so CON-021 / ADR-003
 **Gate.** Player set + cheap guards, 39 files (`-o addopts= -rfs`): 3 failed / 1962 passed / 0 skipped. Two of the failures were pins I then fixed and reran: 112 passed in tests/test_browser_fixture_scope.py + tests/test_player_public_mode.py. The fixes were the two new node ids added to `ADDED_SINCE_BEFORE`, and `_NEXTHINT_READ` updated to the new call line. The third, `tests/test_book_landing_page.py::test_the_way_back_from_a_puzzle_keeps_the_sections_and_the_place` (scrollY 145 vs 220), reds identically on base c9244284. It predates this card and is untouched by it.
 
 **Net test count.** By `--collect-only -o addopts=`: tests/ 10698 on base, 10700 on the branch (+2). test_puzzle_solver_hint.py 60 to 62.
+
+[Review 1/3] Score: 9.0, nothing gating, certified. Mutants M1-M7 each red a named test (row-major planted back, rank argument dropped, grade returning None, timeout uncaught, tie order flipped, grade honoured in public mode, null ranks sorted first); public fragment and play page sha256-identical to main; 330 passed, 0 skipped over the changed files plus test_cli and test_timeout. Low findings fixed inline by the orchestrator: F-1 a lost space in solver.js `start`; F-2 `hint_rungs` now degrades on any solve failure, not only a timeout (card item 3); F-3 the timeout log names the page-open deadline instead of quoting the generation-deadline message, and a non-unique clue set logs a warning; F-4 card item 2 amended to the single pass; F-5 `test_no_served_file_contains_a_solution_string` now also refuses any served page carrying `id="puzzle-player-rungs"` (a template mutant rendering it unconditionally reds it: `['index.html'] == []`). No test added.

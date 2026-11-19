@@ -1103,7 +1103,7 @@ function start() {
   // CARD-484's grade (see THE HINT GRADE above); null on every page that
   // does not embed one, which is every page but the admin player's.
   const rungs = readRungs(payload.width, payload.height);
-  const save =editing ? NO_SAVE : browserSave(saveKey(payload.id));
+  const save = editing ? NO_SAVE : browserSave(saveKey(payload.id));
   let history = createHistory(
     editing ? boardOfGrid(payload.solution) : createBoard(payload.width, payload.height));
   const saved = save.read();
