@@ -1,6 +1,6 @@
 # CARD-488: Four small test-side gaps closed in one pass: the DB probe, the migration log, the size form and two stale comments
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_db_url_driver.py, tests/e2e/test_admin_workflow.py, src/nonogram/admin/static/admin.css, tests/test_books_list_mobile.py
 **UI surface:** books list (plan-hints summary focus ring)
-**Review score:** —
+**Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T19:53Z
 **Closed:** —
 **Actual:** —
