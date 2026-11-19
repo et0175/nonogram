@@ -1,6 +1,6 @@
 # CARD-481: A mandatory rule's check names a test that exists
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/481-mandatory-check-refs
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-481
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-004, WSJF 5.08; absorbs IDEA-214 per meta/kanban/triage-outcomes.yml); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-004
-**Wave:** —
+**Wave:** 81
 **Created wave:** 81
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_check_ref_resolution.py
 **UI surface:** none
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-19T04:15Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
