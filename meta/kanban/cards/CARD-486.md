@@ -1,6 +1,6 @@
 # CARD-486: The four CARD-183 hint minors, verified against today's ladder and fixed only where still live
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py
 **UI surface:** admin solve page and public player (hint ladder)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T17:49Z
 **Closed:** —
 **Actual:** —
@@ -67,3 +67,5 @@ CARD-183's review left four minors (F-011..F-014): two polite announcements per 
 - [Review 1] Score 9.0, certified. F-001: the `|| document.activeElement === document.body` clause had no control. The undo-key case of TestSolverProgress_ResetAfterConfirm::test_a_board_change_while_asking_closes_the_confirmation now blurs focus to body first (asserted) and still expects Reset; test changed, none added. Clause removed in place → that case FAILED `assert None == 'Reset'` (1 failed, 13 passed in the class); solver.js restored, sha1 identical, no diff.
 - [Review 1] F-003 (info, from the review): the F-014 fix also clears Check's sentence from the live region on the next stroke; a Redo of a reveal is silent in the announce region (the counter still changes); the wrong-guess offer text (openOffer writes no data-said) still survives the next commit, as on main.
 - [Review 1] Results: tests/test_puzzle_solver_progress.py + tests/test_puzzle_solver_hint.py `-o addopts= -rfs` → 106 passed, 0 skipped; `--collect-only -q -o addopts= tests/` → 10701 (net 0).
+
+[Review 1/3] Score: 9.0, nothing gating, certified. Ten mutants on archive copies, one per fix branch: every one reds a named test except the body-focus clause (F-001, fixed in `a76b5bc4`: the undo-key case now starts with focus on body and reds without the clause). F-012's Undo/Redo focus change judged correct (it matches `test_a_board_change_with_the_confirmation_closed_leaves_focus_alone` and also stops keyboard marking losing focus); F-014 wipes no new announcement and leaves no hint text standing; F-013's pause still discriminates (0 s duration and a removed animation each red). F-002 a note overclaimed which paths return focus to Reset: reworded in `eeeb0d32`. F-003 info recorded. F-011 closed by the owner's decision 2026-11-19 ("Keep both"). Public player gets the same solver.js by byte copy; nothing else public changes. Net test count 0.
