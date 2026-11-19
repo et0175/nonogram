@@ -1,6 +1,6 @@
 # CARD-487: ADR-0029/R4's check tests its own rule, not the import graph
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** meta/architecture/decisions/adr/0029-difficulty-by-strategy-ladder.md, tests/test_solver*.py, tests/property/*, tests/test_check_ref_resolution.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T19:53Z
 **Closed:** —
 **Actual:** —
