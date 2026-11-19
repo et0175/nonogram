@@ -971,6 +971,11 @@ functional:
         # CARD-481 (2026-11-19): was the logical name `TestNudge_ReportsFailureAtCap`,
         # which pytest never defined or collected; re-pointed to the
         # collected test(s) that assert this statement.
+        # One name only, deliberately: the validator's covered-trace check reads an
+        # AC's `test:` string unsplit, so "a, b" here warns on FR-013's covered row.
+        # The "stops altering the image" clause is asserted by the sibling
+        # test_nudge_reports_failure_at_cap_stops_altering_the_image, which FR-013's
+        # trace row lists (CARD-481 fix round 1).
         test: test_nudge_reports_failure_at_cap
       - id: AC-036
         given: a reported nudge-cap failure
@@ -1412,7 +1417,7 @@ functional:
         # CARD-481 (2026-11-19): was the logical name `PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore`,
         # which pytest never defined or collected; re-pointed to the
         # collected test(s) that assert this statement.
-        test: test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more, test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary
+        test: test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more, test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary, test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
 
   - id: FR-022
     statement: >-
@@ -4436,15 +4441,21 @@ functional:
         then: the answer key is 2 pages, the first holding answers 1-6 and the second answers 7-12, each in 2 columns x 3 rows read left to right, top to bottom
         kind: happy
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_SixUpInPuzzleNumberOrder`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_SixUpInPuzzleNumberOrder`, which no
+        # def/class defines (retired with the 6-up/4-up key by CARD-198).
+        # Today's answer key (CARD-198, then CARD-202 and CARD-232): every answer
+        # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
+        # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
+        # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
+        # a page never holds two levels, and a page degrades to 2-up only when four
+        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # size-triggered switch to 4-up any more.
+        # FALSE today: 12 easy 15x15 answers plan as 3 pages of 4 (1-4, 5-8,
+        # 9-12), not 2 pages of 6. No current test asserts this example.
+        # Dropped rather than re-typed `review-lens`, per CARD-316's measured
+        # precedent at AC-378 (the validator ignores an AC's `kind:`). Whether to
+        # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
+        # card owns it yet. CARD-481's worktree notes list the stale clauses.
       # REWORDED 2026-09-22 (d): "on a 6-up page" -> "on a 6-up page that is
       # not the first answer page of its level" (a level-first page carries
       # the heading line; that case is AC-295).
@@ -4460,30 +4471,43 @@ functional:
         then: the first answer page is a 6-up page holding answers 1-5, and answer 6 starts the next page
         kind: boundary
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage`, which no
+        # def/class defines (retired with the 6-up/4-up key by CARD-198).
+        # Today's answer key (CARD-198, then CARD-202 and CARD-232): every answer
+        # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
+        # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
+        # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
+        # a page never holds two levels, and a page degrades to 2-up only when four
+        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # size-triggered switch to 4-up any more.
+        # FALSE today: 1-5 at 15x15 then a 25x25 plan as (1-4) and (5, 6) -- the
+        # 25x25 packs, so answer 6 does not start a page. No current test asserts it.
+        # Dropped rather than re-typed `review-lens`, per CARD-316's measured
+        # precedent at AC-378 (the validator ignores an AC's `kind:`). Whether to
+        # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
+        # card owns it yet. CARD-481's worktree notes list the stale clauses.
       - id: AC-264
         given: a Book 1 profile book whose puzzles 1-3 are 15x15, puzzle 4 is 25x25 and puzzle 5 is 15x15
         when: the book PDF is generated
         then: the first answer page is a 4-up page (2 x 2) holding answers 1-4, and answer 5 starts the next page
         kind: boundary
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20`, which no
+        # def/class defines (retired with the 6-up/4-up key by CARD-198).
+        # Today's answer key (CARD-198, then CARD-202 and CARD-232): every answer
+        # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
+        # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
+        # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
+        # a page never holds two levels, and a page degrades to 2-up only when four
+        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # size-triggered switch to 4-up any more.
+        # The OUTCOME still holds today (pages (1-4) then (5)), but by a different
+        # rule: every page is 2x2, not "4-up once it holds an answer above 20".
+        # No current test asserts this example or the size-triggered rule.
+        # Dropped rather than re-typed `review-lens`, per CARD-316's measured
+        # precedent at AC-378 (the validator ignores an AC's `kind:`). Whether to
+        # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
+        # card owns it yet. CARD-481's worktree notes list the stale clauses.
       - id: AC-265
         given: a Book 1 profile book whose answer key holds a 30x30 answer on a 4-up page
         when: the answer's grid is measured
@@ -4496,15 +4520,21 @@ functional:
         then: the answer key is one 6-up page holding answers 1-6 — a longest side of exactly 20 keeps the page 6-up
         kind: boundary
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LongestSideTwentyStaysSixUp`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LongestSideTwentyStaysSixUp`, which no
+        # def/class defines (retired with the 6-up/4-up key by CARD-198).
+        # Today's answer key (CARD-198, then CARD-202 and CARD-232): every answer
+        # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
+        # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
+        # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
+        # a page never holds two levels, and a page degrades to 2-up only when four
+        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # size-triggered switch to 4-up any more.
+        # FALSE today: six answers plan as (1-4) and (5, 6), not one 6-up page.
+        # No current test asserts it.
+        # Dropped rather than re-typed `review-lens`, per CARD-316's measured
+        # precedent at AC-378 (the validator ignores an AC's `kind:`). Whether to
+        # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
+        # card owns it yet. CARD-481's worktree notes list the stale clauses.
       - id: AC-267
         given: a Book 1 profile book holding a 15x15 puzzle whose row and column clues are non-empty
         when: its answer tile is rendered
@@ -4575,15 +4605,22 @@ functional:
         then: the answer key is 30 answer pages (the SOLUTIONS divider not counted) — 15 six-up pages then 15 four-up pages — where one page per answer would take 150
         kind: happy
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanTakesThirtyPages`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanTakesThirtyPages`, which no
+        # def/class defines (retired with the 6-up/4-up key by CARD-198).
+        # Today's answer key (CARD-198, then CARD-202 and CARD-232): every answer
+        # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
+        # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
+        # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
+        # a page never holds two levels, and a page degrades to 2-up only when four
+        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # size-triggered switch to 4-up any more.
+        # FALSE today: the 90 + 60 single-tier book plans as 38 answer pages
+        # (extent-only walk; the degrade pass can only add pages), not 30.
+        # No current test asserts it.
+        # Dropped rather than re-typed `review-lens`, per CARD-316's measured
+        # precedent at AC-378 (the validator ignores an AC's `kind:`). Whether to
+        # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
+        # card owns it yet. CARD-481's worktree notes list the stale clauses.
       # REWORDED 2026-09-22 (d): the page count is the INTERIOR PDF's
       # (FR-043) — "pages before the answer key" now reads from the guide
       # page through the SOLUTIONS divider, and the cover file is not
@@ -4601,15 +4638,14 @@ functional:
         then: the answer key is 2 answer pages — answers 1-4 on the first and answers 5-7 on the second — the medium level starts a new page although the first had room for 2 more
         kind: happy
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_EachLevelStartsNewAnswerPage`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # CARD-481 (2026-11-19): was `TestBookAnswerKey_EachLevelStartsNewAnswerPage`,
+        # which no def/class defines. Re-pointed to the test of today's level rule,
+        # which asserts a level run closes its packed page early rather than share
+        # it with the next level (3 easy + 2 medium -> (1-3), (4-5)). On this
+        # criterion's own book the pages are (1-4) and (5-7) today, as `then`
+        # says, but the clause "although the first had room for 2 more" is stale:
+        # today's 2x2 page holding 1-4 is full (FR-042's 6-up premise).
+        test: TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly
       - id: AC-291
         given: a Book 1 profile book of 8 easy puzzles then 1 medium puzzle, all 15x15
         when: its answer pages are read
@@ -4633,15 +4669,21 @@ functional:
         then: the answer key is 31 answer pages — easy 11, medium 13, hard 7 — after 1 SOLUTIONS divider page (32 pages; 30 before level-first pages)
         kind: boundary
         invariant: INV-011
-        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`,
-        # which no def/class defines: CARD-198 retired it with the packed
-        # 6-up/4-up answer key, which it replaced with one full solved page
-        # per puzzle -- so this criterion (and INV-011's packing clauses)
-        # no longer describe the book PDF, and no test asserts it. Dropped
-        # rather than re-typed `review-lens`, per CARD-316's measured precedent
-        # at AC-378 (the validator ignores an AC's `kind:`). The amendment of
-        # FR-042/INV-011 to the one-per-puzzle format is CARD-198's recorded
-        # "Not in this card" item, still open.
+        # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`, which no
+        # def/class defines (retired with the 6-up/4-up key by CARD-198).
+        # Today's answer key (CARD-198, then CARD-202 and CARD-232): every answer
+        # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
+        # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
+        # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
+        # a page never holds two levels, and a page degrades to 2-up only when four
+        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # size-triggered switch to 4-up any more.
+        # FALSE today: the default three-level plan plans as 15 + 15 + 8 = 38
+        # answer pages (extent-only walk), not 31. No current test asserts it.
+        # Dropped rather than re-typed `review-lens`, per CARD-316's measured
+        # precedent at AC-378 (the validator ignores an AC's `kind:`). Whether to
+        # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
+        # card owns it yet. CARD-481's worktree notes list the stale clauses.
       # New 2026-10-28 (CARD-305) — the off case for this FR's own divider.
       - id: AC-403
         given: the book of AC-253 with its divider-pages setting turned off
@@ -7035,7 +7077,7 @@ constraints:
     # collected test(s) that assert this statement.
     check:
       kind: test
-      ref: test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more, test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary
+      ref: test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more, test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary, test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
     severity: mandatory
   - id: CON-013
     type: technical

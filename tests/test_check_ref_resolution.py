@@ -1605,7 +1605,16 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # declared anywhere at the base; 36 departures balancing 36 entrants is a
 # coincidence of this repair (several rules now name two or three tests, and the
 # seven dropped criteria name none), not an identity.
-CENSUS = (585, "cac799cfd5236679")
+# CARD-481 fix round 1 (review cycle 1, 2026-11-19): 585 -> 597, OUT 0, IN 12,
+# diffed as sets against round 0's branch tip. All 12 are already-defined,
+# collected tests added beside a re-pointed ref where the first name asserted only
+# part of its rule: ADR-0022/R2 (+1) and R3 (+2), ADR-0024/R3 (+2), ADR-0026/R1
+# (+2), ADR-0029/R1, R3 and R5 (+1 each), FR-013's trace row for AC-035 (+1;
+# the AC field keeps one name, see its comment), and FR-042 AC-290,
+# re-pointed from a dropped `test:` to the level-boundary class of today's packed
+# key (+1). Quoting the multi-name ADR refs (F-001) moved nothing here: this
+# module's regex already read every name; the validator's YAML reader did not.
+CENSUS = (597, "a13bf06d10d27a88")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1658,7 +1667,11 @@ CENSUS = (585, "cac799cfd5236679")
 # INV-011 entries on FR-042's row, which are deleted with no replacement. IN: the
 # collected tests the re-pointed criteria now name, written into the same rows
 # (CON-012/014/019's rows and their EC rows gain two each). 514 - 28 + 24 = 510.
-TRACE_TESTS = (510, "375838017b674409")
+# CARD-481 fix round 1: 510 -> 512, OUT 0, IN 2 -- AC-035's second test on
+# FR-013's row and AC-290's level-boundary class on FR-042's row (the validator
+# wants an AC's tests listed on its covered trace entry). CON-012's added test was
+# already on its rows, so it moves nothing here.
+TRACE_TESTS = (512, "97d92cd08c3b2a5f")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1772,7 +1785,9 @@ TRACE_TESTS = (510, "375838017b674409")
 # CARD-481 (2026-11-19): 424 -> 460, OUT 0, IN 36 -- exactly CENSUS's 36 entrants,
 # every one a def line under tests/ found by an independent `ast` index and
 # collected by pytest by node id. Nothing left this class.
-DEFINED = (460, "686ea9dc059c4329")
+# CARD-481 fix round 1: 460 -> 472, OUT 0, IN 12 -- exactly CENSUS's 12 entrants,
+# each a def/class line under tests/ and collected by pytest by node id.
+DEFINED = (472, "24d591b999ff7984")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

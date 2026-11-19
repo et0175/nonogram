@@ -314,6 +314,7 @@ links:
   tests:
   - TestNudge_AttemptsBoundedRecovery
   - test_nudge_reports_failure_at_cap
+  - test_nudge_reports_failure_at_cap_stops_altering_the_image
   - TestNudge_FailureMessageSuggestsRetry
   - TestNudge_AddsACellWhereTheWitnessesDisagree
   - TestNudge_FallsBackToTheMaskThenStops
@@ -1068,6 +1069,7 @@ links:
   - TestAspectGuard_AcceptsWellMatchedPortraitSource
   - test_property_aspect_guard_accepts_exactly_those_requests_retaining_half_or_more
   - test_property_aspect_guard_pins_both_sides_of_the_inclusive_boundary
+  - test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied
   notes: >-
     A domain refusal, so it raises a NonogramError subclass that COMP-001 maps
     to an exit code and COMP-008 shapes into a structured failure (EC-003).
@@ -2169,6 +2171,7 @@ links:
   - TestBookAnswerKey_TwentyInSixUpTileCellSize
   - TestBookAnswerKey_ThirtyInFourUpTileCellSize
   - TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
+  - TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly
   - test_the_search_finds_an_answer_caption_at_its_own_size
   - test_a_custom_book_title_reaches_a_packed_page
   - TestBookFinalise_PageCountIncludesAnswerKeyPages
