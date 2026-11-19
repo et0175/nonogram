@@ -1,6 +1,6 @@
 # CARD-482: The proof PDF is written in the book's interior colour mode, not always RGB
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/482-proof-colour-mode
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-482
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-021, WSJF 5.0); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-021
-**Wave:** —
+**Wave:** 81
 **Created wave:** 81
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_proof.py, tests/test_book_proof_pages.py
 **UI surface:** none
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-19T07:14Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
