@@ -1,6 +1,6 @@
 # CARD-485: A single-puzzle page leaves room for its footer, so every puzzle page keeps its centred folio
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** ops
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/485-single-page-footer-reserve
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-485
+**Worktree:** —
 **Source:** owner 2026-11-19, on the downloaded "Christmas Nonograms" interior (prod DB): "Puzzle 140 - page number is in the corner, while other page numbers are in the middle, puzzles 114-115 have no folio, but it looks like we can make cell size a bit smaller." Owner: "yes, card it and start CARD-485".
 **Idea:** —
 **Wave:** 81
@@ -20,9 +20,9 @@
 **UI surface:** printed interior (single-puzzle pages)
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T14:42Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T16:47Z
+**Actual:** 1c — ratio 1/2 = 0.5
+**Merge commit:** 53235f323d90364b6920ac7633a59e629a5c219a
 **Blocked by:** —
 
 ## Why this card exists
