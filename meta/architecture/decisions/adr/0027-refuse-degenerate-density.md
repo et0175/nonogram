@@ -148,12 +148,12 @@ tests versus one condition and two tests), and it buys a permanent liability.
 - id: ADR-0027/R1
   statement: The valid requested density for random generation is 1..99 inclusive. Density 0 and 100 are refused as InvalidDensity by validate_density before any grid is drawn; MIN_DENSITY and MAX_DENSITY are the only statement of that range.
   scope: {code: ["src/nonogram/sourcing/random_grid.py"]}
-  check: {kind: test, ref: TestGenerateRandom_RefusesDensityZeroAndHundred}
+  check: {kind: test, ref: test_generate_random_refuses_density_zero_and_hundred}
   severity: mandatory
 - id: ADR-0027/R2
   statement: The verdict on a requested density is made only at the validate_density seam. No later pipeline stage (uniqueness, difficulty, export, batch) rejects a request on density grounds, and no module's documentation claims that one does.
   scope: {code: ["src/nonogram/**"]}
-  check: {kind: test, ref: TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam}
+  check: {kind: test, ref: test_the_degenerate_density_verdict_is_made_at_the_validate_density_seam}
   severity: mandatory
 ```
 

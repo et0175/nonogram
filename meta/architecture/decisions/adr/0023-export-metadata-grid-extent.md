@@ -154,7 +154,7 @@ so they must stay in lockstep, and here they should agree on the field's shape.
 - id: ADR-0023/R2
   statement: A decoder accepts only its own SCHEMA_VERSION, by exact comparison, and raises an error naming both the file's version and its own. It never attempts a best-effort read of an older document.
   scope: {code: ["src/nonogram/export/json_export.py", "src/nonogram/export/csv_export.py"]}
-  check: {kind: test, ref: TestExport_RejectsSupersededSchemaVersion}
+  check: {kind: test, ref: test_a_version_1_file_is_refused_and_not_migrated}
   severity: mandatory
 ```
 

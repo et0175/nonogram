@@ -350,17 +350,17 @@ unprintable output is not a range, it is a trap.
 - id: ADR-0022/R2
   statement: Each grid side is validated to 10..30 inclusive, as a pure domain function inward of the CLI adapter, for every source mode. The CLI parses the --size NxM form but never enforces the range itself.
   scope: {code: ["src/nonogram/sourcing/**", "src/nonogram/cli.py"]}
-  check: {kind: test, ref: TestValidateExtent_RejectsSideAboveThirty}
+  check: {kind: test, ref: "test_validate_extent_rejects_side_above_thirty, test_every_source_mode_rejects_every_side_outside_ten_to_thirty, test_the_cli_enforces_no_part_of_the_range_itself"}
   severity: mandatory
 - id: ADR-0022/R4
   statement: A `--size` token carrying both dimensions specifies the grid exactly and the source is fitted to it. A bare `--size N` sets the grid's LONGER side to N and derives the other side from the source's own aspect ratio, clamped to MIN_SIZE at the bottom only and never at the top. A source whose ratio exceeds N/5 is refused with a message naming the smallest N that would accommodate it, never silently clamped.
   scope: {code: ["src/nonogram/cli.py", "src/nonogram/orchestrator.py", "src/nonogram/sourcing/**", "src/nonogram/admin/**"]}
-  check: {kind: test, ref: PropertyTest_BareSize_DerivesShorterSideFromSourceShape}
+  check: {kind: test, ref: "test_a_bare_size_derives_the_shorter_side_from_the_source_shape, test_the_derived_short_side_is_the_rounded_ratio_clamped_at_min_or_refused"}
   severity: mandatory
 - id: ADR-0022/R3
   statement: An uploaded image is fitted to the requested grid's aspect ratio by a centred crop, never by stretching and never by padding. A request whose grid aspect ratio differs by more than 2x from the source's INK BOUNDING BOX ratio — not from its as-decoded file ratio — is refused rather than cropped. The bounding box is computed and judged before any crop is applied, so a refused request is still refused before any cropping runs.
   scope: {code: ["src/nonogram/sourcing/image.py", "src/nonogram/admin/**"]}
-  check: {kind: test, ref: TestFitImage_RefusesRatioMismatchBeyondTwice}
+  check: {kind: test, ref: "test_fit_image_refuses_a_ratio_mismatch_beyond_twice, test_property_aspect_guard_judges_the_ink_box_before_any_crop_is_applied, test_property_fit_image_crop_box_is_the_largest_centred_rectangle_of_target_aspect, test_property_fit_image_never_stretches_and_never_pads"}
   severity: mandatory
 ```
 
