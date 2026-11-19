@@ -1,6 +1,6 @@
 # CARD-483: A two-up page stops reserving the corner folio it no longer draws, if that is proved
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/483-two-up-folio-reserve
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-483
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-176, WSJF 1.23); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-176
 **Wave:** 81
@@ -20,9 +20,9 @@
 **UI surface:** printed interior (two-up pages)
 **Review score:** 9.0 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-19T08:49Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T10:28Z
+**Actual:** 3c — ratio 3/2 = 1.5
+**Merge commit:** 8b2ef3b4f83417bc8744568a5dabef6756923213
 **Blocked by:** —
 
 ## Why this card exists
@@ -270,3 +270,5 @@ count unchanged by this round (still +2 for the card).
 [Review 2/3] Score: 8.0, nothing gating, certified. All cycle-1 findings closed; oracles faithful; F-7 no test pinned the 108 the pointer still uses; F-8 an unused parameter and two long lines. Fixed in `4bc78d76`.
 [Review 3/3] Score: 9.0, nothing gating, certified. The 108 pin reds at 107; +2 tests over the changed files (390 vs 388); 843 passed, 0 skipped.
 
+
+[Merge gate] `make test-gate`: 10100 passed, 1 failed, 30 skipped (29 database-not-set, 1 setrlimit), 13 deselected, 1 xfailed, of 10145 selected; run 2 (wave_close_only), 11 passed. The one failure, `tests/test_book_landing_page.py::test_the_way_back_from_a_puzzle_keeps_the_sections_and_the_place` (scrollY 145 vs 220), is not this card's: it fails 3/3 alone on main and 2/2 at its own merge `c505bd44` (another session's QA Return-to-book work), and this card touches no landing code. Merged on that basis; the failure is reported to the owner. Post-merge on main: card census, `tests/test_book_page_numbers.py`, `tests/property/test_book_pairing.py`, 95 passed. Owner check owed: the renders in `~/Documents/nonogram-reviews/CARD-483/` (25x10, 26x12, 25x14, 24x10) and the F-5 border-on-rule item above.
