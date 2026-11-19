@@ -1,6 +1,6 @@
 # CARD-488: Four small test-side gaps closed in one pass: the DB probe, the migration log, the size form and two stale comments
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_db_url_driver.py, tests/e2e/test_admin_workflow.py, src/nonogram/admin/static/admin.css, tests/test_books_list_mobile.py
 **UI surface:** books list (plan-hints summary focus ring)
-**Review score:** —
+**Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T19:53Z
 **Closed:** —
 **Actual:** —
@@ -69,3 +69,5 @@ All four items were re-verified live on the branch base; none was already closed
 * **Fix round 1 gate:** the round-0 files plus test_books_list_plan_stats (23 files, globs expanded), `-rfs`. Unarmed: 1599 passed, 25 skipped, all `Database not reachable: DATABASE_URL is not set`. Armed at this worktree's `_test` database: 1624 passed, 0 skipped. `--collect-only -q -o addopts=` over tests/: 10705 (net +1 vs base 10704). Full suite not run here.
 
 [Review 1/3] Score: 8.0, two gating findings, not certified. F-001 a refused DATABASE_URL skipped every db_required test, including those that run on the suite's own `_test` database (measured 14 passed on main, 14 skipped on the branch), on a false premise; F-002 AC-2's control could not fail as written (the probe never builds an engine; psycopg2 masks the password); F-003 the skip message named TEST_DATABASE_URL; F-004 the second stale comment the title promised was not touched; F-005 a conftest comment repeated F-001's premise. AC-2 amended on main and branch by the orchestrator (`52e859fb`); F-001 (option a: judge the resolved test URL, never probe the refused one), F-003, F-004, F-005 fixed in `bd36accd`.
+
+[Review 2/3] Score: 9.6, nothing gating, certified. F-001..F-005 closed and re-measured: the refused-but-reachable `?dbname=` control 14 passed (14 skipped in cycle 1); unarmed `-m db_required` 29 skipped "DATABASE_URL is not set"; armed at the worktree's own `_test` DB 29 passed; opt-out with a foreign unreachable host 29 skipped in 1.8 s, nothing probed; the AC-1 control reds 8/8 under all four plants. F-006 (info): with DATABASE_URL refused, the gate may create the resolved database, but `_ensure_test_database` re-checks the refusal before any DDL (name ends `_test`, no dbname override, `[a-z0-9_]+`), and main already reached that path via `db_session`. Net +1 (10705).
