@@ -98,3 +98,5 @@ written mode).
 [Review 1/3] Score: 9.0, nothing gating, certified. Conversion lossless (0 non-grey pixels; `convert("L")` = R channel) and pixel-identical to the interior's own B&W path for both pages; seven mutants each red the new test. F-001 (low) the `None` claim was read, not run; F-002 (low) the docstring's first line said "proof_pages as one PDF".
 
 [After certification, uncertified] One docstring line in `render_proof_pdf` reworded for F-002 and the notes' `None` line corrected for F-001; no code change.
+
+[Merge gate, first run] RED, 1 failed of 9037: `tests/test_book_export_interior_cover.py`'s `OUTSIDE_CALLERS_WITH_A_POSITION` pins the proof's one positioned geometry-door call by LINE (`book_proof.py`, 756); moving the page loop into `_drawn_pages` put the same `generator.page_spec(position)` call at 760. Neither review ran that module. Re-pinned 756 -> 760 with a history line in the pin's own style; the class 23 passed. Uncertified: no review saw the re-pin.
