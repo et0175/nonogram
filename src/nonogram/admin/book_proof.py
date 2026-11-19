@@ -750,7 +750,11 @@ def proof_pages(book: object = None) -> list[Image.Image]:
         ValueError: the book's stored print specification cannot be laid out —
             the message names the column at fault.
     """
-    generator = BookPDFGenerator(book)
+    return _drawn_pages(BookPDFGenerator(book))
+
+
+def _drawn_pages(generator: BookPDFGenerator) -> list[Image.Image]:
+    """:func:`proof_pages` for the sheet ``generator`` was built for, as drawn."""
     pages: list[Image.Image] = []
     for position, puzzle in enumerate(PROOF_PUZZLES, start=1):
         spec = generator.page_spec(position)
@@ -762,7 +766,7 @@ def proof_pages(book: object = None) -> list[Image.Image]:
 
 
 def render_proof_pdf(book: object = None) -> BytesIO:
-    """:func:`proof_pages` as one PDF, rewound to 0.
+    """:func:`proof_pages`' drawing as one PDF in the interior's colour mode, rewound to 0.
 
     One image per page at :data:`~nonogram.export.layout.DPI`, which is what
     makes the pages their trim in the document rather than 4.17x too large —
@@ -770,8 +774,19 @@ def render_proof_pdf(book: object = None) -> BytesIO:
     lines here rather than a call into that generator because its writer is
     private and G-3 puts the module out of this card's reach; the note on
     ``_note_font_bytes`` says the same about the face.
+
+    **The pages are written in the mode the book's interior would be**
+    (CARD-482): :attr:`BookPDFGenerator.interior_bitmap_mode` — ``"L"``, so
+    ``/DeviceGray``, for a black-and-white book (and for ``None``, which is the
+    default ink mode, black-and-white), ``"RGB"`` for a colour one. The rule is
+    read from the generator, not restated here, and it is applied to the
+    finished pages exactly as the interior applies it: the drawing is black on
+    white either way, and ``convert("L")`` maps a grey ``(v, v, v)`` to ``v``,
+    so the colour space changes and nothing else.
     """
-    pages = proof_pages(book)
+    generator = BookPDFGenerator(book)
+    mode = generator.interior_bitmap_mode
+    pages = [page.convert(mode) for page in _drawn_pages(generator)]
     pdf_bytes = BytesIO()
     pages[0].save(
         pdf_bytes,

@@ -6273,7 +6273,10 @@ class Generator:
     #: CARD-391: 767 -> 756. The same call, 11 lines higher: ``book_proof.py``
     #: lost the 11-line branch that kept the proof note's strip clear of the
     #: QR icon (the icon left ``render_pages``); no position changed.
-    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 756),)
+    #: CARD-482: 756 -> 760. The same call, 4 lines lower: the page loop moved
+    #: into ``_drawn_pages(generator)`` so ``render_proof_pdf`` can read the
+    #: interior's colour mode off the one generator; no position changed.
+    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 760),)
 
     def test_the_module_axis_bound_is_measured_rather_than_declared(self):
         """AC-4 for the one axis this card leaves open, with its own control.
