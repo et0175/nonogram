@@ -1,6 +1,6 @@
 # CARD-487: ADR-0029/R4's check tests its own rule, not the import graph
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/487-r4-check
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-487
 **Source:** roadmap rescore 2026-11-18, wave 3 (IDEA-006, WSJF 3.85); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-006
 **Wave:** 82
@@ -19,7 +19,7 @@
 **Touches:** meta/architecture/decisions/adr/0029-difficulty-by-strategy-ladder.md, tests/test_solver*.py, tests/property/*, tests/test_check_ref_resolution.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-19T19:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
