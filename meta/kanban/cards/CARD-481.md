@@ -1,6 +1,6 @@
 # CARD-481: A mandatory rule's check names a test that exists
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/481-mandatory-check-refs
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-481
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-004, WSJF 5.08; absorbs IDEA-214 per meta/kanban/triage-outcomes.yml); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-004
 **Wave:** 81
@@ -18,11 +18,11 @@
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_check_ref_resolution.py
 **UI surface:** none
-**Review score:** 9.0 (cycle 3/3 - CERTIFIED; cycles 6.0, 8.0, 9.0)
+**Review score:** 9.0 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-19T04:15Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T06:59Z
+**Actual:** 3c — ratio 3/2 = 1.5
+**Merge commit:** 95ef2d95f9845eb2c699b6c7785c8372d3fbbe3c
 **Blocked by:** —
 
 ## Why this card exists
@@ -290,3 +290,8 @@ test_kanban_review_record) 218 passed, 1 xfailed (AC-037, pre-existing);
 **Figures:** `tests/test_check_ref_resolution.py` 26 passed (26 collected, 2 documented
 UserWarnings); validator of record 0 error(s), 105 warning(s), unchanged from fix round 1;
 `tests/test_kanban_review_record.py` 71 passed.
+
+[Review 1/3] Score: 6.0, two gating findings. F-001 multi-name ADR refs written unquoted in a flow mapping, so the validator's YAML reader saw only the first name; F-002 the seven FR-042 drop comments described a one-answer-per-page key, but packing is back (CARD-202/232). Fixed in `0eaa5dc0`: refs quoted, AC-290 re-pointed, comments accurate, owner list of stale INV-011/FR-042 clauses.
+[Review 2/3] Score: 8.0, nothing gating, certified. F2-001 nothing in the suite catches a lost quote; F2-002 comment text one fallback short; F2-003 stale size docstring for the owner list. Fixed in `e9cc60cb`/`3b07d115`, one assertion inside an existing test (collection 26 = main).
+[Review 3/3] Score: 9.0, nothing gating, certified. Both mutations re-run (un-quote: 1 failed/25 passed; assertion deleted: 26 passed); the stdlib split agrees with YAML on all 49 ADR test checks; F3-001 (low) two synthetic shapes differ, neither occurs in the tree.
+[Merge gate] `make test-gate`: 5696 passed, 15 skipped (14 DATABASE_URL unset, attributed with -rs; 1 setrlimit), 9 deselected, 1 xfailed, of 5717 selected; run 2 (wave_close_only), 5 passed; exit 0. Post-merge on main: card census, `tests/test_check_ref_resolution.py` and CON-005's test, 98 passed.
