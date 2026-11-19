@@ -529,14 +529,20 @@ class TestBookCellMm_OnlyReadsComputeLayout:
         seen = []
         real = module.compute_layout
 
-        def spy(row_clues, column_clues, page_spec=None):
-            seen.append(page_spec)
-            return real(row_clues, column_clues, page_spec=page_spec)
+        def spy(row_clues, column_clues, page_spec=None, *, footer_reserve_px=0):
+            seen.append((page_spec, footer_reserve_px))
+            return real(
+                row_clues, column_clues, page_spec=page_spec, footer_reserve_px=footer_reserve_px
+            )
 
         monkeypatch.setattr(module, "compute_layout", spy)
         spec = book_page_spec(_book(**CON018_COLUMNS), 2)
         book_cell_mm(spec, _clues(15, 3), _clues(15, 3))
-        assert seen == [spec]
+        # CARD-485: with the footer strip the frame draws reserved, so the
+        # book cell is the one the puzzle page is fitted at.
+        from nonogram.export.layout import interior_frame
+
+        assert seen == [(spec, interior_frame(spec).footer_depth)]
 
     def test_a_spec_without_parity_has_no_book_cell(self) -> None:
         with pytest.raises(ValueError, match="parity"):

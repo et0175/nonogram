@@ -193,7 +193,18 @@ TWO_UP_RULE_GAP_MM = 3.0
 #: which works in device pixels and derives the clearance from the three rule
 #: weights. This window exists only so that a corpus measured in millimetres
 #: does not have to guess at the edge.
-CLEARANCE_WINDOW_MM = 2.0
+#:
+#: **Narrowed from 2.0 to 1.4 mm by CARD-485, and why it may not be wider.**
+#: A single page is now fitted above the footer rule, so every height-bound
+#: drawing leaves exactly the header rule's lift of spare — an eighth of the
+#: band, 1.5 mm — and floats at the ratio. A 2 mm window swallowed every one
+#: of them, measured: the EC-019 sweep checked only 165 cases (its floor is
+#: 200), the every-extent sweep windowed 30 pages against 237 counted and the
+#: mirrored-margins sweep 64 pages over 157 cases, both past their caps. 1.4 mm stays above the real threshold, which
+#: is 1.21 mm at every cell up to the 7.5 mm cap (the thin rule is the 0.25 mm
+#: floor's 3 px there, so the clearance is 6 px whatever the cell), and below
+#: the 1.5 mm a fitted drawing leaves.
+CLEARANCE_WINDOW_MM = 1.4
 
 TOP_MM = 0.55 * 25.4
 #: The strip an answer page keeps above its drawing for its running head
@@ -275,7 +286,11 @@ class Sheet:
 
     @property
     def usable_height_mm(self) -> float:
-        return self.height_mm - self.top_mm - BOTTOM_MM - BAND_MM
+        """The height a single page's cell is fitted against: band's foot to
+        footer rule (CARD-485 — until then down to the bottom margin, which
+        left a height-bound grid on the footer strip and the page without its
+        footer group)."""
+        return self.height_mm - self.top_mm - BOTTOM_MM - BAND_MM - FOOTER_STRIP_MM
 
     def page_fit_mm(self, across: int, down: int) -> float:
         """FR-030's page fit: the largest cell the usable area holds the drawing at."""
@@ -346,9 +361,10 @@ class Sheet:
 
         :data:`SPARE_ABOVE` of the puzzle area's spare height below the header
         rule, or the band's foot where the drawing is too deep for that area
-        to hold it (the regime a page-fit-bound drawing is always in, since the
-        cell is fitted against the usable height less the band, which is up to
-        one footer strip deeper than the area).
+        to hold it. Since CARD-485 the cell is fitted above the footer rule
+        (:attr:`usable_height_mm`), so a fitted drawing leaves at least the
+        header rule's lift of spare and only a drawing the 2 mm floor holds is
+        too deep.
 
         **The window.** The implementation abandons the ratio a little before
         the spare reaches zero: each of the two gaps the split would leave has
@@ -648,6 +664,9 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         assert drawing.left >= usable_left - 1, (sheet, drawing.left, usable_left)
         assert drawing.grid_right <= usable_right + 1, (sheet, drawing.grid_right)
         assert drawing.grid_bottom <= usable_bottom + 1, (sheet, drawing.grid_bottom)
+        # CARD-485: and above the footer rule, so the page keeps its footer.
+        footer_rule = sheet.puzzle_area_mm()[1] * PX_PER_MM
+        assert drawing.grid_bottom <= footer_rule + 1, (sheet, drawing.grid_bottom, footer_rule)
         assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
             3 * HALF_PIXEL_MM + 1e-9
         ), (sheet, _mm(drawing.top), tops_mm)
@@ -758,6 +777,12 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
                 continue
             # Unrotated: the grid's width runs across the page, its height down.
             assert (drawing.columns, drawing.rows) == (columns, rows), (sheet, columns, rows)
+            # CARD-485 AC-2 (rendered half): the grid's lowest rule is at or
+            # above the footer rule on every extent of the sweep.
+            footer_rule = sheet.puzzle_area_mm()[1] * PX_PER_MM
+            assert drawing.grid_bottom <= footer_rule + 1, (
+                sheet, columns, rows, drawing.grid_bottom, footer_rule
+            )
             counted += 1
 
         assert len(tops) > 1, (

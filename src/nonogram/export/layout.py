@@ -1850,7 +1850,8 @@ class InteriorFrame:
         :func:`compute_pair_layout` has to be told to **reserve** so that a
         two-up page has a footer at all — one definition of how deep a footer
         is, read by the frame that draws it and by the fit that makes room
-        for it (G-1, AC-8).
+        for it (G-1, AC-8). Since CARD-485 a single puzzle page reserves it
+        too, through :func:`compute_layout`'s ``footer_reserve_px``.
         """
         return self.page_bottom - self.footer_rule.y
 
@@ -2774,6 +2775,7 @@ def _placed_cell_mm(
     *,
     larger_dimension: int,
     page_spec: PageSpec,
+    footer_reserve_px: int = 0,
 ) -> Fraction:
     """The cell of a placed page, exactly, in millimetres: ``min(cap, page fit)``.
 
@@ -2790,6 +2792,14 @@ def _placed_cell_mm(
     path. On a trim that cannot hold the drawing at 2 mm the drawing overflows
     (:attr:`PagePlacement.fits` is then ``False``) rather than printing cells
     nobody can mark.
+
+    ``footer_reserve_px`` is a strip of whole device pixels kept free under the
+    drawing (CARD-485): :func:`compute_layout`'s single page passes
+    :attr:`InteriorFrame.footer_depth` through it, so the height term stops at
+    the footer rule. It is subtracted **exactly** (pixels to millimetres, no
+    float step), so a drawing fitted against it, set on the band's foot, ends
+    on or above ``usable bottom - footer_reserve_px`` after rounding: the
+    reserve is a whole number of pixels, and rounding commutes with adding one.
     """
     usable_width = (
         _exact_mm(page_spec.width_mm)
@@ -2801,6 +2811,7 @@ def _placed_cell_mm(
         - _exact_mm(page_spec.top_mm)
         - _exact_mm(page_spec.bottom_mm)
         - _exact_mm(page_spec.band_mm)
+        - Fraction(footer_reserve_px) * _MM_PER_INCH / DPI
     )
     fit = min(usable_width / total_columns, usable_height / total_rows)
     cap = _exact_mm(_cap_mm(larger_dimension, page_spec))
@@ -2837,10 +2848,14 @@ def _placed_drawing_top(
       for its own stroke at both ends, and the gap above is
       ``GRID_SPARE_ABOVE x spare``.
     * ``"footer"`` — reached three ways, two of them obvious from the name.
-      (i) The drawing is as deep as the area or deeper (the cell is fitted
-      against the usable height *less the band*, which is up to one footer
-      strip deeper than the puzzle area, so a height-bound drawing is always
-      in this regime). (ii) This sheet has no puzzle area at all. (iii) **The
+      (i) The drawing is as deep as the area or deeper (a cell fitted with
+      no ``footer_reserve_px`` is fitted against the usable height *less the
+      band*, which is up to one footer strip deeper than the puzzle area, so
+      such a height-bound drawing is always in this regime; a book's puzzle
+      page reserves the strip since CARD-485, which leaves its drawing at
+      least the header rule's lift of spare — 17.72 px at the stored 12 mm
+      band, past the 14.29 px the ratio needs (below) — so it floats in
+      ``"ratio"``). (ii) This sheet has no puzzle area at all. (iii) **The
       spare is positive but too small to pay the clearance below** — the area
       does hold the drawing and the ratio is abandoned anyway, so the verdict
       names the footer rule while what bound the placement is the *header*
@@ -3306,7 +3321,11 @@ def _place_column_clues(
 
 
 def compute_layout(
-    row_clues: ClueSet, column_clues: ClueSet, page_spec: PageSpec | None = None
+    row_clues: ClueSet,
+    column_clues: ClueSet,
+    page_spec: PageSpec | None = None,
+    *,
+    footer_reserve_px: int = 0,
 ) -> Layout:
     """Measure the printed page for one puzzle's clues.
 
@@ -3332,6 +3351,22 @@ def compute_layout(
         page_spec: The sheet (ADR-0036). ``None`` and :data:`DEFAULT_PAGE_SPEC`
             are the same call and give today's A4 geometry exactly. A spec with
             a parity lays the puzzle out on its trim (see the module docstring).
+        footer_reserve_px: How many pixels of a placed page's height to keep
+            free under the drawing for the page's footer strip, taken out of
+            the cell's **fit** only (CARD-485) — the single-page twin of
+            :func:`compute_pair_layout`'s parameter of the same name, and passed
+            the same figure: :attr:`InteriorFrame.footer_depth`, the strip the
+            frame draws. A book's puzzle page passes it (the generator's
+            ``vector_puzzle_page``), and so does
+            :func:`~nonogram.admin.book_page_spec.book_cell_mm`, so the
+            per-grid-size book cell is fitted above the footer rule too. The
+            placement is untouched: the drawing still floats in
+            :func:`_puzzle_area_px`'s area, which already ends at that rule, so
+            fitted against it the drawing clears the rule and the footer group
+            is drawn. ``0`` (the default) is the full-box fit every other
+            caller keeps — a page that draws no footer (a proof page), or one
+            whose spec already gives the strip up (an answer page,
+            ``answer_section_spec``).
 
     Returns:
         The :class:`Layout` the renderers draw from.
@@ -3339,7 +3374,9 @@ def compute_layout(
     Raises:
         ValueError: one clue set is empty while the other is not — a grid with
             rows but no columns (or the reverse) cannot be drawn, and is a
-            pipeline bug rather than a puzzle.
+            pipeline bug rather than a puzzle; or ``footer_reserve_px`` is
+            negative, or non-zero on a spec with no parity (a drawing-sized
+            image has no footer, and the CLI path must stay byte-identical).
         TypeError: ``page_spec`` is neither ``None`` nor a :class:`PageSpec`.
     """
     if page_spec is None:
@@ -3348,6 +3385,11 @@ def compute_layout(
         spec = page_spec
     else:
         raise TypeError(f"page_spec must be a PageSpec or None, not {type(page_spec).__name__}")
+    if footer_reserve_px < 0 or (footer_reserve_px and spec.parity is None):
+        raise ValueError(
+            "footer_reserve_px is a non-negative strip of a placed page (a spec "
+            f"with a parity), not {footer_reserve_px} px on parity {spec.parity}"
+        )
 
     rows, columns = len(row_clues), len(column_clues)
     if bool(rows) != bool(columns):
@@ -3408,6 +3450,7 @@ def compute_layout(
             drawing_rows,
             larger_dimension=larger_dimension,
             page_spec=spec,
+            footer_reserve_px=footer_reserve_px,
         )
         cell_mm = float(exact_cell_mm)
         pitch = _exact_px(exact_cell_mm)

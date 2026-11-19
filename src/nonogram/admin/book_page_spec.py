@@ -102,6 +102,7 @@ from nonogram.export.layout import (
     PageParity,
     PageSpec,
     compute_layout,
+    interior_frame,
 )
 
 __all__ = [
@@ -658,13 +659,25 @@ def book_cell_mm(
 ) -> float:
     """A puzzle's printed cell on the book, in millimetres: ``compute_layout``'s, read off.
 
+    Fitted exactly as the puzzle page is (CARD-485): with the page's footer
+    strip reserved, ``interior_frame(spec).footer_depth`` — the figure the
+    frame draws and the page's own ``compute_layout`` call passes — so the
+    cell this returns leaves the grid above the footer rule, and
+    :func:`book_cell_sizes`' minimum inherits that for every member.
+
     Raises:
         ValueError: ``spec`` has no parity, so it lays out a drawing-sized
             image rather than a book page and has no book cell.
     """
-    layout = compute_layout(tuple(row_clues), tuple(column_clues), page_spec=spec)
-    if layout.page is None:
+    if spec.parity is None:
         raise ValueError("book_cell_mm needs a book page spec (one with a parity): build it with book_page_spec")
+    layout = compute_layout(
+        tuple(row_clues),
+        tuple(column_clues),
+        page_spec=spec,
+        footer_reserve_px=interior_frame(spec).footer_depth,
+    )
+    assert layout.page is not None  # a spec with a parity is a placed page
     return layout.page.cell_mm
 
 

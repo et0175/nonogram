@@ -4981,7 +4981,14 @@ class BookPDFGenerator:
             puzzle_page,
             None if cell_sizes is None else cell_sizes.get(self._grid_size(payload)),
         )
-        layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
+        # The fit stops at the footer rule (CARD-485): the strip the frame
+        # draws is the strip the fit keeps free, the one figure both read.
+        layout = compute_layout(
+            payload.row_clues,
+            payload.column_clues,
+            page_spec,
+            footer_reserve_px=interior_frame(page_spec).footer_depth,
+        )
         stream = puzzle_page_stream(
             layout,
             header_band(layout),

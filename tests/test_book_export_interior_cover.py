@@ -4423,8 +4423,14 @@ class Generator:
         # pairing walk's ``_folio_reserve_px(self.dpi)`` call, a definition
         # this module makes, is gone with the two-up folio reserve. Read off
         # this test's own measurement.
-        ((), 726),
-        (("builtins",), 466),
+        #
+        # **CARD-485: +1** (726 -> 727, 466 -> 467, last four unchanged): the
+        # single puzzle page's ``interior_frame(page_spec)`` call, an import,
+        # which hands the frame's ``footer_depth`` to ``compute_layout`` so the
+        # page is fitted above the footer rule. Read off this test's own
+        # measurement.
+        ((), 727),
+        (("builtins",), 467),
         (("builtins", "definitions and imports"), 171),
         (("builtins", "definitions and imports", "parameters"), 170),
         (

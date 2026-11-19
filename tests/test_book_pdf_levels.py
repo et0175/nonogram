@@ -932,12 +932,31 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
                 # finds no folio at all
                 assert footer_digits(page, (columns, rows), floor + 1.0) == [], where
 
-    def test_a_page_with_no_footer_has_no_folio_and_is_refused_loudly(self) -> None:
-        """A 20x30 and a 10x30 vector page carry no footer (measured: no "x"
-        label word on pages 6, 7 and 150). The control is the page beside them
-        that does."""
+    def test_a_page_with_no_footer_has_no_folio_and_is_refused_loudly(
+        self, monkeypatch
+    ) -> None:
+        """A 20x30 and a 10x30 vector page fitted to the full usable box carry
+        no footer (measured: no "x" label word on pages 6, 7 and 150). The
+        control is the page beside them that does.
+
+        CARD-485 fits every single page above the footer rule, so no Book 1
+        page lacks its footer any more; the footerless page this reader must
+        refuse is made by planting the full-box fit those two sizes had
+        (``footer_reserve_px`` dropped), and the same two sizes are first
+        shown to carry their footer as production draws them."""
+        import nonogram.admin.book_pdf_generator as module
+
         control = self._written_page(_puzzle("C", "easy", 20, 20), 6, 1, "Easy")
         assert footer_digits(control, (20, 20)) == ["6"]
+        for columns, rows in ((20, 30), (10, 30)):
+            drawn = self._written_page(_puzzle("N", "easy", columns, rows), 6, 1, "Easy")
+            assert footer_digits(drawn, (columns, rows)) == ["6"]
+        real = module.compute_layout
+
+        def full_box(row_clues, column_clues, page_spec=None, **_reserve):
+            return real(row_clues, column_clues, page_spec)
+
+        monkeypatch.setattr(module, "compute_layout", full_box)
         for columns, rows in ((20, 30), (10, 30)):
             puzzle = _puzzle("N", "easy", columns, rows)
             for page_number in (6, 7, 150):
