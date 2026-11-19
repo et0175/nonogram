@@ -875,11 +875,13 @@ def test_overlap_deduction_never_claims_more_than_every_placement_agrees_on() ->
     DP could reach this cell" would stop meaning anything.
     """
     checked = 0
+    both_known = 0
     for clue, length, known_filled, known_empty in OVERLAP_CORPUS:
         placements = _feasible_placements(clue, length, known_filled, known_empty)
         if not placements:
             continue
         checked += 1
+        both_known += bool(known_filled) and bool(known_empty)
         context = f"runs={clue} length={length} filled={known_filled:b} empty={known_empty:b}"
 
         full = (1 << length) - 1
@@ -919,3 +921,6 @@ def test_overlap_deduction_never_claims_more_than_every_placement_agrees_on() ->
         assert empty & ~dp[1] == 0, f"{context}: overlap outran the DP (empty)"
 
     assert checked >= 200, f"only {checked} feasible triples in the corpus"
+    # CARD-487 review F-4: the exactness check bites only where known cells
+    # exist; 30 feasible lines carry both kinds today (seeded, measured).
+    assert both_known >= 25, f"only {both_known} feasible lines carry both known kinds"
