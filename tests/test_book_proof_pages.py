@@ -99,6 +99,7 @@ from tests.helpers.pdf_pages import (
     pdf_page_count,
     pdf_pages,
 )
+from tests.test_book_pdf_ink_mode import pdf_image_objects
 
 # --------------------------------------------------------------------------
 # CON-018's Book 1 profile and the sheets these tests use, in millimetres.
@@ -323,6 +324,32 @@ class TestBookProof_TwoTrimSizedPagesAtExpectedCells:
         """Both halves of "2550 x 3300 px at 300 DPI" (AC-177's technique)."""
         assert [page.size for page in pdf_pages(book1_pdf)] == [self.TRIM_PX] * 2
         assert pdf_page_boxes(book1_pdf) == [self.TRIM_PT] * 2
+
+    def test_the_proof_is_written_in_the_books_interior_colour_space(
+        self, book1_pdf: bytes
+    ) -> None:
+        """CARD-482: a proof declares what the book's interior would declare.
+
+        Read off each page's image XObject in the file, the way the interior's
+        own claim is read (``test_book_pdf_ink_mode.pdf_image_objects``):
+        ``/DeviceGray`` for a book with no stored ink mode (the default,
+        black-and-white) and for one storing ``"bw"``; ``/DeviceRGB`` for one
+        storing ``"colour"``. The mode changes the colour space and nothing
+        else, so every one of them is still the trim in pixels and in points.
+        """
+        stored_bw, colour = _book(), _book()
+        stored_bw.interior_ink_mode = "bw"
+        colour.interior_ink_mode = "colour"
+        for label, data, space in (
+            ("default", book1_pdf, "DeviceGray"),
+            ("bw", render_proof_pdf(stored_bw).getvalue(), "DeviceGray"),
+            ("colour", render_proof_pdf(colour).getvalue(), "DeviceRGB"),
+        ):
+            images = pdf_image_objects(data)
+            assert len(images) == pdf_page_count(data) == 2, label
+            assert [image["colour_space"] for image in images] == [space] * 2, label
+            assert [page.size for page in pdf_pages(data)] == [self.TRIM_PX] * 2, label
+            assert pdf_page_boxes(data) == [self.TRIM_PT] * 2, label
 
     def test_page_one_is_the_thirty_by_thirty_at_the_books_smallest_cell(
         self, book1_pdf: bytes
