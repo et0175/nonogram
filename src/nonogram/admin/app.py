@@ -53,9 +53,9 @@ from nonogram.admin.batch_generator import (
     BatchGenerator,
     MIN_RANDOM_BATCH_COUNT,
 )
+from nonogram.admin.hint_grade import hint_rungs
 from nonogram.admin.puzzle_review import (
     get_puzzle_review_service,
-    hint_rungs,
     Approvability,
     BOOK_TAB_SORT,
     EditNeedsConfirmation,

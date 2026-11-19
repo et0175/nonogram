@@ -1238,13 +1238,13 @@ class TestSolverHint_EasiestFirst:
         assert _changed(cells, _states(browser_page), width=10) == {(4, 6): easiest[2]}
 
     def test_a_timed_out_grade_hints_as_main_did(self, browser_page, live, monkeypatch) -> None:
-        import nonogram.admin.puzzle_review as puzzle_review
+        import nonogram.admin.hint_grade as hint_grade
 
         rows, columns, _ranks_unused, cells = _easiest_board()
         puzzle_id = live.store(_EASIEST_GRID)
         # A deadline already past: the route's solve raises SolverTimeout at
         # its first check, exactly as a hard puzzle's would at 1.5 s.
-        monkeypatch.setattr(puzzle_review, "HINT_GRADE_DEADLINE_SECONDS", -1.0)
+        monkeypatch.setattr(hint_grade, "HINT_GRADE_DEADLINE_SECONDS", -1.0)
         _open(browser_page, live, puzzle_id)
         assert browser_page.locator("#puzzle-player-rungs").count() == 0
         _set(browser_page, cells)
