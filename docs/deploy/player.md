@@ -1056,3 +1056,15 @@ shared-UI preview assembly (the old command-line flag for it is gone). Productio
 | Rollback target | The Galaxy M31 deployment (`nonogram-studio-2zr02wx9o`). |
 
 Not observed: a real phone. CARD-479's AC-4 (the owner's phone check) is still owed, as is the CARD-473 pinch check on Android.
+
+**The return-to-book publish, 2026-11-19 (later the same day).** QA "Return to book": the book page keeps its open sections and scroll in `history.state` (`player/pages.js`), and the play page's "← Book" / "Back to the book" links call `history.back()` when the puzzle was opened from the book (`player/assemble.py`). Owner's approval: "так, публікуй". Built from **`c505bd44`** (merge of `fix/book-sections-on-return`) with `git archive c505bd44 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-19-return/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing, `dropped (not in the served schema): title`. Against production before the publish, two files differed: `pages.js` `ec0b8120ffb8` → `0bbed814ee43` (identical to `player/pages.js`), and the play-page shell (`/play/<key>`, now `0872d1646d22`; the diff is only the added `cameFromBook`/`returnsToBook` script). `solver.js`, `admin.css`, `solver_state.js`, `tokens.css`, `base.css`, `player.css`, `how-to-solve.js`, `decor.css`, `decor.js`, the `/b`, `/library` and `/how-to-solve` pages, `index.json` and the puzzle and book files byte-identical to what production served. Play-page viewport still carries `user-scalable=no`. No goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes` with the two ids exported: **`nonogram-studio-ontf5getr`**, Ready in 4 s. `/library`, `/play/068341a8eb`, `/b/0a958d036e`, `/how-to-solve`, the puzzle and book files 200; `/nope` 404; `pages.js` and the play page at the built hashes. |
+| Behaviour (390 x 844 phone emulation, Chromium) | On `/b/0a958d036e` the defaults are Easy open, Medium and Hard closed. Closed Easy, opened Medium, scrolled to puzzle 74 (`86c29b648f`, tile 395 px from the top), opened it, tapped one cell, pressed "← Book". Back on `/b/0a958d036e` as a `back_forward` navigation; Easy closed, Medium open, Hard closed, as set; the tile reads "started"; the tile sits at 320 px (the Continue card, now shown above the sections, accounts for the shift; the tile stays in view). No page errors. |
+| Production | `vercel promote <preview> --scope et0175s-projects --yes` created **`nonogram-studio-j9jpdb3tt`**. `https://nonogram.adverax.io` served the new `pages.js` on poll 2; doors 200, `/nope` 404; the behaviour run gave the same figures, no page errors. (The first attempt at the promote was refused by this machine's auto-mode check; it ran once the owner's own "так, публікуй" was in hand.) |
+| Rollback target | The stage-observer deployment (`nonogram-studio-i26guy79q`). |
+
+Not observed: a real phone, nor a Back that comes through the back/forward cache (headless Chromium re-created the page here).
