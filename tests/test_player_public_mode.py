@@ -1673,7 +1673,7 @@ CHECKS = {
 }
 
 _HINTLINE_READ = "      history.board, payload.rows, payload.columns, publicMode ? null : payload.solution, hint),"
-_NEXTHINT_READ = "      : hintCell(history.board, payload.rows, payload.columns, publicMode ? null : payload.solution)),"
+_NEXTHINT_READ = "      : hintCell(history.board, payload.rows, payload.columns, publicMode ? null : payload.solution, rungs)),"
 _NOW = """    const now = publicMode
       ? isClueSolved(history.board, payload.rows, payload.columns)
       : isSolved(history.board, payload.solution);"""

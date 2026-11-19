@@ -759,6 +759,12 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_hint.py::TestSolverHint_EasiestFirst::test_the_first_hint_is_the_easiest": (
+        "CARD-484", "AC-1 (IDEA-192, owner's decision 2026-11-19): with the page-open grade, the first hint points at the lower row's simple_overlap cell, not the upper line_dp one",
+    ),
+    "tests/test_puzzle_solver_hint.py::TestSolverHint_EasiestFirst::test_a_timed_out_grade_hints_as_main_did": (
+        "CARD-484", "AC-2: when the page-open solve times out, the page opens without a grade and hints row-major, as main does",
+    ),
     "tests/test_puzzle_solver_clues.py::TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::test_a_change_of_the_stages_own_box_is_measured_again": (
         "CARD-479", "AC-1 (IDEA-209, CARD-271's residual): a change to the stage's own box, with nothing above it moving, re-measures the clue bands and re-fits a board at Fit; the board then holds still",
     ),

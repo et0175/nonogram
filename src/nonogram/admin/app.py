@@ -55,6 +55,7 @@ from nonogram.admin.batch_generator import (
 )
 from nonogram.admin.puzzle_review import (
     get_puzzle_review_service,
+    hint_rungs,
     Approvability,
     BOOK_TAB_SORT,
     EditNeedsConfirmation,
@@ -6693,7 +6694,7 @@ def create_app(debug=None):
         # page's too, and are written once (``_board_page_payload``; review
         # cycle 1, F-015). No ``mode`` is passed, so this payload stays
         # exactly the six keys solver.js's header documents (CARD-246 G-1).
-        puzzle, _grid, payload = _board_page_payload(puzzle_id)
+        puzzle, grid, payload = _board_page_payload(puzzle_id)
         tier = tier_of_record(puzzle.get("difficulty_tier"))
         title = puzzle.get("puzzle_name") or puzzle.get("source_image") or str(puzzle["id"])[:8]
         return render_template(
@@ -6702,6 +6703,10 @@ def create_app(debug=None):
             extent=(payload["width"], payload["height"]),
             tier_label=tier.value.upper() if tier else None,
             payload=payload,
+            # CARD-484: the hint's easiest-first grade, OUTSIDE the payload
+            # and solved per page open under a bounded deadline; None (the
+            # page hints row-major, as before) on a timeout.
+            hint_rungs=hint_rungs(grid),
         )
 
     # ----------------------------------------------------------------------

@@ -808,14 +808,32 @@ function isUndecided(state) {
 // that is not there. A wrong mark can mislead such a hint - inherent to having
 // no answer to check marks against, and exactly what the retired play.js's
 // derivedHint did.
-export function hintCell(board, rows, columns, solution) {
+//
+// EASIEST FIRST (CARD-484). `ranks`, optional, is the admin page's grade of
+// every cell: a height x width grid whose entry is the cell's ADR-0029 rung
+// as its index in the solver's RUNG_ORDER (0 simple_overlap, 1 line_dp,
+// 2 probe_contradiction) or null for a cell no rung settled. With it, the
+// deduced cell is the forced one of LOWEST rank, a null ranking after every
+// number, ties broken row-major; without it (null or absent — the page-open
+// solve timed out, or the page is not the admin player) the order is
+// row-major, exactly as before. Only the ORDER among the cells this one pass
+// forces moves: the forced set is the same single pass (not iterated to a
+// fixed point), so hintLine still finds the line that forces the picked cell
+// by itself, and the fallback is untouched. A `ranks` is IGNORED when
+// `solution === null`: the grade derives from the solution, so a public page
+// cannot be steered by one (CON-021, ADR-0038/R6).
+export function hintCell(board, rows, columns, solution, ranks = null) {
   const truth = (row, col) => (solution[row][col] ? FILLED : EMPTY);
   const rowForced = rows.map((clue, row) =>
     lineForced(clue, knownLine(board, solution, "row", row)));
   const colForced = columns.map((clue, col) =>
     lineForced(clue, knownLine(board, solution, "column", col)));
+  const graded = solution !== null && ranks !== null;
+  const rankOf = (row, col) => (ranks[row][col] === null ? Infinity : ranks[row][col]);
   const { width, height } = board;
   let fallback = null;
+  let best = null;
+  let bestRank = Infinity;
   for (let row = 0; row < height; row += 1) {
     for (let col = 0; col < width; col += 1) {
       if (!isUndecided(board.cells[row * width + col])) continue;
@@ -823,14 +841,20 @@ export function hintCell(board, rows, columns, solution) {
       const byColumn = colForced[col] !== null && colForced[col][row] !== UNKNOWN;
       if (byRow || byColumn) {
         const forced = byRow ? rowForced[row][col] : colForced[col][row];
-        return { row, col, state: solution === null ? forced : truth(row, col), deduced: true };
+        const found = { row, col, state: solution === null ? forced : truth(row, col), deduced: true };
+        if (!graded) return found;
+        const rank = rankOf(row, col);
+        if (best === null || rank < bestRank) {
+          best = found;
+          bestRank = rank;
+        }
       }
       if (fallback === null && solution !== null) {
         fallback = { row, col, state: truth(row, col), deduced: false };
       }
     }
   }
-  return fallback;
+  return best ?? fallback;
 }
 
 // The stroke of one hint: (row, col) set to `state`, marked hint: true.
