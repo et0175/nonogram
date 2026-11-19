@@ -175,3 +175,78 @@ dpi PNG) of three recovered Book 1 pairs drawn by `vector_two_up_page` from
 7.0556 mm), 25 x 14 (page 5, 7.3195 mm). They are corpus geometry puzzles
 (depth-1 clues), not real pictures; the footer group (rule, pointer, centred
 folio) is present on all three.
+
+### Fix round 1 (review cycle 1, 7/10)
+
+* **F-1 (docstrings).** Every `folio_reserve`/`_folio_reserve_px`/"folio
+  reserve" mention in `src/` and `tests/` was read; the ones stating the
+  reserve as a live pairing input now say it was until CARD-483:
+  `layout.py` (`InteriorFrame.page_bottom`, `compute_pair_layout`'s Fix-4
+  paragraph, its cost section with the `_tight_pair` sentence, the
+  `folio_reserve_px` Arg, the decline comment, `_slot_layout`'s "decision for
+  the card that wants to make it"), `book_sheet_vector.draw_sheet_furniture`,
+  `book_pdf_generator.FOLIO_RESERVE_DIGITS`. The pointer-width uses
+  (`footer_pointer`, `SheetFurniture.folio_reserve_px`,
+  `test_book_puzzle_page_vector`) are true today and unchanged. **Beyond the
+  docstrings, three test oracles still modelled the reserve re-fit and were
+  passing only because their corpora never hit it** (F-2's question):
+  `test_book_puzzle_frame._shared_cell_mm`,
+  `property/test_book_export_interior._shared_cell_mm` and
+  `test_book_qr_slot._two_up`/`_cell` (`_two_up` passed the reserve to
+  `compute_pair_layout` and called itself "as `puzzle_pages` passes them").
+  All three now model the walk without it; their `RESERVE_MM` /
+  `_folio_reserve_px` imports are gone. Comments only in
+  `test_layout_two_up`, `property/test_book_two_up`, `test_book_pdf_two_up`,
+  `test_book_page_numbers` (two Fix-4 tests that pass the reserve on
+  purpose, as the corner fallback's own case). No behaviour change in `src/`.
+* **F-2 (cells that grow).** Re-derived with the step-1 inputs, pairs that
+  pair both with and without the reserve: **Book 1, 5 of 75 equal depth-1
+  pairs change cell**, at both parities: 24 x 10..13 7.25424 -> 7.5 mm (cap),
+  24 x 14 7.25424 -> 7.31953 mm (height-bound). Other trims: 8.25x11 5/70,
+  8x10 6/42, 7.5x9.25 3/24, 7x10 3/30, 8.5x8.5 0/15, 6x9 1/12 (per parity,
+  equal pairs only; the reviewer's 372 is a wider sweep with unequal and
+  deeper pairs). Render added: `two-up-24x10-p5-cell7.5000mm.{pdf,png}`. Every
+  test that wrote the reserve re-fit into an expected cell was found by the
+  F-1 grep and fixed (above); the module runs below are green with them.
+* **F-3.** The last assertion is now `worst < 1/2` (the safety claim), with
+  the measured 126/254 in a comment. **M4 re-run** (`interior_frame`'s footer
+  rule `y=footer_y - 1`, on fc4843f0): **nothing reds** (the class: 2
+  passed). That is the right verdict: `footer_depth` is `page_bottom -
+  footer_rule.y`, so the strip grows with the rule and production stays
+  safe; the only thing M4 reddened before was the exact-equality line.
+* **F-4.** The height test's docstring says it models the arithmetic and is
+  sound only with the walk test, which reads production's `drawing_bottom`;
+  the walk test's docstring says M1 is caught by the AC-3 pins, not the
+  footer assertion. Not restructured.
+* **F-5 (owner item, pre-existing since CARD-248, not changed).** When a
+  pair's vertical slack is under 4 px the rule gap floors to 0 and the lower
+  grid's bottom border is stroked on exactly the footer rule's row. Measured
+  on Book 1 page 5, equal depth-1 pairs: 14 do it on main (10..23 x 14), 16
+  without the reserve (adds 24 x 14 and **25 x 14**). Example:
+  `~/Documents/nonogram-reviews/CARD-483/two-up-25x14-p5-cell7.3195mm.png`.
+  Owner to decide whether a coincident grid border and footer rule is
+  acceptable.
+* **F-6.** The height test builds one `Book` and one generator and rewrites
+  the stored height per step (`page_spec` reads the column each call, and the
+  test asserts the spec's height followed it): warnings for the class 3807 ->
+  7, time 0.86 s -> 0.31 s.
+
+**Fix-round mutations (on fc4843f0, restored with `git checkout --`, clean
+status after).** M4 above. M1 (reserve back in `puzzle_pages`) against the
+guard class plus the three re-modelled oracles (`test_book_qr_slot`,
+`test_book_puzzle_frame`, `property/test_book_export_interior`): 1 failed
+(the walk test, via the AC-3 pins), 100 passed: those oracles' corpora never
+reach a reserve-affected pair, so they agree with either walk; the
+discriminating tests remain the guard, the pairing property and the arrange
+agreement test (round 0's M1).
+
+**Fix-round tests** (`-o addopts= -q -rfs`): two_up, layout_two_up,
+page_numbers, qr_slot, puzzle_frame **196 passed**; property pairing,
+property two_up, arrange_page_breaks, suite_profile, check_ref_resolution,
+browser_fixture_scope **539 passed** (after a re-run of suite_profile: its
+render census had flagged `test_book_puzzle_frame.py`, because a new
+docstring spelled ``puzzle_pages``, a render idiom the census greps; reworded,
+census green); puzzle_page_vector, property export_interior, property
+pdf_geometry **69 passed**; export_interior_cover (in full), pdf_ink_mode,
+interior_face, pdf_memory **264 passed, 1 skipped** (setrlimit). Net test
+count unchanged by this round (still +2 for the card).
