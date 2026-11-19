@@ -250,3 +250,18 @@ census green); puzzle_page_vector, property export_interior, property
 pdf_geometry **69 passed**; export_interior_cover (in full), pdf_ink_mode,
 interior_face, pdf_memory **264 passed, 1 skipped** (setrlimit). Net test
 count unchanged by this round (still +2 for the card).
+
+### Fix round 2 (review cycle 2, 8/10, certified)
+
+* **F-7.** `_folio_reserve_px`'s value is pinned again, inside the existing
+  `test_book_page_numbers.py::...::test_the_fixed_reserve_is_identical_across_book_scales`
+  (`== 108`; `footer_pointer` still reads it), and
+  `property/test_book_two_up.py`'s `FIXED_RESERVES_PX` comment cites that
+  test. Mutation: `_folio_reserve_px` returning 107 reds it (`assert 107 ==
+  108`, 1 failed); restored with `git checkout --`, clean status.
+* **F-8.** `test_book_qr_slot._expected_pair_cell_mm` loses the unused
+  `lower_across` (one caller updated); the over-long comment lines in
+  `test_book_pdf_two_up.py` and `test_layout_two_up.py` re-wrapped.
+* Tests (`-o addopts= -q -rfs`): property two_up, page_numbers, pdf_two_up,
+  qr_slot, layout_two_up, suite_profile, check_ref_resolution,
+  kanban_review_record **674 passed**, 0 skipped. Net test count still +2.
