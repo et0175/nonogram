@@ -934,8 +934,9 @@ SIZE_LABEL_PT = INTERIOR_FOOTER_LINE_PT
 SIZE_LABEL_SEPARATOR = " x "
 
 #: How many digits of a page number :func:`_folio_reserve_px` plans room for
-#: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
-#: "fixed universal reserve") — a fixed ceiling, never this book's own
+#: (CARD-204 Fix 4, owner decision 2026-10-12, "fixed universal reserve";
+#: on a two-up page's lower slot until CARD-483, and still as the width the
+#: footer pointer keeps clear of the centred folio) — a fixed ceiling, never this book's own
 #: largest page number or this page's own number. Four digits is far beyond
 #: anything a physical print book this software produces reaches in
 #: practice (the project's own Amazon market snapshot puts the median
@@ -954,7 +955,9 @@ SIZE_LABEL_SEPARATOR = " x "
 #: i.e. a longer interior and, on KDP, a higher print cost per copy.
 #: Accepted knowingly (owner decision 2026-10-12, reaffirmed 2026-10-13 with
 #: that measurement in hand), against the alternative of losing the folio
-#: from every two-up page.
+#: from every two-up page. **Paid until CARD-483 only**: since CARD-248 a
+#: two-up page sets its folio in the footer strip, and CARD-483 stopped the
+#: pairing walk passing the reserve, so books no longer pay this cost.
 FOLIO_RESERVE_DIGITS = 4
 
 #: The table of contents page's title (CARD-200) — plain and descriptive,

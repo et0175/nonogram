@@ -884,12 +884,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         case where drawing unconditionally (review cycle 1's own code)
         really does print on top of the grid.
 
-        **CARD-204 Fix 4:** the pair here is laid out *without* the fixed
-        folio reserve production always passes (``folio_reserve_px``
-        defaults to ``0``), on purpose — Fix 4 means no page a real book
-        prints reaches ``_draw_folio`` with a zero-slack outer corner any
-        more, so this is now a deliberately synthetic layout kept to keep
-        that defensive check covered. (Since CARD-248 production also
+        **CARD-204 Fix 4:** the pair here is laid out with neither the
+        fixed folio reserve (which production passed from Fix 4 until
+        CARD-483) nor the footer strip, on purpose — a deliberately
+        synthetic layout kept to keep that defensive check covered. (Since CARD-248 production also
         reserves a footer strip, so its two-up pages set the folio in the
         footer and never reach this corner at all:
         ``TestTwoUpNeverTakesTheCornerFolio``.)
@@ -977,8 +975,8 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             # half the slot's own spare rather than exactly the reserve, so
             # the reserve's purpose is subsumed by the alignment and the
             # assertion is ">=", with both figures reported. The reserve is
-            # still taken out of the *fit* (G-1: FR-040's pairing verdict is
-            # unchanged), which is why it is still passed in here.
+            # passed in here because this is the corner fallback's own case;
+            # the production walk passes none since CARD-483.
             assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == (
                 _two_up_rule_gap_px(pair.lower.page)
             ), (
@@ -1256,6 +1254,16 @@ class TestTwoUpNeverTakesTheCornerFolio:
         )
 
     def test_no_pair_the_walk_makes_reaches_below_the_footer_rule(self, monkeypatch) -> None:
+        """The production half: real pairs, real ``content_bottom``.
+
+        This is the test that reads production's own ``compute_pair_layout``
+        output, so it is what catches a change to where the lower drawing
+        ends (the height test below models the strip arithmetic and does
+        not). It also carries AC-3's pins. Putting the folio reserve back in
+        ``puzzle_pages`` is caught by those pins (the recovered pairs stop
+        pairing), **not** by the footer assertion: the reserve is horizontal,
+        so it cannot push any pair below the rule.
+        """
         paired = touching = 0
         touching_cases = []
         book1_equal = set()
@@ -1321,6 +1329,20 @@ class TestTwoUpNeverTakesTheCornerFolio:
         multiples of 0.1 mm, so the row's fraction moves in 1/254 px steps and
         never reaches the half that would round it down a pixel); the float
         detour is ~1e-13 px, far inside that 1/254.
+
+        **This is a model of the production arithmetic, not a call into it**
+        (``compute_pair_layout`` exposes no strip top for a sheet it has no
+        pair for). It is sound only together with
+        :meth:`test_no_pair_the_walk_makes_reaches_below_the_footer_rule`,
+        which reads production's own lower ``drawing_bottom`` and is what reds
+        if ``compute_pair_layout``'s ``content_bottom`` moves while this model
+        does not. What this test adds is reach: every storable height, where
+        the walk test covers six trims.
+
+        One ``Book`` and one generator for all 3801 heights, with the stored
+        height rewritten each time: ``page_spec`` reads the book's columns on
+        every call, and building 3801 ``Book`` objects cost one
+        ``datetime.utcnow`` DeprecationWarning each (its default factory).
         """
         from fractions import Fraction
 
@@ -1335,9 +1357,12 @@ class TestTwoUpNeverTakesTheCornerFolio:
 
         heights = 0
         worst = Fraction(-1)
+        book = _sweep_book(8.5, 11)
+        generator = BookPDFGenerator(book)
         for height_hundredths in range(1000, 4801):
-            book = _sweep_book(8.5, 11, height_cm=f"{height_hundredths / 100:.2f}")
-            spec = BookPDFGenerator(book).page_spec(5)
+            book.trim_height_cm = f"{height_hundredths / 100:.2f}"
+            spec = generator.page_spec(5)
+            assert spec.height_mm == height_hundredths / 10, height_hundredths
             frame = interior_frame(spec)
             top = strip_top(spec, frame.footer_depth)
             assert math.floor(top + Fraction(1, 2)) <= frame.footer_rule.y, (
@@ -1350,7 +1375,10 @@ class TestTwoUpNeverTakesTheCornerFolio:
             assert math.floor(short + Fraction(1, 2)) > frame.footer_rule.y, height_hundredths
             heights += 1
         assert heights == 3801, heights
-        assert Fraction(1, 254) <= Fraction(1, 2) - worst, float(worst)
+        # The safety claim itself: the exact row never reaches the half pixel
+        # that would round it past the rule (measured: 126/254 px, so the
+        # margin is 1/254 px, which a float residue may eat into but not past).
+        assert worst < Fraction(1, 2), float(worst)
 
 
 # --------------------------------------------------------------------------

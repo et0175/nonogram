@@ -66,7 +66,6 @@ import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
-    _folio_reserve_px,
     page_is_right_hand,
 )
 from nonogram.admin import book_interior_vector, book_pdf_generator
@@ -146,14 +145,6 @@ PAIR_HEIGHT_MM = (
     11 * 25.4 - TOP_MM - BOTTOM_MM - 2 * 12.0 - FOOTER_STRIP_PX * 25.4 / 300
 )
 
-#: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres — derived
-#: the same way :func:`_expected_drawing_left_mm` and ``Sheet.shared_cell_mm``
-#: (``tests/property/test_book_pairing.py``) do: ``_folio_reserve_px`` is a
-#: font-measurement helper (not FR-040's own formula), so it is imported
-#: directly rather than reimplemented a third time; the geometric arithmetic
-#: that *uses* it below is this module's own independent check.
-RESERVE_MM = _folio_reserve_px(300) * 25.4 / 300
-
 
 def _across(puzzle):
     """The drawing's width in cells: the row-clue gutter plus the grid."""
@@ -173,26 +164,13 @@ def _shared_cell_mm(first, second):
     less its top and bottom margins and **two** bands. Written out here, like
     every other expected value in this file.
 
-    **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
-    reserve").** ``second`` is always the lower slot in this module's own
-    upper/lower convention (``_puzzle_page_plan``'s own order). Production's
-    ``compute_pair_layout`` now always widens the fit when the lower slot's
-    own natural spare at the unreserved cell is below the fixed reserve, so
-    this oracle re-derives that same "only widen when needed" rule
-    independently, in millimetres, never importing
-    ``compute_pair_layout`` itself.
+    No folio reserve: from CARD-204 Fix 4 this re-fitted against a width one
+    reserve narrower when the lower slot's spare fell short of it, as the
+    production walk did; CARD-483 stopped the walk passing the reserve.
     """
-    natural = min(
-        STANDARD_CELL_MM,
-        USABLE_WIDTH_MM / max(_across(first), _across(second)),
-        PAIR_HEIGHT_MM / (_down(first) + _down(second)),
-    )
-    natural_spare_mm = USABLE_WIDTH_MM - _across(second) * natural
-    if natural_spare_mm >= RESERVE_MM:
-        return natural
     return min(
         STANDARD_CELL_MM,
-        (USABLE_WIDTH_MM - RESERVE_MM) / max(_across(first), _across(second)),
+        USABLE_WIDTH_MM / max(_across(first), _across(second)),
         PAIR_HEIGHT_MM / (_down(first) + _down(second)),
     )
 
@@ -252,16 +230,15 @@ def _expected_drawing_left_mm(
 
     **History.** Between CARD-204 and CARD-224 the drawing was flush with the
     *outer* margin, mirrored by parity, and the lower slot of a two-up page
-    was then shifted :data:`RESERVE_MM` back toward the gutter to leave
+    was then shifted a fixed folio reserve back toward the gutter to leave
     CARD-200's folio its corner (Fix 1/Fix 2 derived that amount from a page
     or a book, Fix 3 removed it, Fix 4 made it a fixed constant — owner
     decision 2026-10-12). Centring leaves **both** of a slot's sides half its
     own spare, so the corner is no longer flat against the drawing and that
     shift is gone with the anchor: ``is_lower`` therefore changes nothing
     here, and is kept as a parameter so this helper's one caller still names
-    which slot it is asking about. The reserve itself is still taken out of
-    the shared cell's own fit, which is why ``cell_mm`` is unchanged
-    (CARD-224 G-1: FR-040's pairing verdict does not move).
+    which slot it is asking about. The reserve stayed in the shared cell's
+    own fit (CARD-224 G-1) until CARD-483 removed it from the walk.
     """
     across = _across(puzzle)
     usable_width_mm = 8.5 * 25.4 - gutter_mm - outside_mm
@@ -966,9 +943,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 f"not {len(group)}"
             )
             shared = _shared_cell_mm(*group) if len(group) == 2 else None
-            # The *lower* slot of a two-up page — the later puzzle, second in
-            # the group — is the one CARD-204 Fix 4's fixed reserve shifts;
-            # the upper slot and every single page keep the plain flush rule.
+            # Both slots and every single page are placed by one centring
+            # rule since CARD-224 (CARD-204 Fix 4's reserve once shifted the
+            # lower slot; it left the fit too in CARD-483).
             for position, (puzzle, drawing) in enumerate(zip(group, drawings)):
                 _measured(
                     page_number,
