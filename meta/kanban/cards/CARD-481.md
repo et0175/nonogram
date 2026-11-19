@@ -1,6 +1,6 @@
 # CARD-481: A mandatory rule's check names a test that exists
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_check_ref_resolution.py
 **UI surface:** none
-**Review score:** —
+**Review score:** 9.0 (cycle 3/3 - CERTIFIED; cycles 6.0, 8.0, 9.0)
 **Started:** 2026-11-19T04:15Z
 **Closed:** —
 **Actual:** —
