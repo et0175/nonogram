@@ -2568,17 +2568,17 @@ class TestSheetFurniture_TheFooterIsAllOrNothing:
             with_folio += len(centred) == 1
 
         assert with_rule == with_folio, (with_rule, with_folio)
-        # The floor, and it is the reason this corpus is worth sweeping: the
-        # equality would hold trivially on a corpus where every page, or no
-        # page, had a footer. **Measured: 51 of these 60 pages carry one and
-        # 9 do not** (47 and 13 before CARD-392's one-line footer returned 20 mm
-        # to the area: four page-fit-bound grids now end above the rule) — the
-        # 9 are the page-fit-bound grids whose drawing
-        # reaches past the footer rule, which is exactly the branch
-        # ``_draw_page_frame`` keeps CARD-200's corner for. So both arms of
-        # the all-or-nothing verdict are exercised by this one count.
-        assert with_rule == 51, with_rule
-        assert 0 < len(corpus) - with_rule == 9, (with_rule, len(corpus))
+        # **Measured: all 60 of these pages carry a footer** (51 and 9 before
+        # CARD-485, 47 and 13 before CARD-392). The 9 that did not were the
+        # page-fit-bound grids fitted to the full usable box, whose drawing
+        # reached past the footer rule; CARD-485 fits every single page above
+        # the rule, so on these trims no page takes CARD-200's corner any
+        # more, and this count is the corpus-wide statement of that. The
+        # other arm of the all-or-nothing verdict is no longer reachable from
+        # this corpus and is held on the drawer itself:
+        # ``test_a_blocked_footer_draws_neither_the_rule_nor_the_number`` and
+        # ``test_the_one_pixel_either_side_of_the_verdict_decides_it`` above.
+        assert with_rule == len(corpus) == 60, (with_rule, len(corpus))
 
 #: The numeric literals ``book_sheet_vector`` is allowed to contain, each with
 #: the reason it is not a coordinate. **A default-DENY allowlist**
@@ -3176,10 +3176,11 @@ class TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor:
                     case.label,
                     mark.width,
                 )
-        # The floor on the reading itself: 51 pages with two rules and 9 with
-        # one is 111 rules (107 before CARD-392), and a reading that found none would pass the loop
-        # above trivially.
-        assert seen == 111, seen
+        # The floor on the reading itself: 60 pages with two rules is 120
+        # rules (111 before CARD-485, whose 9 one-rule pages now carry the
+        # footer rule too; 107 before CARD-392), and a reading that found none
+        # would pass the loop above trivially.
+        assert seen == 120, seen
 
     def test_the_reading_would_see_a_sub_floor_rule(self, hero: Case) -> None:
         """Its control: the same reading on a frame whose rules are one pixel.

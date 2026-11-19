@@ -416,9 +416,16 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         than drawing it on top — and an answer page is never such a page.
 
         **Review cycle 2, F-1:** this book's lone *blank* puzzle page (a
-        single, unpaired puzzle, confirmed by ``generator.section_plan``) is
-        page-fit-bound on this 10 cm trim (``usable_bottom - drawing_bottom
-        == 0``), so it keeps the omit-rather-than-collide rule.
+        single, unpaired puzzle, confirmed by ``generator.section_plan``)
+        reaches the footer on this 10 cm trim, so it keeps the
+        omit-rather-than-collide rule.
+
+        **CARD-485:** a single page is now fitted above the footer rule, so the
+        20 x 20 this test used to print gets its footer group here, and the
+        only single page that still reaches the footer is one whose cell the
+        2 mm ``MIN_CELL_MM`` floor holds: the 30 x 30 at 9-deep clues, floored
+        on this trim. (On this trim the 20 x 20's footer label then overprints
+        its centred folio — CARD-485's notes record that finding.)
 
         **Owner, 2026-11-11:** the answer page used to be the other such page
         here (no slack for its caption, CARD-197, and so none for a folio).
@@ -426,7 +433,7 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         centred in it, so the answer page prints its number even on this trim.
         """
         generator = BookPDFGenerator(_min_trim_book())
-        single = [puzzle("card200-mintrim", 20, 20, 5, "easy", "Solo")]
+        single = [puzzle("card200-mintrim", 30, 30, 9, "easy", "Solo")]
         calls, drawn = _spy_interior(generator, single, monkeypatch)
         folios = _folios(calls)
 
@@ -439,9 +446,9 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
             "must print its own number"
         )
         assert blank_puzzle_page not in folios, (
-            "the min-trim book's own blank puzzle page is page-fit-bound "
-            "(F-1's own defect shape) and must omit its folio rather than "
-            "draw it over the grid"
+            "the min-trim book's own blank puzzle page is floored at "
+            "MIN_CELL_MM and overflows (F-1's own defect shape) and must omit "
+            "its folio rather than draw it over the grid"
         )
         # The omission is specific to pages with no measurable room — plus
         # CARD-206's own title page, which has no ink for a folio to
@@ -844,17 +851,149 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert placement is not None
         assert placement.usable_bottom - placement.drawing_bottom == 0
 
-    def test_blank_page_omits_the_folio_when_the_grid_is_page_fit_bound(self) -> None:
-        generator = BookPDFGenerator(corpus_book("f1-blank-tight"))
-        payload = generator._payload(_tight_fit_single_page_puzzle())
-        page_number = 3
+    def test_every_single_page_draws_its_footer_group_on_the_owners_profile(
+        self, monkeypatch
+    ) -> None:
+        """CARD-485 AC-1: a puzzle alone on its page is fitted above the footer
+        rule, so ``draw_sheet_furniture`` draws the whole footer group — rule,
+        centred folio, label, pointer — and never falls back to the corner.
 
-        stream = generator.vector_puzzle_page(payload, 1, page_number)
+        This test used to assert the opposite on the F-1 tight fit below (a
+        page-fit-bound single page omitted its folio): that page was fitted to
+        the full usable box, down to the bottom margin. Now the fit keeps the
+        frame's ``footer_depth`` free, and the same puzzle prints its number.
 
-        assert not _page_folios(generator, stream, page_number), (
-            "a page-fit-bound blank page drew a folio directly over its own "
-            "grid instead of omitting it"
-        )
+        On the owner's profile (Book 1's trim and gutter, 0.95 cm outside) with
+        the shapes measured on the owner's book: puzzle 140's (18 x 24, 7-deep
+        column clues, a 5-deep sibling of the same size in the book; its grid
+        ended 11 px below the rule and the folio went to the corner), a
+        height-bound 22 x 30 (it ran to the bottom margin and printed no folio)
+        and the F-1 tight fit. The premise is asserted from the full-box fit
+        the page had before, so the shapes cannot drift into ones that never
+        reached the footer. Both parities.
+        """
+        from nonogram.admin import book_pdf_generator as module
+        from nonogram.admin.book_page_spec import book_cell_spec
+        from nonogram.export.layout import compute_layout
+
+        def column_deep(name: str, columns: int, rows: int, depth: int) -> dict:
+            # Every column carries `depth` isolated runs, every row one run.
+            grid = [[y % 2 == 0 and y < 2 * depth - 1] * columns for y in range(rows)]
+            found = clues.compute_clues(grid)
+            return {
+                "id": name, "grid": grid,
+                "clues_rows": [list(clue) for clue in found.rows],
+                "clues_cols": [list(clue) for clue in found.columns],
+                "width": columns, "height": rows,
+                "puzzle_name": name, "difficulty_tier": "hard",
+            }
+
+        book = corpus_book("card-485-owner-profile")
+        book.outside_margin_cm = "0.95"
+        generator = BookPDFGenerator(book)
+        payloads = [
+            generator._payload(p)
+            for p in (
+                column_deep("p140-shape", 18, 24, 7),
+                column_deep("p140-sibling", 18, 24, 5),
+                column_deep("tall-22x30", 22, 30, 8),
+                _tight_fit_single_page_puzzle(),
+            )
+        ]
+        cells = generator.cell_sizes(payloads)
+
+        drawn: List[bool] = []
+        real = module.draw_sheet_furniture
+
+        def spy(*args, **kwargs):
+            drawn.append(real(*args, **kwargs))
+            return drawn[-1]
+
+        monkeypatch.setattr(module, "draw_sheet_furniture", spy)
+        for page_number in (5, 6):
+            spec = generator.page_spec(page_number)
+            rule = interior_frame(spec).footer_rule.y
+            # The premise: fitted to the whole usable box, as before CARD-485,
+            # the 7-deep 18 x 24 and the 22 x 30 reach past the footer rule.
+            for index in (0, 2):
+                payload = payloads[index]
+                full_box = min(
+                    compute_layout(p.row_clues, p.column_clues, spec).page.cell_mm
+                    for p in payloads
+                    if (len(p.column_clues), len(p.row_clues))
+                    == (len(payload.column_clues), len(payload.row_clues))
+                )
+                old = compute_layout(
+                    payload.row_clues, payload.column_clues, book_cell_spec(spec, full_box)
+                ).page
+                assert old.drawing_bottom > rule, (page_number, index, old.drawing_bottom, rule)
+            for number, payload in enumerate(payloads, start=1):
+                drawn.clear()
+                stream = generator.vector_puzzle_page(
+                    payload, number, page_number, cell_sizes=cells
+                )
+                assert drawn == [True], (page_number, number, "fell back to the corner folio")
+                assert _page_folios(generator, stream, page_number) == {
+                    page_number: str(page_number)
+                }, (page_number, number)
+
+    def test_no_single_page_of_the_extent_sweep_reaches_below_the_footer_rule(
+        self, monkeypatch
+    ) -> None:
+        """CARD-485 AC-2: every ``MIN_SIZE..MAX_SIZE`` extent, at the deepest
+        clue depth ``tests.helpers.book_corpus.puzzle`` builds (``ceil(min / 2)``
+        both ways), drawn as a single page on Book 1 and on the owner's profile
+        at both parities: the grid's lowest row (``content_bottom``, the figure
+        the footer verdict reads) is at or above the footer rule, so the page
+        draws its footer group.
+
+        The sweep is held to reach the edge it is about: fitted to the full
+        usable box, as before CARD-485, some of these pages ran past the rule
+        (counted below), so the assertion is not true of every fit.
+        """
+        from nonogram.admin import book_pdf_generator as module
+        from nonogram.export.layout import compute_layout
+        from nonogram.limits import MAX_SIZE, MIN_SIZE
+
+        seen: List[Tuple[bool, float, int]] = []
+        real = module.draw_sheet_furniture
+
+        def spy(stream, furniture, *args, **kwargs):
+            drawn = real(stream, furniture, *args, **kwargs)
+            seen.append((drawn, furniture.content_bottom, furniture.frame.footer_rule.y))
+            return drawn
+
+        monkeypatch.setattr(module, "draw_sheet_furniture", spy)
+        owner = corpus_book("card-485-owner-sweep")
+        owner.outside_margin_cm = "0.95"
+        pages = overran_before = 0
+        for book in (corpus_book("card-485-book1-sweep"), owner):
+            generator = BookPDFGenerator(book)
+            for page_number in (5, 6):
+                spec = generator.page_spec(page_number)
+                for columns in range(MIN_SIZE, MAX_SIZE + 1):
+                    for rows in range(MIN_SIZE, MAX_SIZE + 1):
+                        depth = (min(columns, rows) + 1) // 2
+                        payload = generator._payload(
+                            puzzle(f"s{columns}x{rows}", columns, rows, depth, "hard", "S")
+                        )
+                        seen.clear()
+                        generator.vector_puzzle_page(
+                            payload, 1, page_number, generator.cell_sizes([payload])
+                        )
+                        [(drawn, bottom, rule)] = seen
+                        assert drawn and bottom <= rule, (
+                            book.book_id, page_number, columns, rows, bottom, rule
+                        )
+                        full_box = compute_layout(
+                            payload.row_clues, payload.column_clues, spec
+                        ).page
+                        overran_before += full_box.drawing_bottom > rule
+                        pages += 1
+        assert pages == 2 * 2 * (MAX_SIZE - MIN_SIZE + 1) ** 2, pages
+        # Measured: 308 of the 1764 (75 per parity on Book 1, 79 on the
+        # owner's profile, whose outside margin is narrower).
+        assert overran_before >= 300, overran_before
 
     def test_blank_page_still_draws_the_folio_with_real_slack(self) -> None:
         """Control: an ordinary puzzle (plenty of slack below the grid)

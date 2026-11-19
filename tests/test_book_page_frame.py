@@ -675,19 +675,22 @@ class TestBookPageFrame_ShortestTrimStillHoldsTheFrame:
     def test_a_puzzle_page_on_that_trim_carries_the_frame_and_its_folio(self) -> None:
         """What a page on the 10 cm trim actually gets, measured.
 
-        The header rule and the folio: both print on every puzzle page. The
-        **footer group does not**, and the reason is not the frame — it is
-        that the grid is still pinned to the band's foot and runs past the
-        footer rule on a sheet with 62 mm of usable height and a 30 mm footer
-        band, so the all-or-nothing footer condition omits the group exactly
-        as it does on a page-fit-bound letter page. Measured here (0 of the
-        trim's single-puzzle pages draw it) rather than claimed either way:
-        CARD-224 places the grid inside the puzzle area, which is what frees
-        the strip on this trim.
+        The header rule prints on every puzzle page. The **footer group**
+        prints wherever the grid is fitted above the footer rule, which since
+        CARD-485 is every single page whose cell the 2 mm ``MIN_CELL_MM``
+        floor does not hold: the fit reserves the frame's ``footer_depth``
+        (until CARD-485 it ran to the bottom margin, and **0** of this trim's
+        single pages drew the group). Measured on the baseline book: the two
+        10 x 10s and the 15 x 15 draw it; the 30 x 30 at 9-deep clues is
+        floored at 2 mm, overflows the puzzle area whatever the fit, and keeps
+        the all-or-nothing omission. The premise is read off the full-box fit
+        the pages had before, so the three that gained the strip are pages
+        that really did not have it.
         """
         interior = _interior("min-trim", _min_trim_book(), baseline_puzzles())
         assert interior.one_up, "the shortest trim printed no single-puzzle page"
-        footers = 0
+        footed: List[int] = []
+        floored: List[int] = []
         for number in interior.one_up:
             frame = interior.frame(number)
             header = _rules_in(
@@ -698,23 +701,23 @@ class TestBookPageFrame_ShortestTrimStillHoldsTheFrame:
             )
             assert len(header) == 1, f"page {number} has no header rule on the shortest trim"
             assert _holds(header[0], frame.header_rule.y)
-            footers += len(
-                _rules_in(
-                    interior.pages[number],
-                    frame.footer_rule.left,
-                    frame.footer_rule.right,
-                    frame.footer_rule.y - 10,
-                    frame.footer_rule.y + 10,
-                )
+            footer = _rules_in(
+                interior.pages[number],
+                frame.footer_rule.left,
+                frame.footer_rule.right,
+                frame.footer_rule.y - 10,
+                frame.footer_rule.y + 10,
             )
-            drawing_bottom = compute_layout(
-                *interior.clues[number], book_page_spec(interior.book, number)
-            ).page.drawing_bottom
-            assert drawing_bottom > frame.footer_rule.y
-        assert footers == 0, (
-            "a page on the shortest trim now frees its footer strip: re-read "
-            "this test's own reasoning before changing the number"
-        )
+            spec = book_page_spec(interior.book, number)
+            full_box = compute_layout(*interior.clues[number], spec).page
+            assert full_box.drawing_bottom > frame.footer_rule.y, number
+            if full_box.cell_mm == 2.0:
+                floored.append(number)
+                assert footer == [], f"page {number} is floored and must omit the group"
+            else:
+                footed.append(number)
+                assert len(footer) == 1, f"page {number} drew no footer rule"
+        assert (len(footed), len(floored)) == (3, 1), (footed, floored)
 
     def test_the_frame_never_takes_a_folio_away_from_a_page_that_had_one(self) -> None:
         """AC-7's folio clause, held where CARD-200 itself holds it.
@@ -788,11 +791,14 @@ class TestBookPageFrame_RefusesAnInvertedPuzzleArea:
 class TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt:
     """F-4 — a grid standing on the footer strip takes the whole group with it."""
 
-    def test_a_page_fit_bound_puzzle_keeps_the_corner_folio_and_gets_no_footer_rule(self) -> None:
+    def test_a_height_bound_puzzle_is_fitted_above_the_footer_rule_and_gets_it(self) -> None:
         # The page-fit-bound case CARD-200's own review measured, built here
         # rather than borrowed: a 30-wide, 30-tall grid whose rows carry one
         # run each and whose columns carry ten, so the fit is bound by the
-        # *height* and the drawing's bottom edge is the bottom margin itself.
+        # *height*. Fitted to the full box (as until CARD-485) its bottom edge
+        # was the bottom margin itself and the page lost its footer group; the
+        # fit now keeps the frame's footer strip free, so the rendered page
+        # carries the footer rule.
         tall = _height_bound_puzzle()
         book = corpus_book("card-222-tall")
         generator = BookPDFGenerator(book)
@@ -812,16 +818,18 @@ class TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt:
             book_page_spec(book, number),
         ).page.drawing_bottom
         assert drawing_bottom > frame.footer_rule.y, "this fixture is no longer the tight case"
-        # No footer rule: the strip is not free.
+        # The footer rule is drawn: the strip is free.
         assert (
-            _rules_in(
-                page,
-                frame.footer_rule.left,
-                frame.footer_rule.right,
-                frame.footer_rule.y - 5,
-                frame.footer_rule.y + 5,
+            len(
+                _rules_in(
+                    page,
+                    frame.footer_rule.left,
+                    frame.footer_rule.right,
+                    frame.footer_rule.y - 5,
+                    frame.footer_rule.y + 5,
+                )
             )
-            == []
+            == 1
         )
         # The header rule is unconditional and still there.
         assert len(
