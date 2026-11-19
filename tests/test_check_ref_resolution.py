@@ -3345,6 +3345,30 @@ def test_the_derivation_reads_all_four_authorities() -> None:
         sorted(s for s in sources if not re.search(r":\d+(?: \((?:test|check):\))?\Z", s))
     )
     assert len(_declared_refs()) > 500, f"only {len(_declared_refs())} refs derived"
+    # CARD-481 review 2 (F2-001): the ADR authority is read by TWO readers that
+    # must agree. ``_ADR_CHECK`` reads every comma-separated name after ``ref:``;
+    # the validator YAML-loads the Rules block, where an UNQUOTED comma inside a
+    # flow mapping ends the entry -- ``{kind: test, ref: a, b}`` is ``ref: a`` plus
+    # a stray key ``b``, so ``b`` is invisible to the contract tooling. YAML's own
+    # rule is applied here with the stdlib, because no YAML library is a declared
+    # dependency (ADR-0006/R1; the suite must collect on a bare dev install): in
+    # flow context a plain scalar cannot contain ``,``, so splitting the mapping on
+    # commas outside quotes is exactly the entry split a YAML reader makes.
+    unread = []
+    for adr in sorted(ADR_DIR.glob("*.md")):
+        for match in _ADR_CHECK.finditer(adr.read_text(encoding="utf-8")):
+            if match.group("kind") != "test":
+                continue
+            body = match.group(0).split("{", 1)[1].rsplit("}", 1)[0]
+            entries = re.findall(r'(?:"[^"]*"|\'[^\']*\'|[^,"\'])+', body)
+            mapping = dict(entry.strip().partition(":")[::2] for entry in entries)
+            yaml_names = _split(mapping.get("ref", "").strip())
+            if set(mapping) != {"kind", "ref"} or yaml_names != _split(match.group("ref")):
+                unread.append(f"adr/{adr.name}: {sorted(set(mapping) - {'kind', 'ref'})}")
+    assert not unread, (
+        "ADR check refs whose names a YAML reader does not see -- quote a "
+        f"multi-name ref (ADR-0039/R4's shape): {unread}"
+    )
 
 
 # --- CARD-335 / the artefact convention, and the budget the resolver answers in
