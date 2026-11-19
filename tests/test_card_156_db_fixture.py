@@ -79,7 +79,7 @@ class TestDbFixture_RefusesANonTestDatabase:
         return attempts
 
     def test_db_session_fails_without_connecting(
-        self, request, refused_case, connection_attempts
+        self, request, refused_case, connection_attempts, test_db_url, monkeypatch
     ):
         # Requested here rather than as a parameter, so the refusal is
         # something this test can catch instead of a setup error.
@@ -98,6 +98,54 @@ class TestDbFixture_RefusesANonTestDatabase:
         message = str(refused.value)
         assert refused_case[1] in message
         assert _SECRET not in message
+
+        # [CARD-488 AC-1, IDEA-034] The ``db_required`` gate runs before any
+        # fixture and used to probe DATABASE_URL with ``SELECT 1`` before the
+        # ``_test`` refusal was asked. The spies above record any probe
+        # (TEST-NET-1 host, G-2), so no refused URL may reach them.
+        import tests.conftest as suite_conftest
+
+        class _Marker:
+            name = "db_required"
+
+        class _Item:
+            def iter_markers(self):
+                return [_Marker()]
+
+        # Both refused: nothing may be asked, and the skip names the variable
+        # the developer set rather than only TEST_DATABASE_URL.
+        monkeypatch.setenv("DATABASE_URL", test_db_url)
+        monkeypatch.setenv("TEST_DATABASE_URL", test_db_url)
+        try:
+            with pytest.raises(pytest.skip.Exception) as gated:
+                suite_conftest.pytest_runtest_setup(_Item())
+        finally:
+            assert connection_attempts == [], (
+                f"the db_required gate probed a refused URL: {connection_attempts}"
+            )
+        assert str(gated.value).startswith(
+            "Database refused, not probed: DATABASE_URL names"
+        ), str(gated.value)
+        assert _SECRET not in str(gated.value)
+
+        # Only DATABASE_URL refused: the gate judges the suite's own test
+        # database in its place, so the db_required tests still run against
+        # it (review cycle 1, F-001) — and the refused URL is still not probed.
+        allowed = "postgresql://someone:pw@192.0.2.1:5432/nonogram_test"
+        judged = []
+        monkeypatch.setenv("TEST_DATABASE_URL", allowed)
+        monkeypatch.setattr(
+            suite_conftest, "_unusable_reason", lambda url: judged.append(url)
+        )
+        try:
+            suite_conftest.pytest_runtest_setup(_Item())
+        except pytest.skip.Exception as skipped:
+            # A skip is green; a gate that skips here has stopped the
+            # db_required tests from running against their own database.
+            pytest.fail(f"the gate skipped instead of judging {allowed!r}: {skipped}",
+                        pytrace=False)
+        assert judged == [allowed]
+        assert connection_attempts == [], connection_attempts
 
     def test_an_unparseable_url_is_refused_without_echoing_it(self):
         # A port that is not a number makes make_url raise; the refusal must

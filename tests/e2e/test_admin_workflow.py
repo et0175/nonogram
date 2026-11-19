@@ -191,8 +191,24 @@ class TestFlow2BatchImageUpload:
         the route's real field and picks "large" (30, fixed) rather than the
         route's "medium" (20, fixed) fallback, so the preview's 30x30 can only
         come from the submitted choice.
+
+        CARD-488 (IDEA-083): the size field's name is read off the step-one
+        page rather than written here, so renaming the form's select (which
+        the route would then never see) reds this instead of leaving it green.
+        The one select offering "large" is the size field; the route is still
+        reached only through ``_upload`` (see the test below).
         """
-        response = _upload(client, (test_image, 'test.png'), default_size='large')
+        step_one = client.get('/batch/create')
+        assert step_one.status_code == 200
+        size_fields = [
+            name for name, options in re.findall(
+                r'<select[^>]*\bname="([^"]+)"[^>]*>(.*?)</select>',
+                step_one.get_data(as_text=True), re.DOTALL,
+            )
+            if 'value="large"' in options
+        ]
+        assert len(size_fields) == 1, size_fields
+        response = _upload(client, (test_image, 'test.png'), **{size_fields[0]: 'large'})
 
         assert response.request.path == PREVIEW_PATH
         assert b'<option value="fixed" selected>' in response.data

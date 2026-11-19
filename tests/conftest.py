@@ -296,15 +296,42 @@ def pytest_runtest_setup(item):
         # failure this card exists to remove (AC-2, ADR-0038/R8).
         #
         # Narrow on purpose. It creates *only* the database the suite itself
-        # resolved, and only one the refusal allows; any other DATABASE_URL —
-        # the panel's own, say, under CARD-109's opt-out — is probed exactly
-        # as before and never created. Nothing here can fail a test that
+        # resolved, and only one the refusal allows; any other ``*_test``
+        # DATABASE_URL is probed and never created, and one the refusal names
+        # — the panel's own, say, under CARD-109's opt-out — is never probed:
+        # the resolved test database is judged in its place (below). Nothing
+        # here can fail a test that
         # would have skipped (G-2): :func:`_unusable_reason` returns reasons.
+        #
+        # [CARD-488, IDEA-034] The ``_test`` refusal is asked *before* any
+        # probe, and a URL it refuses is never probed. The ``SELECT 1`` used
+        # to run against whatever DATABASE_URL named — a production URL left
+        # in the shell under CARD-109's opt-out included — before anything
+        # asked whether the suite may touch it.
+        #
+        # A refused DATABASE_URL does not by itself skip anything: the
+        # ``db_required`` tests do not connect through DATABASE_URL.
+        # ``db_session`` and the other fixtures act on ``test_db_url``
+        # (TEST_DATABASE_URL, or the derived ``*_test`` name), so the gate
+        # judges *that* database instead — exactly as when DATABASE_URL names
+        # it — and the tests run as before (review cycle 1, F-001). Only when
+        # both are refused is there nothing the gate may ask, and it skips
+        # without a probe, naming the variable the developer actually set.
         resolved = db_name.resolve_test_database_url(os.environ, db_name.REPO_ROOT)
-        if database_url == resolved and _refusal_reason(database_url) is None:
-            reason = _unusable_reason(database_url)
-        else:
+        database_url_refused = _refusal_reason(database_url) is not None
+        if not database_url_refused and database_url != resolved:
             reason = _unreachable_reason(database_url)
+        elif _refusal_reason(resolved) is None:
+            reason = _unusable_reason(resolved)
+        else:
+            pytest.skip(
+                "Database refused, not probed: DATABASE_URL names a database "
+                "whose name does not end in '_test' (or a query parameter "
+                "points it elsewhere), and so does the suite's own test "
+                "database (TEST_DATABASE_URL, or the derived name). Point "
+                "DATABASE_URL, or unset it and set TEST_DATABASE_URL, at a "
+                "'*_test' database."
+            )
         if reason:
             pytest.skip(f"Database not reachable: {reason}")
 

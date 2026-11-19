@@ -921,6 +921,10 @@ class TestBooksList_HintSummaryCountsAndAbsence:
         (disclosure,) = disclosures_of(row_of(shelf.listing(), book_id))
 
         assert summary_of(disclosure) == "2 cells off plan"
+        assert hints_of(disclosure) == [
+            "16-20 × hard: over 2",
+            "26-30 × hard: short 7",
+        ]
 
     def test_an_on_plan_row_has_no_disclosure(self, shelf):
         book_id = shelf.book(PLAN_150_CELLS, plan=PLAN_150)

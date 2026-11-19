@@ -38,8 +38,9 @@ PHONE = {"width": 390, "height": 844}
 DESKTOP = {"width": 1440, "height": 900}
 
 #: The closed row's height bound at 390 px (AC-3). Measured in Chromium on
-#: this card's build with this fixture: the closed row is about 176 px tall
-#: (the actions column alone is 148 px); the same row was about 667 px before.
+#: this card's build with this fixture: the closed row was about 176 px tall
+#: (re-measured by CARD-488: about 169 px; the actions column alone is 148 px);
+#: the same row was about 667 px before.
 ROW_HEIGHT_MAX = 220
 
 #: A plan of 150 at 40/40/20 — the one tests/test_books_list_plan_stats.py
@@ -143,6 +144,32 @@ class TestBooksListMobile_RowIsCompactAtPhoneWidth:
         assert summary.is_visible()
         assert summary.inner_text().strip() == f"{HINTS} cells off plan"
         assert _visible_chips(phone_page) == 0
+
+    def test_the_summary_takes_the_shared_focus_ring(self, phone_page) -> None:
+        # CARD-488 (IDEA-100): a keyboard focus on the summary draws the
+        # panel's --color-focus ring (admin.css's shared focus rule), not the
+        # browser's default. Focused the way tests/test_player_base_css.py's
+        # census does: a key press first, so :focus-visible matches.
+        phone_page.keyboard.press("Shift")
+        ring = phone_page.evaluate(
+            """() => {
+                 const summary = document.querySelector('tbody tr .plan-hints > summary');
+                 summary.focus();
+                 const probe = document.createElement('i');
+                 probe.style.color = 'var(--color-focus)';
+                 document.body.append(probe);
+                 const focus = getComputedStyle(probe).color;
+                 probe.remove();
+                 const s = getComputedStyle(summary);
+                 return {
+                   focused: summary.matches(':focus-visible'),
+                   ring: [s.outlineStyle, s.outlineWidth, s.outlineColor],
+                   focus,
+                 };
+               }"""
+        )
+        assert ring["focused"], ring
+        assert ring["ring"] == ["solid", "2px", ring["focus"]], ring
 
     def test_the_closed_summary_is_one_line(self, phone_page) -> None:
         # The closed summary does not wrap ("10 cells off / plan" was F-003):

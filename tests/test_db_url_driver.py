@@ -1166,6 +1166,19 @@ class TestMigrations_TheDeployPathNamesTheDriver:
         ]
         assert reported, output
 
+        # [CARD-488 AC-2, IDEA-017] Nothing but the probe's own CONFIG line may
+        # carry the URL or its password: alembic logs at INFO through
+        # alembic.ini, and a URL logged by env.py on the way to the engine would
+        # land in Render's build log. Both spellings of the password, because a
+        # raw DATABASE_URL carries it percent-encoded.
+        logged = "\n".join(
+            line for line in output.splitlines() if not line.startswith("CONFIG:")
+        )
+        for leaked in (environment["DATABASE_URL"], secret, "s3cr3t-p%40ss"):
+            assert leaked not in logged, (
+                f"the migration step's output carries {leaked!r}:\n{logged}"
+            )
+
         configuration = json.loads(reported[-1][len("CONFIG:") :])
         url = make_url(configuration["sqlalchemy.url"])
 
