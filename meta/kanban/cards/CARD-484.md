@@ -1,6 +1,6 @@
 # CARD-484: The admin hint points at the easiest deduction left, by the solver's own grade
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/484-hint-easiest-first
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-484
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-192, WSJF 1.23); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-192
 **Wave:** 81
@@ -20,9 +20,9 @@
 **UI surface:** admin solve page (hint ladder)
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T11:55Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T13:28Z
+**Actual:** 1c — ratio 1/2 = 0.5
+**Merge commit:** c35ba4708c0f213af5c6b8474073444b8c332c25
 **Blocked by:** —
 
 ## Why this card exists
