@@ -1161,8 +1161,9 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         # — no shift. (Until this card the lower slot was pulled RESERVE_PX
         # toward the gutter by CARD-204 Fix 4's folio reserve, and this
         # comparison carried that offset; the reserve then narrowed the fit
-        # only, and since CARD-483 the walk passes none. RESERVE_PX is asserted non-trivial below so "no shift" is a
-        # measurement rather than a tautology.)
+        # only, and since CARD-483 the walk passes none. RESERVE_PX is
+        # asserted non-trivial below so "no shift" is a measurement rather
+        # than a tautology.)
         assert RESERVE_PX > 1, RESERVE_PX
         assert _same_ink(lower, _reference_band(puzzle, 6, "Puzzle 2 · Easy", like=raw))
         if isinstance(raw, ContentStream):

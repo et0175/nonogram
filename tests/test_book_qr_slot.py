@@ -234,7 +234,7 @@ def _folios_set(stream, page_number: int) -> List[Tuple[float, float]]:
 
 
 def _expected_pair_cell_mm(
-    across: int, lower_across: int, total_down: int, *, strip: bool
+    across: int, total_down: int, *, strip: bool
 ) -> float:
     """FR-040's shared cell on Book 1, written out from the sheet's own
     millimetres — the footer strip included, as production passes it (and
@@ -316,7 +316,7 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
                     continue
                 across = 1 + columns
                 total_down = 2 * (1 + rows)
-                expected = _expected_pair_cell_mm(across, across, total_down, strip=True)
+                expected = _expected_pair_cell_mm(across, total_down, strip=True)
                 assert abs(pair.cell_mm - expected) < 1e-6, (
                     columns, rows, pair.cell_mm, expected
                 )

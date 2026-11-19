@@ -457,10 +457,11 @@ class TestPairLayout_RefusesSpecsThatNeverPair:
 
         Production passed one fixed ~9 mm constant
         (``book_pdf_generator._folio_reserve_px``, 108 px at 300 DPI) until
-        CARD-483 and passes none since, so no real book reaches this; the point is that the parameter cannot turn a
-        geometry question into an exception for *any* fixed value a caller
-        passes. A reserve wider than Book 1's own usable width would, without
-        the guard, hand the re-fit step a ``PageSpec`` whose usable width is
+        CARD-483 and passes none since, so no real book reaches this; the
+        point is that the parameter cannot turn a geometry question into an
+        exception for *any* fixed value a caller passes. A reserve wider than
+        Book 1's own usable width would, without the guard, hand the re-fit
+        step a ``PageSpec`` whose usable width is
         negative — which ``PageSpec`` itself rejects with a ``ValueError``,
         the one error shape this function's own "``None`` when the geometry
         does not work out" contract rules out.

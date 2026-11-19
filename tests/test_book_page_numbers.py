@@ -1016,6 +1016,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         small_book = BookPDFGenerator(corpus_book("f4-scale-small"))
         huge_book = BookPDFGenerator(corpus_book("f4-scale-huge"))
         assert _folio_reserve_px(small_book.dpi) == _folio_reserve_px(huge_book.dpi)
+        # The value itself, pinned: 4 x the face's widest digit (27 px at
+        # 10 pt, 300 DPI). ``footer_pointer`` keeps this width clear of the
+        # centred folio, and ``property/test_book_two_up.py`` sweeps it.
+        assert _folio_reserve_px(small_book.dpi) == 108, _folio_reserve_px(small_book.dpi)
 
         # The same two puzzles, paired early in a short book and (via a run
         # of differently-tiered filler puzzles, so none of them ever offers
