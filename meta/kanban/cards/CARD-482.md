@@ -1,6 +1,6 @@
 # CARD-482: The proof PDF is written in the book's interior colour mode, not always RGB
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_proof.py, tests/test_book_proof_pages.py
 **UI surface:** none
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T07:14Z
 **Closed:** —
 **Actual:** —
@@ -57,7 +57,7 @@ the drawn `"RGB"` pages, so every pixel-level proof test reads what it read
 before. `book_pdf_generator.py` is not edited (G-1); the mode rule is read, not
 restated.
 
-**`book=None`.** Measured by reading the code: `BookPDFGenerator(None)` takes
+**`book=None`.** Read from the code, and measured by the cycle-1 reviewer (`render_proof_pdf(None)` gave DeviceGray on both pages): `BookPDFGenerator(None)` takes
 `book_ink_mode(None)` -> `ink_mode_from_stored(None)` -> `DEFAULT_INK_MODE`,
 which is `InkMode.BLACK_AND_WHITE`, so a `None` proof is `"L"` /
 `/DeviceGray` -- the same as a book with an empty `interior_ink_mode` column,
@@ -94,3 +94,7 @@ this file was already in it.
 (959,899 B), `proof_colour.pdf` (1,048,422 B), and `proof_bw_page1.png`,
 `proof_colour_page1.png` (page 1 decoded from each PDF's image XObject, in its
 written mode).
+
+[Review 1/3] Score: 9.0, nothing gating, certified. Conversion lossless (0 non-grey pixels; `convert("L")` = R channel) and pixel-identical to the interior's own B&W path for both pages; seven mutants each red the new test. F-001 (low) the `None` claim was read, not run; F-002 (low) the docstring's first line said "proof_pages as one PDF".
+
+[After certification, uncertified] One docstring line in `render_proof_pdf` reworded for F-002 and the notes' `None` line corrected for F-001; no code change.
