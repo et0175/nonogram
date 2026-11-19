@@ -97,12 +97,14 @@ aggregates:
         # stored state; it must hold for every PDF the aggregate produces.
         # AMENDED 2026-09-22 (d) (FR-042 amended): "no answer-key page holds
         # answers of two levels" appended.
+        # AMENDED 2026-11-19 (CARD-232, FR-042 amended to the owner's ruling
+        # of 2026-11-07): the size-dependent capacity is gone; every page
+        # holds at most 4 answers in a 2x2 grid (docs/BOOK_PAGE_PACKING.md).
         statement: >-
           The book's answer key holds every member puzzle's answer exactly
-          once, in puzzle-number order; an answer-key page holds at most 6
-          answers while every answer on it is at most 20 cells on its
-          longest side, and at most 4 once it holds one longer than 20;
-          no answer-key page holds answers of two levels (FR-042).
+          once, in puzzle-number order; an answer-key page holds at most 4
+          answers, in a 2 x 2 grid, whatever their sizes; no answer-key page
+          holds answers of two levels (FR-042).
       # New 2026-09-22 (d) (delta — interior PDF without the cover; owner
       # decision BK-9). A rule on the files CMD-019 produces, not stored
       # state.

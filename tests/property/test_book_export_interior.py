@@ -976,7 +976,17 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             assert kind == "packed", (
                 f"{label}: every answer packs (up to 30 x 30), not {kind}"
             )
-            half = page.width // 2
+            # Split at the centre of the gap between the two tile columns,
+            # from the tile model, not at the page's pixel midpoint: the two
+            # coincide only while gutter == outside (IDEA-168, CARD-232).
+            half = round(
+                (
+                    (GUTTER_MM if right_hand else OUTSIDE_MM)
+                    + PACKED_TILE_WIDTH_MM
+                    + PACKED_GAP_MM / 2
+                )
+                * PX_PER_MM
+            )
             for column, (left, right) in enumerate(((0, half), (half, page.width))):
                 expected_mm = _packed_column_left_mm(
                     group, column, answer_page_number
@@ -1006,7 +1016,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                     f"column {column} has no ink at all"
                 )
                 drawn_mm = (cols_with_ink.min() + left) / PX_PER_MM
-                assert abs(drawn_mm - expected_mm) < 0.5, (
+                assert abs(drawn_mm - expected_mm) < 0.1, (
                     f"{label}: packed answer page {answer_page_number} "
                     f"({'right' if right_hand else 'left'}-hand) column "
                     f"{column} starts its ink at {drawn_mm:.3f} mm, not "

@@ -1,67 +1,45 @@
-"""The book's packed answer key: which answers share a page, and what each says.
+"""The book's answer key: which answers share a page, and what each says (FR-042).
 
-FR-042 (owner decision BK-8) replaced one full answer page per puzzle — a
-150-puzzle book passing 300 pages — with a **packed** key: six answers to a
-page (2 columns x 3 rows) while every answer on the page is small, four (2 x 2)
-once one of them is large. This module owns that walk and the caption text.
-It owns nothing else.
+The rule (owner ruling 2026-11-07, built by CARD-202 and CARD-232)
+------------------------------------------------------------------
+**Every solution is a tile**, up to four to a page in a 2 x 2 grid, each tile
+carrying its own clues, its header and its caption. :func:`plan_small_answer_pages`
+walks the book's answers in puzzle-number order and cuts each level's run into
+pages of four; the last page of a run holds the one to three left over in the
+same 2 x 2 positions (CARD-232 AC-4). A page never holds two levels. Every size
+the book supports qualifies (:data:`PACKED_MAX_WIDTH`, :data:`PACKED_MAX_HEIGHT`
+are :data:`~nonogram.limits.MAX_SIZE` since 2026-11-09).
+
+This walk is extent-only, so it cannot see clue depth. A page whose four tiles
+cannot reach :data:`~nonogram.export.layout.MIN_CELL_MM` is degraded after it,
+by ``book_pdf_generator._degrade_infeasible_packed_pages``: to two 2-up pages,
+and a pair that still cannot fit to one answer per page. The rule is written
+down once, with its constants and its size-by-trim tables generated from the
+code, in ``docs/BOOK_PAGE_PACKING.md`` (held by
+``tests/test_book_page_packing_doc.py``).
 
 The split with COMP-007 (ADR-0036/R2, G-1)
 ------------------------------------------
 This module is **pure**: value objects in, value objects out. It measures no
 tile, fits no cell, places no rule and draws nothing — there is no ``PIL``
 import here and no ``PageSpec``. It decides only *which answers land on which
-page*, *which page carries a level heading* and *what a caption says*; the
-geometry of the page those decisions describe is
-:func:`~nonogram.export.layout.compute_answer_page_layout`'s
-(CARD-133), and the ink is :func:`~nonogram.export.png.render_answer_page`'s.
+page* and *what a caption says*; the geometry of the page is
+:func:`~nonogram.export.layout.compute_packed_solved_layout`'s and the ink is
+``book_answer_vector``'s. That is why the walk can be swept over thousands of
+book orders without a page being rendered.
 
-That is also why this is a module of its own rather than three more methods on
-:class:`~nonogram.admin.book_pdf_generator.BookPDFGenerator`: the walk is
-decided entirely by the answers' numbers, extents and levels, so it can be
-swept over thousands of book orders (EC-030) without a page being rendered.
-
-The capacity rule is this module's, not the layout's (INV-011)
---------------------------------------------------------------
-CARD-133's handover is explicit that the 3.19 mm answer-cell floor (EC-031) is
-**not** enforced by the layout type: a 25x25 laid out six-up comes back at
-3.178 mm and a 30x30 six-up at 2.648 mm, with no error raised. What keeps every
-answer above that floor is the rule here — a six-up page holds nothing above
-:data:`SIX_UP_LONGEST_SIDE` cells on its longest side — so it is a rule, with
-its own tests, and not a preference.
-
-Neither number is measured by this module's own tests, which count pages and
-read captions. The floor is swept over every extent INV-011 admits by CARD-133's
-``tests/property/test_book_answer_tiles.py``, and the *link* between it and the
-threshold above — 20 six-up clears the floor, 25 six-up does not, and the layout
-raises nothing either way — is pinned by
-``tests/test_book_answer_key.py::TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor``.
-The threshold is deliberately clear of the edge: on the Book 1 profile every
-side up to 24 still clears the floor six-up, 25 is the first that does not.
-
-A page is closed late, never early
-----------------------------------
-The next answer joins the current page when the page **with it** is still
-within the capacity that page *would then have*. So five small answers followed
-by a 25x25 close a six-up page of five (AC-263): the sixth answer would make
-the page four-up, and six on a four-up page is not a page. Three small answers
-plus a 25x25 make a four-up page of four, and the small answer after it starts
-a new page (AC-264). The page's capacity is therefore never stored: it is
-:attr:`AnswerPage.capacity`, read off the answers on it, so a page and its
-tiling cannot drift apart.
-
-**Every level starts a new answer page** (FR-042 amended 2026-09-22 (d)): an
-answer whose level differs from the current page's opens a new one even when
-the page has room, so no page holds two levels (INV-011 amended). The first
-page of a level's run carries that level's name as its heading; later pages of
-the same run carry none (AC-291).
-
-Because every page that is closed *by the capacity rule* holds at least four
-answers (a page is closed only when the next answer would make it too many, and
-the smaller capacity is four), only the last page of a level can hold fewer.
-That is the whole of EC-030's page-count bound: ``ceil(n / 6)`` at best, and at
-worst ``ceil(n / 4) + (L - 1)`` for ``L`` non-empty levels — at most two pages
-more than an unlevelled key would take on the default plan.
+Retired, kept only for their own tests
+--------------------------------------
+:func:`pack_answer_pages`, :class:`AnswerPage`, :func:`page_capacity`,
+:func:`level_heading`, :attr:`Answer.needs_four_up` and the constants :data:`SIX_UP` and
+:data:`SIX_UP_LONGEST_SIDE` are the first packed key's walk (CARD-134), which
+CARD-198 replaced and the owner's 2026-11-07 ruling withdrew. No production
+code calls them (``src/`` names them only in this module and in history
+notes); ``tests/test_book_answer_key.py`` and
+``tests/property/test_book_answer_key.py`` still exercise them, so they are
+marked here rather than deleted, and deleting them with those tests is a
+change of its own. They state no rule the book follows. :data:`FOUR_UP` is not
+retired: :data:`PACKED_FOUR_UP` is it.
 """
 
 from __future__ import annotations
@@ -90,6 +68,17 @@ __all__ = [
     "qualifies_for_packing",
     "plan_small_answer_pages",
 ]
+
+# ---------------------------------------------------------------------------
+# RETIRED: the first packed key (CARD-134), replaced by CARD-198 and withdrawn
+# by the owner's ruling of 2026-11-07, kept only for its own tests with no
+# production caller: SIX_UP_LONGEST_SIDE, SIX_UP, Answer.needs_four_up,
+# page_capacity, level_heading (called only by pack_answer_pages), AnswerPage
+# and pack_answer_pages. Everything else below is live: CAPTION_SEPARATOR,
+# Answer, answer_title and answer_caption are read by book_pdf_generator /
+# book_answer_vector, and FOUR_UP is PACKED_FOUR_UP. See the module
+# docstring, "Retired, kept only for their own tests".
+# ---------------------------------------------------------------------------
 
 #: The longest side, in cells, an answer may have and still leave its page
 #: six-up (INV-011, FR-042). Exactly 20 keeps the page six-up; 21 makes it
@@ -367,20 +356,21 @@ def pack_answer_pages(answers: Sequence[Answer]) -> List[AnswerPage]:
 # ---------------------------------------------------------------------------
 #
 # CARD-198 took every answer, large or small, to one full solved page with
-# clues (``book_pdf_generator.solved_puzzle_page``). This narrows that rule:
-# an answer small enough to shrink and still read clearly — width<=15 **and**
-# height<=20 — packs 2 or 4 to a page instead, keeping its clues and its
-# title band (``export.layout.compute_packed_solved_layout``, CARD-202). A
-# large answer (anything over either bound) is unaffected and still prints
-# alone: CARD-198's rule narrows, it does not disappear.
+# clues. CARD-202 let answers up to 15 wide and 20 tall pack instead, keeping
+# their clues and their band (``export.layout.compute_packed_solved_layout``);
+# the owner's ruling of 2026-11-07 and the decision of 2026-11-09 widened that
+# to every size the book supports, four to a page (CARD-232). An answer that
+# does not qualify still plans as a page of its own, but today none exists in
+# the supported range; the degrade pass in ``book_pdf_generator`` is what still
+# prints an answer alone.
 #
 # The walk below decides only which answers land on which page and in what
 # grouping — the same split from COMP-007 this module already keeps for the
 # old packed key (see the module docstring): no PIL, no PageSpec, nothing
 # drawn.
 
-#: The owner's threshold (Google Doc "Nonograms - Print layout1", item 4,
-#: 2026-10-08): an answer this size or smaller packs; anything wider than 15
+#: Was the owner's threshold (Google Doc "Nonograms - Print layout1", item 4,
+#: 2026-10-08), until 2026-11-09: an answer this size or smaller packed; anything wider than 15
 #: cells OR taller than 20 keeps CARD-198's one-full-page treatment, even if
 #: the other side is small. Both sides are checked separately — this is not
 #: :data:`SIX_UP_LONGEST_SIDE`'s single longest-side bound.
@@ -390,20 +380,21 @@ def pack_answer_pages(answers: Sequence[Answer]) -> List[AnswerPage]:
 PACKED_MAX_WIDTH = MAX_SIZE
 PACKED_MAX_HEIGHT = MAX_SIZE
 
-#: The only two packed-page capacities this rule uses (owner decision,
-#: resolved 2026-10-08): never :data:`SIX_UP` — a with-clues tile has no
-#: clue-gutter room to spare at six to a page (see
+#: The only two packed-page capacities: 4, every page the walk plans, and 2,
+#: used only by the degrade pass. There is no larger one — a with-clues tile
+#: has no clue-gutter room to spare beyond four to a page (see
 #: ``export.layout.SOLVED_TILE_MAX_CELL_MM``'s own docstring).
 PACKED_FOUR_UP = FOUR_UP
 PACKED_TWO_UP = 2
 
 
 def qualifies_for_packing(answer: Answer) -> bool:
-    """Whether ``answer`` is small enough to pack (CARD-202): width<=15 and height<=20.
+    """Whether ``answer`` packs: both sides within :data:`PACKED_MAX_WIDTH` x :data:`PACKED_MAX_HEIGHT`.
 
-    Both sides, checked separately — an answer 21 cells tall and 1 cell wide
-    does not qualify, however narrow it is, and neither does one 16 wide and
-    1 tall. This is the one check every page in the walk below is sorted by.
+    Both sides, checked separately. Since 2026-11-09 the bounds are
+    :data:`~nonogram.limits.MAX_SIZE`, so every supported size qualifies
+    (CARD-232); the check stays because :class:`PackedAnswerPage` is valid by
+    construction against it.
     """
     return answer.width <= PACKED_MAX_WIDTH and answer.height <= PACKED_MAX_HEIGHT
 

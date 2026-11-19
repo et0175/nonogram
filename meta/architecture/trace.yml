@@ -2162,25 +2162,24 @@ links:
   status: partial
 
 - req: FR-042
-  description: "Answer key: each puzzle's filled grid only, in puzzle-number order, captioned 'Puzzle N — Title'; 6 answers a page while all are <= 20 on the longest side, 4 once one is longer; answer pages count toward the finalise page count"
+  description: "Answer key: every puzzle's solution as a tile with its clues, in puzzle-number order, captioned 'Puzzle N — Title'; up to 4 tiles a page in a 2x2 grid, one level per page; answer pages count toward the finalise page count (docs/BOOK_PAGE_PACKING.md)"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-007, COMP-009]
   adrs: [ADR-0036, ADR-0037]
   tests:
-  - TestBookAnswerKey_TwentyInSixUpTileCellSize
-  - TestBookAnswerKey_ThirtyInFourUpTileCellSize
-  - TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
+  - test_the_packing_doc_tables_are_what_the_planner_produces
+  - TestBookSolvedAnswerKey_PackedSlotsStillShowClues
   - TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly
   - test_the_search_finds_an_answer_caption_at_its_own_size
   - test_a_custom_book_title_reaches_a_packed_page
   - TestBookFinalise_PageCountIncludesAnswerKeyPages
-  - PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
-  - PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
+  - test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage
+  - test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenMoreWereAvailable
+  - TestPackedSolvedLayout_FourUpDeclinesOnTheKdpMinimumTrim
+  - TestPackedSolvedLayout_EverySurvivingSlotActuallyFitsItsOwnTile
   - TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
   - TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
-  - TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm
-  - TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize
   - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
   - TestFinaliseCounts_ShowsWhyTheCountIsApproximate
   - TestFinalise_UncountableBookStaysInDraft
@@ -2190,6 +2189,11 @@ links:
   - TestAnswerPages_CaptionHoldsTheFloorInTheStream
   - TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries
   notes: >-
+    Amended 2026-11-19 (CARD-232 AC-9, owner ruling 2026-11-07): every
+    solution is a 2x2 tile with its clues, one shared cell per page capped at
+    6 mm, a degrade pass below the 2 mm minimum; the refs to the retired
+    clueless key's tests were replaced (requirements.yml FR-042's header
+    comment lists them). The rest of this note is history.
     Amended 2026-09-22 (d) (owner, BK-8 details): a SOLUTIONS divider page
     precedes the answer key; each level starts a new answer page under a small
     heading (6 mm line on that page; COMP-007 lays the tiles out below it,

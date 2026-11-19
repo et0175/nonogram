@@ -4129,7 +4129,7 @@ functional:
       book order across the levels. A book whose stored arrangement predates this rule prints
       in the rule's order, keeping its stored order within each level.
       The answer key has no level divider pages: its levels are marked by
-      a small heading at the top of each level's first answer page
+      the running head every answer page carries, naming its level
       (FR-042). The interior's guide page (interior page 1, FR-043) is
       titled "How to Solve Nonograms" and carries a worked example - one
       line solved step by step from its clue - on that same single page;
@@ -4139,7 +4139,7 @@ functional:
       source: authored
       decided_by: "owner, 2026-09-22 (DEC-039 session) — BK-7, book_admin_ui_requirements.md rule 11"
       relates_to: [FR-038, FR-040, FR-033, FR-009, ADR-0037, ADR-0031]
-      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way). [CLOSED 2026-09-22 (d) — both halves answered by the owner: end of its level (owner answer above); the answer key has no level dividers, each level starts a new answer page with a small heading (FR-042, AC-290/AC-291).]"
+      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way). [CLOSED 2026-09-22 (d) — both halves answered by the owner: end of its level (owner answer above); the answer key has no level dividers, each level starts a new answer page with a small heading (FR-042, AC-290/AC-291).] [2026-11-19, CARD-232: the heading is now the running head every answer page carries, naming its level.]"
       evidence: ["src/nonogram/admin/book_manager.py:373-520", "src/nonogram/admin/app.py:2093-2130", "src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3"]
       amended: "2026-10-04 (a) — AC-324..AC-326 added: the guide page is titled \"How to Solve Nonograms\" (was \"How to Use This Book\") and carries a worked example (one line solved step by step from its clue) on the same single page; interior page count and parity unchanged. Placed here because no FR owned the guide page's content; FR-043 (position/parity) and CON-020 (10 pt floor) are referenced, not duplicated. The full 1-2 page tutorial is deferred to its own requirement. Source: owner decision 2026-10-04, roadmap wave 1, IDEA-071 (raw-requirements.md Delta 2026-10-04 (a))."
     acceptance:
@@ -4311,6 +4311,23 @@ functional:
         test: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
 
   - id: FR-042
+    # AMENDED 2026-11-19 (CARD-232 AC-9; owner ruling 2026-11-07 "solutions 4",
+    # decisions 2026-11-09). The statement, AC-261..AC-267, AC-270, AC-290,
+    # AC-293..AC-295, EC-030 and EC-031 restated to the answer key the book
+    # prints: every solution a tile with its clues, up to four to a page in a
+    # 2x2 grid, one shared cell capped at SOLVED_TILE_MAX_CELL_MM, a level's
+    # short last page keeping the 2x2 positions, a degrade pass below
+    # MIN_CELL_MM. The rule and its size-by-trim tables are written once in
+    # docs/BOOK_PAGE_PACKING.md (held by tests/test_book_page_packing_doc.py).
+    # Refs: AC-262/265/294 now name the doc test that holds the solutions
+    # tables these figures are read from; AC-267, AC-295, EC-030, EC-031 name
+    # the tests of today's tiles and walk. The refs they replace
+    # (TestBookAnswerKey_TwentyInSixUpTileCellSize, ..._ThirtyInFourUp...,
+    # ..._AnswerDrawsGridOnlyNoClues, ..._SmallAnswerCellCappedAtFiveMm,
+    # ..._HeadingPageTwentyInSixUpTileCellSize and the two PropertyTest_BookAnswerKey_*)
+    # pin `compute_answer_page_layout` / `pack_answer_pages`, the retired
+    # clueless key, which no production code calls. The comments below this
+    # one are history: they describe the key as it was when written.
     # AMENDED 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line
     # 2; BK-8 details, book rule 12; owner decision). Closes all three
     # _meta.open_question items and confirms the caption assumption:
@@ -4392,44 +4409,41 @@ functional:
     # small and large alternate; one page per answer (today) = 150.
     statement: >-
       The book PDF ends with an answer key (TERM-033) holding every member
-      puzzle's answer exactly once, in puzzle-number order (INV-011). An
-      answer is the puzzle's filled solution grid only — no row or column
-      clues — captioned "Puzzle N — Title", where N is the puzzle's number
-      in the book and Title is the puzzle's title in the book (its custom
-      book title when one is set, otherwise the puzzle's name); the answer
-      key is the only place the title is printed (ADR-0037/R1). Answers
-      fill pages in order: a page is a 6-up page (2 columns x 3 rows) while
-      every answer on it is at most 20 cells on its longest side, and a
-      4-up page (2 x 2) once it holds an answer longer than 20; the next
-      answer goes on the current page when the page, with it, stays within
-      its capacity (6, or 4 if any answer on it is longer than 20),
-      otherwise it starts a new page. Each tile is (usable width - 2 mm) / 2
-      wide and (usable height - (rows - 1) x 2 mm) / rows tall, where the
-      usable area is the trim minus the page's mirrored margins (FR-030)
-      with no title band; a 6 mm caption line is reserved inside the tile
-      and the grid is drawn at the largest square cell that fits the rest.
-      The tiles are laid out by COMP-007's layout functions with the book's
-      PageSpec (ADR-0036/R2). The answer key's pages count toward the
-      book's page count, including the count finalise checks against KDP's
-      gutter minimum (FR-030, AC-179). A "SOLUTIONS" divider page, carrying
-      only that word, precedes the first answer page when the book prints
-      its divider pages (FR-041's setting — the default and every book
-      written before it); when the setting is off there is no such page and
-      the answer key simply begins one page earlier, keeping its own page
-      count. Each level (Easy,
-      Medium, Hard) that holds a puzzle starts a new answer page, even when
-      the previous page has room, and that page carries the level's name
-      as a small heading on a 6 mm line (plus a 2 mm gap) at the top of its
-      usable area, the tiles filling the height below it; the level's later
-      pages carry no heading and the answer key has no level divider pages.
-      The caption's Title is the per-book title set for the puzzle in
-      Arrangement, else the puzzle's stored name. An answer's cell never
-      exceeds 5 mm.
+      puzzle's answer exactly once, in puzzle-number order (INV-011). Every
+      answer is a tile: the puzzle's filled solution grid with its row and
+      column clues, under its header and captioned "Puzzle N — Title", where N
+      is the puzzle's number in the book and Title is the puzzle's title in
+      the book (its custom book title when one is set, otherwise the puzzle's
+      name); the answer key is the only place the title is printed
+      (ADR-0037/R1). Tiles fill pages in order, up to four to a page in a
+      2 x 2 grid, for every grid size the book supports; each level (Easy,
+      Medium, Hard) that holds a puzzle starts a new answer page, and a
+      level's last page holds the one to three answers left in the same
+      2 x 2 positions. Every tile on a page shares one cell: the largest at
+      which every answer on the page fits its tile below its own band, capped
+      at SOLVED_TILE_MAX_CELL_MM (6 mm); a page whose four tiles cannot reach
+      MIN_CELL_MM (2 mm) prints as two-tile pages instead, and a pair that
+      cannot reach it as one answer per page. Each tile is (usable width -
+      gap) / 2 wide and (usable height - gap) / 2 tall, where the usable area
+      is the trim minus the page's mirrored margins (FR-030) less the running
+      head's strip at the top and the footer strip at the bottom; each grid
+      is centred in its tile below the tile's band. The tiles are laid out by
+      COMP-007's layout functions with the book's PageSpec (ADR-0036/R2). Every
+      answer page carries a running head naming its level and the puzzles on
+      it. The answer key's pages count toward the book's page count,
+      including the count finalise checks against KDP's gutter minimum
+      (FR-030, AC-179). A "SOLUTIONS" divider page, carrying only that word,
+      precedes the first answer page when the book prints its divider pages
+      (FR-041's setting — the default and every book written before it);
+      when the setting is off there is no such page and the answer key
+      simply begins one page earlier, keeping its own page count. The rule's
+      constants and its solutions-per-page tables by size and trim are
+      docs/BOOK_PAGE_PACKING.md.
     source: [US-023, US-024]
     _meta:
       source: authored
       decided_by: "owner, 2026-09-22 (answers during /forge:kanban decompose of Increments 13-16) — BK-8, book_admin_ui_requirements.md rule 12; details 2026-09-22 (d) — BK-8 details, rule 12 amended"
-      amended: "2026-09-22 (d) — level-first answer pages with a heading, SOLUTIONS divider, caption title per-book else name, 5 mm answer-cell cap"
+      amended: "2026-09-22 (d) — level-first answer pages with a heading, SOLUTIONS divider, caption title per-book else name, an answer-cell cap; 2026-11-19 (CARD-232, owner ruling 2026-11-07) — every solution a 2x2 tile with its clues, see docs/BOOK_PAGE_PACKING.md"
       relates_to: [FR-030, FR-032, FR-033, FR-040, FR-041, FR-043, NFR-008, ADR-0036, ADR-0037, ADR-0034]
       assumptions: "Geometry (2 mm gap, 6 mm caption line, no title band on answer pages; 2026-09-22 (d): a 6 mm heading line + 2 mm gap on each level's first answer page) is stated by this FR, not by the owner; the owner's figures (3.7 / 3.1 mm) are conservative against it. The caption's Title as 'per-book title set in Arrangement, else puzzle name' is owner-confirmed 2026-09-22 (d) (BK-8, rule 12)."
       open_question: "[CLOSED 2026-09-22 (d) — owner: (1) each level starts a new answer page with a small heading; (2) the SOLUTIONS divider page is kept, before the answer key; (3) answer cells are capped at 5 mm.] As first written: (1) Where FR-041's owner-confirmed 'small Easy / Medium / Hard headings' sit in the answer key (in a tile slot, above a row, or forcing a new page at a level boundary) is unstated; the criteria below use single-level books where it cannot bite, and the page-count example ignores headings. (2) Whether today's 'SOLUTIONS' divider page before the answer key is kept is unstated (it adds one page if kept). (3) Whether an answer cell is capped (e.g. at the 7.5 mm standard cell) for small answers is unstated; no criterion uses an answer small enough for it to bite."
@@ -4438,7 +4452,7 @@ functional:
       - id: AC-261
         given: a Book 1 profile book of 12 easy 15x15 puzzles, numbered 1..12
         when: the book PDF is generated
-        then: the answer key is 2 pages, the first holding answers 1-6 and the second answers 7-12, each in 2 columns x 3 rows read left to right, top to bottom
+        then: the answer key is 3 pages holding answers 1-4, 5-8 and 9-12, each in a 2 x 2 grid read left to right, top to bottom
         kind: happy
         invariant: INV-011
         # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_SixUpInPuzzleNumberOrder`, which no
@@ -4462,15 +4476,15 @@ functional:
       # not the first answer page of its level" (a level-first page carries
       # the heading line; that case is AC-295).
       - id: AC-262
-        given: a Book 1 profile book whose answer key holds a 20x20 answer on a 6-up page that is not the first answer page of its level
-        when: the answer's grid is measured
-        then: its cell is 3.97 mm (+/- 0.05 mm; 79.45 mm tile grid area over 20 rows)
+        given: a Book 1 profile book whose answer key holds four 20x20 answers of one level, every row and column clue 3 numbers deep
+        when: the answers' grids are measured
+        then: they share one 2 x 2 page at a cell of 4.05 mm (docs/BOOK_PAGE_PACKING.md, typical-clue solutions table)
         kind: boundary
-        test: TestBookAnswerKey_TwentyInSixUpTileCellSize
+        test: test_the_packing_doc_tables_are_what_the_planner_produces
       - id: AC-263
-        given: a Book 1 profile book whose puzzles 1-5 are 15x15 and puzzle 6 is 25x25
+        given: a Book 1 profile book of one level whose puzzles 1-5 are 15x15 and puzzle 6 is 25x25
         when: the book PDF is generated
-        then: the first answer page is a 6-up page holding answers 1-5, and answer 6 starts the next page
+        then: the answer key is two 2 x 2 pages, answers 1-4 then answers 5-6
         kind: boundary
         invariant: INV-011
         # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage`, which no
@@ -4491,9 +4505,9 @@ functional:
         # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
         # card owns it yet. CARD-481's worktree notes list the stale clauses.
       - id: AC-264
-        given: a Book 1 profile book whose puzzles 1-3 are 15x15, puzzle 4 is 25x25 and puzzle 5 is 15x15
+        given: a Book 1 profile book of one level whose puzzles 1-3 are 15x15, puzzle 4 is 25x25 and puzzle 5 is 15x15
         when: the book PDF is generated
-        then: the first answer page is a 4-up page (2 x 2) holding answers 1-4, and answer 5 starts the next page
+        then: the first answer page (2 x 2) holds answers 1-4, and answer 5 is alone on the next page, in the first 2 x 2 position
         kind: boundary
         invariant: INV-011
         # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20`, which no
@@ -4516,15 +4530,15 @@ functional:
         # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
         # card owns it yet. CARD-481's worktree notes list the stale clauses.
       - id: AC-265
-        given: a Book 1 profile book whose answer key holds a 30x30 answer on a 4-up page
-        when: the answer's grid is measured
-        then: its cell is 3.19 mm (+/- 0.05 mm; 95.85 mm tile width over 30 columns)
+        given: a Book 1 profile book whose answer key holds four 30x30 answers of one level, every clue line as full of numbers as it can be
+        when: the answers' grids are measured
+        then: they still share one 2 x 2 page, at a cell of 2.07 mm, above MIN_CELL_MM (docs/BOOK_PAGE_PACKING.md, deepest-clue solutions table)
         kind: boundary
-        test: TestBookAnswerKey_ThirtyInFourUpTileCellSize
+        test: test_the_packing_doc_tables_are_what_the_planner_produces
       - id: AC-266
-        given: a Book 1 profile book of 6 puzzles, puzzle 1 being 20 wide x 15 tall and puzzles 2-6 15x15
+        given: a Book 1 profile book of 6 puzzles of one level, puzzle 1 being 20 wide x 15 tall and puzzles 2-6 15x15
         when: the book PDF is generated
-        then: the answer key is one 6-up page holding answers 1-6 — a longest side of exactly 20 keeps the page 6-up
+        then: the answer key is two pages, answers 1-4 then 5-6 — the tiling is the same 2 x 2 whatever the sizes
         kind: boundary
         invariant: INV-011
         # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_LongestSideTwentyStaysSixUp`, which no
@@ -4545,11 +4559,11 @@ functional:
         # amend FR-042/INV-011 to the 2x2 key is the owner's / architect's call; no
         # card owns it yet. CARD-481's worktree notes list the stale clauses.
       - id: AC-267
-        given: a Book 1 profile book holding a 15x15 puzzle whose row and column clues are non-empty
-        when: its answer tile is rendered
-        then: the tile draws the 15 x 15 filled grid and no clue number
-        kind: negative
-        test: TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
+        given: a Book 1 profile book holding small puzzles whose row and column clues are non-empty
+        when: their answer tiles are laid out and rendered
+        then: each tile carries its row and column clues, each equal to the run-length encoding of its own solved grid, beside the filled grid
+        kind: happy
+        test: TestBookSolvedAnswerKey_PackedSlotsStillShowClues
       # REF RE-POINTED 2026-10-31 by CARD-317. The old ref named no `def` and
       # no `class` anywhere and nothing mentioned it either, so it was one of
       # the board's honestly dead refs. The outcome IS covered, and by a test
@@ -4609,9 +4623,9 @@ functional:
       # SOLUTIONS divider not counted)". A one-tier book, so the level
       # restart cannot bite; the three-level default plan is AC-293.
       - id: AC-270
-        given: a Book 1 profile book of 150 puzzles — the default plan's count and BK-8's 90 / 60 size split — all of one tier, puzzles 1-90 at most 20 on the longest side and puzzles 91-150 longer
+        given: a Book 1 profile book of 150 puzzles — the default plan's count and BK-8's 90 / 60 size split — all of one tier, puzzles 1-90 up to 20x20 and puzzles 91-150 larger
         when: the book PDF is generated
-        then: the answer key is 30 answer pages (the SOLUTIONS divider not counted) — 15 six-up pages then 15 four-up pages — where one page per answer would take 150
+        then: the answer key is 38 answer pages (the SOLUTIONS divider not counted) — 37 full 2 x 2 pages and one of 2 — where one page per answer would take 150
         kind: happy
         invariant: INV-011
         # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanTakesThirtyPages`, which no
@@ -4646,7 +4660,7 @@ functional:
       - id: AC-290
         given: a Book 1 profile book of 4 easy then 3 medium puzzles, all 15x15, numbered 1..7
         when: the book PDF is generated
-        then: the answer key is 2 answer pages — answers 1-4 on the first and answers 5-7 on the second — the medium level starts a new page although the first had room for 2 more
+        then: the answer key is 2 answer pages — answers 1-4 on the first and answers 5-7 on the second — the medium level starts a new page
         kind: happy
         invariant: INV-011
         # CARD-481 (2026-11-19): was `TestBookAnswerKey_EachLevelStartsNewAnswerPage`,
@@ -4658,9 +4672,12 @@ functional:
         # today's 2x2 page holding 1-4 is full (FR-042's 6-up premise).
         test: TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly
       - id: AC-291
+        # REWORDED 2026-11-19 (CARD-232 fix round 1) to the 2x2 key and the
+        # running head every answer page carries (CARD-233); `test:` kept as it
+        # was (it names no def/class, see the frozen honest-dead class).
         given: a Book 1 profile book of 8 easy puzzles then 1 medium puzzle, all 15x15
         when: its answer pages are read
-        then: the first answer page carries the heading "Easy" above its tiles, the second answer page (answers 7-8) carries no heading, and the third carries the heading "Medium"
+        then: every one of its 3 answer pages (answers 1-4, 5-8, 9) carries a running head naming its own level ("SOLUTIONS · EASY", "SOLUTIONS · EASY", "SOLUTIONS · MEDIUM")
         kind: boundary
         test: TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
       # AMENDED 2026-10-28 (CARD-305): `given` names the divider-pages
@@ -4675,9 +4692,9 @@ functional:
         kind: happy
         test: TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
       - id: AC-293
-        given: a Book 1 profile book that prints its divider pages (the default) on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 50 answers at most 20 on the longest side then 10 longer, medium 34 then 26, hard 6 then 24, in that order inside each level
+        given: a Book 1 profile book that prints its divider pages (the default) on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 60, medium 60, hard 30, in that order
         when: the book PDF is generated
-        then: the answer key is 31 answer pages — easy 11, medium 13, hard 7 — after 1 SOLUTIONS divider page (32 pages; 30 before level-first pages)
+        then: the answer key is 38 answer pages — easy 15, medium 15, hard 8 — after 1 SOLUTIONS divider page (39 pages)
         kind: boundary
         invariant: INV-011
         # `test:` DROPPED 2026-11-19 (CARD-481). It named `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`, which no
@@ -4706,17 +4723,17 @@ functional:
         invariant: INV-011
         test: TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
       - id: AC-294
-        given: a Book 1 profile book whose answer key holds a 10x10 answer on a 6-up page
-        when: the answer's grid is measured
-        then: its cell is 5.0 mm (+/- 0.05 mm) — the 5 mm answer cap, not the 7.94 mm the tile would allow
+        given: a Book 1 profile book whose answer key holds four 10x10 answers of one level, every row and column clue 3 numbers deep
+        when: the answers' grids are measured
+        then: their cell is 6.00 mm — SOLVED_TILE_MAX_CELL_MM, not the larger cell the tile would allow (docs/BOOK_PAGE_PACKING.md, typical-clue solutions table)
         kind: boundary
-        test: TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm
+        test: test_the_packing_doc_tables_are_what_the_planner_produces
       - id: AC-295
-        given: a Book 1 profile book whose answer key holds a 20x20 answer on the first 6-up answer page of its level (under the level heading)
-        when: the answer's grid is measured
-        then: its cell is 3.87 mm (+/- 0.05 mm; 77.45 mm tile grid area over 20 rows)
+        given: a level whose answers do not fill its last answer page (one to three left over)
+        when: the answer section is planned
+        then: that page keeps the 2 x 2 tiling (capacity 4) — the same tile size and positions as a full page, not a larger tiling for fewer answers
         kind: boundary
-        test: TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize
+        test: test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage
     engineering_constraints:
       # AMENDED 2026-09-22 (d): a page is also closed at a level boundary;
       # the upper bound gains (L - 1); AC-290 and AC-293 joined the
@@ -4724,34 +4741,30 @@ functional:
       - id: EC-030
         statement: >-
           For any book order of any length and any mix of puzzle sizes
-          10..30 and tiers, the answer key holds every member puzzle's
-          answer exactly once in puzzle-number order; no page holds more
-          than 6 answers, nor more than 4 when any answer on it is longer
-          than 20; no page holds answers of two levels; a page is closed
-          only when the next answer would push it past its capacity or
-          belongs to the next level; and the answer-key page count (the
-          SOLUTIONS divider not counted) lies between ceil(n / 6) and
-          ceil(n / 4) + (L - 1) for n answers over L non-empty levels —
-          for every order, not only the measured examples.
+          10..30 and tiers, the answer section's plan holds every member
+          puzzle's answer exactly once in puzzle-number order; no page holds
+          more than 4 answers or answers of two levels; and each level's run
+          is cut into pages of 4 with the 1 to 3 left over on one last page
+          that keeps the 2 x 2 tiling — for every order, not only the
+          measured examples.
         kind: consistency
         invariant: INV-011
         instances: [AC-261, AC-263, AC-264, AC-266, AC-270, AC-290, AC-293]
-        test: PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
+        test: test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage, test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenMoreWereAvailable
       # AMENDED 2026-09-22 (d): the 5 mm answer-cell cap is an upper bound;
       # the level heading line lies inside the usable area above the tiles;
       # AC-294 and AC-295 joined the instances. Test name kept.
       - id: EC-031
         statement: >-
-          For any answer of 10..30 cells per side on the Book 1 profile, on
-          either page parity and whether or not its page carries a level
-          heading, the answer's cell lies in [3.19, 5.0] mm, its grid and
-          6 mm caption line lie inside its tile, and every tile and the
-          heading line lie inside the page's usable area without
-          overlapping one another — for every extent and position, not
-          only the measured examples.
+          For any page of answers the plan puts together, the layout either
+          returns one shared cell between MIN_CELL_MM and
+          SOLVED_TILE_MAX_CELL_MM with every answer's drawing inside its own
+          tile and no two tiles overlapping, or declines; a declined page is
+          never forced to the minimum cell, it is printed at a lower capacity
+          or one answer per page.
         kind: consistency
         instances: [AC-262, AC-265, AC-294, AC-295]
-        test: PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
+        test: TestPackedSolvedLayout_FourUpDeclinesOnTheKdpMinimumTrim, TestPackedSolvedLayout_EverySurvivingSlotActuallyFitsItsOwnTile
 
   - id: FR-043
     # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17", bullet 3;

@@ -62,7 +62,7 @@ Rules every book must satisfy before it is marked ready. Add to this list as new
 9. The band above a puzzle shows "Puzzle N · Tier", never the picture's title (BK-5).
 10. Two small puzzles share a page only at a shared cell ≥ 7.0 mm, only same tier and adjacent in order (BK-6).
 11. The book runs easy → medium → hard with a divider page per level (BK-7).
-12. Answers: grid only, in number order, 6 per page while all are ≤20 on the longest side, otherwise 4 per page; captioned "Puzzle N — Title" (per-book title, else puzzle name); each level starts a new answer page; a SOLUTIONS divider comes first; answer cells capped at 5 mm (BK-8).
+12. Answers: every solution a tile with its clues, in number order, up to 4 per page in a 2 × 2 grid (a level's short last page keeps the positions); captioned "Puzzle N — Title" (per-book title, else puzzle name); each level starts a new answer page; a SOLUTIONS divider comes first; one shared cell per page, capped at 6 mm (BK-8; amended 2026-11-19 to the owner's ruling of 2026-11-07, `docs/BOOK_PAGE_PACKING.md`).
 13. Margins are mirrored on left- and right-hand pages; the puzzle is centred across the usable width (BK-1).
 14. Changing the puzzles of a book that has left draft returns it to draft; it must pass the plan check again (BK-UI-9, ADR-0035).
 15. The interior PDF excludes the cover and starts on a right-hand page; the cover is a separate file (BK-9).

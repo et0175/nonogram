@@ -155,8 +155,8 @@ capabilities:
       and arrangement confined to a level (CMD-022 -> EVT-023), and two
       small same-tier neighbours share a two-up page at a shared cell of
       at least 7.0 mm. Since 2026-09-22 (c): the answer key packs answers
-      6-up / 4-up in puzzle-number order, captioned with the title
-      (FR-042); book margins are mirrored by page parity with the drawing
+      in puzzle-number order, captioned with the title (FR-042; since
+      2026-11-19 every solution a 2x2 tile with its clues, four to a page); book margins are mirrored by page parity with the drawing
       centred; and a membership change on a book that has left draft
       returns it to draft. Since 2026-09-22 (d): the export produces the
       interior PDF without the cover (starting at the guide page, a

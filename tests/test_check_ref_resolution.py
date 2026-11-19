@@ -1614,7 +1614,11 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # re-pointed from a dropped `test:` to the level-boundary class of today's packed
 # key (+1). Quoting the multi-name ADR refs (F-001) moved nothing here: this
 # module's regex already read every name; the validator's YAML reader did not.
-CENSUS = (597, "a13bf06d10d27a88")
+# CARD-232 (2026-11-19): 597 -> 596, OUT 7, IN 6 -- FR-042's criteria swap
+# the seven refs to the retired clueless key's tests for the six that test
+# today's 2x2 tiles and walk (see TRACE_TESTS / DEFINED); every entrant
+# re-derived against its def/class line with an independent `ast` index.
+CENSUS = (596, "7e969aa4038c8c87")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1671,7 +1675,13 @@ CENSUS = (597, "a13bf06d10d27a88")
 # FR-013's row and AC-290's level-boundary class on FR-042's row (the validator
 # wants an AC's tests listed on its covered trace entry). CON-012's added test was
 # already on its rows, so it moves nothing here.
-TRACE_TESTS = (512, "97d92cd08c3b2a5f")
+# CARD-232 (2026-11-19): 512 -> 511, OUT 7, IN 6 -- FR-042's row drops the seven
+# refs to the retired clueless key's tests (two cell-size classes, the grid-only
+# class, the cap class, the heading-page class, the two EC property names) and
+# gains the six FR-042 now names (the packing-doc table test, the packed-clues
+# class, the two small-answer-packing properties, two packed-layout classes),
+# each a def/class line under tests/ found by an independent `ast` index.
+TRACE_TESTS = (511, "736039801d53d5e4")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1787,7 +1797,10 @@ TRACE_TESTS = (512, "97d92cd08c3b2a5f")
 # collected by pytest by node id. Nothing left this class.
 # CARD-481 fix round 1: 460 -> 472, OUT 0, IN 12 -- exactly CENSUS's 12 entrants,
 # each a def/class line under tests/ and collected by pytest by node id.
-DEFINED = (472, "24d591b999ff7984")
+# CARD-232 (2026-11-19): 472 -> 471, OUT 7, IN 6 -- the same swap as TRACE_TESTS
+# above, on FR-042's criteria in requirements.yml; each entrant an `ast`-found
+# def/class line under tests/.
+DEFINED = (471, "c06cccbd63a498ae")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

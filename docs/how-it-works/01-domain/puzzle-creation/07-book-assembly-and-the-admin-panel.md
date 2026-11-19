@@ -179,7 +179,7 @@ abs(actual[cell] - planned[cell]) * 100 > READY_TOLERANCE_POINTS * plan.count
 | INV-008 published book's membership change needs confirmation | `AddOutcome` (`:349`) / `RemoveOutcome` (`:377`) `confirmed` flags; route → **409** (`app.py:2875`) |
 | INV-009 a booked puzzle may not be re-graded into another tier | `RegradeInsideABook` (`puzzle_review.py:105`); route → 409 `regrade_in_a_book` (`app.py:2843`) |
 | INV-010 two-up pairs equal tiers only | `book_pdf_generator.py`'s `_pairable_tier` (`:3583`) and `_level_runs` (`:3600`); deliberately **not** reimplemented in the routes |
-| INV-011 answer-page capacity and order | `book_answer_key.py:24, 94, 173, 253, 299` |
+| INV-011 answer-page capacity and order | `book_answer_key.py`'s `plan_small_answer_pages` and `PackedAnswerPage` (valid by construction: one level, at most its capacity); `book_pdf_generator.py`'s `_degrade_infeasible_packed_pages` |
 | INV-012 membership change after draft returns to draft | `_draft_after_membership_change` (`book_manager.py:472`) |
 | INV-013 the interior PDF carries no cover page | `book_pdf_generator.py:3`, `Interior.pages` (`:2555`), `export_book` (`:4672`) |
 
@@ -407,11 +407,14 @@ decode the printed code back to the address.
 
 ### The answer key
 
-Packed by `book_answer_key` (FR-042, INV-011): up to four answers to a page in a
-2 × 2 grid, for every grid up to 30 × 30; every level starts a new page, and the
-first page of a level carries its heading ("SOLUTIONS · EASY"). Each answer is the
-solved picture with its clues, under "Puzzle N" and captioned with the number and
-the picture's title. **The answer key is the only place the book prints a
+Packed by `book_answer_key` (FR-042, INV-011): every solution is a tile, up to four
+to a page in a 2 × 2 grid, for every grid up to 30 × 30; every level starts a new
+page, and a level's short last page keeps the 2 × 2 positions. Every answer page
+carries a running head naming its level and its puzzles ("SOLUTIONS · EASY",
+"PUZZLES 1–4"). Each answer is the solved picture with its clues, under "Puzzle N"
+and captioned with the number and the picture's title. A page whose four tiles
+cannot reach the minimum cell is split by the degrade pass. The rule, its
+constants and its size-by-trim tables are `docs/BOOK_PAGE_PACKING.md`. **The answer key is the only place the book prints a
 picture's title** (ADR-0037/R1, FR-033).
 
 ### Memory: one page at a time
@@ -454,12 +457,12 @@ panel.
 
 ### The three sibling modules
 
-- **`book_answer_key.py`** (541 lines) — which answers share a page and what each
-  says. Owns INV-011's capacity rule as "this module's, not the layout's".
-  `plan_small_answer_pages` is the pure, sheet-free planner the book uses: two or
-  four answers to a page, every grid up to 30 × 30, and no page holds two levels.
-  The older six-up walk (`pack_answer_pages`, threshold `SIX_UP_LONGEST_SIDE = 20`)
-  is still in the module.
+- **`book_answer_key.py`** (528 lines) — which answers share a page and what each
+  says, and nothing about geometry (it imports no `PageSpec`).
+  `plan_small_answer_pages` is the pure, sheet-free planner the book uses: four
+  answers to a page, every grid up to 30 × 30, and no page holds two levels.
+  The first packed key's walk (`pack_answer_pages` and its constants) is still in
+  the module, marked retired: no production caller, kept for its own tests.
 - **`book_proof.py`** (784 lines) — "ADR-0037's proof pages: the book's own
   geometry, printed to be measured." A 30×30 at the smallest cell the book prints
   and a 15×15 at NFR-008's cap, "for the owner to print at 100% and measure with a
