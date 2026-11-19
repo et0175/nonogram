@@ -1,6 +1,6 @@
 # CARD-485: A single-puzzle page leaves room for its footer, so every puzzle page keeps its centred folio
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** ops
 **Estimate:** 2c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_page_numbers.py, tests/property/test_book_pdf_geometry.py, tests/test_book_vector_goldens.py
 **UI surface:** printed interior (single-puzzle pages)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T14:42Z
 **Closed:** —
 **Actual:** —
