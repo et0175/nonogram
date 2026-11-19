@@ -1,6 +1,6 @@
 # CARD-482: The proof PDF is written in the book's interior colour mode, not always RGB
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_proof.py, tests/test_book_proof_pages.py
 **UI surface:** none
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T07:14Z
 **Closed:** —
 **Actual:** —
