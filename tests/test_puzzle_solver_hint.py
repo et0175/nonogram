@@ -1268,7 +1268,8 @@ class TestSolverHint_EasiestFirst:
 @pytest.mark.browser
 class TestSolverHint_IsOneUndoableStroke:
     """AC-7 — a hint after two strokes: one undo takes it (and the count)
-    back, one redo restores both; buttons and Ctrl/Cmd+Z alike."""
+    back, one redo restores both; buttons and Ctrl/Cmd+Z alike. CARD-486:
+    the undo also empties the live region (CARD-183 review F-014)."""
 
     def _two_strokes_and_a_hint(self, page):
         _cell(page, 5, 5).click()
@@ -1284,10 +1285,15 @@ class TestSolverHint_IsOneUndoableStroke:
         _open(browser_page, live, live.store(GRID))
         two, hinted = self._two_strokes_and_a_hint(browser_page)
 
+        assert _announced(browser_page) == _explained(browser_page) != ""
         _button(browser_page, "Undo").click()
         assert _states(browser_page) == two
         assert _hints_shown(browser_page) == 0
         assert _hinted(browser_page) == []
+        # CARD-486 (CARD-183 review F-014): the undone hint's sentence leaves
+        # BOTH channels — the live region no longer names a cell that is
+        # undecided again while the visible line is already empty.
+        assert _announced(browser_page) == _explained(browser_page) == ""
         _button(browser_page, "Redo").click()
         assert _states(browser_page) == hinted
         assert _hints_shown(browser_page) == 1
@@ -1435,7 +1441,9 @@ class TestSolverHint_KeyboardAndNoRequest:
     """AC-10, as CARD-269 superseded it, and CARD-269 AC-10 — Tab reaches
     Hint and Check; Enter and Space each climb a rung, so three of either
     reveal one cell; the accessible names are "Hint" and "Check"; the whole
-    ladder and Check issue no request.
+    ladder and Check issue no request. CARD-486: the Space climb runs with
+    the reset confirmation open, and its reveal closes it with focus left on
+    Hint (CARD-183 review F-012).
     """
 
     @staticmethod
@@ -1464,6 +1472,11 @@ class TestSolverHint_KeyboardAndNoRequest:
         revealed = []
         for key in ("Enter", "Space"):
             before = _states(browser_page)
+            if key == "Space":
+                # CARD-486 (CARD-183 review F-012): the second climb starts
+                # with the reset confirmation open; Tab goes through it to
+                # Hint, and the reveal that closes it leaves focus on Hint.
+                _button(browser_page, "Reset").click()
             self._tab_to(browser_page, "Hint")
             # Three presses of the SAME key: the whole ladder by keyboard
             # (CARD-269). The first two must change nothing, which is checked
@@ -1476,6 +1489,8 @@ class TestSolverHint_KeyboardAndNoRequest:
             browser_page.keyboard.press(key)
             changed = _changed(before, _states(browser_page))
             assert len(changed) == 1, key
+            assert not browser_page.locator("#puzzle-player-confirm").is_visible(), key
+            assert browser_page.evaluate(_FOCUSED) == "Hint", key
             revealed.append(changed)
         _reveal(browser_page)
 
@@ -1492,6 +1507,15 @@ class TestSolverHint_KeyboardAndNoRequest:
         assert browser_page.evaluate(_ONLY_THIS_SAVE)
         assert problems == []
 
+
+#: CARD-486 (CARD-183 review F-013): the two "does animate" controls below
+#: read an animation that has no fill and ends (440 ms for the hinted cell,
+#: 1760 ms for the line), across several round trips after the click. Paused
+#: from the start it stays in getAnimations() with its name and keyframes, so
+#: the reads no longer depend on how fast the runner is. Injected only there;
+#: the reduced-motion test reads the page as shipped.
+_PAUSED = (".player-cell.is-hinted, .player-cell.is-hint-line, .player-clue.is-hint-line"
+           " { animation-play-state: paused !important; }")
 
 #: The hinted cell's one animation: its name and its first keyframe.
 _FADE = """(td) => {
@@ -1542,6 +1566,7 @@ class TestSolverHint_ReducedMotion:
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
+            page.add_style_tag(content=_PAUSED)
             _reveal(page)
             assert page.locator("td.player-cell.is-hinted").evaluate("(td) => td.getAnimations().length") == 1
             name, first = page.locator("td.player-cell.is-hinted").evaluate(_FADE)
@@ -1559,6 +1584,7 @@ class TestSolverHint_ReducedMotion:
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
+            page.add_style_tag(content=_PAUSED)
             _hint(page).click()
             assert _lined(page)["cells"] != []
             for selector in ("td.player-cell.is-hint-line", "th.player-clue.is-hint-line"):
