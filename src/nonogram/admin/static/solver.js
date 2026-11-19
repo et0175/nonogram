@@ -889,6 +889,35 @@ function readPayload() {
   return payload;
 }
 
+// THE HINT GRADE (CARD-484) — NOT part of the payload above, which keeps its
+// keys. puzzle_solve.html embeds it, only when the route's page-open solve
+// finished inside its deadline, as JSON in
+// <script type="application/json" id="puzzle-player-rungs">: a height x width
+// grid of each cell's ADR-0029 rung as its index in the solver's RUNG_ORDER
+// (0, 1, 2) or null. hintCell reads it to reveal the easiest forced cell
+// first. No element — the solve timed out, the editor's page, the public
+// page — is null, and the hint is row-major exactly as before. An element
+// that does not describe this board is null too, said on the console: the
+// hint without a grade is the documented degraded mode, never a refusal of
+// the page.
+function readRungs(width, height) {
+  const element = document.getElementById("puzzle-player-rungs");
+  if (!element) return null;
+  let rungs = null;
+  try {
+    rungs = JSON.parse(element.textContent);
+  } catch (error) {
+    rungs = error;
+  }
+  const isRank = (rank) => rank === null || (Number.isInteger(rank) && rank >= 0);
+  if (Array.isArray(rungs) && rungs.length === height && rungs.every(
+    (row) => Array.isArray(row) && row.length === width && row.every(isRank))) {
+    return rungs;
+  }
+  console.error("puzzle player: the hint grade does not describe this board; hints go row-major");
+  return null;
+}
+
 // One clue box for line `line` (0-based) of its axis. `data-line` is what
 // pairs a duplicate with its twin (clueNumbersOf below), independently of
 // where in the table either of them sits.
@@ -1071,6 +1100,9 @@ function start() {
   // CARD-385's flag (see PUBLIC MODE above), read once for the same reason.
   const publicMode = payload.mode === PUBLIC_MODE;
   if (publicMode) sealSolution(payload);
+  // CARD-484's grade (see THE HINT GRADE above); null on every page that
+  // does not embed one, which is every page but the admin player's.
+  const rungs = readRungs(payload.width, payload.height);
   const save = editing ? NO_SAVE : browserSave(saveKey(payload.id));
   let history = createHistory(
     editing ? boardOfGrid(payload.solution) : createBoard(payload.width, payload.height));
@@ -1601,7 +1633,7 @@ function start() {
     // back to the stored grid. The editor's page ships no Hint button and
     // this answers null for the guards that ask anyway.
     nextHint: () => (editing ? null
-      : hintCell(history.board, payload.rows, payload.columns, publicMode ? null : payload.solution)),
+      : hintCell(history.board, payload.rows, payload.columns, publicMode ? null : payload.solution, rungs)),
     // Whether Hint has a SENTENCE to say where it has no cell (CARD-385).
     // The admin's Hint is offered while nextHint() has a cell (its fallback
     // reveals any undecided cell), so this is false there. In public mode

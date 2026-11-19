@@ -828,6 +828,10 @@ class TestSharedUi_TheServedTreeCarriesNoAnswer:
     def test_no_served_file_contains_a_solution_string(self, preview) -> None:
         report, keys, _ = preview
         assert self.leaks(report.site_dir, keys) == []
+        # CARD-484: the admin-only hint grade derives from the solution (CON-021);
+        # no served page may carry its element.
+        assert [p.name for p in report.site_dir.rglob("*.html")
+                if 'id="puzzle-player-rungs"' in p.read_text(encoding="utf-8")] == []
 
     def test_the_scan_finds_a_planted_solution_in_every_encoding(self, preview) -> None:
         report, keys, _ = preview

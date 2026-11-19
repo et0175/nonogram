@@ -48,7 +48,7 @@ import re
 
 import pytest
 
-from nonogram.solver import solve
+from nonogram.solver import RUNG_ORDER, solve
 from nonogram.solver.propagate import canonical_clue, line_intersection
 from tests.helpers.brute_force_oracle import line_candidates
 from tests.test_puzzle_solver_marking import (
@@ -128,20 +128,37 @@ def _truth(solution, r, c):
     return F if solution[r][c] else E
 
 
-def _first_deducible(cells, knowns, rows, columns, solution):
+def _first_deducible(cells, knowns, rows, columns, solution, ranks=None):
     """The first UNKNOWN cell of ``cells``, row-major, that one
     line_intersection pass over its row or its column forces from
-    ``knowns`` (a line with no placement deduces nothing); else None."""
+    ``knowns`` (a line with no placement deduces nothing); else None.
+
+    With ``ranks`` (CARD-484: a grid of rung indexes, None ranking last) the
+    forced cell of lowest rank instead, ties row-major — written as a sort,
+    not as solver_state.js's running minimum."""
     height, width = len(rows), len(columns)
     by_row = [_forced(rows[r], [knowns[r * width + c] for c in range(width)]) for r in range(height)]
     by_col = [_forced(columns[c], [knowns[r * width + c] for r in range(height)]) for c in range(width)]
-    for r in range(height):
-        for c in range(width):
-            if cells[r * width + c] != U:
-                continue
-            if (by_row[r] and by_row[r][c] != U) or (by_col[c] and by_col[c][r] != U):
-                return (r, c, _truth(solution, r, c), True)
-    return None
+    found = [
+        (r, c) for r in range(height) for c in range(width)
+        if cells[r * width + c] == U
+        and ((by_row[r] and by_row[r][c] != U) or (by_col[c] and by_col[c][r] != U))
+    ]
+    if not found:
+        return None
+    if ranks is not None:
+        found.sort(key=lambda rc: (ranks[rc[0]][rc[1]] is None, ranks[rc[0]][rc[1]] or 0, rc))
+    r, c = found[0]
+    return (r, c, _truth(solution, r, c), True)
+
+
+def _ranks(grid):
+    """The admin route's hint grade for ``grid``, from the solver's own tags
+    (the authority on rungs): each cell's index in RUNG_ORDER, or None."""
+    rows, columns = _clues(grid)
+    result = solve(tuple(map(tuple, rows)), tuple(map(tuple, columns)))
+    assert result.is_unique
+    return [[None if tag is None else RUNG_ORDER.index(tag) for tag in row] for row in result.rung_tags]
 
 
 def _correct_only(cells, solution):
@@ -149,10 +166,10 @@ def _correct_only(cells, solution):
     return [s if s == _truth(solution, i // width, i % width) else U for i, s in enumerate(cells)]
 
 
-def _oracle_hint(cells, rows, columns, solution):
+def _oracle_hint(cells, rows, columns, solution, ranks=None):
     """The criterion: (row, col, state, deduced) or None."""
     width = len(columns)
-    found = _first_deducible(cells, _correct_only(cells, solution), rows, columns, solution)
+    found = _first_deducible(cells, _correct_only(cells, solution), rows, columns, solution, ranks)
     if found:
         return found
     first = next((i for i, s in enumerate(cells) if s == U), None)
@@ -234,13 +251,15 @@ _LINES = """async (lines) => {
   });
 }"""
 
-_HINTS = """async ({ width, height, rows, columns, solution, boards }) => {
+_HINTS = """async ({ width, height, rows, columns, solution, boards, ranks }) => {
   const S = await import('/static/solver_state.js');
   const codes = { u: S.UNKNOWN, f: S.FILLED, e: S.EMPTY };
   return boards.map((text) => {
     const board = Object.freeze({ width, height, cells: Object.freeze([...text].map((ch) => codes[ch])) });
     if (!S.isBoard(board)) throw new Error('not a board');
-    const hint = S.hintCell(board, rows, columns, solution);
+    // CARD-484: no `ranks` is the four-argument call main makes.
+    const hint = ranks === undefined ? S.hintCell(board, rows, columns, solution)
+      : S.hintCell(board, rows, columns, solution, ranks);
     return hint === null ? null : [hint.row, hint.col, hint.state, hint.deduced];
   });
 }"""
@@ -369,10 +388,14 @@ def test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell(browser_page, live
     cell with its solution state, the first one-pass deducible cell (correct
     marks only) when there is one, else the first undecided cell. At least 20
     boards have a wrong mark that hides the deduction: taken at face value,
-    neither the revealed cell's row nor its column forces it."""
+    neither the revealed cell's row nor its column forces it.
+
+    CARD-484: called without a grade this is main's four-argument call, the
+    row-major order above pinned unchanged (that card's AC-2, at the module);
+    with a grade, the same boards reveal the forced cell of lowest rank."""
     _open(browser_page, live, live.store(GRID))
     rng = random.Random(1833)
-    fallbacks = with_wrong = changed = hidden = nulls = deduced = 0
+    fallbacks = with_wrong = changed = hidden = nulls = deduced = reordered = 0
     for width, height in _SHAPES:
         solution, rows, columns, boards = _board_corpus(width, height, rng)
         got = browser_page.evaluate(_HINTS, {
@@ -404,6 +427,19 @@ def test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell(browser_page, live
             # deduction: neither the cell's row nor its column forces it.
             hidden += bool(has_wrong and is_deduced
                            and not _face_value_forces(cells, rows, columns, r, c))
+        # CARD-484: the same boards with a grade — a random rank per cell
+        # (0..2 or None) — reveal the forced cell of lowest rank, None last,
+        # ties row-major; the fallback and the nulls do not move.
+        grader = random.Random(484 * width + height)  # its own seed: the corpus above is main's
+        ranks = [[grader.choice((0, 1, 2, None)) for _ in range(width)] for _ in range(height)]
+        graded = browser_page.evaluate(_HINTS, {
+            "width": width, "height": height, "rows": rows, "columns": columns,
+            "solution": solution, "boards": [_text(cells) for cells, _ in boards], "ranks": ranks,
+        })
+        for index, ((cells, kind), hint, plain) in enumerate(zip(boards, graded, got)):
+            want = _oracle_hint(cells, rows, columns, solution, ranks)
+            assert (None if hint is None else tuple(hint)) == want, ((width, height), index, kind)
+            reordered += hint != plain
     assert fallbacks >= 30
     assert with_wrong >= 50
     assert hidden >= 20  # a wrong mark taken at face value would hide this deduction
@@ -412,6 +448,7 @@ def test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell(browser_page, live
     # cell stays forced — the strict count must leave those out.
     assert changed > hidden
     assert nulls >= 30 and deduced >= 200
+    assert reordered >= 100  # the grade moved the hint on these boards
 
 
 _PURE = """async () => {
@@ -447,6 +484,13 @@ _PURE = """async () => {
     nullRow: hint(S.hintCell(board(2, 1, 'fu'), [[0]], [[1], [0]], [[true, false]])),
     // ... and when column 1 has no placement either, the fallback.
     nullRowFallback: hint(S.hintCell(board(2, 1, 'fu'), [[0]], [[1], [2]], [[true, false]])),
+    // CARD-484, 2 x 1: both columns force their cell. Ungraded, row-major
+    // takes (0, 0); graded, the lower rank (0, 1); a null rank sorts after
+    // every number; and a public call (null solution) ignores a grade.
+    ungraded: hint(S.hintCell(board(2, 1, 'uu'), [[1]], [[1], [0]], [[true, false]])),
+    graded: hint(S.hintCell(board(2, 1, 'uu'), [[1]], [[1], [0]], [[true, false]], [[2, 0]])),
+    nullLast: hint(S.hintCell(board(2, 1, 'uu'), [[1]], [[1], [0]], [[true, false]], [[null, 2]])),
+    publicIgnoresGrade: hint(S.hintCell(board(2, 1, 'uu'), [[1]], [[1], [0]], null, [[2, 0]])),
     lines: [
       S.lineForced([0], [S.UNKNOWN, S.UNKNOWN]),
       S.lineForced([1], [S.UNKNOWN]),
@@ -474,6 +518,10 @@ class TestSolverHintModule:
         assert got["fromSolution"] == [0, 0, E, True]
         assert got["nullRow"] == [0, 1, E, True]
         assert got["nullRowFallback"] == [0, 1, E, False]
+        assert got["ungraded"] == [0, 0, F, True]
+        assert got["graded"] == [0, 1, E, True]
+        assert got["nullLast"] == [0, 1, E, True]
+        assert got["publicIgnoresGrade"] == [0, 0, F, True]
         assert got["lines"] == [
             [E, E], [F], None, None, [U, F, U], [F, E, F], None,
         ]
@@ -679,10 +727,13 @@ def _changed(before, after, width=SIDE):
 
 
 _GRID_CLUES = _clues(GRID)
+#: The grade the solve page embeds for GRID (CARD-484), so the page oracle
+#: below asks what the graded page answers.
+_GRID_RANKS = _ranks(GRID)
 
 
 def _grid_hint(cells):
-    return _oracle_hint(cells, *_GRID_CLUES, GRID)
+    return _oracle_hint(cells, *_GRID_CLUES, GRID, _GRID_RANKS)
 
 
 def _color(state):
@@ -1128,6 +1179,90 @@ class TestSolverHint_FallsBackToTheSolution:
 
         assert _lined(browser_page)["cells"] != []
         assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page)
+
+
+#: CARD-484's board: a unique 10 x 10 grid (found by a seeded search) where,
+#: once the simple_overlap cells of rows 0-3 are marked, the first cell one
+#: line forces row-major is a line_dp cell in row 3, while row 4 holds a
+#: simple_overlap cell its own row forces. The test re-derives all of that
+#: from the solver's tags rather than trusting this comment.
+_EASIEST_GRID = [[ch == "#" for ch in row] for row in (
+    "##....#...", ".#.#.#####", "..#.#.#..#", "..##.#.##.", "#..#..####",
+    "..#...##..", "#.#..#..#.", "..##.#..#.", "#..#..##..", "#.#####..#",
+)]
+
+
+def _easiest_board():
+    """The grid, its clues, its grade and the board: every simple_overlap
+    cell of rows 0-3 marked correctly, everything else blank."""
+    rows, columns = _clues(_EASIEST_GRID)
+    ranks = _ranks(_EASIEST_GRID)
+    cells = [
+        _truth(_EASIEST_GRID, r, c) if r < 4 and ranks[r][c] == 0 else U
+        for r in range(10) for c in range(10)
+    ]
+    return rows, columns, ranks, cells
+
+
+@pytest.mark.browser
+class TestSolverHint_EasiestFirst:
+    """CARD-484 — the admin hint reveals the easiest forced cell first, by
+    the solver's own grade, which the solve route computes when the page
+    opens (AC-1); when that solve does not finish in time the page still
+    opens and hints row-major, as main does (AC-2).
+
+    AC-4's control is a mutant, not a test: planting row-major back in
+    hintCell (ignoring the grade) reds test_the_first_hint_is_the_easiest.
+    """
+
+    def test_the_first_hint_is_the_easiest(self, browser_page, live) -> None:
+        rows, columns, ranks, cells = _easiest_board()
+        plain = _oracle_hint(cells, rows, columns, _EASIEST_GRID)
+        easiest = _oracle_hint(cells, rows, columns, _EASIEST_GRID, ranks)
+        # The premise, from the solver's tags: row-major meets a line_dp
+        # cell in an upper row; the easiest is a simple_overlap cell lower
+        # down, forced by its own row.
+        assert plain[:2] == (3, 4) and ranks[3][4] == RUNG_ORDER.index("line_dp")
+        assert easiest[:2] == (4, 6) and ranks[4][6] == RUNG_ORDER.index("simple_overlap")
+        assert _ladder_line(cells, easiest, rows, columns, _EASIEST_GRID) == ("row", 4)
+        _open(browser_page, live, live.store(_EASIEST_GRID))
+        assert browser_page.locator("#puzzle-player-rungs").count() == 1
+        _set(browser_page, cells)
+
+        _hint(browser_page).click()
+
+        assert {r for r, _ in _lined(browser_page)["cells"]} == {4}
+        assert _announced(browser_page) == _rung_text(1, "row", 4, page=browser_page)
+        _hint(browser_page).click()
+        _hint(browser_page).click()
+        assert _changed(cells, _states(browser_page), width=10) == {(4, 6): easiest[2]}
+
+    def test_a_timed_out_grade_hints_as_main_did(self, browser_page, live, monkeypatch) -> None:
+        import nonogram.admin.hint_grade as hint_grade
+
+        rows, columns, _ranks_unused, cells = _easiest_board()
+        puzzle_id = live.store(_EASIEST_GRID)
+        # A deadline already past: the route's solve raises SolverTimeout at
+        # its first check, exactly as a hard puzzle's would at 1.5 s.
+        monkeypatch.setattr(hint_grade, "HINT_GRADE_DEADLINE_SECONDS", -1.0)
+        _open(browser_page, live, puzzle_id)
+        assert browser_page.locator("#puzzle-player-rungs").count() == 0
+        _set(browser_page, cells)
+        board, revealed = list(cells), []
+        for _ in range(3):  # main's row-major sequence, for three reveals
+            want = _oracle_hint(board, rows, columns, _EASIEST_GRID)
+            axis, index = _ladder_line(board, want, rows, columns, _EASIEST_GRID)
+            _hint(browser_page).click()
+            assert _announced(browser_page) == _rung_text(1, axis, index, page=browser_page)
+            _hint(browser_page).click()
+            _hint(browser_page).click()
+            after = _states(browser_page)
+            assert _changed(board, after, width=10) == {want[:2]: want[2]}
+            board = after
+            revealed.append(want[:2])
+        # The pin: the first reveal is the upper line_dp cell the graded
+        # page skips, not the easiest one.
+        assert revealed[0] == (3, 4)
 
 
 @pytest.mark.browser

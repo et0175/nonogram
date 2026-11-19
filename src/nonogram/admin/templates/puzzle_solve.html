@@ -377,6 +377,13 @@
 </details>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
+{#- CARD-484: the hint grade, only when the page-open solve finished in time
+    (solver.js "THE HINT GRADE"). Derived from the solution, so admin only:
+    player/assemble.py renders this template without `hint_rungs`, and the
+    whitespace control keeps that rendering byte-identical to before. #}
+{%- if hint_rungs %}
+<script type="application/json" id="puzzle-player-rungs">{{ hint_rungs|tojson }}</script>
+{%- endif %}
 {% endblock %}
 
 {% block extra_js %}
