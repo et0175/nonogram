@@ -1,6 +1,6 @@
 # CARD-232: Solutions become fixed tiles, four to a page in a 2x2 grid, each with its clues
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -17,7 +17,7 @@
 **Depends on:** CARD-222 (the frame), CARD-225 (the cell size rule the tiles inherit), CARD-322
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_solved_answer_key.py, tests/test_book_solved_page.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card232.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/, docs/BOOK_PAGE_PACKING.md, tests/test_book_page_packing_doc.py, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md
-**Review score:** —
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T17:49Z
 **Closed:** —
 **Actual:** —
