@@ -31,7 +31,7 @@ book orders without a page being rendered.
 Retired, kept only for their own tests
 --------------------------------------
 :func:`pack_answer_pages`, :class:`AnswerPage`, :func:`page_capacity`,
-:attr:`Answer.needs_four_up` and the constants :data:`SIX_UP` and
+:func:`level_heading`, :attr:`Answer.needs_four_up` and the constants :data:`SIX_UP` and
 :data:`SIX_UP_LONGEST_SIDE` are the first packed key's walk (CARD-134), which
 CARD-198 replaced and the owner's 2026-11-07 ruling withdrew. No production
 code calls them (``src/`` names them only in this module and in history
@@ -71,9 +71,13 @@ __all__ = [
 
 # ---------------------------------------------------------------------------
 # RETIRED: the first packed key (CARD-134), replaced by CARD-198 and withdrawn
-# by the owner's ruling of 2026-11-07. Kept only for its own tests; no
-# production caller. See the module docstring, "Retired, kept only for their
-# own tests". Nothing from here to `pack_answer_pages` is a rule the book follows.
+# by the owner's ruling of 2026-11-07, kept only for its own tests with no
+# production caller: SIX_UP_LONGEST_SIDE, SIX_UP, Answer.needs_four_up,
+# page_capacity, level_heading (called only by pack_answer_pages), AnswerPage
+# and pack_answer_pages. Everything else below is live: CAPTION_SEPARATOR,
+# Answer, answer_title and answer_caption are read by book_pdf_generator /
+# book_answer_vector, and FOUR_UP is PACKED_FOUR_UP. See the module
+# docstring, "Retired, kept only for their own tests".
 # ---------------------------------------------------------------------------
 
 #: The longest side, in cells, an answer may have and still leave its page

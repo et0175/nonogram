@@ -4129,7 +4129,7 @@ functional:
       book order across the levels. A book whose stored arrangement predates this rule prints
       in the rule's order, keeping its stored order within each level.
       The answer key has no level divider pages: its levels are marked by
-      a small heading at the top of each level's first answer page
+      the running head every answer page carries, naming its level
       (FR-042). The interior's guide page (interior page 1, FR-043) is
       titled "How to Solve Nonograms" and carries a worked example - one
       line solved step by step from its clue - on that same single page;
@@ -4139,7 +4139,7 @@ functional:
       source: authored
       decided_by: "owner, 2026-09-22 (DEC-039 session) — BK-7, book_admin_ui_requirements.md rule 11"
       relates_to: [FR-038, FR-040, FR-033, FR-009, ADR-0037, ADR-0031]
-      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way). [CLOSED 2026-09-22 (d) — both halves answered by the owner: end of its level (owner answer above); the answer key has no level dividers, each level starts a new answer page with a small heading (FR-042, AC-290/AC-291).]"
+      open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way). [CLOSED 2026-09-22 (d) — both halves answered by the owner: end of its level (owner answer above); the answer key has no level dividers, each level starts a new answer page with a small heading (FR-042, AC-290/AC-291).] [2026-11-19, CARD-232: the heading is now the running head every answer page carries, naming its level.]"
       evidence: ["src/nonogram/admin/book_manager.py:373-520", "src/nonogram/admin/app.py:2093-2130", "src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3"]
       amended: "2026-10-04 (a) — AC-324..AC-326 added: the guide page is titled \"How to Solve Nonograms\" (was \"How to Use This Book\") and carries a worked example (one line solved step by step from its clue) on the same single page; interior page count and parity unchanged. Placed here because no FR owned the guide page's content; FR-043 (position/parity) and CON-020 (10 pt floor) are referenced, not duplicated. The full 1-2 page tutorial is deferred to its own requirement. Source: owner decision 2026-10-04, roadmap wave 1, IDEA-071 (raw-requirements.md Delta 2026-10-04 (a))."
     acceptance:
@@ -4672,9 +4672,12 @@ functional:
         # today's 2x2 page holding 1-4 is full (FR-042's 6-up premise).
         test: TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly
       - id: AC-291
+        # REWORDED 2026-11-19 (CARD-232 fix round 1) to the 2x2 key and the
+        # running head every answer page carries (CARD-233); `test:` kept as it
+        # was (it names no def/class, see the frozen honest-dead class).
         given: a Book 1 profile book of 8 easy puzzles then 1 medium puzzle, all 15x15
         when: its answer pages are read
-        then: the first answer page carries the heading "Easy" above its tiles, the second answer page (answers 7-8) carries no heading, and the third carries the heading "Medium"
+        then: every one of its 3 answer pages (answers 1-4, 5-8, 9) carries a running head naming its own level ("SOLUTIONS · EASY", "SOLUTIONS · EASY", "SOLUTIONS · MEDIUM")
         kind: boundary
         test: TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
       # AMENDED 2026-10-28 (CARD-305): `given` names the divider-pages

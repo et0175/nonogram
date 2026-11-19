@@ -52,7 +52,11 @@ page fits its drawings above the footer strip, and so does a single-puzzle
 page: `compute_layout`'s `footer_reserve_px` is passed by the generator's
 single-puzzle page and by `book_page_spec.book_cell_mm`, so the cell a
 puzzle is listed at is the cell it prints at, with the grid above the footer
-rule.
+rule. The behaviour is held by `tests/test_book_page_numbers.py`'s
+`TestBookPageNumbers_FolioNeverCollidesWithTheGrid`
+(`test_every_single_page_draws_its_footer_group_on_the_owners_profile`,
+`test_no_single_page_of_the_extent_sweep_reaches_below_the_footer_rule`);
+this document only states it.
 
 Whether two puzzles fit depends on their **clue depth**, not only their size,
 and on the trim. The table gives, for two same-level neighbours of one size,
@@ -76,6 +80,11 @@ can hold); "1" means they never share a page at any depth.
 | 10x30 | 1 | 1 | 1 | 1 |
 | 30x30 | 1 | 1 | 1 | 1 |
 <!-- END puzzles-per-page -->
+
+Each row models a book of just those two puzzles. In a real book a pair is
+also capped at the smallest cell of its grid size across the whole book
+(`_pair_cell_mm`, CARD-225), so a deeper-clued puzzle of the same size
+elsewhere in the book can stop a pair the table shows as fitting.
 
 So on the default 8.5x11 trim, "small" (two to a page) in practice means
 10x10 to 12x12 and wide-but-short grids with shallow clues; 15x15 and larger
@@ -103,8 +112,9 @@ usable area (`answer_section_spec`: the trim less the margins, less
 at the bottom for the folio):
 
 ```
+rows         = capacity / 2                                 (2 on every planned page, 1 when degraded to 2-up)
 tile width   = (usable width  - SOLVED_TILE_GAP_MM) / 2
-tile height  = (usable height - SOLVED_TILE_GAP_MM) / 2     (2 / 1 rows when degraded to 2-up)
+tile height  = (usable height - (rows - 1) x SOLVED_TILE_GAP_MM) / rows
 drawing room = tile height - band_mm                        (each tile keeps its own header band)
 cell = min(SOLVED_TILE_MAX_CELL_MM, the largest cell at which every answer on the page fits its tile)
 ```

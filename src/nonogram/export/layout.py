@@ -5307,8 +5307,10 @@ def _packed_tile_layout(
         columns=columns,
         orientation="portrait",
         cell=math.floor(pitch),
-        # The page's real top margin, as `_slot_layout` gives a two-up slot --
-        # not the tile's own top, which is `page.usable_top` (IDEA-168, CARD-232).
+        # The spec's top margin (on an answer page, `answer_section_spec`'s,
+        # which includes the running head's strip), as `_slot_layout` gives a
+        # two-up slot -- not the tile's own top, which is `page.usable_top`
+        # (IDEA-168, CARD-232).
         margin=_round_px(_exact_px(page_spec.top_mm)),
         row_gutter_cells=row_gutter_cells,
         column_gutter_cells=column_gutter_cells,

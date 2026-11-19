@@ -229,6 +229,31 @@ def test_the_packing_doc_tables_are_what_the_planner_produces() -> None:
     for name in ("puzzles-per-page", "solutions-per-page-typical", "solutions-per-page-deepest"):
         assert documented[name] == generated[name], f"{name}:\n{generated[name]}"
 
+    # The tables copy interior_stream's answer-planning steps rather than call
+    # it, so the copy is also checked against the real export (review F-2): a
+    # book of four such puzzles, its answer-page count from `interior_stream`
+    # itself. 6x9, 10x30 at depth 12 is a case where the degrade pass splits a
+    # 4-up page only on the answer page's own spec (running head and footer
+    # strips off); its deepest-clue row is checked as the doc prints it.
+    trim, width, height = "6x9 in", 10, 30
+    column = [name for name, _, _ in TRIMS].index(trim) + 1
+    _, width_cm, height_cm = TRIMS[column - 1]
+    gen = _generator(width_cm, height_cm)
+    (row,) = [
+        line for line in documented["solutions-per-page-deepest"].splitlines()
+        if line.startswith(f"| {width}x{height} |")
+    ]
+    for depth in (12, _deepest(width, height)):
+        cell = (
+            row.strip("|").split("|")[column].strip()
+            if depth == _deepest(width, height)
+            else _solution_cell(gen, width, height, depth)
+        )
+        capacity = 1 if cell == "1 per page" else int(cell.split(" at ")[0])
+        puzzles = [_puzzle(width, height, depth, n) for n in (1, 2, 3, 4)]
+        exported = _generator(width_cm, height_cm).interior_stream(puzzles).answer_page_count
+        assert exported == -(-4 // capacity) == 2, (depth, cell, exported)
+
 
 #: The marks of the retired answer-key rule (AC-9). Read case-insensitively.
 RETIRED_RULE = (
