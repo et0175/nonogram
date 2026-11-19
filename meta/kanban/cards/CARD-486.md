@@ -1,6 +1,6 @@
 # CARD-486: The four CARD-183 hint minors, verified against today's ladder and fixed only where still live
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/486-hint-minors
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-486
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 3 (IDEA-149, WSJF 1.54, `verify_before_carding: true`); carried from wave 1, where it was held for verification.
 **Idea:** IDEA-149
 **Wave:** 82
@@ -20,9 +20,9 @@
 **UI surface:** admin solve page and public player (hint ladder)
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T17:49Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T19:20Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 5d62d5aeddf59a692264699c7f71bec8dcd4e161
 **Blocked by:** —
 
 ## Why this card exists
