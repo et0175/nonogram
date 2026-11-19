@@ -196,14 +196,15 @@ TWO_UP_RULE_GAP_MM = 3.0
 #:
 #: **Narrowed from 2.0 to 1.4 mm by CARD-485, and why it may not be wider.**
 #: A single page is now fitted above the footer rule, so every height-bound
-#: drawing leaves exactly the header rule's lift of spare — an eighth of the
-#: band, 1.5 mm — and floats at the ratio. A 2 mm window swallowed every one
+#: drawing leaves the header rule's lift of spare — an eighth of the band,
+#: 1.5 mm exact, 17 px (1.44 mm) after pixel rounding — and floats at the ratio. A 2 mm window swallowed every one
 #: of them, measured: the EC-019 sweep checked only 165 cases (its floor is
 #: 200), the every-extent sweep windowed 30 pages against 237 counted and the
 #: mirrored-margins sweep 64 pages over 157 cases, both past their caps. 1.4 mm stays above the real threshold, which
 #: is 1.21 mm at every cell up to the 7.5 mm cap (the thin rule is the 0.25 mm
 #: floor's 3 px there, so the clearance is 6 px whatever the cell), and below
-#: the 1.5 mm a fitted drawing leaves.
+#: the 1.44 mm a fitted drawing leaves after rounding (measured minimum, 14,980
+#: placements, CARD-485 review cycle 1): 0.04 mm of headroom.
 CLEARANCE_WINDOW_MM = 1.4
 
 TOP_MM = 0.55 * 25.4

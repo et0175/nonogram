@@ -2853,8 +2853,8 @@ def _placed_drawing_top(
       band*, which is up to one footer strip deeper than the puzzle area, so
       such a height-bound drawing is always in this regime; a book's puzzle
       page reserves the strip since CARD-485, which leaves its drawing at
-      least the header rule's lift of spare — 17.72 px at the stored 12 mm
-      band, past the 14.29 px the ratio needs (below) — so it floats in
+      least the header rule's lift of spare — 17.72 px exact at the stored
+      12 mm band, 17 px after pixel rounding, past the 14.29 px the ratio needs (below) — so it floats in
       ``"ratio"``). (ii) This sheet has no puzzle area at all. (iii) **The
       spare is positive but too small to pay the clearance below** — the area
       does hold the drawing and the ratio is abandoned anyway, so the verdict

@@ -547,6 +547,13 @@ class TestBookCellMm_OnlyReadsComputeLayout:
     def test_a_spec_without_parity_has_no_book_cell(self) -> None:
         with pytest.raises(ValueError, match="parity"):
             book_cell_mm(DEFAULT_PAGE_SPEC, _clues(10, 1), _clues(10, 1))
+        # CARD-485: the footer reserve exists only on a placed (parity) page,
+        # so the CLI/A4 path cannot be handed one (G-2), and it is never negative.
+        from nonogram.export.layout import compute_layout
+
+        for reserve in (117, -1):
+            with pytest.raises(ValueError, match="footer_reserve_px"):
+                compute_layout(_clues(10, 1), _clues(10, 1), DEFAULT_PAGE_SPEC, footer_reserve_px=reserve)
 
 
 # --------------------------------------------------------------------------
