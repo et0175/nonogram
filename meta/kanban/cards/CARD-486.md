@@ -1,6 +1,6 @@
 # CARD-486: The four CARD-183 hint minors, verified against today's ladder and fixed only where still live
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py
 **UI surface:** admin solve page and public player (hint ladder)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T17:49Z
 **Closed:** —
 **Actual:** —
