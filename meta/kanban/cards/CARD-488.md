@@ -46,7 +46,7 @@ Re-verify each against main first; drop any that is already closed, with one lin
 ## Acceptance criteria
 
 * **AC-1**: with `DATABASE_URL` pointing at a non-`_test` database, no connection is opened by the hook (control: the old order, observed by a fake/unreachable host or a connect spy, reds).
-* **AC-2**: the migration-log assertion reds when `echo=True` or the logger level is lowered (plant it).
+* **AC-2** (amended 2026-11-19 after review cycle 1, F-002: the original premise was wrong — psycopg2 masks the password and the probe never builds an engine): the online migration step's output (stdout and stderr, the probe's own `CONFIG:` line excluded) carries neither DATABASE_URL nor its password in either spelling (raw and percent-encoded). Control: env.py emitting the URL — `print`, or a logger record reaching alembic.ini's console handler — reds it. Out of reach by design: engine echo / DEBUG logging, which this probe never builds (`engine_from_config` is faked) and which was measured on a real connection not to carry the password.
 * **AC-3**: renaming the step-1 `default_size` select reds the size test (plant it).
 * **AC-4**: the plan-hints summary's focus ring is the `--color-focus` ring (checked the way the existing focus-ring tests check it).
 * **AC-5**: net test count at most +2 (owner's budget); report it.
