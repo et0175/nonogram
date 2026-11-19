@@ -135,3 +135,5 @@ cells stayed green on every test the ref named.
   tests/property/test_solve_strategies.py, tests/test_check_ref_resolution.py,
   tests/test_cli.py): 266 passed, 0 skipped, 0 failed. Net test count 0
   (10704 collected).
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. F-1 the re-pointed ref did not hold R4's half (a) at the deduction level: a plant building the masks from known-filled cells only (ignoring known-empty) left every test on the ref green, and three other from-scratch plants were caught by one hand-picked case; F-2 two comments claimed "each reds under a from-scratch plant"; F-3 (info) a pre-existing "honest-dead lost 12" warning. Fixed in `43f867f9`: `test_overlap_deduction_never_claims_more_than_every_placement_agrees_on` now also asserts the masks equal those built from the independent enumeration's start range, and reds under all five plants; it joins R4's ref; CENSUS/DEFINED re-derived to 599/474. F-3 measured pre-existing on the base, not this branch.
