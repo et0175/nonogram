@@ -171,7 +171,7 @@ the code no longer produces. *(Superseded by fix round 1, F-002.)*
 
   The degrade pass only splits 4-up pages, so it can only add pages to the 38s. Each comment
   now describes today's key (`plan_small_answer_pages`, 2x2, one level per page, degrade to
-  2-up). Mutation: deleting the level-boundary `flush()` in `plan_small_answer_pages` → the
+  2-up, then to one answer per page — corrected in fix round 2). Mutation: deleting the level-boundary `flush()` in `plan_small_answer_pages` → the
   re-pointed class 2 failed; restored with `git checkout --`, 2 passed.
   **EC-030 correction:** `PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook` exercises
   `pack_answer_pages`, which nothing in `src` calls any more (docstring mentions and
@@ -212,7 +212,8 @@ the code no longer produces. *(Superseded by fix round 1, F-002.)*
 rewritten here; amending them is the owner's / architect's call, and no card owns it):
 - *"6 answers a page while every answer is ≤ 20 on its longest side, 4 once one is longer"*
   (FR-042, and INV-011's capacity clause): today every answer up to MAX_SIZE packs into a 2x2
-  page, and degrades to 2-up only when four tiles miss the minimum cell
+  page; a page whose four tiles miss the minimum cell degrades to two 2-up pages, and if a
+  pair cannot fit either, to one answer per full page (`_degrade_infeasible_packed_pages`)
   (`PACKED_MAX_WIDTH/HEIGHT = MAX_SIZE`, `PackedAnswerPage`; test
   `test_six_qualifying_easy_answers_pack_as_four_then_two`). INV-011's "at most 6 / at most 4"
   bounds are still *satisfied* (≤ 4), but they no longer describe the rule.
@@ -259,3 +260,33 @@ test_kanban_review_record) 218 passed, 1 xfailed (AC-037, pre-existing);
    "room for 2 more" clause is stale.
 6. AC-264's outcome happens to hold today, but I dropped its `test:` because no test asserts
    that example and its stated rule is gone.
+
+### Fix round 2 (2026-11-19) — review cycle 2 (8/10, certified)
+
+- **F2-001 — fixed (commit e9cc60cb).** I added one assertion inside
+  `test_the_derivation_reads_all_four_authorities`, the cell about reading the authorities
+  completely. No new test function; collection is still 26. For every ADR check of kind
+  `test`, it splits the flow mapping into entries the way YAML does (a plain scalar in flow
+  context cannot hold a comma, so it splits on commas outside quotes). It then requires the
+  keys to be exactly `kind` and `ref`, and the names to equal what `_ADR_CHECK` + `_split`
+  read. **Reader choice:** stdlib, not the validator's reader or `yaml.safe_load`. forge_1
+  lives outside the repo, and neither PyYAML nor ruamel is a declared dependency: both are in
+  the venv with "Required-by: (none)". Importing one would break collection on a bare
+  `pip install -e '.[dev]'` and step outside ADR-0006/R1's baseline. Scratch `readers.py`
+  (the validator's real reader) still reports 0 disagreements on this tree.
+  **Mutations** (both restored with `git checkout --`):
+  - un-quoting ADR-0029/R5 → `1 failed, 25 passed`, and the failure is this cell;
+  - the same un-quote with the assertion deleted → `26 passed`. So the assertion is what
+    catches it.
+- **F2-002 — fixed.** The six drop comments now name both fallbacks: two 2-up pages, then
+  one answer per full page. AC-264's "OUTCOME still holds" now carries the extent-only-plan
+  caveat. The two round-1 note lines that said "degrade to 2-up" are corrected above.
+- **F2-003 — added to the owner list:** `qualifies_for_packing`'s docstring says
+  "width<=15 and height<=20", and so do the module comment at book_answer_key.py:371 and
+  the call-site comment at book_pdf_generator.py:5851. But `PACKED_MAX_WIDTH` and
+  `PACKED_MAX_HEIGHT` are `MAX_SIZE` since the owner's 2026-11-09 decision. That is stale
+  prose in `src/`; it was not edited here (G-2).
+
+**Figures:** `tests/test_check_ref_resolution.py` 26 passed (26 collected, 2 documented
+UserWarnings); validator of record 0 error(s), 105 warning(s), unchanged from fix round 1;
+`tests/test_kanban_review_record.py` 71 passed.

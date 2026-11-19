@@ -4447,8 +4447,10 @@ functional:
         # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
         # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
         # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
-        # a page never holds two levels, and a page degrades to 2-up only when four
-        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # a page never holds two levels. A page whose four tiles cannot reach the
+        # minimum cell degrades to two 2-up pages, and if a pair cannot fit either,
+        # to one answer per full page (`_degrade_infeasible_packed_pages`,
+        # book_pdf_generator.py). There is no 6-up page and no
         # size-triggered switch to 4-up any more.
         # FALSE today: 12 easy 15x15 answers plan as 3 pages of 4 (1-4, 5-8,
         # 9-12), not 2 pages of 6. No current test asserts this example.
@@ -4477,8 +4479,10 @@ functional:
         # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
         # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
         # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
-        # a page never holds two levels, and a page degrades to 2-up only when four
-        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # a page never holds two levels. A page whose four tiles cannot reach the
+        # minimum cell degrades to two 2-up pages, and if a pair cannot fit either,
+        # to one answer per full page (`_degrade_infeasible_packed_pages`,
+        # book_pdf_generator.py). There is no 6-up page and no
         # size-triggered switch to 4-up any more.
         # FALSE today: 1-5 at 15x15 then a 25x25 plan as (1-4) and (5, 6) -- the
         # 25x25 packs, so answer 6 does not start a page. No current test asserts it.
@@ -4498,10 +4502,13 @@ functional:
         # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
         # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
         # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
-        # a page never holds two levels, and a page degrades to 2-up only when four
-        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # a page never holds two levels. A page whose four tiles cannot reach the
+        # minimum cell degrades to two 2-up pages, and if a pair cannot fit either,
+        # to one answer per full page (`_degrade_infeasible_packed_pages`,
+        # book_pdf_generator.py). There is no 6-up page and no
         # size-triggered switch to 4-up any more.
-        # The OUTCOME still holds today (pages (1-4) then (5)), but by a different
+        # The OUTCOME still holds today in the extent-only plan (pages (1-4) then
+        # (5); the degrade pass can only split pages further), but by a different
         # rule: every page is 2x2, not "4-up once it holds an answer above 20".
         # No current test asserts this example or the size-triggered rule.
         # Dropped rather than re-typed `review-lens`, per CARD-316's measured
@@ -4526,8 +4533,10 @@ functional:
         # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
         # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
         # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
-        # a page never holds two levels, and a page degrades to 2-up only when four
-        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # a page never holds two levels. A page whose four tiles cannot reach the
+        # minimum cell degrades to two 2-up pages, and if a pair cannot fit either,
+        # to one answer per full page (`_degrade_infeasible_packed_pages`,
+        # book_pdf_generator.py). There is no 6-up page and no
         # size-triggered switch to 4-up any more.
         # FALSE today: six answers plan as (1-4) and (5, 6), not one 6-up page.
         # No current test asserts it.
@@ -4611,8 +4620,10 @@ functional:
         # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
         # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
         # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
-        # a page never holds two levels, and a page degrades to 2-up only when four
-        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # a page never holds two levels. A page whose four tiles cannot reach the
+        # minimum cell degrades to two 2-up pages, and if a pair cannot fit either,
+        # to one answer per full page (`_degrade_infeasible_packed_pages`,
+        # book_pdf_generator.py). There is no 6-up page and no
         # size-triggered switch to 4-up any more.
         # FALSE today: the 90 + 60 single-tier book plans as 38 answer pages
         # (extent-only walk; the degrade pass can only add pages), not 30.
@@ -4675,8 +4686,10 @@ functional:
         # packs into a 2x2 page in puzzle-number order (`plan_small_answer_pages`,
         # src/nonogram/admin/book_answer_key.py; every size up to MAX_SIZE
         # qualifies since 2026-11-09), a level's leftover keeps the 2x2 positions,
-        # a page never holds two levels, and a page degrades to 2-up only when four
-        # tiles cannot reach the minimum cell. There is no 6-up page and no
+        # a page never holds two levels. A page whose four tiles cannot reach the
+        # minimum cell degrades to two 2-up pages, and if a pair cannot fit either,
+        # to one answer per full page (`_degrade_infeasible_packed_pages`,
+        # book_pdf_generator.py). There is no 6-up page and no
         # size-triggered switch to 4-up any more.
         # FALSE today: the default three-level plan plans as 15 + 15 + 8 = 38
         # answer pages (extent-only walk), not 31. No current test asserts it.
