@@ -677,6 +677,11 @@ class TestSolverProgress_ResetAfterConfirm:
         reset.click()
         assert browser_page.locator("#puzzle-player-confirm").is_visible()
         before = _states(browser_page)
+        if change == "undo-key":
+            # CARD-486 review F-001: focus on nothing (the page body) also
+            # goes back to Reset, as focus inside the confirmation does.
+            browser_page.evaluate("document.activeElement.blur()")
+            assert browser_page.evaluate("document.activeElement === document.body")
 
         self._CHANGES[change](browser_page)
 
