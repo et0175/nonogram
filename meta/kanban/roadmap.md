@@ -75,7 +75,7 @@ Seven cards merged: CARD-474 (IDEA-108), CARD-475 (IDEA-082), CARD-476 (IDEA-110
 
 ## Wave 2 — DONE 2026-11-19
 
-Five cards merged: CARD-481 (IDEA-004), CARD-482 (IDEA-021), CARD-483 (IDEA-176), CARD-484 (IDEA-192), and CARD-485 (no idea: the owner's report on the live book that single-puzzle pages lost their footer; 15 pages in that book, 0 after). Wave close: full suite on `main`, figures in the close commit.
+Five cards merged: CARD-481 (IDEA-004), CARD-482 (IDEA-021), CARD-483 (IDEA-176), CARD-484 (IDEA-192), and CARD-485 (no idea: the owner's report on the live book that single-puzzle pages lost their footer; 15 pages in that book, 0 after). Wave close: full suite on `main` at `c1f921a2`, 10669 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 1 failed, 31 min. The one red is `tests/test_book_landing_page.py::test_the_way_back_from_a_puzzle_keeps_the_sections_and_the_place` (scrollY 145 vs 220), red on main since another session's merge `c505bd44` and outside every wave-2 card; not fixed here. CARD-485 owner-confirmed on the live book after the push, 2026-11-19.
 
 ## Wave 3 (next) — carded 2026-11-19 (board wave 82)
 
