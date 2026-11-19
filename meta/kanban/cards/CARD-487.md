@@ -1,6 +1,6 @@
 # CARD-487: ADR-0029/R4's check tests its own rule, not the import graph
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/487-r4-check
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-487
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 3 (IDEA-006, WSJF 3.85); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-006
 **Wave:** 82
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T19:53Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T20:35Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** f6af67a622a4a00f9122ff88057f4804816daed3
 **Blocked by:** —
 
 ## Why this card exists
