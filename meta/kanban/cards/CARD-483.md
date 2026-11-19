@@ -1,6 +1,6 @@
 # CARD-483: A two-up page stops reserving the corner folio it no longer draws, if that is proved
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/483-two-up-folio-reserve
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-483
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-176, WSJF 1.23); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-176
-**Wave:** —
+**Wave:** 81
 **Created wave:** 81
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_two_up.py, tests/test_layout_two_up.py, tests/property/test_book_pairing.py
 **UI surface:** printed interior (two-up pages)
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-19T08:49Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
