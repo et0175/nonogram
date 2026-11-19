@@ -766,7 +766,7 @@ def _drawn_pages(generator: BookPDFGenerator) -> list[Image.Image]:
 
 
 def render_proof_pdf(book: object = None) -> BytesIO:
-    """:func:`proof_pages` as one PDF, rewound to 0.
+    """:func:`proof_pages`' drawing as one PDF in the interior's colour mode, rewound to 0.
 
     One image per page at :data:`~nonogram.export.layout.DPI`, which is what
     makes the pages their trim in the document rather than 4.17x too large —
