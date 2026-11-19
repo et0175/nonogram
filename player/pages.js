@@ -503,6 +503,56 @@ function openSections(page) {
   return held;
 }
 
+// Coming back to the book by a NEW load (QA "Return to book", Anna, 2026-11-19).
+// openSections above only covers a back/forward-cache restore. A Back that
+// re-creates the document instead (a phone that evicted the page, a browser
+// without the cache), and the play page's own "← Book" link, both load this
+// page from scratch, and a fresh load used to recompute the defaults: every
+// section the reader had opened by hand was closed again and the page sat
+// at the top. So the reader's view — which sections are open, and how far
+// down they were — is kept in THIS history entry's own state
+// (history.replaceState), which the browser hands back on any Back to the
+// entry, re-created or not. It is not storage: nothing is written that
+// outlives the tab's history, nothing leaves the device, and a NEW visit
+// (a typed address, a scanned code) has no state and gets the defaults.
+// The play page's way back returns to this same entry (history.back) when
+// it was opened from here, so the link lands on the kept view too.
+export const VIEW_STATE = "nonogramBookView";
+
+function keptView() {
+  try {
+    const view = window.history.state?.[VIEW_STATE];
+    if (view === null || typeof view !== "object" || !Array.isArray(view.open)) return null;
+    return {
+      open: view.open.filter((id) => typeof id === "string"),
+      scroll: Number.isFinite(view.scroll) && view.scroll >= 0 ? view.scroll : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function keepView(page) {
+  const open = [...page.querySelectorAll(".book-squares")].filter((grid) => !grid.hidden).map((grid) => grid.id);
+  try {
+    const state = window.history.state;
+    const base = state !== null && typeof state === "object" ? state : {};
+    window.history.replaceState({ ...base, [VIEW_STATE]: { open, scroll: window.scrollY } }, "");
+  } catch {
+    // A browser that refuses replaceState only loses the carry-over.
+  }
+}
+
+// The kept view as openSections' map: every rendered section, open or not.
+function viewSections(page, view, entries) {
+  const held = new Map();
+  for (const section of sectionsOf(entries)) {
+    const id = sectionId(section);
+    held.set(id, view.open.includes(id));
+  }
+  return held;
+}
+
 function renderBook(page, entries, progress, slug, held = new Map()) {
   const list = page.querySelector("[data-pages-list]");
   const count = page.querySelector("[data-pages-count]");
@@ -711,8 +761,8 @@ async function load() {
     // sections' open/closed state: that is the reader's, so a repaint reads
     // it off the page it is about to replace (see openSections) instead of
     // recomputing it.
-    const paint = () => {
-      shown = renderBook(page, entries, progress, slug, openSections(page));
+    const paint = (held = openSections(page)) => {
+      shown = renderBook(page, entries, progress, slug, held);
       if (theme === "christmas") {
         // `decorate` PREPENDS — a garland to the body and a drift to each
         // panel it is handed — and is documented as called once, so a
@@ -728,7 +778,22 @@ async function load() {
       const count = page.querySelector("[data-pages-count]");
       if (announce !== null && count !== null) announce.textContent = count.textContent;
     };
-    paint();
+    // QA "Return to book": a Back onto this entry carries the reader's view; paint it
+    // instead of the defaults, then put the page back where they left it.
+    const view = keptView();
+    if (view === null) paint();
+    else {
+      paint(viewSections(page, view, entries));
+      try { window.history.scrollRestoration = "manual"; } catch { /* keep auto */ }
+      window.scrollTo(0, view.scroll);
+    }
+    // Kept on every toggle and every tap of a square (bubbling, so after the
+    // head's own handler has flipped it), and on leaving by any other way.
+    const list = page.querySelector("[data-pages-list]");
+    list?.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(".book-section-head, .tile")) keepView(page);
+    });
+    window.addEventListener("pagehide", () => keepView(page));
     wireJump(page, entries, slug);
     // CARD-437: progress is read again when the page is SHOWN again, not
     // only when it is first loaded.

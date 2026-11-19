@@ -201,6 +201,10 @@ def test_a_long_book_is_cut_into_level_sections_that_open_and_close(browser_page
     # section open and no other. Every square here is one key, so one save
     # starts all thirty and the Continue target is the last, in Hard.
     _plant(page, url, base["key"], [(0, 0)])
+    # A NEW visit, not a reload: since the QA "Return to book" fix a reload of this entry keeps
+    # the view the reader set by hand above (history.state, as the browser
+    # keeps the scroll), so the defaults are read from a fresh entry.
+    page.goto("about:blank")
     _open_pages(page, url, f"/b/{slug}")
     assert [heads.nth(i).get_attribute("aria-expanded") for i in range(3)] == ["false", "false", "true"]
     # And each square carries its size, small, under the number.
@@ -556,3 +560,69 @@ def test_a_christmas_book_dresses_its_landing_and_the_puzzles_opened_from_it(
         assert page.evaluate("() => getComputedStyle(document.body).backgroundColor") != CREAM, address
         assert page.locator(".decor-garland, link[href='/decor.css']").count() == 0, address
 
+
+
+@pytest.mark.browser
+def test_the_way_back_from_a_puzzle_keeps_the_sections_and_the_place(browser_page, pages_host) -> None:
+    """QA "Return to book" (Anna, 2026-11-19): open a puzzle from the book, play,
+    take the way back -> the sections the reader opened are still open, the
+    page is where they left it, and the square shows the fresh progress.
+
+    This harness re-creates the document on Back (``_restore``'s docstring),
+    which is exactly the path that broke: a fresh load recomputed the
+    defaults. Plants: drop pages.js's keptView read -> the sections arm red
+    (the defaults are ["false", "false", "true"] once the save exists); drop
+    the play page's returnsToBook -> the history-length arm red.
+    """
+    url, report, keys, slug = pages_host
+    page = browser_page
+    book_file = report.site_dir / "book" / f"{slug}.json"
+    served = json.loads(book_file.read_text(encoding="utf-8"))
+    base = served["puzzles"][0]
+    puzzles = (
+        [{**base, "tier": "easy"}] * 12 + [{**base, "tier": "medium"}] * 10 + [{**base, "tier": "hard"}] * 8
+    )
+    book_file.write_text(json.dumps({**served, "puzzles": puzzles}), encoding="utf-8")
+    size = page.viewport_size
+    page.set_viewport_size({"width": 390, "height": 600})
+    try:
+        _open_pages(page, url, f"/b/{slug}")
+        page.evaluate("() => localStorage.clear()")
+        heads = page.locator(".book-section-head")
+        heads.nth(1).click()  # Medium open by hand
+        heads.nth(0).click()  # Easy closed by hand
+        expanded = "() => [...document.querySelectorAll('.book-section-head')].map(h => h.getAttribute('aria-expanded'))"
+        assert page.evaluate(expanded) == ["false", "true", "false"]
+        square = page.locator(".book-squares").nth(1).locator(".tile").nth(9)
+        square.scroll_into_view_if_needed()
+        left_at = page.evaluate("() => window.scrollY")
+        assert left_at > 0
+        depth = page.evaluate("() => history.length")
+
+        square.click()
+        page.wait_for_selector("[data-player-book]", timeout=PAGES_SETTLE_MS)
+        # The reader plays: a real save for this puzzle, as the player writes it.
+        _plant(page, url, base["key"], [(0, 0)])
+        page.locator("[data-player-book]").click()
+        page.wait_for_function("() => window.playerPages !== undefined", timeout=PAGES_SETTLE_MS)
+
+        assert page.url == f"{url}/b/{slug}"
+        # Back to the SAME entry (the puzzle stays as the forward entry), not
+        # a new one pushed on top of the puzzle, which would make it depth + 2.
+        assert page.evaluate("() => history.length") == depth + 1
+        assert page.evaluate(expanded) == ["false", "true", "false"]
+        assert abs(page.evaluate("() => window.scrollY") - left_at) <= 2
+        assert page.evaluate(
+            "() => [...document.querySelectorAll('.tile')].every(t => t.dataset.progress === 'started')"
+        )
+
+        # A NEW visit carries no view: the defaults, with the Continue
+        # target's section (Hard, the furthest started puzzle) open.
+        page.goto("about:blank")
+        _open_pages(page, url, f"/b/{slug}")
+        assert page.evaluate(expanded) == ["false", "false", "true"]
+        assert page.evaluate("() => window.scrollY") == 0
+    finally:
+        page.evaluate("() => localStorage.clear()")
+        page.set_viewport_size(size)
+        book_file.write_text(json.dumps(served), encoding="utf-8")

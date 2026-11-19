@@ -671,6 +671,33 @@ const BOOK_LINK_SLOT = "flex:1 1 0;min-width:0;overflow:hidden;white-space:nowra
 const BOOK_LINK_BOX = "display:inline-block;max-width:100%;"
   + "font-size:var(--text-sm);text-decoration:none";
 
+// QA "Return to book" (Anna, 2026-11-19): when this puzzle was opened FROM the
+// book page, its way back is the browser's own Back to that very entry, not
+// a new load of /b/<slug>. A new load knows nothing of the reader's view and
+// used to close every section they had opened by hand; the entry they came
+// from carries that view (pages.js keepView) and its scroll. The href stays
+// real, so a new tab, a reader who arrived by a scanned code, or one who
+// came by "Next puzzle" still gets an ordinary link to the book.
+function cameFromBook(slug) {
+  try {
+    const from = new URL(document.referrer);
+    return from.origin === location.origin
+      && from.pathname.replace(/[/]+$/, "") === `/b/${slug}`
+      && history.length > 1;
+  } catch {
+    return false;
+  }
+}
+
+function returnsToBook(link, slug) {
+  link.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey
+        || event.shiftKey || event.altKey || !cameFromBook(slug)) return;
+    event.preventDefault();
+    history.back();
+  });
+}
+
 function wayBack(slug, title) {
   const named = typeof title === "string" && title.trim() !== "" ? title.trim() : "the book";
   const slot = document.createElement("span");
@@ -690,6 +717,7 @@ function wayBack(slug, title) {
   link.setAttribute("aria-label", `Back to ${named}`);
   name.setAttribute("style", BOOK_LINK_QUIET);
   link.append(name);
+  returnsToBook(link, slug);
   slot.append(link);
   document.querySelector(".player-head").append(slot);
   const banner = document.querySelector("#puzzle-player-solved");
@@ -736,6 +764,7 @@ function wayOn(slug, next) {
   shelf.className = "btn btn-outline-secondary";
   shelf.href = `/b/${slug}`;
   shelf.textContent = "Back to the book";
+  returnsToBook(shelf, slug);
   shelf.setAttribute("style", WAY_ON_BOOK);
   row.append(shelf);
   document.querySelector(".player-stage-wrap").after(row);
