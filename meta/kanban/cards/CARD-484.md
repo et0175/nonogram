@@ -1,6 +1,6 @@
 # CARD-484: The admin hint points at the easiest deduction left, by the solver's own grade
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** feature
 **Estimate:** 2c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_*.py
 **UI surface:** admin solve page (hint ladder)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T11:55Z
 **Closed:** —
 **Actual:** —
