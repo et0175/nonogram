@@ -1618,12 +1618,15 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # the seven refs to the retired clueless key's tests for the six that test
 # today's 2x2 tiles and walk (see TRACE_TESTS / DEFINED); every entrant
 # re-derived against its def/class line with an independent `ast` index.
-# CARD-487 (2026-11-19): 596 -> 598, OUT 0, IN 2, diffed as sets against the
-# base -- ADR-0029/R4's check now also names the two overlap tests that pin its
-# "relative to the known cells" half (each reds under a from-scratch plant);
-# neither name was declared anywhere under meta/architecture/ at the base, and
-# each is one `ast`-found def line in tests/test_solver_witnesses_and_rungs.py.
-CENSUS = (598, "49e94c729499ae96")
+# CARD-487 (2026-11-19): 596 -> 599, OUT 0, IN 3, diffed as sets against the
+# base (fix round 1: 598 -> 599, OUT 0, IN 1) -- ADR-0029/R4's check now also
+# names three overlap tests for its "relative to the known cells" half. One of
+# them holds the masks equal to an independent enumeration's and reds under
+# every from-scratch plant measured; the other two each red under only some of
+# them (see the ADR's comment). None of the three was declared anywhere under
+# meta/architecture/ at the base; each is one `ast`-found def line in
+# tests/test_solver_witnesses_and_rungs.py.
+CENSUS = (599, "a6db8551da09c2ba")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1805,9 +1808,9 @@ TRACE_TESTS = (511, "736039801d53d5e4")
 # CARD-232 (2026-11-19): 472 -> 471, OUT 7, IN 6 -- the same swap as TRACE_TESTS
 # above, on FR-042's criteria in requirements.yml; each entrant an `ast`-found
 # def/class line under tests/.
-# CARD-487 (2026-11-19): 471 -> 473, OUT 0, IN 2 -- exactly CENSUS's 2 entrants
-# (ADR-0029/R4's two overlap tests), each an `ast`-found def line under tests/.
-DEFINED = (473, "f2dbde8a5386729b")
+# CARD-487 (2026-11-19): 471 -> 474, OUT 0, IN 3 -- exactly CENSUS's 3 entrants
+# (ADR-0029/R4's three overlap tests), each an `ast`-found def line under tests/.
+DEFINED = (474, "12f31d23ee0c9f27")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
