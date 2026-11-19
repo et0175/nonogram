@@ -1,6 +1,6 @@
 # CARD-483: A two-up page stops reserving the corner folio it no longer draws, if that is proved
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_two_up.py, tests/test_layout_two_up.py, tests/property/test_book_pairing.py
 **UI surface:** printed interior (two-up pages)
-**Review score:** —
+**Review score:** 9.0 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-19T08:49Z
 **Closed:** —
 **Actual:** —
@@ -265,3 +265,8 @@ count unchanged by this round (still +2 for the card).
 * Tests (`-o addopts= -q -rfs`): property two_up, page_numbers, pdf_two_up,
   qr_slot, layout_two_up, suite_profile, check_ref_resolution,
   kanban_review_record **674 passed**, 0 skipped. Net test count still +2.
+
+[Review 1/3] Score: 7.0, one gating finding. F-1 docstrings in layout.py, book_sheet_vector.py still described the reserve as a live pairing input; F-2 pairs that already paired get bigger cells (24x10..13 7.25424 -> 7.5 mm) not in the notes; F-3..F-6 low (exact-equality bound, model-test coupling, CARD-248 border-on-rule, 3,800 warnings). Fixed in `fc4843f0`, plus three oracles that still re-fitted against the reserve.
+[Review 2/3] Score: 8.0, nothing gating, certified. All cycle-1 findings closed; oracles faithful; F-7 no test pinned the 108 the pointer still uses; F-8 an unused parameter and two long lines. Fixed in `4bc78d76`.
+[Review 3/3] Score: 9.0, nothing gating, certified. The 108 pin reds at 107; +2 tests over the changed files (390 vs 388); 843 passed, 0 skipped.
+
