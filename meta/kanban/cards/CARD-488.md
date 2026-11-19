@@ -1,6 +1,6 @@
 # CARD-488: Four small test-side gaps closed in one pass: the DB probe, the migration log, the size form and two stale comments
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/488-test-side-gaps
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-488
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 3 (IDEA-034, IDEA-017, IDEA-083, IDEA-100, each WSJF 3.85, each 0.125 d: bundled because each alone is below `sizing.min_estimate`).
 **Idea:** IDEA-034, IDEA-017, IDEA-083, IDEA-100
 **Wave:** 82
@@ -20,9 +20,9 @@
 **UI surface:** books list (plan-hints summary focus ring)
 **Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T19:53Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T21:27Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** 6fa650e2ceb362e9fffe4b24424324c99b7059d5
 **Blocked by:** —
 
 ## Why this card exists
