@@ -889,9 +889,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         defaults to ``0``), on purpose — Fix 4 means no page a real book
         prints reaches ``_draw_folio`` with a zero-slack outer corner any
         more, so this is now a deliberately synthetic layout kept to keep
-        that defensive check covered. The test that pins what production
-        itself now produces is
-        ``test_two_up_page_s_folio_now_has_reserved_room`` below.
+        that defensive check covered. (Since CARD-248 production also
+        reserves a footer strip, so its two-up pages set the folio in the
+        footer and never reach this corner at all:
+        ``TestTwoUpNeverTakesTheCornerFolio``.)
         """
         generator = BookPDFGenerator(corpus_book("f1-two-up-tight"))
         upper = generator._payload(puzzle("f1-two-up-tight-u", 25, 10, 1, "easy", "Upper"))
@@ -945,6 +946,12 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         only, never of ``page_number`` or any book content), so this test
         is now the control that proves the folio is back — reliably, not
         just in the common case.
+
+        **CARD-483:** production no longer passes the reserve, because since
+        CARD-248 a two-up page is fitted with a footer strip and sets its folio
+        there (``TestTwoUpNeverTakesTheCornerFolio``). The pair below is laid
+        out with the reserve and without the strip, so it is the corner
+        fallback's own case, kept to cover that branch.
         """
         generator = BookPDFGenerator(corpus_book("f4-two-up-slack"))
         duck = generator._payload(puzzle("f4-two-up-slack-duck", 10, 10, 3, "easy", "Duck"))
@@ -1054,9 +1061,9 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
 
         # CARD-224: the gap is half the slot's own spare (centred), which is
         # still identical across the two books — the property this test is
-        # about — and still at least the reserve the fit keeps.
+        # about. (Until CARD-483 the fit also kept it at least the reserve;
+        # the walk passes no reserve now, so that is no longer asserted.)
         assert gap(early_target) == gap(late_target)
-        assert gap(early_target) >= _folio_reserve_px(small_book.dpi)
 
     def test_a_four_digit_folio_fits_the_reserve_exactly_and_a_fifth_digit_degrades(
         self,
@@ -1163,6 +1170,187 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert PackedAnswerPage((Answer(number=1, width=10, height=10, level=Tier.EASY),)).capacity == 4
         assert page_is_right_hand(9), "the corner-collision check differs by parity"
         assert self._packed_folios(generator, easy, 1) == {9: "9"}
+
+
+# --------------------------------------------------------------------------
+# CARD-483 -- a two-up page never takes the corner-folio branch
+# --------------------------------------------------------------------------
+
+#: The trims the pairing sweep below lays pairs on, in inches: CON-018's
+#: Book 1 and the KDP trims wide enough to pair at all, plus a square one.
+#: Width moves which pairs pair; height moves where the footer rule rounds to.
+_SWEEP_TRIMS_IN = ((8.5, 11), (8.25, 11), (8, 10), (7.5, 9.25), (7, 10), (8.5, 8.5))
+
+#: The equal depth-1 pairs on Book 1 that the walk refused **only** because of
+#: CARD-204's 108 px folio reserve, measured on main before CARD-483 by asking
+#: ``compute_pair_layout`` the same question with ``folio_reserve_px`` 108 and
+#: 0 (everything else as ``puzzle_pages`` passes it). Width-bound pairs: 25
+#: columns plus one clue column is 26 cells across, 190.5 / 26 = 7.3269 mm
+#: unreserved and (190.5 - 9.144) / 26 = 6.975 mm reserved; 26 columns is
+#: 190.5 / 27 = 7.0556 mm unreserved. ``(columns, rows)``.
+_RECOVERED_BY_CARD_483 = frozenset(
+    (columns, rows) for columns in (25, 26) for rows in range(10, 15)
+)
+
+#: How many equal depth-1 pairs pair on Book 1 now (75 before CARD-483, plus
+#: the ten above), read off the walk.
+_BOOK1_EQUAL_PAIRS_THAT_PAIR = 85
+
+
+def _sweep_book(width_in: float, height_in: float, height_cm: Optional[str] = None) -> Book:
+    book = corpus_book("card-483-sweep")
+    book.trim_width_cm = f"{width_in * 2.54:.2f}"
+    book.trim_height_cm = height_cm or f"{height_in * 2.54:.2f}"
+    return book
+
+
+def _depth_one(generator: BookPDFGenerator, columns: int, rows: int):
+    return generator._payload(puzzle(f"c483-{columns}x{rows}", columns, rows, 1, "easy", "P"))
+
+
+class TestTwoUpNeverTakesTheCornerFolio:
+    """CARD-483's exemption, as a claim with its controls (ADR-0039/R3).
+
+    ``draw_sheet_furniture`` omits the whole footer group and sets the folio
+    at the bottom-outer corner when :attr:`SheetFurniture.footer_is_clear` is
+    false, i.e. when the page's content reaches below the footer rule. That
+    corner is what CARD-204's ``_folio_reserve_px`` kept 108 px of the lower
+    slot's width free for. CARD-483 stopped the pairing walk passing that
+    reserve, on the claim that **no two-up page a book prints takes that
+    branch**: since CARD-248 every pair is fitted with the footer strip
+    reserved, so its lower drawing ends on or above the rule.
+
+    Two halves, because the claim has two places it could break. (1) The pairs
+    the walk actually makes, across trims and both parities: every one leaves
+    the footer clear, and some touch the rule exactly, so the sweep reaches
+    the edge rather than stopping short of it. (2) CARD-248's F-4 residue: the
+    strip crosses ``compute_pair_layout`` as pixels -> millimetres (a float)
+    -> exact pixels, so on some sheet the strip's top could round one pixel
+    below the rule. That is checked on **every** trim height a book can
+    store (centimetres to 2 dp, KDP's 10..48 cm), with the bottom margin the
+    sheet carries. Each half carries a control that plants a strip one pixel
+    short and must find a page that would take the corner branch.
+    """
+
+    @staticmethod
+    def _walk(generator: BookPDFGenerator, columns: int, rows: int, lower_rows: int, page: int):
+        upper = _depth_one(generator, columns, rows)
+        lower = _depth_one(generator, columns, lower_rows)
+        try:
+            cells = generator.cell_sizes([upper, lower])
+        except ValueError:
+            return None  # a member that does not lay out on this sheet at all
+        plans = generator.puzzle_pages([upper, lower], first_page=page, cell_sizes=cells)
+        return plans[0] if plans[0].pair is not None else None
+
+    @staticmethod
+    def _furniture(generator: BookPDFGenerator, plan: PuzzlePagePlan):
+        """The footer verdict ``vector_two_up_page`` draws from, built as it builds it."""
+        lower = plan.pair.lower.page
+        return generator._sheet_furniture(
+            generator.page_spec(plan.page_number),
+            plan.page_number,
+            content_bottom=lower.drawing_bottom,
+            content_right=lower.drawing_right,
+            content_left=lower.drawing_left,
+        )
+
+    def test_no_pair_the_walk_makes_reaches_below_the_footer_rule(self, monkeypatch) -> None:
+        paired = touching = 0
+        touching_cases = []
+        book1_equal = set()
+        for width_in, height_in in _SWEEP_TRIMS_IN:
+            generator = BookPDFGenerator(_sweep_book(width_in, height_in))
+            for page in (5, 6):  # ODD and EVEN
+                for columns in range(10, 31):
+                    for rows in range(10, 31):
+                        for lower_rows in {rows, min(rows + 1, 30)}:
+                            plan = self._walk(generator, columns, rows, lower_rows, page)
+                            if plan is None:
+                                continue
+                            paired += 1
+                            furniture = self._furniture(generator, plan)
+                            assert furniture.footer_is_clear, (
+                                width_in, height_in, page, columns, rows, lower_rows,
+                                furniture.content_bottom, furniture.frame.footer_rule.y,
+                            )
+                            if furniture.content_bottom == furniture.frame.footer_rule.y:
+                                touching += 1
+                                touching_cases.append(
+                                    (generator, columns, rows, lower_rows, page)
+                                )
+                            if (width_in, height_in, page, lower_rows) == (8.5, 11, 5, rows):
+                                book1_equal.add((columns, rows))
+        # The corpus cannot silently shrink (1110 pairs measured), and it
+        # reaches the rule itself (304 of them end exactly on it).
+        assert paired >= 1000, paired
+        assert touching >= 250, touching
+        # AC-3: the pairs the reserve was refusing now pair, the 25 x 10 among them.
+        assert (25, 10) in book1_equal
+        assert _RECOVERED_BY_CARD_483 <= book1_equal, _RECOVERED_BY_CARD_483 - book1_equal
+        assert len(book1_equal) == _BOOK1_EQUAL_PAIRS_THAT_PAIR, len(book1_equal)
+
+        # The control: the same walk with the strip planted one pixel short.
+        # Every pair that touched the rule now reaches past it, so the claim
+        # above is one a real geometry change would red.
+        from nonogram.admin import book_pdf_generator as module
+
+        real = module.compute_pair_layout
+
+        def one_pixel_short(first, second, spec, **kwargs):
+            kwargs["footer_reserve_px"] -= 1
+            return real(first, second, spec, **kwargs)
+
+        monkeypatch.setattr(module, "compute_pair_layout", one_pixel_short)
+        reached = 0
+        for generator, columns, rows, lower_rows, page in touching_cases[:20]:
+            plan = self._walk(generator, columns, rows, lower_rows, page)
+            if plan is not None and not self._furniture(generator, plan).footer_is_clear:
+                reached += 1
+        assert reached == 20, reached
+
+    def test_the_strip_never_rounds_below_the_rule_on_any_storable_trim_height(self) -> None:
+        """CARD-248's F-4 residue, measured on every height rather than argued.
+
+        The strip ``puzzle_pages`` asks for is ``footer_depth`` pixels; the fit
+        turns it into ``float`` millimetres, adds the bottom margin, and the
+        lower drawing then ends at most at that row rounded half up. Written
+        out here from the sheet's own numbers: the row is at most
+        ``footer_rule.y`` on every height. Measured on main: the exact row
+        sits at most 126/254 px below the rule (the sheet's millimetres are
+        multiples of 0.1 mm, so the row's fraction moves in 1/254 px steps and
+        never reaches the half that would round it down a pixel); the float
+        detour is ~1e-13 px, far inside that 1/254.
+        """
+        from fractions import Fraction
+
+        mm_per_inch = Fraction("25.4")
+
+        def strip_top(spec, depth: int) -> Fraction:
+            strip_mm = float(Fraction(depth) * mm_per_inch / DPI)
+            reserved_mm = spec.bottom_mm + strip_mm
+            return (
+                Fraction(repr(spec.height_mm)) - Fraction(repr(reserved_mm))
+            ) * DPI / mm_per_inch
+
+        heights = 0
+        worst = Fraction(-1)
+        for height_hundredths in range(1000, 4801):
+            book = _sweep_book(8.5, 11, height_cm=f"{height_hundredths / 100:.2f}")
+            spec = BookPDFGenerator(book).page_spec(5)
+            frame = interior_frame(spec)
+            top = strip_top(spec, frame.footer_depth)
+            assert math.floor(top + Fraction(1, 2)) <= frame.footer_rule.y, (
+                height_hundredths, float(top), frame.footer_rule.y,
+            )
+            worst = max(worst, top - frame.footer_rule.y)
+            # The control: one pixel less strip and the row rounds past the
+            # rule on this very sheet, so the inequality above can fail.
+            short = strip_top(spec, frame.footer_depth - 1)
+            assert math.floor(short + Fraction(1, 2)) > frame.footer_rule.y, height_hundredths
+            heights += 1
+        assert heights == 3801, heights
+        assert Fraction(1, 254) <= Fraction(1, 2) - worst, float(worst)
 
 
 # --------------------------------------------------------------------------

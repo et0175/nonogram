@@ -45,7 +45,7 @@ import math
 import random
 
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_vector import ContentStream
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -493,11 +493,10 @@ def _two_up_rule_gap_mm(
 
     ``upper``/``lower`` are :func:`_extent` tuples. FR-040's shared cell is
     the largest, capped, at which both drawings fit the pair's height (the
-    usable height less both bands and the footer strip) and the usable width;
-    and, where the lower drawing would leave less than the folio's fixed
-    reserve (``_folio_reserve_px``, the generator's own figure) of spare
-    width, the cell is re-fitted as though the usable width were that much
-    narrower. The vertical slack that cell leaves pays for the gap, which is
+    usable height less both bands and the footer strip) and the usable width
+    (no folio reserve is taken out of that width since CARD-483: a two-up
+    page's folio is in the footer strip). The vertical slack that cell leaves
+    pays for the gap, which is
     ``TWO_UP_RULE_GAP_MM`` capped at a quarter of that slack (three gaps
     spent, at least one more left between the slots), floored to a whole
     device pixel so the drawing keeps its band foot's sub-pixel phase.
@@ -507,9 +506,6 @@ def _two_up_rule_gap_mm(
     pair_height_mm = sheet.height_mm - TOP_MM - BOTTOM_MM - FOOTER_STRIP_MM - 2 * BAND_MM
     width_mm = sheet.usable_width_mm
     cell = min(STANDARD_CELL_MM, pair_height_mm / down, width_mm / across)
-    folio_reserve_mm = _folio_reserve_px(300) / PX_PER_MM
-    if width_mm - lower[2] * cell < folio_reserve_mm:
-        cell = min(STANDARD_CELL_MM, pair_height_mm / down, (width_mm - folio_reserve_mm) / across)
     slack_mm = pair_height_mm - down * cell
     return math.floor(min(TWO_UP_RULE_GAP_MM, max(slack_mm, 0.0) / 4) * PX_PER_MM) / PX_PER_MM
 

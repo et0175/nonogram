@@ -4418,8 +4418,13 @@ class Generator:
         # **The centred folio (owner, 2026-11-11): +3** (724 -> 727, 464 ->
         # 467, last four unchanged): the three dividers' ``interior_frame``
         # calls. Read off this test's own measurement.
-        ((), 727),
-        (("builtins",), 467),
+        #
+        # **CARD-483: -1** (727 -> 726, 467 -> 466, last four unchanged): the
+        # pairing walk's ``_folio_reserve_px(self.dpi)`` call, a definition
+        # this module makes, is gone with the two-up folio reserve. Read off
+        # this test's own measurement.
+        ((), 726),
+        (("builtins",), 466),
         (("builtins", "definitions and imports"), 171),
         (("builtins", "definitions and imports", "parameters"), 170),
         (
