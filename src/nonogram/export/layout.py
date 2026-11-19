@@ -1799,8 +1799,9 @@ class InteriorFrame:
             and **not** where this frame's own marks go. It is carried because
             a page that cannot use the footer group falls back to CARD-200's
             bottom-outer-corner folio, which sits exactly here and nowhere
-            else: the reserve a two-up page's lower slot keeps
-            (``_folio_reserve_px``) is at this row.
+            else. (A two-up page never falls back to it: its pair is fitted
+            with the footer strip reserved, so since CARD-483 no width is
+            reserved for this corner either.)
 
     Raises:
         ValueError: the band and the footer strip together leave no puzzle
@@ -3690,8 +3691,11 @@ def compute_pair_layout(
     (``FOLIO_RESERVE_DIGITS``, sized for any book this software could
     realistically produce), from the font and the DPI alone — both fixed at
     compile time, never from ``payloads``, a page number or a book's own
-    page count. The caller then passes that one value, identical for every
-    call this codebase will ever make, so this parameter cannot create the
+    page count. Until CARD-483 the caller passed that one value, identical
+    for every call; **since CARD-483 production passes nothing** (the default
+    0), because a two-up page fitted with ``footer_reserve_px`` sets its folio
+    in the footer strip and never at this corner. Either way this parameter
+    cannot create the
     coupling the cycle-1/2 reviews found: the pair's own geometry, plus one
     constant indistinguishable in kind from :data:`TWO_UP_MIN_CELL_MM`, is
     all that ever decides the verdict or the cell. "Geometry-only" here
@@ -3713,6 +3717,10 @@ def compute_pair_layout(
     at least ``folio_reserve_px`` of real headroom. If even the widened fit
     falls below :data:`TWO_UP_MIN_CELL_MM`, the pair is refused (``None``).
 
+    **Since CARD-483 production pays none of the cost below**: the walk
+    passes no reserve, so the paragraphs that follow describe what a caller
+    passing one gets, and what books paid from CARD-204 to CARD-483.
+
     **What the reserve costs, measured — it is not free, and a reserved
     refusal is NOT the refusal the unreserved path would have made**
     (cycle-4 review F-9; a previous revision of this paragraph claimed the
@@ -3730,8 +3738,9 @@ def compute_pair_layout(
     more commit a cell smaller than the unreserved largest**. The suite pins
     a production counterexample rather than leaving that to prose
     (:mod:`tests.property.test_book_pairing`'s ``_tight_pair``: two 25x6
-    depth-2 puzzles, adjacent, same tier, unreserved cell 7.1731 mm,
-    asserted ``pair is None`` through ``puzzle_pages`` itself). The rate on
+    depth-2 puzzles, adjacent, same tier, unreserved cell 7.1731 mm, was
+    asserted ``pair is None`` through ``puzzle_pages`` itself until CARD-483,
+    and is asserted to pair since). The rate on
     real book content is far lower than the adversarial rate — most book
     puzzles pair at the spec's own flat cap, clear of both boundaries, and
     the project's own baseline book (the ``book_baseline_card204`` fixture)
@@ -3754,8 +3763,9 @@ def compute_pair_layout(
     F-1) or the per-book-scale coupling (Fix 2, cycle-2 F-5), each of which
     made one identical pair pair here and refuse there. The corollary, which
     this function cannot state in its own terms: FR-040's "and only when"
-    clause and EC-027's "never left alone" property are false of this
-    implementation as written. Amending them is a recorded architect-station
+    clause and EC-027's "never left alone" property were false of this
+    implementation with the reserve passed (and are, for any caller that
+    still passes one). Amending them is a recorded architect-station
     deferral on CARD-204 (with FR-032's own reversal), not an undeclared
     drift.
 
@@ -3805,7 +3815,8 @@ def compute_pair_layout(
       it cannot reach 7.0 mm with the strip reserved — and prints as two
       single pages, each with its own footer. That is one more interior page
       per refused pair, and on KDP a higher print cost per copy, which is the
-      same consequence ``folio_reserve_px`` already carries (above). The
+      same consequence ``folio_reserve_px`` carried (above) while production
+      passed it. The
       exact refused set is asserted as an exact set, not a range, by
       ``tests/test_book_qr_slot.py``'s
       ``TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages``.
@@ -3827,15 +3838,16 @@ def compute_pair_layout(
             folio needs at the lower slot's own bottom-outer corner, or ``0``
             (the default) to fit purely unreserved. Must be a constant,
             page/book-independent value — never computed from ``first``,
-            ``second``, a page number or any book-scale quantity — so every
-            call this codebase makes passes the identical number.
+            ``second``, a page number or any book-scale quantity. **No
+            production caller passes it since CARD-483** (``puzzle_pages``
+            leaves the default); it is kept for the fit's own tests and a
+            caller that lays a pair out without a footer strip.
             **It narrows the fit only.** Since CARD-224 centred every slot
             again, the lower slot's drawing is no longer flat against that
             corner (:func:`_slot_layout`), so this reserve no longer shifts
-            either slot's placement — but it is still taken out of the width
-            the shared cell is fitted against, deliberately, so that which
-            pairs pair and at what cell is bit-for-bit what CARD-204 left
-            (CARD-224 G-1).
+            either slot's placement — it is only taken out of the width
+            the shared cell is fitted against (CARD-224 G-1 kept that until
+            CARD-483 dropped it from the production call).
         footer_reserve_px: How many pixels of the page's own height to keep
             free **below** the lower slot's drawing for the page's footer
             strip, or ``0`` (the default) for the pre-CARD-248 packing that
@@ -3943,9 +3955,8 @@ def compute_pair_layout(
                 # un-fittable pair does, rather than hand `replace` below a
                 # spec whose own usable width is negative (which PageSpec
                 # rejects with a ValueError of its own). No production caller
-                # can reach this — the reserve is one fixed ~9 mm constant
-                # (`book_pdf_generator._folio_reserve_px`) and every book page
-                # is far wider — but declining keeps this function's "return
+                # can reach this — production passes no reserve at all since
+                # CARD-483 — but declining keeps this function's "return
                 # None when the geometry does not work out, never raise"
                 # contract total for any fixed value a caller may pass.
                 return None
@@ -4075,13 +4086,11 @@ def _slot_layout(
     a whole footer strip, so its folio is set centred on the footer line
     rather than squeezed into the lower slot's bottom-outer corner. The
     parameter would now be dead, so it is removed rather than left to be read
-    as live. **The reserve itself stays in the fit** — a deliberate
-    non-change: :func:`compute_pair_layout` still narrows the width it fits
-    the shared cell against by ``folio_reserve_px``, so which pairs pair and
-    at what cell is bit-for-bit what CARD-204 left (CARD-224 G-1: FR-040's
-    pairing behaviour is unchanged). Removing it from the fit as well would
-    move accept/refuse verdicts, a page count and a print cost, which is a
-    decision for the card that wants to make it.
+    as live. CARD-224 kept the reserve in the fit (G-1: pairing unchanged)
+    and left removing it to a later card; **CARD-483 removed it**: the
+    production walk no longer passes ``folio_reserve_px``, so more pairs pair
+    and some pairs that already did print at a larger cell. The parameter
+    remains on :func:`compute_pair_layout` with a default of ``0``.
     """
     rows, columns = len(row_clues), len(column_clues)
     row_gutter_cells = _gutter_depth(row_clues)

@@ -309,8 +309,10 @@ def draw_sheet_furniture(
     **The footer group is one block** (AC-2). Where
     :attr:`SheetFurniture.footer_is_clear` is false the footer rule, the
     grid-size label, the centred folio **and** the pointer are omitted
-    together and the page keeps CARD-200's bottom-outer-corner folio instead,
-    which is where ``_folio_reserve_px`` keeps room. There is no state in which
+    together and the page keeps CARD-200's bottom-outer-corner folio instead
+    (a single page whose content reaches the footer; a two-up page never
+    does, ``TestTwoUpNeverTakesTheCornerFolio``, so since CARD-483 no width is
+    reserved for that corner). There is no state in which
     this page carries a frame rule with no number under it or a number
     standing on a drawing: both are the same ``if``.
 

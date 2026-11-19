@@ -455,12 +455,13 @@ class TestPairLayout_RefusesSpecsThatNeverPair:
     def test_a_folio_reserve_wider_than_the_page_is_none_not_an_error(self) -> None:
         """CARD-204 Fix 4: ``folio_reserve_px`` declines, it never raises.
 
-        Production passes one fixed ~9 mm constant
-        (``book_pdf_generator._folio_reserve_px``, 108 px at 300 DPI), so no
-        real book reaches this; the point is that the parameter cannot turn a
-        geometry question into an exception for *any* fixed value a caller
-        passes. A reserve wider than Book 1's own usable width would, without
-        the guard, hand the re-fit step a ``PageSpec`` whose usable width is
+        Production passed one fixed ~9 mm constant
+        (``book_pdf_generator._folio_reserve_px``, 108 px at 300 DPI) until
+        CARD-483 and passes none since, so no real book reaches this; the
+        point is that the parameter cannot turn a geometry question into an
+        exception for *any* fixed value a caller passes. A reserve wider than
+        Book 1's own usable width would, without the guard, hand the re-fit
+        step a ``PageSpec`` whose usable width is
         negative — which ``PageSpec`` itself rejects with a ``ValueError``,
         the one error shape this function's own "``None`` when the geometry
         does not work out" contract rules out.

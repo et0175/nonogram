@@ -422,10 +422,11 @@ def test_PropertyTest_BookTwoUp_SlotsAreCentredAcrossTheUsableWidth() -> None:
 #: *contract* ``compute_pair_layout`` offers for any fixed reserve — that the
 #: lower slot really keeps exactly that much room, on every pair and both
 #: parities, and that the verdict and the cell stay parity-independent.
-#: 108 is what production's own font measurement currently yields at 300 DPI
-#: (cross-checked against ``_folio_reserve_px`` itself in
-#: ``tests/property/test_book_pairing.py`` and
-#: ``tests/test_book_page_numbers.py``, which is where that value belongs);
+#: Production's pairing walk passes no reserve since CARD-483; the contract
+#: is kept for any caller that does. 108 is what the font measurement yields
+#: at 300 DPI (pinned against ``_folio_reserve_px`` itself in
+#: ``tests/test_book_page_numbers.py``'s
+#: ``test_the_fixed_reserve_is_identical_across_book_scales``);
 #: 27 is a deliberately different one, so a formula that only ever works for
 #: one magic number cannot pass.
 FIXED_RESERVES_PX = (27, 108)

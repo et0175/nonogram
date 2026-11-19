@@ -66,10 +66,7 @@ from __future__ import annotations
 import random
 
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import (
-    BookPDFGenerator,
-    _folio_reserve_px,
-)
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.clues import compute_clues
 from nonogram.export import ExportPayload
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -89,10 +86,7 @@ STANDARD_CELL_MM = 7.5
 MIN_CELL_MM = 2.0
 
 #: ``DPI``, written out here rather than imported, matching this module's own
-#: independence from ``nonogram.export.layout`` elsewhere (``_folio_reserve_px``
-#: is a font-measurement helper, not FR-040's own geometry, so importing it is
-#: not the kind of "same formula, no second check" shortcut this module
-#: otherwise avoids).
+#: independence from ``nonogram.export.layout`` elsewhere.
 DPI = 300
 
 #: The title band above each puzzle (TERM-028). A two-up page reserves two.
@@ -265,7 +259,6 @@ class Sheet:
         first: "Puzzle",
         second: "Puzzle",
         *,
-        reserve: bool = False,
         cap: float = STANDARD_CELL_MM,
     ) -> float:
         """FR-040's shared cell for this pair on this sheet, in millimetres.
@@ -276,50 +269,21 @@ class Sheet:
         whose cap has been lowered to the smaller of the two members' *grid
         sizes'* book cells (``book_cell_spec`` /
         ``BookPDFGenerator._pair_cell_mm``), and the cap enters the fit at
-        exactly the place the standard cell did — it is the first term of both
-        minima below, reserved fit included, which is where
-        ``compute_pair_layout`` takes it (its ``fit_spec`` carries the lowered
-        cap through both passes). A cap below FR-040's 7.0 mm therefore
-        refuses the pair outright, however roomy the page is (F-8).
+        exactly the place the standard cell did — it is the first term of the
+        minimum below, which is where ``compute_pair_layout`` takes it (its
+        ``fit_spec`` carries the lowered cap). A cap below FR-040's 7.0 mm
+        therefore refuses the pair outright, however roomy the page is (F-8).
 
-        **CARD-204 history: Fix 1/Fix 2's reserve was page/book-specific
-        (reverted), Fix 3 removed it entirely (reverted), Fix 4 restores it
-        as a fixed, universal constant (owner decision, 2026-10-12, "fixed
-        universal reserve").** Fix 1 and Fix 2 had this helper accept a
-        book- or page-level ``max_page_number`` and shrink the cell to buy
-        CARD-200's folio some guaranteed horizontal room — which let a
-        non-geometric, page/book-specific quantity flip whether two puzzles
-        paired (INV-010, cycle-1 F-1, cycle-2 F-5). Fix 3 removed the
-        mechanism to fix that, but silently reintroduced the folio-loss bug
-        on every two-up page (cycle-3 F-7). Fix 4's ``reserve`` flag (a
-        plain boolean, not a page number or a count of anything) applies
-        the *same* fixed reserve — ``_folio_reserve_px(DPI)``, imported
-        directly from ``book_pdf_generator`` rather than reimplemented: it
-        is a font-measurement helper, not FR-040's own formula, and this
-        module's independent value is the geometric arithmetic below, not a
-        second font metrics engine — to every pair alike, regardless of
-        this pair's own page number or this book's own scale. ``reserve=
-        False`` (the default) is the plain, no-reserve FR-040 number.
+        **No folio reserve since CARD-483.** From CARD-204 Fix 4 this helper
+        took a ``reserve`` flag that narrowed the usable width by
+        ``_folio_reserve_px`` for a folio at the lower slot's corner, because
+        production's walk passed that reserve. CARD-483 stopped production
+        passing it (a two-up page's folio is in the footer strip), so the
+        oracle stops modelling it: the cell is FR-040's plain number.
         """
-        natural = min(
-            cap,
-            self.usable_width_mm / max(first.across, second.across),
-            self.pair_height_mm / (first.down + second.down),
-        )
-        if not reserve:
-            return natural
-        reserve_px = _folio_reserve_px(DPI)
-        if not reserve_px:
-            return natural
-        natural_cell_px = natural * DPI / 25.4
-        usable_width_px = self.usable_width_mm * DPI / 25.4
-        natural_spare_px = usable_width_px - second.across * natural_cell_px
-        if natural_spare_px >= reserve_px:
-            return natural
-        reserve_mm = reserve_px * 25.4 / DPI
         return min(
             cap,
-            (self.usable_width_mm - reserve_mm) / max(first.across, second.across),
+            self.usable_width_mm / max(first.across, second.across),
             self.pair_height_mm / (first.down + second.down),
         )
 
@@ -454,8 +418,9 @@ def _member(
 #: A grid size can only show this card's pairing verdict when it holds both a
 #: pair that fits two-up and a member deep enough to decide the size's own
 #: cell. On Book 1's 190.5 mm of usable width that is a three-column window:
-#: a pair survives CARD-204's folio reserve at about 25 drawing cells across
-#: or fewer, and a member only takes the size's cell below FR-040's 7.0 mm at
+#: a pair fits two-up at 27 drawing cells across or fewer (190.5 / 27 =
+#: 7.06 mm; CARD-204's folio reserve held it to about 25 until CARD-483), and
+#: a member only takes the size's cell below FR-040's 7.0 mm at
 #: 28 or more (190.5 / 28 = 6.80 mm). The paired members are 1 deep across, so
 #: each is 23..25 cells wide and fits; the third member's row gutter is set to
 #: land the whole size's cell on the figure each family wants.
@@ -690,11 +655,11 @@ def _expected_pages(
 ) -> list[tuple[int, ...]] | None:
     """EC-027's walk, written out: the 1-based puzzle numbers of each page.
 
-    ``reserve=True`` on every ``shared_cell_mm`` call below (CARD-204
-    Fix 4): production's own ``puzzle_pages`` always passes
-    ``compute_pair_layout`` the fixed folio reserve now, so this oracle
-    must too, or it would silently disagree with every pair production
-    actually commits to.
+    No folio reserve on any ``shared_cell_mm`` call below: production's
+    ``puzzle_pages`` stopped passing ``compute_pair_layout`` one in CARD-483
+    (it passed CARD-204 Fix 4's fixed reserve until then, and this oracle
+    with it), so modelling one here would disagree with every pair
+    production commits to.
 
     **``cap`` on every call too, since CARD-225** (review cycle 1, F-003).
     NFR-008 as amended 2026-10-17 chooses the printed cell per grid size per
@@ -726,7 +691,6 @@ def _expected_pages(
                 cell = sheet.shared_cell_mm(
                     first,
                     second,
-                    reserve=True,
                     cap=_book_cap_mm(sheet, book_cells, first, second),
                 )
                 if abs(cell - TWO_UP_MINIMUM_MM) < 1e-6:
@@ -833,11 +797,11 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
                     # refused it is counted rather than conflated.
                     cap = _book_cap_mm(sheet, book_cells, members[0], follower)
                     capped = sheet.shared_cell_mm(
-                        members[0], follower, reserve=True, cap=cap
+                        members[0], follower, cap=cap
                     )
                     assert capped < TWO_UP_MINIMUM_MM, label
                     if (
-                        sheet.shared_cell_mm(members[0], follower, reserve=True)
+                        sheet.shared_cell_mm(members[0], follower)
                         >= TWO_UP_MINIMUM_MM
                     ):
                         refused_on_book_cell += 1
@@ -855,9 +819,9 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
             # the cap is a ceiling the pair's own fit still beats when it is
             # the smaller of the two).
             cap = _book_cap_mm(sheet, book_cells, upper, lower)
-            wanted = sheet.shared_cell_mm(upper, lower, reserve=True, cap=cap)
+            wanted = sheet.shared_cell_mm(upper, lower, cap=cap)
             assert abs(entry.pair.cell_mm - wanted) < 1e-6, (label, position)
-            if wanted < sheet.shared_cell_mm(upper, lower, reserve=True) - 1e-9:
+            if wanted < sheet.shared_cell_mm(upper, lower) - 1e-9:
                 book_cell_lowered += 1
             assert TWO_UP_MINIMUM_MM <= entry.pair.cell_mm <= STANDARD_CELL_MM, label
             at_cap += entry.pair.cell_mm == STANDARD_CELL_MM
@@ -1091,8 +1055,8 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
 
 
 # ---------------------------------------------------------------------------
-# CARD-204 Fix 2 (cycle-1 review F-1/F-3) — the reserve is the book's own
-# scale, never a specific page number
+# CARD-204 Fix 2 (cycle-1 review F-1/F-3) — a pair's verdict is its own
+# geometry, never a specific page number (no folio reserve since CARD-483)
 # ---------------------------------------------------------------------------
 
 
@@ -1107,56 +1071,32 @@ def _filler(tier: str) -> Puzzle:
     return Puzzle(10, 10, blank, blank, tier)
 
 
-#: A pair clear of the 7.0 mm floor even after Fix 4's fixed reserve is
-#: subtracted: **23** columns x 6 rows, row- and column-clue depth 2
-#: (``across`` = 25). Hand-verified here (``compute_pair_layout`` run
-#: directly against this exact geometry, the same independent check
-#: cycle-1/2's reviews made) rather than re-derived from this module's own
-#: ``Sheet.shared_cell_mm``, which already shares production's formula and so
-#: cannot catch a regression in it by agreeing with itself.
-#:
-#: **Re-chosen for CARD-222, and the window it sits in has closed.** It was
-#: 24 columns (``across`` = 26) on CON-018's retired margins, where the
-#: geometry-only cell was ``193.675 / 26 == 7.449`` mm and the reserved one
-#: ``(193.675 - 9.144) / 26 == 7.097`` mm — both strictly between the 7.0 mm
-#: floor and the 7.5 mm cap, so the reserve's whole effect was visible in the
-#: pair's own cell. On the amended margins (usable width 190.5 mm) **no
-#: ``across`` can do that any more**: the cap needs ``across >= 26``
-#: (190.5 / 26 = 7.33) and the floor-with-reserve needs ``across <= 25``
-#: ((190.5 - 9.144) / 25 = 7.25). The reserve is 9.144 mm — 4.8% of the
-#: usable width — and the cap-to-floor window is 7% wide, so the two no
-#: longer leave room for each other. This pair therefore sits at ``across``
-#: 25, where the **cap** binds the unreserved cell (7.5 mm) and the reserve
-#: still shows in the reserved one (7.254 mm), which is all the property
-#: below needs: the same verdict and the same cell wherever the pair lands.
+#: A pair the 7.5 mm cap binds: **23** columns x 6 rows, row- and column-clue
+#: depth 2 (``across`` = 25), so the page fit is 190.5 / 25 = 7.62 mm on
+#: Book 1's 190.5 mm of usable width and the cap wins. Until CARD-483 the
+#: generator's fixed folio reserve (108 px = 9.144 mm) took it to
+#: (190.5 - 9.144) / 25 = 7.25424 mm; with no reserve it is the cap.
 _BORDERLINE_ROW_CLUES = tuple((1, 1) for _ in range(6))
 _BORDERLINE_COLUMN_CLUES = tuple((1, 1) for _ in range(23))
 
-#: The pair's shared cell with no reserve: NFR-008's flat 7.5 mm cap, which
-#: binds at this ``across`` (190.5 / 25 = 7.62 mm of page fit, above the cap).
+#: The pair's shared cell: NFR-008's flat 7.5 mm cap.
 _BORDERLINE_CELL_MM = 7.5
 
-#: The same pair's cell **with** Fix 4's fixed reserve subtracted —
-#: hand-derived independently (not imported from ``compute_pair_layout`` or
-#: ``book_pdf_generator``), then cross-checked directly against
-#: ``compute_pair_layout``. ``_folio_reserve_px`` measures 108 px at 300 DPI
-#: (27 px per digit, the font's own widest digit, times
-#: ``FOLIO_RESERVE_DIGITS`` = 4) == ``108 * 25.4 / 300 == 9.144`` mm;
-#: ``(190.5 - 9.144) / 25 == 7.254239999999999...`` mm — below the cap, so the
-#: reserve really is what decides this cell, and still above the 7.0 mm floor.
-_RESERVE_PX = 108
-_BORDERLINE_CELL_WITH_RESERVE_MM = 7.25424
-
-#: The OLD (CARD-204 Fix 1/Fix 2/Fix 3 investigation's own) tightest pair —
-#: 25 columns, ``across`` = 27, geometry-only cell ``193.675 / 27 ==
-#: 7.173148148148147...`` mm — sits close enough to the 7.0 mm floor that
-#: Fix 4's fixed 9.144 mm reserve pushes it *below* the floor in every
-#: regime: ``(193.675 - 9.144) / 27 == 6.8345...`` mm. Kept here,
-#: deliberately, to prove the invariant also holds in its "always refuses"
-#: shape, not only its "always pairs, a bit smaller" one — the fixed
-#: reserve must be scale-independent either way it lands.
+#: The tight pair — **25** columns, ``across`` = 27 — a pair the folio
+#: reserve used to refuse in every regime ((190.5 - 9.144) / 27 = 6.717 mm,
+#: under FR-040's 7.0 mm) and that pairs in every regime since CARD-483, at
+#: the width-bound cell 190.5 / 27 mm, hand-derived here rather than read off
+#: ``compute_pair_layout``. CARD-483's AC-3 pin of a recovered pair, on the
+#: production walk.
 _TIGHT_ROW_CLUES = tuple((1, 1) for _ in range(6))
 _TIGHT_COLUMN_CLUES = tuple((1, 1) for _ in range(25))
+_TIGHT_CELL_MM = 190.5 / 27
+
+#: One column wider again — **26** columns, ``across`` = 28 — and the page fit
+#: is 190.5 / 28 = 6.80 mm, under the floor with no reserve at all: the
+#: "always refuses" shape of the invariant, which the tight pair carried until
+#: CARD-483 made it pair.
+_WIDE_COLUMN_CLUES = tuple((1, 1) for _ in range(26))
 
 
 def _borderline_pair(tier: str = "easy") -> tuple[Puzzle, Puzzle]:
@@ -1171,126 +1111,94 @@ def _tight_pair(tier: str = "easy") -> tuple[Puzzle, Puzzle]:
     return first, second
 
 
+def _wide_pair(tier: str = "easy") -> tuple[Puzzle, Puzzle]:
+    first = Puzzle(26, 6, _TIGHT_ROW_CLUES, _WIDE_COLUMN_CLUES, tier)
+    second = Puzzle(26, 6, _TIGHT_ROW_CLUES, _WIDE_COLUMN_CLUES, tier)
+    return first, second
+
+
 def test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber() -> None:
-    """INV-010 (CARD-204 Fix 4, owner decision 2026-10-12, "fixed universal
-    reserve"): a pair's own geometry and tier, plus one fixed, dpi-only
-    constant, alone decide whether it pairs and at what cell — never the
-    specific page number it happens to land on, and never the book's own
-    total scale either.
+    """INV-010: a pair's own geometry and tier alone decide whether it pairs
+    and at what cell — never the specific page number it happens to land on,
+    and never the book's own total scale either.
 
-    F-1 (cycle 1) reproduced the bug directly: the identical pair of
-    puzzles paired at a 2-digit page and refused outright at a 3-digit page
-    of the *same* book. Fix 2 narrowed that to a book-level reserve, which
-    cycle 2's F-5 then reproduced one level up. Fix 3 removed the reserve
-    mechanism entirely, which restored the invariant but silently
-    reintroduced the folio-loss bug the reserve existed to fix (cycle-3
-    F-7). Fix 4 restores the reserve as a **fixed, dpi-only** constant, so
-    this test asserts the invariant in its final shape: the *same* pair, at
-    the *same* (now reserve-shrunk) ``cell_mm``, in a 1-digit, a 2-digit,
-    and a 3-digit book alike — and, independently of the sweep, confirms
-    the *same* pair in the *same*-sized book pairs identically whether it
+    F-1 (CARD-204 cycle 1) reproduced the bug this guards: the identical pair
+    paired at a 2-digit page and refused at a 3-digit page of the *same* book,
+    because a folio reserve was sized from page numbers. Fix 4 made the
+    reserve a fixed, dpi-only constant; **CARD-483 removed it from the walk**,
+    because a two-up page's folio is set in the footer strip and the corner it
+    reserved is never drawn on (``tests/test_book_page_numbers.py``'s
+    ``TestTwoUpNeverTakesTheCornerFolio``). The name is kept; the invariant is
+    the same with no reserve at all: the *same* pair, at the *same*
+    ``cell_mm``, in a 1-digit, a 2-digit and a 3-digit book alike, whether it
     is offered first or last (filler puzzles of a *different* tier move it
-    between page 3 and a page dozens on, without ever being offered to it,
-    since INV-010 forbids a mixed-tier pair outright). A second pair, tight
-    enough that the fixed reserve pushes it below the 7.0 mm floor, proves
-    the same invariant holds in its "always refuses" shape too.
+    between page 3 and a page dozens on, without ever being offered to it).
 
-    No ``hypothesis`` (CLAUDE.md): a small, fully enumerated sweep over
-    three known book-scale boundaries rather than a random corpus, with the
-    expected ``cell_mm`` an independent hand-derivation
-    (``_BORDERLINE_CELL_WITH_RESERVE_MM``), verified directly against
-    ``compute_pair_layout`` before this test was written rather than
-    re-derived from this module's own ``Sheet.shared_cell_mm`` helper.
+    Three pairs, three shapes: the borderline pair pairs at the cap, the tight
+    pair pairs at its width-bound cell (and is one the reserve used to refuse,
+    so it also pins CARD-483's recovery through the production walk), and the
+    wide pair refuses in every regime.
+
+    No ``hypothesis`` (CLAUDE.md): a small, fully enumerated sweep over three
+    known book-scale boundaries, with the expected cells hand-derived.
     """
     sheet = Sheet(*BOOK1)
     generator = BookPDFGenerator(sheet.book)
 
-    # The two hand-derived cells below are worked out from this exact pixel
-    # figure, so check it first: a font whose widest digit measured
-    # differently would make both expectations wrong for a reason that has
-    # nothing to do with the invariant under test, and this assertion says
-    # so in one line instead of as an obscure cell_mm mismatch.
-    assert _folio_reserve_px(DPI) == _RESERVE_PX, _folio_reserve_px(DPI)
-
     # (filler_count, the book's own max_page_number digit count). Every
-    # regime pairs at the identical cell_mm (or refuses identically, for the
-    # tight pair below) — the whole point of this test is that the
-    # digit-count column no longer predicts anything about the verdict or
-    # the cell, even though a reserve is now genuinely in effect.
+    # regime gives each pair the identical verdict and cell_mm.
     REGIMES = (
         (1, 1),
         (6, 2),
         (98, 3),
     )
 
+    def target(plan, number):
+        return next(entry for entry in plan if number in entry.numbers)
+
     cases = 0
     for filler_count, digits in REGIMES:
-        first, second = _borderline_pair()
-        tight_first, tight_second = _tight_pair()
         fillers = [_filler("hard") for _ in range(filler_count)]
-
-        early_order = [first, second] + fillers
-        late_order = fillers + [first, second]
-        tight_early_order = [tight_first, tight_second] + fillers
-        tight_late_order = fillers + [tight_first, tight_second]
-        assert len(early_order) == len(late_order)
-
-        early_plan = generator.puzzle_pages([p.payload for p in early_order])
-        late_plan = generator.puzzle_pages([p.payload for p in late_order])
-        tight_early_plan = generator.puzzle_pages([p.payload for p in tight_early_order])
-        tight_late_plan = generator.puzzle_pages([p.payload for p in tight_late_order])
-
-        early_target = next(entry for entry in early_plan if entry.numbers[:1] == (1,))
-        late_target = next(
-            entry for entry in late_plan if filler_count + 1 in entry.numbers
-        )
-        tight_early_target = next(
-            entry for entry in tight_early_plan if entry.numbers[:1] == (1,)
-        )
-        tight_late_target = next(
-            entry for entry in tight_late_plan if filler_count + 1 in entry.numbers
-        )
 
         # This regime really does carry the digit count it is named for —
         # otherwise the case below proves nothing about the boundary it
         # claims to exercise.
-        max_page_number = 4 + len(early_order) - 1
+        max_page_number = 4 + 2 + filler_count - 1
         assert len(str(max_page_number)) == digits, (filler_count, max_page_number)
 
-        # The pair lands on a different *actual* page number in the two
-        # placements — otherwise this case would not test position
-        # independence at all, only repeat the same call twice.
-        assert early_target.page_number != late_target.page_number, (
-            filler_count,
-            early_target.page_number,
-            late_target.page_number,
-        )
-
-        # The invariant: the pair always pairs, at the one reserve-shrunk
-        # cell, regardless of the page number or the book's own total scale.
-        for placement, target in (("early", early_target), ("late", late_target)):
-            assert target.pair is not None, (filler_count, placement, target.page_number)
-            assert abs(target.pair.cell_mm - _BORDERLINE_CELL_WITH_RESERVE_MM) < 1e-9, (
-                filler_count,
-                placement,
-                target.pair.cell_mm,
+        found = {}
+        for name, make in (
+            ("borderline", _borderline_pair),
+            ("tight", _tight_pair),
+            ("wide", _wide_pair),
+        ):
+            first, second = make()
+            early = target(
+                generator.puzzle_pages([p.payload for p in [first, second] + fillers]), 1
             )
-            # Strictly smaller than the fully-unreserved cell, by exactly
-            # the fixed reserve — never a page/book-scale-dependent amount.
-            assert target.pair.cell_mm < _BORDERLINE_CELL_MM, (filler_count, placement)
+            late = target(
+                generator.puzzle_pages([p.payload for p in fillers + [first, second]]),
+                filler_count + 1,
+            )
+            # The pair lands on a different *actual* page number in the two
+            # placements — otherwise this case would not test position
+            # independence at all, only repeat the same call twice.
+            assert early.page_number != late.page_number, (name, filler_count)
+            # The direct form of the invariant: the two placements agree.
+            assert (early.pair is None) == (late.pair is None), (name, filler_count)
+            if early.pair is not None:
+                assert abs(early.pair.cell_mm - late.pair.cell_mm) < 1e-9, (name, filler_count)
+            found[name] = early
 
-        # The direct form of the invariant: the two placements agree with
-        # each other, not merely with the hand-derived expectation above.
-        assert (early_target.pair is None) == (late_target.pair is None)
-        assert abs(early_target.pair.cell_mm - late_target.pair.cell_mm) < 1e-9
-
-        # The tight pair: the fixed reserve refuses it in *every* regime —
-        # the invariant holds just as well when the verdict is "no" as when
-        # it is "yes, a bit smaller".
-        assert tight_early_target.pair is None, (filler_count, "early")
-        assert tight_late_target.pair is None, (filler_count, "late")
+        assert found["borderline"].pair is not None, filler_count
+        assert abs(found["borderline"].pair.cell_mm - _BORDERLINE_CELL_MM) < 1e-9, filler_count
+        assert found["tight"].pair is not None, filler_count
+        assert abs(found["tight"].pair.cell_mm - _TIGHT_CELL_MM) < 1e-9, (
+            filler_count,
+            found["tight"].pair.cell_mm,
+        )
+        assert found["wide"].pair is None, filler_count
 
         cases += 1
 
     assert cases == len(REGIMES)
-

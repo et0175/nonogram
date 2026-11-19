@@ -72,11 +72,11 @@ share:
 
 * 24 books holding **164** puzzles between them;
 * **99** same-tier neighbour pairs in print order, of which the greedy forward
-  walk actually offers **96** (a pair that forms consumes its successor, so the
+  walk actually offers **95** (a pair that forms consumes its successor, so the
   pair starting on the second of two paired puzzles is never asked about);
-* **7** of those verdicts come out differently when both puzzles' clues are
-  replaced by one-run-deep clues of the same extent — 7 under a solid-grid
-  flattening (every row ``(width,)``, every column ``(height,)``) and 7 under
+* **5** of those verdicts come out differently when both puzzles' clues are
+  replaced by one-run-deep clues of the same extent — 5 under a solid-grid
+  flattening (every row ``(width,)``, every column ``(height,)``) and 5 under
   a filled-count-preserving one (every line ``(sum(runs),)``), so the figure
   does not depend on which way the depth is flattened away.
 
@@ -84,11 +84,12 @@ Every figure here was re-measured for CARD-222, and two things moved them.
 CON-018's amended margins (2026-10-17) leave a narrower, shorter usable area,
 so fewer pairs form and the walk gets to offer more verdicts; and the walk now
 offers them **with CARD-204's folio reserve** in hand, as the production walk
-always has (:func:`_folio_reserve_px` — it was missing here, which made this
+always has (``_folio_reserve_px`` — it was missing here, which made this
 file's "independent second implementation" a walk under a slightly different
 rule). Offered verdicts went 93 -> 96 and the flips 10 -> 7: fewer, because
 the reserve refuses some pairs whatever their clue depth, which is exactly a
-verdict the clues no longer decide.
+verdict the clues no longer decide. (CARD-483 removed that reserve from the
+production walk, and from this file's walk with it; see below.)
 
 **Re-measured again for CARD-248**, which reserves a 29.878 mm footer strip
 out of every pair's height so that a two-up page can carry both its puzzles'
@@ -109,10 +110,17 @@ whatever their clue depth. Offered verdicts went 97 -> 96 and the flips
 pairs sit on the boundary the clues decide, and the corpus still discriminates
 (7 is not zero).
 
-Seven is a small number and is the whole point: it is not zero, so this corpus
+**Re-measured for CARD-483**, which drops CARD-204's folio reserve from the
+production walk and so from this one: offered verdicts 96 -> 95. The flips go
+7 -> **5**, and that figure moved for a second reason: the flattened re-ask
+below had never been given the footer strip the walk's own verdicts were taken
+with, so since CARD-248 it differed from the walk in the strip as well as the
+clues. It is given the strip now (on the old walk that alone gives 1 flip, so
+most of the 7 was the strip, not the clues).
+
+Five is a small number and is the whole point: it is not zero, so this corpus
 discriminates between the plan the book makes and a plan fitted from extents
-alone instead of agreeing with both — an extent-only planner would have put ten
-pairs of puzzles on pages the printed book does not print them on.
+alone instead of agreeing with both.
 """
 
 from __future__ import annotations
@@ -435,37 +443,6 @@ def _clue_sets(row: Dict[str, Any]) -> Tuple[tuple, tuple]:
     )
 
 
-def _folio_reserve_px() -> int:
-    """CARD-204's fixed folio reserve, reimplemented here (CARD-222).
-
-    **The pairing verdict depends on it.** The generator's own pairing walk
-    passes this many pixels into every
-    :func:`~nonogram.export.layout.compute_pair_layout` call it makes, so a
-    pair's accept/refuse verdict is taken *with* the reserve in hand (the
-    owner's decision of 2026-10-12, "fixed universal reserve": about 5% of
-    adversarial pairs are refused because of it). :func:`planned_by_hand`
-    omitted it until this card, which made it a walk under a slightly
-    different rule than the book's — a latent divergence that cost nothing
-    while every pair of this corpus sat clear of the threshold, and that
-    CON-018's amended margins exposed by moving one pair onto it.
-
-    Reimplemented rather than imported, like every other figure in this file:
-    the widest decimal digit the packaged face draws at the folio's own 10 pt,
-    times the four digits CARD-204 reserves room for, rounded up to a whole
-    pixel.
-    """
-    import math
-    from importlib import resources
-    from io import BytesIO
-
-    from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE
-
-    data = resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
-    font = ImageFont.truetype(BytesIO(data), size=round(10.0 * DPI / 72.0))
-    widest = max(font.getlength(str(digit)) for digit in range(10))
-    return math.ceil(widest * 4)
-
-
 def _footer_reserve_px() -> int:
     """CARD-248's footer strip, reimplemented here: 117 px at 300 DPI (CARD-392).
 
@@ -500,9 +477,10 @@ def planned_by_hand(
     * a named level opens with a divider page that carries no puzzle;
     * inside a level the walk is greedy and forward: puzzle *i* and *i+1* are
       offered to COMP-007 on the spec of the page they would share, **with
-      CARD-204's fixed folio reserve and CARD-248's footer strip**
-      (:func:`_folio_reserve_px`, :func:`_footer_reserve_px`, both of which
-      the production walk passes and both of which take part in the verdict),
+      CARD-248's footer strip** (:func:`_footer_reserve_px`, which the
+      production walk passes and which takes part in the verdict; CARD-204's
+      folio reserve was passed too until CARD-483 stopped the production walk
+      passing it),
       and a ``PairLayout`` back puts both on it (CARD-391 removed the other
       refusal, that the footer carry both puzzles' QR links). Otherwise *i*
       has the page to itself. A run with no readable tier never pairs.
@@ -542,7 +520,6 @@ def planned_by_hand(
                         _clue_sets(ordered[index]),
                         _clue_sets(ordered[index + 1]),
                         spec,
-                        folio_reserve_px=_folio_reserve_px(),
                         footer_reserve_px=_footer_reserve_px(),
                     )
                     is not None
@@ -828,9 +805,16 @@ CORPUS_MEASURED = {
     # 97 and 11/11 until CARD-392: its one-line footer strip (117 px, where
     # CARD-248's was 353) moves the pair boundary from 28 to 31 cells, so the
     # figures go back to 96 and 7/7 (re-measured, not carried).
-    "verdicts_offered": 96,
-    "flips_solid_grid": 7,
-    "flips_filled_count": 7,
+    # 96 and 7/7 until CARD-483, which (a) drops the folio reserve from the
+    # walk, as from the production walk, and (b) gives the flattened re-ask the
+    # footer strip the walk's own verdict was taken with -- it had been asked
+    # with neither the strip nor (after (a)) any reserve, so part of every
+    # flip count since CARD-248 was the strip and not the clues. Measured
+    # apart: (b) alone on the old walk gives 96 and 1/1; (a) alone 95 and
+    # 12/12; both 95 and 5/5.
+    "verdicts_offered": 95,
+    "flips_solid_grid": 5,
+    "flips_filled_count": 5,
 }
 
 
@@ -931,10 +915,10 @@ def test_extent_alone_would_disagree_with_the_book_on_this_corpus() -> None:
                     flatten(earlier),
                     flatten(later),
                     spec,
-                    # The same reserve the walk above offered its verdicts
-                    # with (:func:`_folio_reserve_px`), so the two differ only
-                    # in the clues — which is what this measurement is about.
-                    folio_reserve_px=_folio_reserve_px(),
+                    # The strip the walk above offered its verdicts with
+                    # (:func:`_footer_reserve_px`), so the two differ only in
+                    # the clues — which is what this measurement is about.
+                    footer_reserve_px=_footer_reserve_px(),
                 )
                 is not None
             )

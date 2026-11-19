@@ -45,10 +45,7 @@ from PIL import Image
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import (
-    BookPDFGenerator,
-    _folio_reserve_px,
-)
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
@@ -66,8 +63,7 @@ from nonogram.export.layout import (
 # The one private this module reads: the boundary
 # ``test_a_gap_of_exactly_one_clearance_floats`` pins is not reachable through
 # ``compute_layout`` at any trim (see that test), so it is stated on the
-# placement itself. The same convention as this file's ``_folio_reserve_px``
-# import above.
+# placement itself.
 from nonogram.export.layout import _placed_drawing_top
 from nonogram.export.png import render_image
 from tests.helpers.page_ink import drawing_of
@@ -157,13 +153,6 @@ SPARE_ABOVE = 0.42
 #: cell); 2.0 mm is the tolerance ``tests/property/test_book_pdf_geometry`` uses
 #: for the same window.
 CLEARANCE_WINDOW_MM = 2.0
-
-#: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres —
-#: ``_folio_reserve_px`` is a font-measurement helper (not FR-040's own
-#: geometry), so it is imported directly rather than reimplemented a third
-#: time; the pairing/placement arithmetic that uses it below is this
-#: module's own independent check.
-RESERVE_MM = _folio_reserve_px(DPI) / PX_PER_MM
 
 #: How far a measured edge may sit from the millimetres worked out here. Every
 #: boundary is rounded to a whole device pixel once, and the drawing's left
@@ -763,22 +752,13 @@ def _down(puzzle: dict) -> int:
 def _shared_cell_mm(upper: dict, lower: dict) -> float:
     """FR-040's shared cell for one pair on one Book 1 page, in millimetres.
 
-    **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
-    reserve").** Re-derives ``compute_pair_layout``'s own "only widen the
-    fit when the lower slot's own natural spare can't already hold the
-    fixed reserve" rule independently, in millimetres.
+    No folio reserve: from CARD-204 Fix 4 this re-fitted against a width one
+    reserve narrower when the lower slot's spare fell short of it, as
+    the pairing walk did; CARD-483 stopped the walk passing the reserve.
     """
-    natural = min(
-        STANDARD_CELL_MM,
-        USABLE_WIDTH_MM / max(_across(upper), _across(lower)),
-        PAIR_HEIGHT_MM / (_down(upper) + _down(lower)),
-    )
-    natural_spare_mm = USABLE_WIDTH_MM - _across(lower) * natural
-    if natural_spare_mm >= RESERVE_MM:
-        return natural
     return min(
         STANDARD_CELL_MM,
-        (USABLE_WIDTH_MM - RESERVE_MM) / max(_across(upper), _across(lower)),
+        USABLE_WIDTH_MM / max(_across(upper), _across(lower)),
         PAIR_HEIGHT_MM / (_down(upper) + _down(lower)),
     )
 
@@ -831,13 +811,11 @@ def _expected_pair_boxes(
     reserve").** Fix 1/Fix 2 pulled the lower box alone back toward the
     gutter by a page/book-specific folio reserve (INV-010, cycle-1 F-1,
     cycle-2 F-5). Fix 3 removed the reserve mechanism entirely. Fix 4
-    restored it as a *fixed* amount (:data:`RESERVE_MM`, never derived from
-    ``page_number`` or any book content). **CARD-224 drops the shift with the
-    anchor**: centring leaves each slot half its own spare on *both* sides, so
-    the lower box is placed exactly like the upper one and
-    :data:`RESERVE_MM` no longer enters this helper. The reserve is still
-    taken out of the shared cell's own fit, which is why the cell below is
-    unchanged (G-1). This helper still does not take or need a
+    restored it as a *fixed* amount (never derived from ``page_number`` or
+    any book content). **CARD-224 drops the shift with the anchor**: centring
+    leaves each slot half its own spare on *both* sides, so the lower box is
+    placed exactly like the upper one and the reserve no longer enters this
+    helper. (It stayed in the shared cell's fit until CARD-483 removed it.) This helper still does not take or need a
     ``page_number``, kept only so every call site below (which names one for
     its own documentation value) does not need editing.
     """

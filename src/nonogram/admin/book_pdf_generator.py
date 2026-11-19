@@ -191,10 +191,11 @@ reach the 7.0 mm floor with it reserved prints on two single pages, each with
 its own footer, which is one more interior page. **Until CARD-391 the walk
 also refused a pair whose footer could not hold both puzzles' QR groups side
 by side; that clause (c) is gone with the groups** (ADR-0041/R8), so a narrow
-trim now pairs on the height and width rules alone. The folio reserve is a
-constant of the sheet and the face — :func:`_folio_reserve_px` is measured from
-the font and the DPI alone — so neither lets a page number or a book's own
-scale decide whether two puzzles pair (INV-010).
+trim now pairs on the height and width rules alone. **Since CARD-483 the walk
+reserves no folio width**: a two-up page's folio is set in that footer strip,
+never at the lower slot's corner. The strip is a constant of the sheet, so it
+lets no page number or book's own scale decide whether two puzzles pair
+(INV-010).
 
 What the panel decides is *which neighbours to offer* and nothing else (G-1,
 ADR-0036/R2): the shared cell, both slot positions, every ruled line and every
@@ -933,8 +934,9 @@ SIZE_LABEL_PT = INTERIOR_FOOTER_LINE_PT
 SIZE_LABEL_SEPARATOR = " x "
 
 #: How many digits of a page number :func:`_folio_reserve_px` plans room for
-#: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
-#: "fixed universal reserve") — a fixed ceiling, never this book's own
+#: (CARD-204 Fix 4, owner decision 2026-10-12, "fixed universal reserve";
+#: on a two-up page's lower slot until CARD-483, and still as the width the
+#: footer pointer keeps clear of the centred folio) — a fixed ceiling, never this book's own
 #: largest page number or this page's own number. Four digits is far beyond
 #: anything a physical print book this software produces reaches in
 #: practice (the project's own Amazon market snapshot puts the median
@@ -953,7 +955,9 @@ SIZE_LABEL_SEPARATOR = " x "
 #: i.e. a longer interior and, on KDP, a higher print cost per copy.
 #: Accepted knowingly (owner decision 2026-10-12, reaffirmed 2026-10-13 with
 #: that measurement in hand), against the alternative of losing the folio
-#: from every two-up page.
+#: from every two-up page. **Paid until CARD-483 only**: since CARD-248 a
+#: two-up page sets its folio in the footer strip, and CARD-483 stopped the
+#: pairing walk passing the reserve, so books no longer pay this cost.
 FOLIO_RESERVE_DIGITS = 4
 
 #: The table of contents page's title (CARD-200) — plain and descriptive,
@@ -2068,7 +2072,14 @@ def _draw_difficulty_dots(
 
 
 def _folio_reserve_px(dpi: int) -> int:
-    """The fixed pixel reserve CARD-200's folio gets on a two-up page's lower slot.
+    """The fixed pixel width a folio is planned at, whatever its page number.
+
+    **Since CARD-483 it no longer narrows a two-up pair** (the pairing walk
+    stopped passing it, because a two-up page's folio is in the footer strip
+    and never at the lower slot's corner). It is still the width
+    :func:`~nonogram.export.layout.footer_pointer` keeps clear of the centred
+    folio on every page (:meth:`BookPDFGenerator._sheet_furniture`). The
+    history below is the reserve's.
 
     **Owner decision, 2026-10-12, "fixed universal reserve" (CARD-204
     Fix 4).** Review cycles 1 and 2 (F-1, F-5) rejected Fix 1's and Fix 2's
@@ -2206,7 +2217,10 @@ def _draw_folio(
     it could now refuse — a four-digit page number on a cornered two-up page
     whose lower slot has little spare — is recorded in
     ``tests/property/test_book_two_up.py`` rather than left to be
-    discovered.
+    discovered. (c) Since CARD-483 the pairing walk takes no reserve out of
+    the fit at all, so (a)'s "at least half the reserve" no longer holds for
+    a production pair: nothing needs it, because no production two-up page
+    reaches this corner (``TestTwoUpNeverTakesTheCornerFolio``).
 
     ``content_right``/
     ``content_left`` (the content's own rightmost/leftmost pixel — e.g.
@@ -5248,20 +5262,21 @@ class BookPDFGenerator:
         name. The failure is named here, where it happened, so that every abort
         of :meth:`interior` names a puzzle whatever stage it came from.
 
-        **CARD-200's folio always gets its fixed, universal reserve (CARD-204
-        Fix 4, owner decision 2026-10-12).** Every call here passes
-        :func:`_folio_reserve_px`'s own value — a constant derived only from
-        the font and ``self.dpi``, never from ``page_number``, ``payloads``
-        or anything about this specific book — into
+        **No folio reserve is taken out of a pair's width (CARD-483).** From
+        CARD-204 Fix 4 to CARD-483 every call here also passed
+        :func:`_folio_reserve_px` as
         :func:`~nonogram.export.layout.compute_pair_layout`'s
-        ``folio_reserve_px``. The same number reaches every pair this walk
-        ever offers, so the walk's own accept/refuse verdicts and cell sizes
-        stay exactly as page/book-independent as they were when Fix 3
-        removed the reserve mechanism (INV-010) — the difference is that
-        every two-up page's lower slot now keeps room for its folio instead
-        of losing it (see :func:`~nonogram.export.layout.compute_pair_layout`'s
-        own docstring for why a fixed constant cannot reintroduce the
-        cycle-1/cycle-2 coupling).
+        ``folio_reserve_px``, keeping 108 px of the lower slot's width free for
+        a folio at its bottom-outer corner. Since CARD-248 a two-up page sets
+        its folio centred in the footer strip this walk reserves
+        (``footer_reserve_px``), and the corner is used only when the page's
+        content reaches below the footer rule — which a pair laid out with that
+        strip cannot do on any sheet a book can store (measured, and held by
+        ``tests/test_book_page_numbers.py``'s
+        ``TestTwoUpNeverTakesTheCornerFolio``). So the reserve was refusing
+        pairs for a folio that is never drawn there, and it is no longer
+        passed. The footer strip is page- and book-independent, so the
+        verdict still depends on the two puzzles' geometry alone (INV-010).
 
         Args:
             payloads: The drawable puzzles in print order. A payload's
@@ -5321,7 +5336,6 @@ class BookPDFGenerator:
                         (first.row_clues, first.column_clues),
                         (second.row_clues, second.column_clues),
                         page_spec,
-                        folio_reserve_px=_folio_reserve_px(self.dpi),
                         footer_reserve_px=interior_frame(page_spec).footer_depth,
                     )
                 except Exception as e:
@@ -5401,7 +5415,9 @@ class BookPDFGenerator:
         a count of anything. Splitting the pairing walk at a level boundary
         therefore still changes no verdict: the reserve a puzzle sees does
         not depend on which level's slice it is offered in, any more than
-        :data:`~nonogram.export.layout.TWO_UP_MIN_CELL_MM` does.
+        :data:`~nonogram.export.layout.TWO_UP_MIN_CELL_MM` does. (CARD-483
+        then stopped passing the reserve at all — see :meth:`puzzle_pages`;
+        the footer strip it passes instead is just as level-independent.)
 
         Args:
             payloads: The drawable puzzles in print order.

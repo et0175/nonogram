@@ -31,7 +31,6 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     FOLIO_PT,
     PuzzlePagePlan,
-    _folio_reserve_px,
     type_px,
 )
 from nonogram.admin.book_vector import interior_face_metrics
@@ -180,12 +179,14 @@ def _two_up(
     *,
     reserve_footer: bool = True,
 ):
-    """A production two-up pair on ``spec``: both reserves, as ``puzzle_pages`` passes them."""
+    """A production two-up pair on ``spec``: the footer strip, as ``puzzle_pages`` passes it.
+
+    No folio reserve: the walk stopped passing one in CARD-483.
+    """
     return compute_pair_layout(
         _clue_sets(*upper),
         _clue_sets(*(lower if lower is not None else upper)),
         spec,
-        folio_reserve_px=_folio_reserve_px(DPI),
         footer_reserve_px=_footer_reserve_px(spec) if reserve_footer else 0,
     )
 
@@ -233,17 +234,17 @@ def _folios_set(stream, page_number: int) -> List[Tuple[float, float]]:
 
 
 def _expected_pair_cell_mm(
-    across: int, lower_across: int, total_down: int, *, strip: bool
+    across: int, total_down: int, *, strip: bool
 ) -> float:
     """FR-040's shared cell on Book 1, written out from the sheet's own
-    millimetres — **both** reserves included, as production passes them.
+    millimetres — the footer strip included, as production passes it (and
+    no folio reserve since CARD-483).
 
     An independent second implementation, not a call into
     ``compute_pair_layout``: ``min(cap, usable width / the wider drawing's
-    columns, (usable height - two bands - the strip) / both drawings' rows)``,
-    re-fitted against a usable width one folio reserve narrower when the lower
-    drawing's own spare at the first answer falls short of that reserve
-    (CARD-204 Fix 4's documented rule, restated here rather than imported).
+    columns, (usable height - two bands - the strip) / both drawings' rows)``.
+    (Until CARD-483 it also re-fitted against a usable width one folio reserve
+    narrower when the lower drawing's spare fell short of that reserve.)
     The strip is stated as :data:`FOOTER_STRIP_PX` pixels converted back to
     millimetres, which is how the production call converts the reserve it is
     handed.
@@ -252,15 +253,7 @@ def _expected_pair_cell_mm(
     usable_height = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
     if strip:
         usable_height -= FOOTER_STRIP_PX / PX_PER_MM
-    cell = min(STANDARD_CELL_MM, usable_width / across, usable_height / total_down)
-    folio_px = _folio_reserve_px(DPI)
-    if usable_width * PX_PER_MM - lower_across * cell * PX_PER_MM < folio_px:
-        cell = min(
-            STANDARD_CELL_MM,
-            (usable_width - folio_px / PX_PER_MM) / across,
-            usable_height / total_down,
-        )
-    return cell
+    return min(STANDARD_CELL_MM, usable_width / across, usable_height / total_down)
 
 
 class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
@@ -323,7 +316,7 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
                     continue
                 across = 1 + columns
                 total_down = 2 * (1 + rows)
-                expected = _expected_pair_cell_mm(across, across, total_down, strip=True)
+                expected = _expected_pair_cell_mm(across, total_down, strip=True)
                 assert abs(pair.cell_mm - expected) < 1e-6, (
                     columns, rows, pair.cell_mm, expected
                 )
