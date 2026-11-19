@@ -1,6 +1,6 @@
 # CARD-232: Solutions become fixed tiles, four to a page in a 2x2 grid, each with its clues
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -17,7 +17,7 @@
 **Depends on:** CARD-222 (the frame), CARD-225 (the cell size rule the tiles inherit), CARD-322
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_solved_answer_key.py, tests/test_book_solved_page.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card232.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/, docs/BOOK_PAGE_PACKING.md, tests/test_book_page_packing_doc.py, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md
-**Review score:** —
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-19T17:49Z
 **Closed:** —
 **Actual:** —
@@ -226,3 +226,5 @@ Estimate restated from 4c to 2c for this remainder. The old branch name `card/23
 - Tests: collected 10704 (unchanged, +3 over base). Run (50 files: the doc test, check_ref, suite_profile, test_cli, packed_solved, page_numbers, every answer/solved file, every test reading requirements.yml/trace.yml/aggregates/capabilities/docs): 3213 passed, 1 xfailed, 0 failed, 0 skipped.
 
 [Review 1/3] Score: 8.5, one gating finding, not certified. F-1 FR-042 AC-291 still stated the 6-up page arithmetic and the first-page-only heading; F-2 the doc-table test copied interior_stream's glue (a plant on the degrade spec stayed green); F-3 the RETIRED banner spanned live names; F-4 the doc's tile-height formula subtracted a gap on 2-up pages; F-5 the CARD-485 paragraph was held only by two phrases; F-6 a margin comment; F-7 a missing caveat under the puzzles-per-page table. Printed answer pages verified byte-identical to main (5 trims, both parities, depths 1/3/5, degraded pages included); frozen baselines re-derived independently; 635 passed, 0 skipped. All seven fixed in `ab26b336`.
+
+[Review 2/3] Score: 9.5, nothing gating, certified. F-1..F-7 all closed: AC-291 matches `plan_small_answer_pages` + `running_head_text`; the doc-table test now reds on both degrade-spec plants (`assert 1 == -(-4 // 2)`); the RETIRED list agrees with an ast check of live names; only comments changed in `src`, so printed answer pages stay byte-identical to main. 2693 passed, 1 xfailed, 0 skipped over 40 files; net +3. Recorded, not carded (cut bar): F-8 the export cross-check is one boundary case (depth 12 on 6x9), which would silently stop discriminating if both specs ever split there; F-9 AC-291 keeps the dead ref `TestBookAnswerKey_HeadingOnlyOnLevelFirstPage`, deliberately, so no frozen baseline moves.
