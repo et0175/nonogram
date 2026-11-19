@@ -1,6 +1,6 @@
 # CARD-482: The proof PDF is written in the book's interior colour mode, not always RGB
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/482-proof-colour-mode
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-482
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 2 (IDEA-021, WSJF 5.0); premise re-read against main on 2026-11-19.
 **Idea:** IDEA-021
 **Wave:** 81
@@ -20,9 +20,9 @@
 **UI surface:** none
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-19T07:14Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-19T08:29Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 57c26e4a29b0a8f1058e57c8d3ddb15a0d923210
 **Blocked by:** —
 
 ## Why this card exists
@@ -100,3 +100,5 @@ written mode).
 [After certification, uncertified] One docstring line in `render_proof_pdf` reworded for F-002 and the notes' `None` line corrected for F-001; no code change.
 
 [Merge gate, first run] RED, 1 failed of 9037: `tests/test_book_export_interior_cover.py`'s `OUTSIDE_CALLERS_WITH_A_POSITION` pins the proof's one positioned geometry-door call by LINE (`book_proof.py`, 756); moving the page loop into `_drawn_pages` put the same `generator.page_spec(position)` call at 760. Neither review ran that module. Re-pinned 756 -> 760 with a history line in the pin's own style; the class 23 passed. Uncertified: no review saw the re-pin.
+
+[Merge gate, second run] `make test-gate`: 8995 passed, 30 skipped (29 database-not-set, 1 setrlimit), 13 deselected, 1 xfailed, of 9039 selected; run 2 (wave_close_only), 11 passed; exit 0. Post-merge on main: card census, `tests/test_book_proof_pages.py` and the re-pinned class, 187 passed. Renders for the owner: `~/Documents/nonogram-reviews/CARD-482/`.
