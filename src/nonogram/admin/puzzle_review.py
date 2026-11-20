@@ -1796,8 +1796,9 @@ class PuzzleReviewService:
                     # trimmed and lower-cased as the tier sort above compares
                     # them. The branches agree for any case and for space
                     # padding; SQL `trim()` strips spaces only, so a value
-                    # padded with a tab or newline reads as its tier in
-                    # memory but not here, as in the tier sort.
+                    # padded with any other whitespace (a tab, a newline, a
+                    # no-break space) reads as its tier in memory but not
+                    # here, as in the tier sort.
                     wanted = tier_of_record(filter_opts.difficulty)
                     query = query.filter(
                         func.trim(func.lower(Puzzle.difficulty_tier)).in_(
