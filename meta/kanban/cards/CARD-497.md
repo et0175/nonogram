@@ -1,6 +1,6 @@
 # CARD-497: The Print setup refusal page shows the plan that was submitted, not the stored one
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/497-refusal-planned-row
-**Worktree:** ../PythonProject4-card-497
+**Worktree:** —
 **Source:** roadmap wave 5 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-012, WSJF 2.31 (unverified at the rescore).
 **Idea:** IDEA-012
 **Wave:** 84
@@ -20,9 +20,9 @@
 **UI surface:** admin Print setup (step 2), the refusal re-render
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T09:50Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T11:32Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** 7a055f48bfdbdfae084e0bd6fd3beaffea839d8a
 **Blocked by:** —
 
 ## Why this card exists

@@ -350,7 +350,7 @@ ideas:
     one. Site: `app.py` (setup-print)   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-497
   method: wsjf
   scores:
