@@ -1431,7 +1431,7 @@ ideas:
     as local custom properties in admin.css; promote them to tokens.css   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -1616,7 +1616,7 @@ ideas:
     before the click   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -2450,7 +2450,7 @@ ideas:
   raw: '- [ ] CARD-169 F-002 (minor): the guide strip''s cell size `--strip-cell: 1.5rem` is a local value
     in admin.css — promote it to a design token or record it as a deliberate local value   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -3618,7 +3618,7 @@ ideas:
   source_line: 219
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -3716,8 +3716,9 @@ ideas:
   source_line: 225
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-506
+  closed_note: 'Closed 2026-11-20 by CARD-506 for the centring half; the long-name board shift is recorded as IDEA-218 (owner decision).'
   method: wsjf
   scores:
     user_business_value: 1
@@ -3844,7 +3845,7 @@ ideas:
   source_line: 234
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -3927,7 +3928,7 @@ ideas:
   source_line: 240
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -4022,7 +4023,7 @@ ideas:
   source_line: 247
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-506
   method: wsjf
   scores:
@@ -5351,3 +5352,26 @@ ideas:
   triage_note: The plugin cache still ships the buggy regex, so anyone running the cached validator will
     see the phantom error again.
   scored_at: '2026-11-18'
+- id: IDEA-218
+  title: A long solved-puzzle name moves the desktop board down (owner decision)
+  raw: '- [ ] CARD-506 (IDEA-151 half, measured 2026-11-20 by the implementer and re-measured by review): the solved
+    banner wraps inside the 13rem tools box and pushes the board down on desktop: 10-12 characters 0 px, 14-24
+    characters +12.8 px, 26 without spaces +62.4 px, 50-60 +62.4 px, 100 +136.8 px; 0 at 390 px. Every CSS-local
+    fix changes something the owner sees (ellipsis, smaller banner text, a reserved line, a wider box); the
+    smallest is the compact rule''s two-line --text-xs clamp on desktop.   @feature'
+  source_line: null
+  intent: null
+  category: feature
+  status: backlog
+  needs_owner_decision: true
+  scored_at: '2026-11-20'
+- id: IDEA-219
+  title: pdf_vector's text helper writes text.pdf into the current directory
+  raw: '- [ ] Found 2026-11-20 at the wave-6 closes: tests/helpers/pdf_vector.py writes `text.pdf` into `Path(".")`
+    when no out_dir is given, so every full suite leaves an untracked text.pdf in the checkout it ran from
+    (each wave-6 worktree had one). Write it to a temporary directory instead.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  scored_at: '2026-11-20'
