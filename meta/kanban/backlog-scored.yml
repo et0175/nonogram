@@ -5281,7 +5281,7 @@ ideas:
   source_line: 406
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-498
   method: wsjf
   scores:
