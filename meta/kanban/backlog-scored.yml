@@ -644,7 +644,8 @@ ideas:
     today   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-502
   method: wsjf
   scores:
     user_business_value: 1
@@ -726,7 +727,8 @@ ideas:
     `book_pdf_generator.py`   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -753,7 +755,8 @@ ideas:
     in its name (correct at both remaining call sites)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -835,7 +838,8 @@ ideas:
     and the phrase "or Guess"   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -1017,7 +1021,8 @@ ideas:
     database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -1073,7 +1078,8 @@ ideas:
     stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -1346,7 +1352,8 @@ ideas:
     ("General info not saved… Nothing stored was changed")   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-502
   method: wsjf
   scores:
     user_business_value: 2
@@ -1424,7 +1431,8 @@ ideas:
     as local custom properties in admin.css; promote them to tokens.css   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -1608,7 +1616,8 @@ ideas:
     before the click   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -1707,7 +1716,8 @@ ideas:
     AC-310 covers only tools/undo/redo/reset). Formalise at /forge:architect   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-503
   method: wsjf
   scores:
     user_business_value: 2
@@ -2439,7 +2449,8 @@ ideas:
   raw: '- [ ] CARD-169 F-002 (minor): the guide strip''s cell size `--strip-cell: 1.5rem` is a local value
     in admin.css — promote it to a design token or record it as a deliberate local value   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -2610,7 +2621,8 @@ ideas:
   raw: '- [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other
     ink within about a line''s height sideways" rule loosely; no measured case is misdescribed   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -3348,7 +3360,8 @@ ideas:
   source_line: 200
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -3415,7 +3428,8 @@ ideas:
   source_line: 206
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-502
   method: wsjf
   scores:
     user_business_value: 1
@@ -3564,7 +3578,8 @@ ideas:
   source_line: 216
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -3602,7 +3617,8 @@ ideas:
   source_line: 219
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -3699,7 +3715,8 @@ ideas:
   source_line: 225
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -3826,7 +3843,8 @@ ideas:
   source_line: 234
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -3869,7 +3887,8 @@ ideas:
   source_line: 237
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-503
   method: wsjf
   scores:
     user_business_value: 1
@@ -3906,7 +3925,8 @@ ideas:
   source_line: 240
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -4000,7 +4020,8 @@ ideas:
   source_line: 247
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-506
   method: wsjf
   scores:
     user_business_value: 1
@@ -4029,7 +4050,8 @@ ideas:
   source_line: 249
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-503
   method: wsjf
   scores:
     user_business_value: 1
@@ -4136,7 +4158,8 @@ ideas:
   source_line: 314
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-505
   method: wsjf
   scores:
     user_business_value: 2
@@ -4742,7 +4765,8 @@ ideas:
   source_line: 355
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-505
   method: wsjf
   scores:
     user_business_value: 1
@@ -4820,7 +4844,8 @@ ideas:
   source_line: 363
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-504
   method: wsjf
   scores:
     user_business_value: 1
@@ -5086,7 +5111,8 @@ ideas:
   source_line: 389
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-505
   method: wsjf
   scores:
     user_business_value: 1

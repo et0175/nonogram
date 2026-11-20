@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 6 — IN PROGRESS (board wave 85)
+
+Cut against main on 2026-11-20 on the owner's "please start the next wave". The feature bucket still has nothing workable (IDEA-105, 125, 126, 178 wait on the owner), so the wave is the next tech-debt band (WSJF 2.31), bundled by area. Premises spot-checked against main the same day; each card re-verifies its items before changing anything. CARD-502 also takes CARD-496 F-003 (the status route's raw ValueError text), recorded at the wave-5 close. Not carded: IDEA-111, 106, 112, 031, 215, 010 (as at wave 5); the other three wave-5 leftovers stay recorded.
+
+### tech-debt
+- **CARD-502** (IDEA-138, IDEA-023, IDEA-050, CARD-496 F-003) The admin's remaining error paths — 2c
+- **CARD-503** (IDEA-159, IDEA-167, IDEA-064) Registry wording owed: INV-009, AC-343, FR-044's two rules — 1c
+- **CARD-504** (IDEA-026, 027, 030, 037, 039, 102, 134, 145, 197) Nine stale texts — 2c
+- **CARD-505** (IDEA-172, IDEA-194, IDEA-208) Three test-instrument costs — 2c
+- **CARD-506** (IDEA-053, 060, 095, 147, 151, 157, 161, 166) Player and admin-CSS minors — 2c
+
 ## Wave 5 — DONE 2026-11-20 (board wave 84)
 
 Six cards merged: CARD-496 (`2ee32a1d`, 9.5 cycle 1), CARD-497 (`7a055f48`, 9.5 cycle 2), CARD-498 (`6ffb60f2`, 9.5 cycle 1, with the owner's AC-292 rewording), CARD-499 (`d2d00b91`, 9.6 cycle 2), and two the owner asked for during the wave: CARD-500 (`618d20de`, 9.8 cycle 2: after a refused Print setup save the edited marks follow the submitted plan) and CARD-501 (`7bda4cbd`, 9.5 cycle 1: typed cells judged against the submitted split). Wave close: `make test-wave-close` on `main` at `cec8c5a0`, 10680 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 33 min. No public-player file changed. Recorded, not carded (reviewers' out-of-scope findings): `update_book_status` still shows any ValueError's raw text unlogged (CARD-496 F-003); on Postgres `books.created_at` is the server's local time while `updated_at` is naive UTC (CARD-496 F-004); requirements.yml's NFR-005 labels are falsely-alive class names, so it and trace.yml name different tests for the same ACs (CARD-498 F-004); an edit whose value a later split's prefill happens to equal stays edited until retyped twice (CARD-501 F-003, CARD-120's left-alone rule).
