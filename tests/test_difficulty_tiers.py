@@ -766,13 +766,15 @@ def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> Non
 
 
 def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:
-    """``--difficulty``'s help names every tier, read off the enum, and explains ``guess``.
+    """``--difficulty``'s help names every tier, read off the enum, and no fourth.
 
-    The name is historical: it dates from ADR-0025's fourth tier. Since
-    ADR-0031 (CARD-098) :class:`Tier` has three members, and ``guess`` is not
-    one of them (``test_tiers_guess_is_no_longer_a_requestable_tier``); the
-    help still says what the three bands grade and mentions ``guess`` and
-    branching, which is what the assertions below hold it to.
+    The name is historical: it dates from ADR-0025's fourth tier, when this
+    test held the help to explaining ``guess``. Since ADR-0031 (CARD-098)
+    :class:`Tier` has three members, ``--difficulty guess`` is refused
+    (``test_tiers_guess_is_no_longer_a_requestable_tier``), and a solve that
+    branched is the ``guess`` *strategy*, never a tier (ADR-0031/R2). So the
+    help must not offer ``guess`` at all: CARD-491 flipped the assertion from
+    "names guess and branching" to "names neither".
     """
     parser = cli.build_parser()
     help_text = parser.format_help()
@@ -786,7 +788,7 @@ def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:
     text = generate_help[0]
     for tier in Tier:
         assert tier.value in text, tier
-    assert "guess" in text and "branch" in text
+    assert "guess" not in text.lower() and "branch" not in text.lower(), text
     assert help_text  # the top-level parser still builds
 
 

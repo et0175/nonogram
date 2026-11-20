@@ -218,7 +218,8 @@ python -m flask --app nonogram.admin.app run --port 8000
 
 # Tests run against a test database, never the panel's nonogram_poc above:
 # tests/database_guard.py refuses a DATABASE_URL whose name does not contain
-# "test", and tests/conftest.py refuses one whose name does not end in "_test".
+# "test", and the destructive fixtures (tests/conftest.py) act only on a
+# database whose name ends in "_test".
 # Point DATABASE_URL at this checkout's own test database, the name the suite
 # derives from the repo root (tests/db_name.py) and creates on first use:
 export DATABASE_URL="$(python -c 'import os; from tests import db_name; print(db_name.resolve_test_database_url(os.environ))')"

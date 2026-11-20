@@ -384,6 +384,11 @@ links:
     AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-181's tests added — a
     batch stores the tier it asked for (memory and DB modes, migration 014)
     and its pages show it.
+    CORRECTED 2026-11-20 (CARD-491): the SHIPPED note above is the
+    2026-09-13 state. Since ADR-0031 (CARD-098) `difficulty.Tier` has three
+    members, `classify` takes the score alone, `--difficulty guess` is
+    refused, and the CLI help no longer mentions `guess`; AC-020 drops its
+    "guess" case and AC-021's message names the three.
   status: covered
 
 - req: FR-009
@@ -742,6 +747,9 @@ links:
     one classification that IS a guarantee about the solve. Nothing in
     COMP-003 constructs toward a tier either way; the resample loop (FR-010)
     still finds one by sampling.
+    CORRECTED 2026-11-20 (CARD-491): the ADR-0025 shape above is retired.
+    Since ADR-0031 (CARD-098) every tier is a score band; a solve that
+    branched is the `guess` strategy (ADR-0031/R2), not a fourth tier.
   status: covered
 
 - req: CON-005
@@ -2550,7 +2558,7 @@ links:
   status: partial
 
 - req: NFR-009
-  description: "A book PDF export fits the deployed admin panel's 512 MB memory limit: one retained page bitmap, a peak that does not grow with page count, bitmap plus file under half the limit"
+  description: "A book PDF export retains one page bitmap at a time on the baseline and the corpus book alike, and that bitmap plus the written file stay under half the panel's 512 MB limit; the whole process is not measured against 512 MB"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-009, COMP-007]
