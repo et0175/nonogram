@@ -5057,7 +5057,9 @@ functional:
       undecided. A click on another cell, a brush change, or any drag, undo,
       redo, hint or reset makes the next click a first click. A drag sets
       every cell passed to the brush's state, constrained to the row or
-      column the drag started on. One click, one drag or one hint is one
+      column the drag started on — the one its first move away from the
+      start cell goes along (the row on a tie), each later pointer position
+      counting by its place along that line. One click, one drag or one hint is one
       stroke (TERM-039) and one undo step; undo and redo work by
       button and by keyboard, and a new stroke after an undo discards the
       redo history. Every control is reachable from the keyboard and has an
@@ -5112,6 +5114,7 @@ functional:
       amended: "2026-10-03 (b) — AC-322 / AC-323 added: no picture name in the visible header or document title before solve (AC-322); header shows size and tier instead (AC-323). Source: owner decision 2026-10-03 on CARD-162 review finding F-007 (raw-requirements.md Delta 2026-10-03 (b)); the online parallel of ADR-0037/R1 (book puzzle page never prints the title). Supersedes the 'header (title and tier)' reading in assumptions below."
       amended_2026_10_04: "2026-10-04 (a) — AC-323 amended: the header's size is written \"25×15\" with the multiplication sign (U+00D7), like every other admin screen, not the ASCII \"25x15\" the AC first named. Applies wherever the player shows the size (header, and the document title if it carries the size). Test name unchanged (TestSolverPage_HidesThePictureNameUntilSolved). Source: owner decision 2026-10-04, roadmap wave 1, IDEA-061 (CARD-163 review F-002); raw-requirements.md Delta 2026-10-04 (a)."
       amended_2026_10_06: "2026-10-06 (a) — statement amended and AC-327..AC-365, EC-042..EC-047 added from six OWNER DECISIONS of 2026-10-05 (raw-requirements.md Delta 2026-10-06 (a), bullets 1-6; the owner's solver test doc and IDEA-074): Hint (CARD-183, shipped; supersedes 'Hints are out of scope'), the fourth mark '?' / Maybe brush (CARD-186, shipped; AC-310 and EC-036 amended), clue circling (CARD-188, shipped), 'Progress: N%' (CARD-187, wave 35), clicks follow the brush's sequence (CARD-189, wave 35; AC-303 / AC-304 SUPERSEDED for clicks by AC-355..AC-359, drags AC-305 / AC-306 unchanged), and resume from this browser's localStorage (CARD-185, wave 35; supersedes 'no play state is persisted' for the browser only, CON-021 amended the same day, ADR-0038/R2 unchanged). AC wording from the cards' Acceptance criteria; test names are the shipped classes for CARD-183/186/188 and the cards' planned names for CARD-185/187/189."
+      amended_2026_11_20: "2026-11-20 (CARD-503, IDEA-064, IDEA-167) — the drag sentence now says which line a drag keeps to: the one its first move away from the start cell goes along (the row on a tie), as solver_state.js dragLine does; AC-422 added for it. AC-343's given re-worded to the column-numeral floor CARD-196 left in place of CARD-182's removed 24 px floor. NOT changed: 'Every control is reachable from the keyboard' — IDEA-064 read board cells as pointer-only, but since the 2026-11-17 pass-2 review (item 5) the board stage is a Tab stop whose arrow keys move a cursor cell that Space/Enter mark with the brush, X marks White and Delete/Backspace clears (measured, CARD-503), so the sentence is not contradicted. No test pins that keyboard play; recorded on CARD-503, no AC written for it."
       assumptions: "The route path /puzzle/<puzzle_id>/solve, the header (title and tier — SUPERSEDED 2026-10-03 (b) by AC-322/AC-323: size and tier until solved) and the 404 for an unknown id follow CARD-160 and the panel's existing /puzzle/<puzzle_id>/... routes; the owner named only 'reached by clicking a puzzle'. 'Locked until reset' is read as: clicks, drags, undo and redo change no cell while the solved state is showing (CARD-162: 'stop accepting marks until the person chooses to keep looking or reset')."
       evidence: ["src/nonogram/admin/app.py:2213", "src/nonogram/admin/book_proof.py:268-272", "src/nonogram/admin/image_to_puzzle.py:63", "meta/kanban/cards/CARD-160.md", "meta/kanban/cards/CARD-161.md", "meta/kanban/cards/CARD-162.md", "meta/kanban/cards/CARD-183.md", "meta/kanban/cards/CARD-185.md", "meta/kanban/cards/CARD-186.md", "meta/kanban/cards/CARD-187.md", "meta/kanban/cards/CARD-188.md", "meta/kanban/cards/CARD-189.md"]
     acceptance:
@@ -5203,6 +5206,21 @@ functional:
         then: only cells of row 2 are marked, and no cell of rows 3 or 4 changes
         kind: boundary
         test: TestSolverMarking_DragMarksOneLine
+      # New 2026-11-20 (CARD-503, IDEA-064): the rule AC-306 leaves unstated
+      # — which line a drag keeps to is decided by its FIRST move away from
+      # the start cell and never re-decided (solver_state.js dragLine). No
+      # example test tells this apart from an axis re-decided as the pointer
+      # goes: under that plant every TestSolverMarking_DragMarksOneLine and
+      # TestSolverHistoryModule::test_drag_line case stays green (measured,
+      # CARD-503). The seeded EC-035 corpus reds, because its independent
+      # model (_line_cells) fixes the axis from the first path cell; it is the
+      # existing test that pins the rule.
+      - id: AC-422
+        given: a blank board with a brush selected
+        when: a drag's first move away from its start cell goes along the start's row (or column) and the pointer later travels further along the other axis
+        then: only cells of that first line are marked — the line is fixed by the first move for the whole drag, each later pointer position counting by its place along that line
+        kind: boundary
+        test: test_PropertyTest_SolverHistory_ReplayReproducesTheBoard
       - id: AC-307
         given: a blank board on which one five-cell drag and then two single clicks on other cells are made
         when: undo is pressed three times and then redo three times
@@ -5453,8 +5471,14 @@ functional:
         then: Reset is enabled, and after the confirmation every cell is undecided
         kind: boundary
         test: TestSolverMaybe_ResetClearsMaybe
+      # AMENDED 2026-11-20 (CARD-503, IDEA-167): the given named CARD-182's
+      # flat 24 px phone floor, which CARD-193 removed. At 390 px admin.css
+      # sets --player-cell-min to 0, so the floor that binds is CARD-196's
+      # --player-col-floor: the widest column number's digits x 0.6 x
+      # --player-numeral-min (12 px) — 14.4 px for this page's two-digit
+      # column numbers, the side the test measures. Test unchanged.
       - id: AC-343
-        given: the 30×30 deep-row-clue page at 390×844 (cells at the 24 px phone floor) and the 15×15 page at 1440×900
+        given: the 30×30 deep-row-clue page at 390×844 (cells at the column-numeral floor — the widest column number's digits × 0.6 × the 12 px numeral minimum, 14.4 px for its two-digit numbers) and the 15×15 page at 1440×900
         when: a "?" cell is measured
         then: its glyph is "?", at least 12 px and at least half the cell side, inside the cell, with at least 4.5:1 contrast on the cell's background
         kind: boundary

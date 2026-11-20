@@ -75,12 +75,16 @@ aggregates:
           explicit confirmation of that change (FR-038).
       # New 2026-09-22 (b) (delta — book layout, FR-040/FR-041; owner
       # decisions BK-6, BK-7).
+      # AMENDED 2026-11-20 (CARD-503, IDEA-159): "an explicit move" read as
+      # the up/down moves alone, but CARD-191's Sort by size also reorders a
+      # level, written through the same BookManager.reorder_puzzles as the
+      # moves; the word is now "reorder", as EC-026 already says.
       - id: INV-009
         statement: >-
           A book's order is grouped by tier — every easy puzzle before every
           medium one, every medium before every hard one; within a level the
-          order is the owner's arrangement, changed only by an explicit move
-          inside that level (FR-041).
+          order is the owner's arrangement, changed only by an explicit
+          reorder inside that level — a move or Sort by size (FR-041).
       - id: INV-010
         # A rule on the page composition CMD-019 derives from the book's
         # order, tiers, clue depths and trim — not stored state, but it

@@ -1286,7 +1286,11 @@ FALSELY_ALIVE = (114, "c0d2276320cfe4bc")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
-FALSELY_DEAD = (18, "223d7a6c87854dfe")  # CARD-362: +5, the five warnings the validator now prints honestly
+# CARD-362: +5, the five warnings the validator now prints honestly.
+# CARD-503 (2026-11-20): 18 -> 17, OUT 1, IN 0 -- the EC-035 corpus test as
+# FR-044's trace.yml row spelt it (without its def's test_ prefix), re-spelt
+# there as its def, which requirements.yml already names; diffed as sets.
+FALSELY_DEAD = (17, "031cb8abdca5a29b")
 
 #: Refs both resolvers agree are absent: an honest gap, and the only class that
 #: reads correctly today -- so a ref LEAVING this class is a validator warning
@@ -1671,7 +1675,11 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # CARD-498, owner amendment of AC-292 (2026-11-20): 597 -> 599, OUT 0, IN 2 --
 # the two tests the amended criterion names, neither declared anywhere before,
 # each an `ast`-found def line under tests/. Diffed as sets as above.
-CENSUS = (599, "0fc55b0fa4d103a1")
+# CARD-503 (2026-11-20): 599 -> 598, OUT 1, IN 0 -- the EC-035 corpus test's
+# name without its def's test_ prefix, declared on FR-044's trace.yml row only,
+# re-spelt there as the def name requirements.yml already declares (EC-035,
+# and now AC-422). Diffed as sets of _declared_refs().
+CENSUS = (598, "a99ee186711e2ec8")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1739,7 +1747,10 @@ CENSUS = (599, "0fc55b0fa4d103a1")
 # CARD-498 (2026-11-20): 515 -> 509, OUT 11, IN 5 -- exactly CENSUS's sets: all
 # eleven departures had a trace.yml site (nine trace.yml alone, AC-291/AC-292 on
 # FR-042's row too), and the five entrants are declared on NFR-005's row only.
-TRACE_TESTS = (509, "b814c5b7e86c092a")
+# CARD-503 (2026-11-20): 509 -> 509, OUT 1, IN 1 -- FR-044's row: OUT the
+# EC-035 corpus test's unprefixed spelling, IN its def's own name, one
+# `ast`-found def line in tests/test_puzzle_solver_marking.py.
+TRACE_TESTS = (509, "7eae2da7662d683f")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1868,7 +1879,9 @@ TRACE_TESTS = (509, "b814c5b7e86c092a")
 # HONEST_DEAD's eleven departures was ever here (zero def/class lines each).
 # CARD-498, owner amendment of AC-292 (2026-11-20): 483 -> 485, OUT 0, IN 2 --
 # exactly CENSUS's 2 entrants, each an `ast`-found def line under tests/.
-DEFINED = (485, "d233e2c38a62285c")
+# CARD-503 (2026-11-20): 485 -> 484, OUT 1, IN 0 -- exactly CENSUS's departure;
+# the def it resolved to stays here under its own name.
+DEFINED = (484, "108985e55c6a6d97")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
