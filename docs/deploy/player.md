@@ -1080,3 +1080,15 @@ Not observed: a real phone, nor a Back that comes through the back/forward cache
 | Rollback target | The return-to-book deployment (`nonogram-studio-j9jpdb3tt`). |
 
 Not observed: a real phone, and a screen reader's queueing of the two announcements a revealed hint makes (kept both by the owner's decision on CARD-486).
+
+**The scroll-return publish, 2026-11-20 (the day's second).** The owner's "yes, publish it once the gate is green". One fix, `d50f0bde` (`player/pages.js`): the book page restores the kept scroll only after `wireJump` has shown the jump box. Restored before it, the page was too short and the browser clamped the scroll (the suite's test: 220 asked, 145 given; red on `main` since `c505bd44`). Merge gate first: `make test-gate` answered FULL, 10661 passed / 30 skipped (29 DATABASE_URL unset + 1 setrlimit) / 1 xfailed / 0 failed. Built from **`d50f0bde`** with `git archive` into `~/Documents/nonogram-reviews/deploy-2026-11-20-pages/src`, that tree's own assembler, `--bundle build/player-bundle`, no `--analytics`.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing. Against production before the publish exactly one file differed: `pages.js` `0bbed814ee43` → `e17112b0206d` (identical to its source). Every page, script, stylesheet and payload else byte-identical. |
+| Preview | **`nonogram-studio-iznd638yl`**, Ready in 5 s; doors 200, `/nope` 404, `pages.js` at the built hash. |
+| Behaviour (Chromium, 390 x 600 touch, real book `0a958d036e`, an `unload` listener so Back re-creates the page: navigation type `back_forward`) | Easy closed, Medium opened, scrolled to the bottom (743), last Medium puzzle opened, one cell tapped, "← Book". Old build (production before): came back at **836**, the Continue card now showing. New build: **743**. Sections Easy closed / Medium open / Hard closed both times; no page errors. Without the tap (no Continue card) both builds came back at 743, so the defect shows only when returning changes what sits above the sections. |
+| Production | `vercel promote` created **`nonogram-studio-48qnaa31w`**; new `pages.js` on poll 2; doors 200, `/nope` 404; the same run gave 743, no page errors. |
+| Rollback target | The wave-3 deployment (`nonogram-studio-i0n5nyn31`). |
+
+Not observed: a real phone, or a Back restored from the back/forward cache (this run defeats the cache on purpose).
