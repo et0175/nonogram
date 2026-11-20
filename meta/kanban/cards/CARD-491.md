@@ -1,6 +1,6 @@
 # CARD-491: The registry and two docs catch up: the panel's memory cap as an NFR, Tier's member count, and the scripts README
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/491-registry-docs
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-491
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-009 WSJF 3.59 (shrunk at the cut: CARD-145/237 already built the checks, only the NFR is missing), IDEA-029 WSJF 3.08, IDEA-081 WSJF 3.08.
 **Idea:** IDEA-009, IDEA-029, IDEA-081
 **Wave:** 83
@@ -19,7 +19,7 @@
 **Touches:** meta/architecture/requirements.yml, tests/test_difficulty_tiers.py, scripts/README.md, docs/deploy/render.md
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T01:49Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
