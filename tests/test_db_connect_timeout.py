@@ -42,7 +42,8 @@ from nonogram.db import session as db_session
 #: up to 350 with the host's other work) the 2 s deadline below took 17.4 s,
 #: 23.2 s and 29.0 s in three of ten runs. 60 s is twice the worst of those
 #: and still finite where the defect is not: a connect with no deadline never
-#: returns, so it fails here at any bound (or at the hang guard's 300 s).
+#: returns, so it never reaches this assertion: the hang guard (300 s per
+#: test, tests/hang_guard.py) is what fails it (CARD-508 review F-002).
 _ALLOWED_SECONDS = 60
 
 #: How long a child pytest the two hang-guard tests start may take. CARD-508

@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_card_156_db_fixture.py, tests/test_db_connect_timeout.py, tests/test_db_*.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T21:24Z
 **Blocked by:** —
 
@@ -59,3 +59,5 @@ Re-verify each against main first, armed at this worktree's own `*_test` databas
 - AC-2: unarmed, `-m db_required tests/ -rfs`: 29 skipped, all "Database not reachable: DATABASE_URL is not set" (10660 deselected). Armed at this worktree's `_test` database: 29 passed, 0 skipped, 0 failed.
 - AC-3: collected count 10689 before and 10689 after (net 0).
 - Gate (touched files and their neighbours: test_card_156_db_fixture.py, test_db_isolation.py, test_db_connect_timeout.py, test_card_349_cold_database.py, test_db_engine_lifecycle.py, test_db_e2e_smoke.py, test_db_url_driver.py, test_card_109_database_guard.py). Unarmed `-rfs`: 182 passed, 16 skipped (all "Database not reachable: DATABASE_URL is not set"), 0 failed. Armed `-rEfs`: 198 passed, 0 skipped, 0 failed, 0 errors. tests/test_kanban_review_record.py: 71 passed.
+
+[Review 1/3] Score: 9.5, nothing gating, certified. Re-measured: unarmed 29 skipped "DATABASE_URL is not set" (the lock never touched); armed 29 passed; a second armed run on the same database refused with "another pytest run is using it" while the first passed 29; 0 advisory locks or extra backends left after each session; C1, C3, C5 re-fired red; the IDEA-140 guard reds on a planted global. F-001 (medium, not gating) a stale exported `NONOGRAM_TEST_DB_SESSION_LOCK` turns the lock off (measured: a concurrent run got in and the first failed `UndefinedTable`); recorded as IDEA-220. F-002 (low) the `_ALLOWED_SECONDS` comment claimed a deadline-less connect fails at that assertion; only the hang guard catches it; reworded by the orchestrator. F-003 (info, pre-existing) a ScopeMismatch end-of-run note when test_card_156's per-function `test_db_url` class runs first. F-004 (info, unmeasured) non-db_required admin-app tests in a refused run still connect to the held database.
