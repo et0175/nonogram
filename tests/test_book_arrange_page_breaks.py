@@ -1239,17 +1239,22 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)]
         # CARD-494 (owner, 2026-11-20): the marker is a warning, not a page
         # label, so the stylesheet gives it the warning token, text and rules
-        # alike, and nothing else. Collected by selector, as
-        # tests/test_admin_design_tokens.py collects its rules, so a rule
-        # deleted or renamed drops out and reds the equality.
+        # alike. Collected by selector over whole rules (a rule split across
+        # lines is still one rule): every rule that names the marker in any
+        # spelling, and every rule that reaches INTO a divider, since either
+        # could repaint the marker (review F-002: a later
+        # `[data-unprinted="true"]` rule and a `.page-break-divider span` rule
+        # each did, with the first form of this check green).
         from pathlib import Path
 
         css = (Path(book_manager_module.__file__).parent / "static" / "admin.css").read_text()
-        rules = {
-            rule.split("{")[0].strip(): rule.split("{")[1].rstrip("} \n").strip()
-            for rule in re.sub(r"/\*.*?\*/", "", css, flags=re.S).splitlines()
-            if "[data-unprinted]" in rule.split("{")[0]
-        }
+        rules = {}
+        for chunk in re.sub(r"/\*.*?\*/", "", css, flags=re.S).split("}"):
+            if "{" not in chunk:
+                continue
+            selector, body = (" ".join(part.split()) for part in chunk.rsplit("{", 1))
+            if "data-unprinted" in selector or re.search(r"\.page-break-divider[^,{]*\s+\S", selector):
+                rules[selector] = body
         assert rules == {
             ".page-break-divider[data-unprinted]": "color: var(--color-warning);",
             ".page-break-divider[data-unprinted]::before, .page-break-divider[data-unprinted]::after":

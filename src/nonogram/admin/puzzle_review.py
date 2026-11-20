@@ -313,7 +313,9 @@ class PuzzleFilter:
     #: Either spelling of any tier — the enum value ("easy") a
     #: pipeline-written row carries, or the display label ("Easy") an older
     #: one does. Resolved through difficulty.tier_of_record where it is
-    #: applied, so both match the same rows (a retired "guess" row too).
+    #: applied, so both match the same rows. A retired "guess" row is read as
+    #: Hard by the in-memory branch only; the database query matches the
+    #: stored spellings of the tier itself and leaves such a row out.
     difficulty: Optional[str] = None
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None
