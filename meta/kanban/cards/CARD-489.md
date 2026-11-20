@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_manager.py, tests/test_book_plan_storage.py, tests/test_book_manager*.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.8 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T00:32Z
 **Closed:** —
 **Actual:** —
@@ -107,3 +107,5 @@ Re-verify each against main first, in a test, before changing code; drop any alr
 - F-003: no test pins which split the reference uses. A count change and a split change in one submission still judge typed cells against the *shown* split, as main did. This is out of scope and recorded for the backlog.
 
 [Review 1/3] Score: 9.5, one gating finding, not certified. F-001 four of the 20 rewritten test seed sites stored values memory-mode `set_print_spec` accepts, outside AC-2's amended exception, and the notes said none could; F-002 (low) which reading of item 1 was taken for an untouched stored edit across a count change; F-003 (low, pre-existing) no test pins the split the reference uses; F-004 (info) `get_books_by_status` / `get_all_books` still return stored objects in memory mode, reads only. Both code changes and their controls held under the reviewer's mutants (deep vs shallow copy discriminated; 184 µs per call on a 1000-puzzle book; armed db_required 29 passed). Fixed in `d348b039`: the four sites (and `Panel.book`'s trim half) seed through `set_print_spec`; all 20 re-judged by probing the setter; F-002 and F-003 recorded in the notes.
+
+[Review 2/3] Score: 9.8, nothing gating, certified. F-001 closed: all 20 seed values probed against their setters independently (4 accepted and moved, plus `Panel.book`'s trim; 7 refused by `set_print_spec`; margins never written by any setter; two orders and one status refused); 16 direct writes left, matching the notes by ast; three of the four moved seeds red when removed. F-002 closed. F-003, F-004 carried (pre-existing / out of scope). F-005 (low) the seed-165 corpus test keeps one write path though 6 of 14 orders would be accepted, storing the same lists; accepted. F-006 (info, pre-existing) `test_end_to_end_through_the_real_unreadable_spec_path` stays green without its "12.00" seed since CARD-205; not taken here. 512 passed over the 8 touched files; net +1 (10706).
