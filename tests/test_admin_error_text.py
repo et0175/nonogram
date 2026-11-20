@@ -193,6 +193,10 @@ class TestBookPdfDownload_ErrorIsGenericAndLogged:
             # Exactly the failure: no success flash beside it (CARD-502).
             flashes = _flashes(client)
             assert flashes == [("error", PDF_EXPORT_FAILED)], (where, flashes)
+            # Nor is a PDF recorded for an export the owner never received
+            # (CARD-502 review F-001).
+            stored = admin_app.book_manager.get_book(book_id).metadata.pdf_url
+            assert stored is None, (where, stored)
             _assert_logged_once(caplog, error, book_id)
 
 
