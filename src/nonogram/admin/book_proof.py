@@ -573,13 +573,17 @@ def _wrapped(text: str, font: ImageFont.FreeTypeFont, width: int) -> list[str] |
       (``209.6 × 152.4 mm``, ``(8.25 × 6.00 in)``, ``30 × 30,``, the unit
       already glued to M by the rule above) — never when the whole group
       fits ``width``; when it does not, only after the ×, which stays on the
-      line with the word before it;
+      line with the word before it. The token after such a × is taken as M
+      whatever it is — another ×, a separator dot — and no rule here applies
+      to it: ``"aaaa × ·"`` can wrap to a line that starts with the dot, and
+      ``"aaaa × × bbbb"`` to one that starts with the second ×;
     * before a separator dot with a word before it — never; the dot stays on
       the end of that word.
 
     Any other token is a word of its own: a number inside a bracket
     (``(8.25 in)``) is not glued to its unit, and a ``×`` that opens or ends
-    ``text`` is not joined to anything. These guarantees are therefore shown
+    ``text`` opens no group of its own (a dot or a later × may still join
+    it, as the rules above join any word). These guarantees are therefore shown
     for the proof note's own text — the lines :func:`annotation_lines`
     prints — not for any text: no printed line starts with a × or with a
     unit parted from its number (AC-3's corpus, at the widths it draws), and

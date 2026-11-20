@@ -473,5 +473,26 @@ class TestBatchRequestedTier_LabelFilter:
 
         assert requested_tier_label(stored) == label
 
-    def test_it_is_registered_for_the_templates(self, admin_app):
-        assert admin_app.jinja_env.filters["requested_tier_label"]("hard") == "Hard"
+    def test_it_is_registered_for_the_templates(self, admin_app, monkeypatch):
+        """The registered filter, its one exception, and whose words it prints.
+
+        ``"guess"`` is not a tier and still labels "Hard": ``tier_of_record``
+        reads the retired word that way (ADR-0031/R3). And the label is
+        ``Tier.label``'s, not a spelling of the filter's own (CARD-181
+        F-002): rename one tier's label and the filter prints the new one.
+        A filter returning ``tier.value.title()`` passes every row above and
+        fails here.
+        """
+        from nonogram.difficulty import Tier
+
+        label = admin_app.jinja_env.filters["requested_tier_label"]
+        assert label("hard") == "Hard"
+        assert label("guess") == "Hard"
+
+        original = Tier.label
+        monkeypatch.setattr(
+            Tier,
+            "label",
+            property(lambda tier: "Expert" if tier is Tier.HARD else original.fget(tier)),
+        )
+        assert [label(tier.value) for tier in Tier] == ["Easy", "Medium", "Expert"]

@@ -18,9 +18,10 @@ export registries, which ``pages.py`` reads to render the form's choices — and
 which, in ``export``'s case, ``submission.py`` also reads to refuse a format no
 renderer is registered under, the newer and more consequential of the two uses.
 Nothing inward of this package ever imports back. The structural guard
-in ``tests/test_cli.py`` knows exactly two adapter names — ``cli`` and ``web``
-— at one rank, so a capability module still cannot import either of them, nor
-another capability laterally.
+in ``tests/test_cli.py`` holds the adapters, this package among them, to one
+rank as a closed set of names — ``_ADAPTERS`` there is that set, and this
+docstring states no count of it — so a capability module still cannot import
+an adapter, nor another capability laterally.
 
 *HTTP only* (ADR-0010, ADR-0019/R1, guardrail G-2): everything here is HTTP —
 routing, rendering, request parsing, and the mapping of form fields onto

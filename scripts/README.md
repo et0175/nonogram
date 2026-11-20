@@ -4,7 +4,7 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
 
 ## Prerequisites
 
-- Python 3.11+ (with virtual environment activated, project installed with `pip install -e '.[dev]'`)
+- Python 3.14+ (`requires-python` in `pyproject.toml`; with virtual environment activated, project installed with `pip install -e '.[dev]'`)
 - PostgreSQL 15+ running locally
 - A database that already exists, and a `DATABASE_URL` pointing at it. The
   project default is
