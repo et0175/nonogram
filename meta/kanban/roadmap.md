@@ -92,7 +92,11 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 4 — CUT 2026-11-20 (board wave 83)
+## Wave 4 — DONE 2026-11-20 (board wave 83)
+
+Five cards merged: CARD-489 (`0c3c6a0c`, 9.8 cycle 2), CARD-490 (`72813084`, 9.6 cycle 2), CARD-491 (`4a654343`, 9.3 cycle 2), CARD-492 (`31cfe144`, 9.3 cycle 1), CARD-493 (`8d589e5b`, 9.6 cycle 1). Wave close: `make test-wave-close` on `main` at `38ba72b2`, 10677 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 40 min. Net tests +3 over the wave. No public-player file changed, so nothing to publish. Owner's open questions: CARD-490 F-003 (the arrange page's repeated page label and the marker's styling); three stale "guess is a tier" passages outside CARD-491's files (src/nonogram/export/__init__.py, src/nonogram/admin/puzzle_review.py, docs/GENERATION_ALGORITHM.md §7), recorded on that card. Recorded, not carded: CARD-489 F-003 (no test pins which split the plan reference uses on a count+split change), CARD-493 F-003 (a book_proof.py comment cites the refused 8.25 in trim).
+
+### As cut
 
 Cut against main on 2026-11-20, every premise re-read the same day. The feature bucket has nothing workable left: IDEA-178 is an owner layout call and IDEA-125/126 are owner questions, so its budget rolls over to tech-debt. **IDEA-009 shrank at the cut**: CARD-145 and CARD-237 already built the memory checks; only the NFR naming them is missing, so it joins the registry card. Not carded: IDEA-031 (skipped once already as CARD-378), IDEA-106/112 (held for the owner's say), IDEA-111 (forge-plugin defect).
 
