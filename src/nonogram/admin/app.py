@@ -816,6 +816,13 @@ def _ask_for_a_credential() -> Response:
     )
 
 
+#: What a book member the interior cannot draw shows instead of a puzzle number
+#: or a page (CARD-165, CARD-490): the book page's "#" column and the arrange
+#: page's page label both say it, from one string, about the same rows — a row
+#: the page plan holds but did not print (``section_plan``'s ``printed``).
+NOT_PRINTED_CANNOT_BE_DRAWN = "Not printed: cannot be drawn"
+
+
 def _printed_places(book, puzzles):
     """Where the printed book puts each of its puzzles (FR-036, CARD-140).
 
@@ -5272,6 +5279,16 @@ def create_app(debug=None):
             puzzle["page"] = place.get("page")
             puzzle["opens_page"] = place.get("opens_page", False)
             puzzle["shares_page"] = place.get("shares_page", False)
+            # CARD-490: a row the plan was built over but did not place is one
+            # the interior cannot draw (`_printed_places` keys exactly the rows
+            # of `section_plan`'s `printed`), so it is marked as the book page
+            # marks it, in place of a page label. With no plan, nothing is
+            # known about any row and the page-plan notice says so instead.
+            puzzle["unprinted"] = (
+                NOT_PRINTED_CANNOT_BE_DRAWN
+                if not page_plan_failed and id(puzzle) not in places
+                else None
+            )
         for group in level_groups:
             group["divider_page"] = divider_pages.get(group["tier"])
 
@@ -6086,7 +6103,7 @@ def create_app(debug=None):
                     row_ids[id(row)],
                     row,
                     numbers.get(id(row)),
-                    None if id(row) in numbers else "Not printed: cannot be drawn",
+                    None if id(row) in numbers else NOT_PRINTED_CANNOT_BE_DRAWN,
                 )
                 for row in plan.puzzles
             ]

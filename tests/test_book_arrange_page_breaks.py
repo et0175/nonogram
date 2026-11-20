@@ -418,6 +418,22 @@ def shown_rows(markup: str) -> List[Optional[int]]:
     ]
 
 
+#: CARD-490: the marker that stands where a page label would, directly above
+#: the row it is about, and that row's own ``data-page`` if it carries one.
+_UNPRINTED = re.compile(
+    r'class="page-break-divider" data-unprinted="true">\s*<span>(?P<text>[^<]+)</span>'
+    r'\s*</div>\s*<div class="puzzle-list-item"(?: data-page="(?P<page>\d+)")?'
+)
+
+
+def shown_unprinted(markup: str) -> List[Tuple[str, Optional[int]]]:
+    """Each "not printed" marker's text and the page of the row right below it."""
+    return [
+        (match.group("text"), None if match.group("page") is None else int(match.group("page")))
+        for match in _UNPRINTED.finditer(markup)
+    ]
+
+
 def shown_orders(markup: str) -> List[int]:
     """The membership numbers the screen prints, in document order."""
     return [int(match.group("order")) for match in _ORDER.finditer(markup)]
@@ -1104,6 +1120,10 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         assert shown_labels(markup) == [], "there are no pages to label"
         assert shown_rows(markup) == [None, None, None]
         assert shown_plan(markup) == ({}, {})
+        # CARD-490: with no plan nothing is known about any row, so no row is
+        # called unprintable; the notice below speaks for all of them.
+        assert shown_unprinted(markup) == []
+        assert "Not printed" not in markup
         assert 'id="page-plan-unavailable"' in markup, (
             "a page-break-free list is what a book with no page structure looks "
             "like, so the screen must say the breaks are unavailable"
@@ -1213,3 +1233,30 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
             "page 6",
             "page 7",
         ], "two printable puzzles, two pages, and no label for the third row"
+        # CARD-490: the dropped row is marked in the book page's own words
+        # (CARD-165), where a page label would stand, so it is not read as
+        # printing on page 6 with the row above it.
+        assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)]
+
+    def test_a_row_after_an_unprinted_one_says_its_page_again(self, panel) -> None:
+        """CARD-490: a pair the dropped row sat between is labelled on both sides.
+
+        Two small puzzles of one level pair onto one page (FR-040) with the
+        undrawable row listed between them. The second of the pair does not
+        open its page, so without a label of its own it would read as part of
+        the unprinted row's run; it says its page again instead.
+        """
+        ids = [panel.puzzle("easy", size=10) for _ in range(3)]
+        book_id = panel.book_of(*ids)
+        panel.store.puzzles[ids[1]]["clues_rows"] = 12
+
+        markup = panel.arrange(book_id)
+
+        assert shown_rows(markup) == [6, None, 6], "the pair still shares page 6"
+        assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)]
+        assert shown_labels(markup) == [
+            "page 5 · Easy divider page",
+            "page 6 · two puzzles",
+            "page 6 · two puzzles",
+        ], "the row after the unprinted one is labelled with the page it prints on"
+        assert shown_plan(markup)[0] == {1: 6, 2: 6}
