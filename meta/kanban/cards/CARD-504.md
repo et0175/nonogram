@@ -73,3 +73,32 @@ Re-verify each first; drop any already closed with one line. Each text states on
 - [G-2] Line pin re-derived: `OUTSIDE_CALLERS_WITH_A_POSITION` in tests/test_book_export_interior_cover.py went from 758 to 762, because the `_wrapped` docstring moved the call. The call (`generator.page_spec(position)`) was re-located by `ast` (HEAD 758, worktree 762). Before the fix, `test_the_module_axis_bound_is_measured_rather_than_declared` failed; after it, its class passes (23 passed). The CARD-257 anchors in tests/test_kill_matrix.py and tests/README.md point into tests/test_db_engine_lifecycle.py, which this card does not touch; test_kill_matrix.py passed. No other executable line pin on an edited file was found: the other `file.py:NNN` hits in tests/ are prose comments.
 - [Test count] `--collect-only` was 10713 before and 10713 after: net 0.
 - [Gate, unarmed, -o addopts= -rfs] Run 1: test_difficulty_tiers, test_batch_requested_tier, test_admin_tier_surfaces, test_start_admin_local, test_setup_admin_local, test_run_admin_tests, test_admin_local_cost, test_cli, test_book_proof_pages, test_book_page_packing_doc, test_guard_integrity, test_impact_set, test_kill_matrix, test_shared_fixture_controls, test_check_ref_resolution, test_web_server, test_card_063_limits. Result: 1205 passed, 0 skipped, 0 failed. Run 2: test_book_pdf_band + test_book_export_interior_cover, before the pin fix. Result: 240 passed, 1 failed; the failure was the line pin above, and its class passed after the fix. Run 3, after the fix: test_book_export_interior_cover, test_admin_error_text, test_book_difficulty_dots, test_admin_import_consistency, test_approval_guess_gate, test_admin_auth, test_admin_binding, test_book_floor, test_solver_strategies, test_book_landing_address, test_book_page_frame, test_book_arrange_page_breaks. Result: 677 passed, 9 skipped (all "DATABASE_URL is not set", the expected unarmed reason), 0 failed. `impact_set.py --gate` answers FULL for this diff because migration 014 changed (docstring only), so the merge gate is the full suite.
+
+### Fix round 1 (review cycle 1: 9.5, not certified)
+
+- F-001 FIXED. In docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md, the "One site of the same claim is still open" callout now says CARD-504 closed it: web/__init__.py states no count and points at `_ADAPTERS`. Sweep of docs/, the how-it-works pages, the root README, CLAUDE.md and meta/architecture for each of the nine claims, searched by the claim: no further site that this diff made false. Remaining hits checked and left:
+  - ADR-0019's "exactly two adapters" and handoff.md's "one answer page per puzzle" are historical records.
+  - docs/book_generation_req BK-8 already marks itself closed.
+  - docs/how-it-works/README.md and docs/deploy/render.md's "3.11" describe runtime.txt/render.yaml, which really do say 3.11.
+  - 07-book-assembly's stale `:NNNN` line refs predate this card and make no claim this diff changed.
+- F-002 FIXED. `answer_page_number_one_per_level`'s docstring now says an answer alone in its level always has a page to itself. A shared level may pack, or the degrade pass may keep its answers one per page, and the arithmetic cannot tell which, so such a book is refused. The refusal itself is unchanged.
+- F-004 FIXED. The root README.md Prerequisites now say Python 3.14+ (`requires-python`).
+- F-003 TIGHTENED, one hole left:
+  - The excuse word `retir` no longer counts inside an identifier (`(?<![_A-Za-z])retir`).
+  - The strategy exemption now needs the backticked word followed by an emphasised `strategy`, so a bare "guess strategy" is matched.
+  - Underscore-glued names built on guess (`\w*_guess\w*|\w*guess_\w*`) are matched unless they are `STRATEGY_GUESS` or `_RETIRED_GUESS_TIER`.
+  - The denial phrases now span line breaks, and "no longer a tier" joins them, because the `tier_of_record` Returns paragraph's only other excuse was the identifier.
+  - Census of the 9 paragraphs naming guess (round-1 rule): 6 hit. Each is excused: #35 "never as a tier"; #39, #55, #76 and #81 by prose "retir"; #85 "no longer a / tier". #55 is `SolverSignals`'s "what is deliberately absent" paragraph, whose unemphasised ``guess`` strategy is now matched. The other 3 (#41, #58, #86) do not hit. Green on today's text.
+  - Plants, each run against round 1's rule and cycle 1's rule:
+    - `#: Tiers run easy, medium, hard and guess; see _RETIRED_GUESS_TIER.`: round 1 RED, cycle 1 passed.
+    - `#: A branching solve is graded hard or guess strategy puzzles.`: round 1 RED, cycle 1 passed.
+    - `#: GUESS_TIER is the fourth band, keyed on branch_nodes.`: round 1 RED, cycle 1 passed.
+    - AC-2's `#: A puzzle is graded easy, medium, hard or guess by its score.`: RED under both.
+    - Each red is `AssertionError: difficulty.py describes the retired GUESS tier as live (ADR-0031/R1); paragraphs starting: ['<the plant>']`. difficulty.py was restored with an empty `git diff --stat`.
+  - LEFT LOOSE: the two denial phrases still excuse their whole paragraph rather than their own sentence. The ladder comment (#35) names ``guess`` in one sentence ("deliberately **not** a rung") and denies tierhood in the next, so a sentence-level rule reds today's text. The test docstring says this plainly.
+- F-005: out of scope, left as instructed.
+- [Fix round 1 gate, unarmed, -o addopts= -rfs]
+  - test_difficulty_tiers + test_book_pdf_band: 159 passed.
+  - test_cli, test_impact_set, test_check_ref_resolution, test_kill_matrix: 448 passed, 0 skipped.
+  - test_admin_binding, test_db_url_driver, test_guard_integrity, test_start_admin_local (the tests that read README.md): 324 passed, 9 skipped (all "DATABASE_URL is not set"), 0 failed.
+  - Collected count 10713, still net 0.

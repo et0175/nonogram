@@ -50,9 +50,11 @@ _LAUNCH_EDGE = ("cli", "web")                    # the only same-rank import
 > denies a stated adapter count in **`CLAUDE.md`'s** text, and reads nothing
 > around `_ADAPTERS` itself.
 >
-> **One site of the same claim is still open:** `web/__init__.py`'s package
-> docstring says the structural guard "knows exactly two adapter names — `cli`
-> and `web`". CARD-264 edits no file under `src/`, so it was measured and left.
+> **One further site of the same claim was closed by CARD-504:**
+> `web/__init__.py`'s package docstring used to say the structural guard "knows
+> exactly two adapter names — `cli` and `web`" (CARD-264 edited no file under
+> `src/`, so it measured that and left it). It now states no count and points
+> at `_ADAPTERS` in `tests/test_cli.py` as the closed set.
 > Note that `src/nonogram/__init__.py`'s "There are exactly two adapters
 > (ADR-0019)" is a *different* and deliberate statement, qualified in the
 > docstring itself as describing the pipeline's adapters rather than every entry

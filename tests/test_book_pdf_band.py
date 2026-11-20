@@ -431,12 +431,13 @@ def answer_page_number_one_per_level(
     """Where puzzle ``index``'s answer prints, in a book of one puzzle per level.
 
     Answers pack within a level (CARD-202; up to 30x30 since 2026-11-09), so
-    an answer has a page to itself only when no other puzzle shares its
-    level. In such a book the answer pages follow the SOLUTIONS divider in
+    an answer alone in its level always has a page to itself. In a book of
+    one puzzle per level the answer pages follow the SOLUTIONS divider in
     print order, one each, and the answer's page is its print number's place
-    after that divider. A book where two puzzles share a level packs their
-    answers onto one page, and this arithmetic would name the wrong page, so
-    it is refused rather than answered.
+    after that divider. A book where two puzzles share a level may pack their
+    answers onto one page (the degrade pass can also keep them one per page),
+    and this arithmetic cannot tell which, so such a book is refused rather
+    than answered.
     """
     ranks = [level_rank(puzzle["difficulty_tier"]) for puzzle in puzzles]
     if len(set(ranks)) != len(ranks):
