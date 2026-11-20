@@ -123,7 +123,9 @@ if psql -h localhost -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1; the
     if [ -z "$DB_NAME" ]; then
         echo -e "${YELLOW}⚠ DATABASE_URL names no database${NC}"
         echo "  Put the database's name after the host, e.g. .../nonogram_dev (or ?dbname=...)"
-    elif psql -h localhost -U postgres -d postgres -c "\l" | grep -qw -- "$DB_NAME"; then
+    # The first column of \l, matched whole and as a fixed string: a name is
+    # not a pattern, and must not match inside another column (review F-002).
+    elif psql -h localhost -U postgres -d postgres -c "\l" | awk -F'|' '{gsub(/ /, "", $1); print $1}' | grep -qxF -- "$DB_NAME"; then
         echo -e "${GREEN}✓ $DB_NAME database exists${NC}"
     else
         echo -e "${YELLOW}⚠ $DB_NAME database not found on localhost:5432${NC}"
@@ -133,7 +135,11 @@ if psql -h localhost -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1; the
 
     # Test with DATABASE_URL, as given (psql is handed it without a +driver)
     echo -e "${YELLOW}6. Testing with DATABASE_URL...${NC}"
-    if psql "$PSQL_URL" -c "SELECT 1" > /dev/null 2>&1; then
+    # A URL naming no database is not tested: psql would fall back to the
+    # user's own database and report a connection to the wrong one (review F-001).
+    if [ -z "$DB_NAME" ]; then
+        echo -e "${YELLOW}⚠ skipped: DATABASE_URL names no database${NC}"
+    elif psql "$PSQL_URL" -c "SELECT 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ DATABASE_URL connection works${NC}"
     else
         echo -e "${YELLOW}⚠ DATABASE_URL connection failed${NC}"
