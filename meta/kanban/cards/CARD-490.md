@@ -69,3 +69,14 @@ On the arrange page (`arrange_puzzles_in_book`, `book_arrange_puzzles.html`) a p
 - C4 (route computation replaced by `None`): the same two tests as C1 red with the same assertion.
 
 **Gate** (unarmed, `-rfs`): `tests/test_book_arrange_page_breaks.py`, `test_book_arrange_play_link.py`, `test_book_arrange_position.py`, `test_book_arrange_size_filter.py`, `test_book_arrange_sort_by_size.py`, `test_book_detail_page.py`, `test_book_level_order.py`, `test_book_workflow_steps.py`: 367 passed, 0 failed, 0 skipped. Not visually eyeballed in a browser: the marker reuses the `page-break-divider` style, no new CSS.
+
+### Fix round 1 (review cycle 1: F-001, F-002)
+
+- **F-002**: `_printed_places` now returns `(places, divider_pages, printed)`, where `printed` is `{id(row) for row in plan.printed}`, `section_plan`'s own printed rows and the set `book_detail` numbers from. `arrange_puzzles_in_book` marks a row from that set (`id(puzzle) not in printed`) instead of from its absence from `places`. Page plan unchanged.
+- **F-001**: `test_a_row_after_an_unprinted_one_says_its_page_again` now uses four small easy puzzles with the middle two undrawable. Measured on the route before writing the asserts: rows `[6, None, None, 6]`, two markers each with page None, labels `page 5 · Easy divider page`, `page 6 · two puzzles` twice, no `page None`. No test added.
+- **Controls** (run together over the arrange page-break, book-detail and size-filter files, 96 tests; each restored, tree clean afterwards):
+  - M9 (`puzzle.page and` dropped from the re-label condition): the test reds at "a row with no page is never labelled with one". Per assertion, checked on the mutant's markup: rows held, markers held, no-`page None` failed, labels failed (`['page 5 · Easy divider page', 'page 6 · two puzzles', 'page None', 'page 6 · two puzzles']`), plan held.
+  - C5 (printed set diverged to `plan.puzzles`): `test_an_undrawable_member_shifts_no_other_rows_page` and `test_a_row_after_an_unprinted_one_says_its_page_again` red, `assert [] == [('Not printe...drawn', None)]`.
+  - C1–C4 re-run on the new code: C1 and C4 red the same two tests with the same line; C2 reds the re-label test at "the row after the unprinted one is labelled with the page it prints on"; C3 reds `test_the_step_still_answers_when_the_book_cannot_be_planned`, `assert [('Not printe...drawn', None)] == []`.
+- **AC-2** re-captured against the merge-base f158f589: ordinary book, all sizes and `<=15`, `cmp` identical.
+- **Gate** (unarmed, `-rfs`, the round-0 files): 367 passed, 0 failed, 0 skipped. **Count**: 10705 at the merge-base, 10706 on the branch (net +1).
