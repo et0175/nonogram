@@ -1068,3 +1068,15 @@ Not observed: a real phone. CARD-479's AC-4 (the owner's phone check) is still o
 | Rollback target | The stage-observer deployment (`nonogram-studio-i26guy79q`). |
 
 Not observed: a real phone, nor a Back that comes through the back/forward cache (headless Chromium re-created the page here).
+
+**The wave-3 publish, 2026-11-20.** The owner's "publish it please" after wave 3 merged. Built from **`311df864`** with `git archive 311df864 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-20-wave3/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. Three cards reach served files: **CARD-486** (an undone hint leaves the live region; a keyboard Hint keeps its focus through the reset confirmation), **CARD-484** (the admin hint's easiest-first order: `solver_state.js` gains an optional rank argument the public page never passes) and **CARD-488** (one admin-only focus selector in `admin.css`).
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing, `dropped (not in the served schema): title`. Against production before the publish, exactly three files differed, each identical to its `311df864` source: `solver.js` `50166bad3f25` → `c4701e65c401`, `solver_state.js` `7a3e93311922` → `2ad12b4772c3`, `admin.css` `e834211cc711` → `f18d7ee06888`. Every page (`/play/<key>` shell `0872d1646d22`, `/b`, `/library`, `/how-to-solve`), `index.json`, the puzzle files and the other stylesheets and scripts byte-identical to what production served. No goatcounter, no `.vercel/`. |
+| Preview | `vercel deploy --yes` with the two ids exported: **`nonogram-studio-8wkr14z2n`**, Ready in 4 s. `/library`, `/play/068341a8eb`, `/b/0a958d036e`, `/how-to-solve`, the puzzle and book files 200; `/nope` 404; the three files at the built hashes. |
+| Behaviour (Chromium, 1280 x 900, puzzle `068341a8eb`) | Three Hint presses: rung 1 and rung 2 sentences on row 13, rung 3 "Hint: row 13, column 1 is black.", counter "Revealed: 1"; no `#puzzle-player-rungs` element on the public page; after Undo the announce region is empty and the counter reads "Revealed: 0" (CARD-486 F-014); no page errors. |
+| Production | `vercel promote <preview> --scope et0175s-projects --yes` created **`nonogram-studio-i0n5nyn31`**. `https://nonogram.adverax.io` served the new `solver.js` on poll 2; doors 200, `/nope` 404, the three hashes match; the behaviour run gave the same figures, no page errors. |
+| Rollback target | The return-to-book deployment (`nonogram-studio-j9jpdb3tt`). |
+
+Not observed: a real phone, and a screen reader's queueing of the two announcements a revealed hint makes (kept both by the owner's decision on CARD-486).
