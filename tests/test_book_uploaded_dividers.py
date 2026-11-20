@@ -781,7 +781,7 @@ class TestRoute_ATrimChangedAfterTheUploadIsRefusedInWords:
         self, exported
     ) -> None:
         app, client, book_id, (w, h) = exported
-        book = app.book_manager.get_book(book_id)
+        book = app.book_manager.books[book_id]
         book.trim_width_cm, book.trim_height_cm = "15.24", "22.86"  # a 6 x 9 in trim
         page = BookPDFGenerator(book)
 

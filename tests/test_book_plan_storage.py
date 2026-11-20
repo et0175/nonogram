@@ -436,6 +436,22 @@ class TestRevisePlan:
         revised = revise_plan(DEFAULT_PLAN, 90, Split(40, 40, 20), DEFAULT_PLAN.cells)
         assert revised == prefill(90, Split(40, 40, 20))
 
+    def test_a_count_change_judges_typed_cells_against_the_new_prefill(self) -> None:
+        """CARD-489 (IDEA-011): 150 -> 90 in one submission with two cells typed.
+
+        <=15 x easy typed 20 -> 12, which is the 90-puzzle prefill: not an
+        edit. 16-20 x medium, a stored edit of 11, typed 27, which was the
+        150-puzzle prefill and is not the 90-puzzle one (16): an edit, kept.
+        The literals are AC-198's table and the 90-puzzle column split.
+        """
+        stored = with_edited_cell(DEFAULT_PLAN, B20, M, 11)
+        cells = [list(r) for r in stored.cells]
+        cells[0][0] = 12
+        cells[1][1] = 27
+        revised = revise_plan(stored, 90, Split(40, 40, 20), cells)
+        assert revised.edited == {(B20, M)}
+        assert revised.cell(B20, M) == 27
+
     def test_a_typed_cell_is_edited_and_kept(self) -> None:
         cells = [list(r) for r in DEFAULT_PLAN.cells]
         cells[0][0] = 3

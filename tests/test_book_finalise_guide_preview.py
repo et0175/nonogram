@@ -577,7 +577,7 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         """
         plain = panel.shown(panel.book("easy", "medium", "hard"))
         with_domain = panel.book("easy", "medium", "hard")
-        panel.books.get_book(with_domain).player_domain = "https://nonogram.adverax.io"
+        panel.books.books[with_domain].player_domain = "https://nonogram.adverax.io"
         page = panel.shown(with_domain)
         stated = re.search(r"Prints a Play online page at page (\d+)\.", page)
 

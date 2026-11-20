@@ -446,7 +446,11 @@ class TestBookRetrieval:
     """Test retrieving books."""
 
     def test_get_book(self, book_manager):
-        """Get a book by ID."""
+        """Get a book by ID — a snapshot: changing it changes nothing stored.
+
+        CARD-489 (IDEA-014): memory mode used to hand out the stored ``Book``
+        itself, so a caller could write a trim ``set_print_spec`` refuses.
+        """
         book_id = book_manager.create_book(
             title="Book",
             description="Description",
@@ -459,6 +463,15 @@ class TestBookRetrieval:
         assert book is not None
         assert book.book_id == book_id
         assert book.metadata.title == "Book"
+
+        stored_trim = (book.trim_width_cm, book.trim_height_cm)
+        book.trim_width_cm = "999"
+        book.metadata.title = "Changed"
+        book.puzzle_ids.append("p-1")
+        again = book_manager.get_book(book_id)
+        assert (again.trim_width_cm, again.trim_height_cm) == stored_trim
+        assert again.metadata.title == "Book"
+        assert again.puzzle_ids == []
 
     def test_get_nonexistent_book(self, book_manager):
         """Getting non-existent book returns None."""

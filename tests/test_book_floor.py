@@ -634,7 +634,7 @@ class TestBookFloor_FailsClosedOnWhatItCannotMeasure:
     ) -> None:
         puzzle_id = panel.puzzle(*ABOVE_FLOOR[:4])
         book_id = panel.book()
-        panel.books.get_book(book_id).trim_width_cm = "wide-ish"
+        panel.books.books[book_id].trim_width_cm = "wide-ish"
 
         shown = body(panel.paste(book_id, [puzzle_id]))
 
@@ -727,7 +727,7 @@ def _error_flashes(response) -> list[str]:
 
 def _unreadable_trim(panel, book_id) -> None:
     """The column ``book_page_spec`` cannot read — not the reason's wording (G-4)."""
-    panel.books.get_book(book_id).trim_width_cm = "not a number"
+    panel.books.books[book_id].trim_width_cm = "not a number"
 
 
 class TestBookAddPuzzles_UnreadablePrintSetupRefusesOnceAndNamesTheRemedy:
@@ -756,7 +756,7 @@ class TestBookAddPuzzles_UnreadablePrintSetupRefusesOnceAndNamesTheRemedy:
         shelf.books.add_puzzles_to_book(book_id, [member])
         submitted = [shelf.puzzle(*ABOVE_FLOOR[:4]), shelf.puzzle(*BELOW_FLOOR[:4])]
         if shelf.mode == "memory":
-            shelf.books.get_book(book_id).trim_width_cm = "not a number"
+            shelf.books.books[book_id].trim_width_cm = "not a number"
         else:
             _change_book(shelf, book_id, trim_width_cm="not a number")
 
@@ -853,9 +853,8 @@ class TestBookFloor_GuardrailsIntact:
         puzzle_id = shelf.puzzle(*ABOVE_FLOOR[:4])
         book_id = shelf.book()
         shelf.books.add_puzzles_to_book(book_id, [puzzle_id])
-        book = shelf.books.get_book(book_id)
         if shelf.mode == "memory":
-            book.status = "published"
+            shelf.books.books[book_id].status = "published"
         else:
             from nonogram.db.models import Book as DBBook
 
@@ -1136,7 +1135,7 @@ class TestBookFloor_TheStorelessPostureIsReachable:
         """Building the sheet first made this raise instead (F-005)."""
         lonely = BookManager(session_factory=None)
         book_id = lonely.create_book("Winter", "a book", "christmas", "adults")
-        lonely.get_book(book_id).trim_width_cm = "wide-ish"
+        lonely.books[book_id].trim_width_cm = "wide-ish"
 
         with caplog.at_level("ERROR"):
             assert lonely.add_puzzles_to_book(book_id, ["p1"]) is True

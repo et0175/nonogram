@@ -4,6 +4,7 @@ Handles book creation, puzzle curation, PDF generation setup, and KDP metadata.
 Supports both in-memory storage (legacy) and database-backed storage (when session_factory provided).
 """
 
+import copy
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from enum import Enum
@@ -828,11 +829,17 @@ class BookManager:
             book_id: ID of book
 
         Returns:
-            Book object, or None if not found
+            Book object, or None if not found. In either mode it is a
+            snapshot: changing it changes nothing stored. Memory mode hands
+            out a deep copy of the stored book (CARD-489, IDEA-014) for the
+            reason DB mode's detached snapshot already gave — every write
+            goes through this manager's own setters, so nothing reaches
+            storage past :meth:`set_print_spec`'s checks.
         """
         if self._session_factory is None:
             # Legacy mode: in-memory dict
-            return self.books.get(book_id)
+            book = self.books.get(book_id)
+            return copy.deepcopy(book) if book is not None else None
         else:
             # DB mode: query database
             from nonogram.db.models import Book as DBBook
@@ -1633,7 +1640,9 @@ class BookManager:
         tier_of = self._tier_of(book.puzzle_ids, known=submitted_tiers)
 
         if self._session_factory is None:
-            # Legacy mode: in-memory dict
+            # Legacy mode: in-memory dict. ``get_book`` above handed out a
+            # copy (CARD-489), so the write goes to the stored book itself.
+            book = self.books[book_id]
             # Add unique puzzle IDs (avoid duplicates)
             existing = set(book.puzzle_ids)
             new_puzzles = [pid for pid in puzzle_ids if pid not in existing]
@@ -2958,9 +2967,9 @@ def revise_plan(
       so it keeps the mark it had: a stored hand edit stays edited (even when
       its value happens to equal a prefill), an unedited cell stays unedited;
     * submitted value **different from the shown value** — the owner typed
-      into it: it becomes hand-edited, unless the new value is the shown
-      plan's prefill for that cell, which is the owner deliberately putting
-      it back (the edit mark is cleared).
+      into it: it becomes hand-edited, unless the new value is that cell's
+      prefill at the submitted ``count`` (and the shown split), which is the
+      owner deliberately putting it back (the edit mark is cleared).
 
     Hand-edited cells keep their values; every other cell is re-derived from
     ``count`` and ``split`` (POL-007 via :func:`with_split`), so a changed
@@ -2972,8 +2981,12 @@ def revise_plan(
         InvalidPlan: ``count`` or a submitted cell is not one INV-005 allows.
     """
     shown = current if current is not None else DEFAULT_PLAN
-    reference = prefill(shown.count, shown.split)
     typed = DistributionPlan(count=count, split=shown.split, cells=submitted_cells)
+    # The prefill at the *submitted* count (CARD-489, IDEA-011): a typed cell
+    # is judged against the matrix the new count would prefill, not the one
+    # the page showed, so a count change neither marks a cell that equals the
+    # new prefill nor clears one that equals only the old prefill.
+    reference = prefill(typed.count, shown.split)
 
     def is_edited(bucket, tier) -> bool:
         value = typed.cell(bucket, tier)
