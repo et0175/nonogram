@@ -1239,21 +1239,25 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)]
 
     def test_a_row_after_an_unprinted_one_says_its_page_again(self, panel) -> None:
-        """CARD-490: a pair the dropped row sat between is labelled on both sides.
+        """CARD-490: a pair the dropped rows sat between is labelled on both sides.
 
-        Two small puzzles of one level pair onto one page (FR-040) with the
-        undrawable row listed between them. The second of the pair does not
-        open its page, so without a label of its own it would read as part of
-        the unprinted row's run; it says its page again instead.
+        Two small puzzles of one level pair onto one page (FR-040) with two
+        adjacent undrawable rows listed between them. The second of the pair
+        does not open its page, so without a label of its own it would read as
+        part of the unprinted rows' run; it says its page again instead. The
+        second unprinted row follows an unprinted one but has no page, so it
+        gets its marker and no page label.
         """
-        ids = [panel.puzzle("easy", size=10) for _ in range(3)]
+        ids = [panel.puzzle("easy", size=10) for _ in range(4)]
         book_id = panel.book_of(*ids)
-        panel.store.puzzles[ids[1]]["clues_rows"] = 12
+        for undrawable in ids[1:3]:
+            panel.store.puzzles[undrawable]["clues_rows"] = 12
 
         markup = panel.arrange(book_id)
 
-        assert shown_rows(markup) == [6, None, 6], "the pair still shares page 6"
-        assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)]
+        assert shown_rows(markup) == [6, None, None, 6], "the pair still shares page 6"
+        assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)] * 2
+        assert "page None" not in markup, "a row with no page is never labelled with one"
         assert shown_labels(markup) == [
             "page 5 · Easy divider page",
             "page 6 · two puzzles",
