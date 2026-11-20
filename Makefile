@@ -23,7 +23,9 @@
 # checkout's venv found through git's common dir (a card worktree has no venv
 # of its own, and its common dir is the main checkout's .git), else the plain
 # ./.venv/bin/python, so a checkout with no venv anywhere still fails naming
-# the path it looked for. An explicit PY=... on the command line wins.
+# the path it looked for. A main checkout whose path holds a space is not
+# handled (make's path functions split on spaces): pass PY= there. An explicit
+# PY=... on the command line wins.
 MAIN_VENV_PY := $(dir $(abspath $(shell git rev-parse --git-common-dir 2>/dev/null))).venv/bin/python
 PY ?= $(firstword $(wildcard ./.venv/bin/python) $(wildcard $(MAIN_VENV_PY)) ./.venv/bin/python)
 BASE ?= $(shell git merge-base HEAD main 2>/dev/null || echo main)
