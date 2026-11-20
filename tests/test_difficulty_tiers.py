@@ -789,6 +789,10 @@ def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:
     for tier in Tier:
         assert tier.value in text, tier
     assert "guess" not in text.lower() and "branch" not in text.lower(), text
+    # The offered list is exactly the tiers, and no wording counts a further one
+    # (CARD-491 review F-006: a paraphrase avoiding "guess"/"branch" passed).
+    assert "(" + ", ".join(t.value for t in Tier) + ")" in text, text
+    assert "fourth" not in text.lower(), text
     assert help_text  # the top-level parser still builds
 
 

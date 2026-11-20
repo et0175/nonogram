@@ -6966,8 +6966,8 @@ non_functional:
     condition: >-
       the admin panel's book export, interior PDF alone and interior plus
       the separate cover file (FR-043); measured on the baseline book
-      (BASELINE_PAGE_COUNT pages) and on the corpus book (CORPUS_PAGE_COUNT
-      pages), so "however many pages" is the claim that the two peaks are
+      (BASELINE_PAGE_COUNT pages) and on the corpus book (tests/test_book_pdf_memory.py's CORPUS_PAGE_COUNT
+      pages, not the constant of that name in tests/helpers/book_corpus.py), so "however many pages" is the claim that the two peaks are
       equal, not a bound proved for every page count. NOT MEASURED: the
       process as a whole against 512 MB. "Retained" counts the pages the
       panel's own frames keep; the module documents a second, short-lived

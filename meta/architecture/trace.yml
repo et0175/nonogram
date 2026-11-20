@@ -353,11 +353,11 @@ links:
 
   # ---------------------------------------------------------------- CAP-004
 - req: FR-008
-  description: "Difficulty selector with Easy / Medium / Hard / Guess tiers"
+  description: "Difficulty selector with Easy / Medium / Hard tiers"
   capabilities: [CAP-004]
   contexts: [CTX-001]
   components: [COMP-001, COMP-006]
-  adrs: [ADR-0005, ADR-0010, ADR-0025]
+  adrs: [ADR-0005, ADR-0010, ADR-0025, ADR-0031]
   tests:
   - TestSelectDifficulty_AcceptsValidTier
   - TestSelectDifficulty_RejectsUnknownTier
