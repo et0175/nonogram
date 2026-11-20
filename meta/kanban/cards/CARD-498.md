@@ -1,6 +1,6 @@
 # CARD-498: The registry's honest-dead check refs: each one points at a real test or says honestly that none checks it
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/498-honest-dead-refs
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-498
 **Source:** roadmap wave 5 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-216, WSJF 3.08 (partly; the rescore counted 11 as a floor).
 **Idea:** IDEA-216
 **Wave:** 84
@@ -19,7 +19,7 @@
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_check_ref_resolution.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T09:21Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
