@@ -23,6 +23,8 @@ import uuid
 from dataclasses import replace
 
 import pytest
+
+from nonogram.admin.print_specs import PrintSpec
 from PIL import Image, ImageChops, ImageDraw
 
 import nonogram.admin.book_manager as book_manager_module
@@ -781,9 +783,8 @@ class TestRoute_ATrimChangedAfterTheUploadIsRefusedInWords:
         self, exported
     ) -> None:
         app, client, book_id, (w, h) = exported
-        book = app.book_manager.books[book_id]
-        book.trim_width_cm, book.trim_height_cm = "15.24", "22.86"  # a 6 x 9 in trim
-        page = BookPDFGenerator(book)
+        assert app.book_manager.set_print_spec(book_id, PrintSpec("15.24", "22.86"))  # 6 x 9 in
+        page = BookPDFGenerator(app.book_manager.get_book(book_id))
 
         refused = client.post(
             f"/book/{book_id}/download-pdf?part=interior", follow_redirects=True

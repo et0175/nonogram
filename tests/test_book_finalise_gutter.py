@@ -41,6 +41,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from nonogram.admin.print_specs import PrintSpec
+
 import nonogram.admin.book_manager as book_manager_module
 from nonogram import clues
 from nonogram.admin.book_kdp import (
@@ -298,8 +300,10 @@ class Panel:
             self.store.puzzles[record["id"]] = record
         self.books.add_puzzles_to_book(book_id, [r["id"] for r in records])
         self.books.save_plan(book_id, plan_of(records))
+        assert self.books.set_print_spec(book_id, PrintSpec(*TRIM_CM))
+        # The margins have no setter (Print setup offers no margin field), so
+        # they are written onto the stored book itself (CARD-489).
         stored = self.books.books[book_id]
-        stored.trim_width_cm, stored.trim_height_cm = TRIM_CM
         stored.gutter_margin_cm = gutter
         stored.outside_margin_cm = GUTTER_0375_IN
         return book_id
@@ -832,7 +836,10 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
     ) -> None:
         plain = panel.book(AC288_CORPUS)
         with_domain = panel.book(AC288_CORPUS, title="Spring")
-        panel.books.books[with_domain].player_domain = self.DOMAIN
+        stored = panel.books.get_book(with_domain)
+        assert panel.books.set_print_spec(with_domain, PrintSpec(
+            stored.trim_width_cm, stored.trim_height_cm, player_domain=self.DOMAIN
+        ))
 
         assert panel.counts(plain).page_count == AC288_PAGES
         assert panel.counts(with_domain).page_count == 152
@@ -2042,12 +2049,12 @@ class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
         contract, on the real screen rather than on the function alone.
         """
         book_id = panel.book(((alone, "easy", self._PUZZLE_COUNT),), gutter=GUTTER_060)
-        stored = panel.books.books[book_id]
+        stored = panel.books.get_book(book_id)
         book1_height = stored.trim_height_cm
         book1_counts = _counts_of(panel, book_id)
         assert book1_counts.exact is False  # no sheet: the approximate path
 
-        stored.trim_height_cm = "12.00"
+        assert panel.books.set_print_spec(book_id, PrintSpec(stored.trim_width_cm, "12.00"))
         shrunk_counts = _counts_of(panel, book_id)
 
         assert shrunk_counts.exact is False

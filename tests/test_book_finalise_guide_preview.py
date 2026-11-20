@@ -39,6 +39,8 @@ from html.parser import HTMLParser
 
 import pytest
 
+from nonogram.admin.print_specs import PrintSpec
+
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.book_pdf_generator as generator
 from nonogram import clues
@@ -577,7 +579,11 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         """
         plain = panel.shown(panel.book("easy", "medium", "hard"))
         with_domain = panel.book("easy", "medium", "hard")
-        panel.books.books[with_domain].player_domain = "https://nonogram.adverax.io"
+        stored = panel.books.get_book(with_domain)
+        assert panel.books.set_print_spec(with_domain, PrintSpec(
+            stored.trim_width_cm, stored.trim_height_cm,
+            player_domain="https://nonogram.adverax.io",
+        ))
         page = panel.shown(with_domain)
         stated = re.search(r"Prints a Play online page at page (\d+)\.", page)
 
