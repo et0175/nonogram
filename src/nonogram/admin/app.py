@@ -1188,6 +1188,9 @@ BOOK_DELETE_FAILED = f"The book could not be deleted. {_SEE_LOG}"
 PLAYER_EXPORT_FAILED = f"Could not export the player bundle. {_SEE_LOG}"
 IMAGE_SERVE_FAILED = f"Error loading image. {_SEE_LOG}"
 GRID_SERVE_FAILED = f"Error generating grid. {_SEE_LOG}"
+#: CARD-502: what a failed status change on the book page shows — anything
+#: but a ``StatusRefusal`` (CARD-496), which keeps its own sentence.
+STATUS_CHANGE_FAILED = f"The book's status could not be changed. {_SEE_LOG}"
 
 
 def _same_site_back(fallback: str) -> str:
@@ -6281,7 +6284,15 @@ def create_app(debug=None):
 
     @app.route("/book/<book_id>/status", methods=["POST"])
     def update_book_status(book_id):
-        """Update book status."""
+        """Update book status.
+
+        CARD-502: classified as Finalise is (CARD-496). A ``StatusRefusal`` —
+        a published book, no puzzles, the plan gate's — is the owner's answer:
+        its sentence is flashed and nothing is logged. Anything else (an
+        unknown status, an unreadable selection, a storage error) is a fault:
+        logged with its traceback, then :data:`STATUS_CHANGE_FAILED` is shown,
+        never the exception's text (CARD-177/CARD-480's rule).
+        """
         status = request.form.get("status")
 
         try:
@@ -6290,8 +6301,14 @@ def create_app(debug=None):
             else:
                 flash("Book not found", "error")
 
-        except ValueError as e:
-            flash(f"Error: {str(e)}", "error")
+        except StatusRefusal as refusal:
+            flash(f"Error: {refusal}", "error")
+
+        except Exception:
+            app.logger.exception(
+                "Changing book %s's status to %r failed", book_id, status
+            )
+            flash(STATUS_CHANGE_FAILED, "error")
 
         return redirect(url_for("book_detail", book_id=book_id))
 
@@ -6383,15 +6400,18 @@ def create_app(debug=None):
 
             pdf_bytes = _export_part(book, part, puzzles)
 
+            # CARD-502: the response is built before anything says it
+            # worked, so a send that fails leaves only the failure's flash.
+            response = _send_export_part(
+                pdf_bytes, part, book.metadata.title.replace(" ", "_")
+            )
             if part == "interior":
                 # Only the interior is "the book's PDF": a cover-only download
                 # records nothing. (In production, save to S3 or similar.)
                 book_mgr.set_pdf_url(book_id, f"PDF generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
                 flash("PDF generated successfully!", "success")
 
-            return _send_export_part(
-                pdf_bytes, part, book.metadata.title.replace(" ", "_")
-            )
+            return response
 
         except (UnsettablePuzzleTitle, DividerRefused) as refusal:
             # CARD-311: and an unsuitable uploaded divider. CARD-383: as in `generate_book_pdf_download` -- this class only.

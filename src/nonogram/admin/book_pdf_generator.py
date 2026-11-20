@@ -5313,14 +5313,19 @@ class BookPDFGenerator:
             One :class:`PuzzlePagePlan` per page, in print order.
 
         Raises:
-            ValueError: ``ids`` was given and is not parallel to ``payloads``
-                — naming the wrong puzzle is worse than naming none.
+            AssertionError: ``ids`` was given and is not parallel to
+                ``payloads`` — naming the wrong puzzle is worse than naming
+                none. A caller's bug, deliberately not a ``ValueError``
+                (CARD-502).
             RuntimeError: a pair the walk offered could not be laid out. The
                 message names both members (``_named_puzzles``) and keeps the
                 original failure as its ``__cause__``.
         """
         if ids is not None and len(ids) != len(payloads):
-            raise ValueError(
+            # CARD-502 (IDEA-023): a caller's broken precondition, so not a
+            # ValueError — the handlers that take a ValueError as a book's own
+            # fault (the arrange screen's one-line warning) must not take it.
+            raise AssertionError(
                 f"ids must be parallel to payloads: {len(ids)} id(s) for "
                 f"{len(payloads)} payload(s)"
             )
@@ -5446,7 +5451,8 @@ class BookPDFGenerator:
             :class:`PuzzlePagePlan`\\ s.
 
         Raises:
-            ValueError: ``ids`` was given and is not parallel to ``payloads``.
+            AssertionError: ``ids`` was given and is not parallel to
+                ``payloads`` — a caller's bug, not a ``ValueError`` (CARD-502).
             RuntimeError: as :meth:`puzzle_pages`.
 
         Note:
@@ -5464,7 +5470,10 @@ class BookPDFGenerator:
             becomes a checked precondition.
         """
         if ids is not None and len(ids) != len(payloads):
-            raise ValueError(
+            # CARD-502 (IDEA-023): a caller's broken precondition, so not a
+            # ValueError — the handlers that take a ValueError as a book's own
+            # fault (the arrange screen's one-line warning) must not take it.
+            raise AssertionError(
                 f"ids must be parallel to payloads: {len(ids)} id(s) for "
                 f"{len(payloads)} payload(s)"
             )

@@ -794,20 +794,24 @@ class TestBookGeneralInfo_EditsExistingBook:
         CARD-159 gave the create route the edit route's refusal handling, so
         the two screens now mark the same way. What the refusal carries back
         is ``tests/test_book_create.py``'s subject.
+
+        CARD-502 (CARD-159 F-003): the two alerts differ in one claim. A
+        refused edit says nothing stored was changed; a refused create has
+        nothing stored, so its alert does not say so.
         """
-        app, _shelf = panel
+        app, shelf = panel
+        book_id = shelf.book(title="Winter Animals")
+        blank_title = {
+            "title": "   ",
+            "description": "a new book",
+            "theme": "generic",
+            "target_audience": "kids",
+        }
 
         with app.test_client() as client:
             fresh = client.get("/book/create")
-            refused = client.post(
-                "/book/create",
-                data={
-                    "title": "   ",
-                    "description": "a new book",
-                    "theme": "generic",
-                    "target_audience": "kids",
-                },
-            )
+            refused = client.post("/book/create", data=blank_title)
+            refused_edit = client.post(f"/book/{book_id}/edit", data=blank_title)
 
         assert fresh.status_code == 200
         assert refused.status_code == 200
@@ -815,6 +819,22 @@ class TestBookGeneralInfo_EditsExistingBook:
         assert controls_of(fresh_body).marked() == set()
         assert "general-info-error" not in fresh_body
         assert controls_of(refused.get_data(as_text=True)).marked() == {"title"}
+
+        def alert(response) -> str:
+            found = re.search(
+                r'id="general-info-error">(.*?)</div>', response.get_data(as_text=True), re.S
+            )
+            assert found, "no General info alert"
+            return " ".join(re.sub(r"<[^>]+>|\{#.*?#\}", "", found.group(1)).split())
+
+        assert alert(refused) == (
+            "Book not created: correct the field marked below. "
+            "Your other entries are kept as you typed them."
+        )
+        assert alert(refused_edit) == (
+            "General info not saved: correct the field marked below. Nothing "
+            "stored was changed, and your other entries are kept as you typed them."
+        )
 
     def test_an_unknown_book_is_reported_not_created(self, shelf) -> None:
         assert (
@@ -1455,12 +1475,17 @@ class TestPrintSetup_InchesRefusalSpeaksInches:
         )
         assert "cm" not in error
 
-    def test_a_side_under_the_minimum_says_inches_and_quotes_the_entry(self, panel) -> None:
-        """AC-2: 3 x 11 in — only the failing side is quoted."""
-        error, _ = self._refused(panel, "3", "11")
+    @pytest.mark.parametrize("width", ["3", "0", "-2"])
+    def test_a_side_under_the_minimum_says_inches_and_quotes_the_entry(self, panel, width) -> None:
+        """AC-2: 3 x 11 in — only the failing side is quoted.
+
+        CARD-502 (CARD-159 F-002): a zero and a negative width too. The
+        browser's ``min`` is gone, so the server is the one refusing them,
+        and ``_refused`` asserts nothing was stored."""
+        error, _ = self._refused(panel, width, "11")
 
         assert error.startswith(f"Error: Trim size must be at least {MIN_IN} in")
-        assert "you entered 3 in for the width" in error
+        assert f"you entered {width} in for the width" in error
         assert "11 in" not in error
         assert "cm" not in error
 
