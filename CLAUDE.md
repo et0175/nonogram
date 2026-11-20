@@ -25,7 +25,7 @@ make test-marked         # only the marked tests (a bisect over a wave's merges,
 make test-wave-close     # wave close: the bare full suite; refuses -m/-k/--deselect/--ignore in PYTEST_ADDOPTS
 ```
 
-The replayed saving of the marker is about 3.8 minutes per gate (the marked set is 612 s of a quiet 3660 s run, but a changed path that reaches a marked test's subject lifts it back). In a card worktree there is no `.venv`: pass `PY=<main checkout>/.venv/bin/python` to the `make` targets.
+The replayed saving of the marker is about 3.8 minutes per gate (the marked set is 612 s of a quiet 3660 s run, but a changed path that reaches a marked test's subject lifts it back). In a card worktree there is no `.venv`, and the `make` targets need no `PY=`: the Makefile's `PY` default falls back to the main checkout's venv (found through `git rev-parse --git-common-dir`); an explicit `PY=...` still wins.
 
 Run a single test / file / pattern:
 
