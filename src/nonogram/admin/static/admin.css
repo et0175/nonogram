@@ -465,10 +465,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .puzzle-list-item .item-info { flex-wrap: wrap; min-width: 0; }
   .puzzle-list-item .item-title { min-width: 0; }
 }
-/* CARD-495: on the narrowest phones (320-360 px) the middle column is too thin
-   for the title box, so the title (and the reader's link under it) take a row
-   of their own across the preview, info and buttons columns. */
-@media (max-width: 360px) {
+/* CARD-495: on a phone (up to 480 px) the middle column is too thin for the
+   title box and the reader's link (at 375 px a link wrapped over 15 lines in a
+   35 px column), so both take a row of their own across the preview, info and
+   buttons columns. */
+@media (max-width: 480px) {
   .puzzle-list-item .item-title { grid-row: 3; grid-column: 2 / 5; }
   .puzzle-list-item .play-link { grid-row: 4; grid-column: 2 / 5; }
 }

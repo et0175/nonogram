@@ -150,7 +150,7 @@ def test_the_filter_reads_a_stored_guess_row_as_hard(tmp_path) -> None:
     """
     from tests.helpers.db import sqlite_session_scope
 
-    spellings = ("guess", "Guess", " GUESS ", "hard", "HARD", "easy")
+    spellings = ("guess", "Guess", " GUESS ", "hard", "HARD", "easy", "extreme")
     service = _service_holding(*spellings)
     stored = PuzzleReviewService(session_factory=sqlite_session_scope(tmp_path))
     for index, tier in enumerate(spellings):
@@ -181,6 +181,10 @@ def test_the_filter_reads_a_stored_guess_row_as_hard(tmp_path) -> None:
     hard = {"p0", "p1", "p2", "p3", "p4"}
     assert by_store("Hard") == {"memory": hard, "database": hard}
     assert by_store("easy") == {"memory": {"p5"}, "database": {"p5"}}
+    # G-1 in both stores (review F-002): a value that names no tier is compared
+    # exactly, so it selects its own row and is not widened by case.
+    assert by_store("extreme") == {"memory": {"p6"}, "database": {"p6"}}
+    assert by_store("Extreme") == {"memory": set(), "database": set()}
 
 
 def test_a_query_string_that_names_no_tier_does_not_widen_the_filter() -> None:

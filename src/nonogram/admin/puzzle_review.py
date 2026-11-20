@@ -1794,7 +1794,10 @@ class PuzzleReviewService:
                     # spellings are taken from `_TIER_RANK_BY_SPELLING`, which
                     # is derived through `tier_of_record` itself, and compared
                     # trimmed and lower-cased as the tier sort above compares
-                    # them, so the two branches match the same rows.
+                    # them. The branches agree for any case and for space
+                    # padding; SQL `trim()` strips spaces only, so a value
+                    # padded with a tab or newline reads as its tier in
+                    # memory but not here, as in the tier sort.
                     wanted = tier_of_record(filter_opts.difficulty)
                     query = query.filter(
                         func.trim(func.lower(Puzzle.difficulty_tier)).in_(

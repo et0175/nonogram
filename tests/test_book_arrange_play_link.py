@@ -37,18 +37,17 @@ wide:
 ===========  =============  ==============  ====================
 viewport     row box        ``.play-url``   page ``scrollWidth``
 ===========  =============  ==============  ====================
-390 px       33 → 357       107 px          **401** px
+390 px       33 → 357       186 px          390 px
 1024 px      277 → 780      181 px          1024 px
 1440 px      277 → 1092     316 px          1440 px
 ===========  =============  ==============  ====================
 
-* At **390 px** the column is 107 px, far narrower than any line the URL can
-  make, so ``overflow-wrap: anywhere`` is what keeps the text inside its box.
-  Containment is *not* measured there: at 390 px this screen already puts
-  ``.item-actions`` 44 px outside the row (401 > 390 — the page scrolls
-  sideways) **with this card's fix in place and before it**, which is a
-  pre-existing arrangement-screen defect at phone width and none of this
-  card's business. Measured, named, and left to the card that owns it.
+* At **390 px** the link has a row of its own across the row's columns
+  (CARD-495: 186 px; it had 107 px in the middle column while the row's
+  buttons ran 44 px past the card and the page scrolled sideways to 401 px).
+  That is still far narrower than the URL's 316 px line, so
+  ``overflow-wrap: anywhere`` is what keeps the text inside its box, and since
+  CARD-495 containment of the whole row is measured there too.
 * At **1024 px** — the panel's ordinary desktop width, sidebar and all — the
   row holds its contents, so that is where "nothing ends outside the row" is a
   claim about this card rather than about that defect. The URL still wraps
@@ -81,7 +80,7 @@ from tests.test_puzzle_solver_page import (  # noqa: F401
     browser_type,
 )
 
-#: Where ``overflow-wrap: anywhere`` is load-bearing (the column is 107 px).
+#: Where ``overflow-wrap: anywhere`` is load-bearing (the link is 186 px wide).
 PHONE = {"width": 390, "height": 844}
 
 #: Where the row holds its own contents, so containment measures this card.
@@ -264,7 +263,7 @@ class TestArrangePlayLink_TheRowHoldsItsContents:
 
 @pytest.mark.browser
 class TestArrangePlayLink_TheUrlWrapsRatherThanSpill:
-    """At 390 px the column is 107 px wide and the URL's one line would be
+    """At 390 px the link is 186 px wide and the URL's one line would be
     316 px — ``overflow-wrap: anywhere``'s whole job."""
 
     def test_the_link_still_sits_in_the_title_column(self, phone_page) -> None:
@@ -304,6 +303,11 @@ class TestArrangePlayLink_TheUrlWrapsRatherThanSpill:
         assert escaped == [], escaped
         width = phone_page.evaluate("() => document.documentElement.scrollWidth")
         assert width <= PHONE["width"], f"the page scrolls sideways: {width} px wide"
+        # Contained is not enough: a link squeezed into a 50 px column wraps
+        # over nine lines (CARD-495 review F-001, the first form of this
+        # card's phone rule). Measured 186 px with the link on its own row.
+        narrow = [round(row["url"]["right"] - row["url"]["left"]) for row in rows]
+        assert min(narrow) >= 150, f"the reader's link is crushed: {narrow} px wide"
 
     def test_the_url_is_broken_over_several_lines(self, phone_page) -> None:
         # The positive form of the same fact, because containment alone could
