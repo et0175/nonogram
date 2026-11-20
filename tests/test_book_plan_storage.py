@@ -150,6 +150,16 @@ def _plan_warning(html: str) -> str | None:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", match.group(1))).strip() if match else None
 
 
+def _edited_cells(html: str) -> set[str]:
+    """The matrix inputs marked hand-edited, by id."""
+    return {
+        f"cell_{b}_{t.value}"
+        for b in range(len(BUCKETS))
+        for t in TIERS
+        if 'data-edited="true"' in _input_tag(html, f"cell_{b}_{t.value}")
+    }
+
+
 def _store_disagreeing_plan(client, book_id):
     """Save 150 at 40/40/20 with one hand edit (hard column 38, not 30), as the owner can (FR-034)."""
     cells = [list(r) for r in AC198_MATRIX]
@@ -636,6 +646,9 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
         planned = _planned_row(html)
         assert len(planned) == 1 and planned[0].startswith("Not saved"), planned
         assert _plan_warning(html) is None
+        # CARD-500 (owner, 2026-11-20): a refused plan marks nothing as edited;
+        # the stored plan's hand-edit (cell_2_hard) is not this page's plan.
+        assert _edited_cells(html) == set()
         for tier in TIERS:
             assert "is-invalid" in _input_tag(html, f"split_{tier.value}")
         assert "is-invalid" not in _input_tag(html, "plan_count")
@@ -689,6 +702,20 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
             "The per-bucket plan disagrees with the general split. Hand-edited cells give column"
             f" totals of {totals} (easy / medium / hard), but 120 puzzles at 30/45/25 plan 36 / 54 / 30 ."
         )
+        # CARD-500 (owner, 2026-11-20): the edited marks are the submitted
+        # plan's, exactly the cells saving this submission would store as
+        # hand-edited (the same form, a readable trim, on a second book in the
+        # same stored state, read back), not the stored plan's marks alone.
+        twin = _new_book(app.book_manager)
+        _store_disagreeing_plan(client, twin)
+        saved = client.post(f"/book/{twin}/setup-print", data=_form(120, (30, 45, 25), cells))
+        assert saved.status_code == 302
+        would_store = {
+            f"cell_{BUCKETS.index(bucket)}_{tier.value}"
+            for bucket, tier in app.book_manager.get_plan(twin).edited
+        }
+        assert "cell_1_medium" in would_store  # the cell typed off the split
+        assert _edited_cells(html) == would_store
         assert _input_value(html, "width") == "5"
         assert "is-invalid" not in html  # the plan was fine
         assert app.book_manager.get_plan(book_id) == stored
