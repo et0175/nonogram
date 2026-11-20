@@ -137,6 +137,28 @@ def _page(client, book_id) -> str:
     return response.get_data(as_text=True)
 
 
+def _planned_row(html: str) -> list[str]:
+    """The text of each cell of the plan matrix's ``Planned`` footer row (CARD-497)."""
+    match = re.search(r'<th scope="row">Planned</th>(.*?)</tr>', html, re.S)
+    assert match, "no Planned row on the page"
+    return [re.sub(r"<[^>]+>|\s+", " ", td).strip() for td in re.findall(r"<td\b[^>]*>(.*?)</td>", match.group(1), re.S)]
+
+
+def _plan_warning(html: str) -> str | None:
+    """The FR-034 ``#plan-warning`` alert's text, whitespace-collapsed, or None (CARD-497)."""
+    match = re.search(r'<div\b[^>]*\bid="plan-warning"[^>]*>(.*?)</div>', html, re.S)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", match.group(1))).strip() if match else None
+
+
+def _store_disagreeing_plan(client, book_id):
+    """Save 150 at 40/40/20 with one hand edit (hard column 38, not 30), as the owner can (FR-034)."""
+    cells = [list(r) for r in AC198_MATRIX]
+    cells[2][2] = 20
+    response = client.post(f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 20), cells))
+    assert response.status_code == 302
+    assert _plan_warning(_page(client, book_id)) is not None  # the stored plan disagrees
+
+
 def _shown_plan(html: str) -> tuple[int, tuple[int, int, int], tuple[tuple[int, ...], ...]]:
     count = int(_input_value(html, "plan_count"))
     split = tuple(int(_input_value(html, f"split_{t.value}")) for t in TIERS)
@@ -595,19 +617,30 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
     def test_refused_split_keeps_the_typed_matrix(self, app) -> None:
         client = app.test_client()
         book_id = _new_book(app.book_manager)
+        # CARD-497 review F-001: the stored plan disagrees with its split, so
+        # its #plan-warning would render, and once rendered it read the
+        # refused plan's absent tier counts (HTTP 500).
+        _store_disagreeing_plan(client, book_id)
+        stored = app.book_manager.get_plan(book_id)
         cells = [list(r) for r in AC198_MATRIX]
         cells[0][0] = 3  # an unrelated matrix edit that must not be lost
 
-        html = client.post(
-            f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 30), cells)
-        ).get_data(as_text=True)
+        response = client.post(f"/book/{book_id}/setup-print", data=_form(150, (40, 40, 30), cells))
+        assert response.status_code == 200
+        html = response.get_data(as_text=True)
 
         assert _input_value(html, "cell_0_easy") == "3"
+        # CARD-497: a split that cannot be read has no planned figures, and the
+        # Planned row says so instead of showing the stored plan's 60 / 60 / 30;
+        # nor does the stored plan's disagreement warning speak for it.
+        planned = _planned_row(html)
+        assert len(planned) == 1 and planned[0].startswith("Not saved"), planned
+        assert _plan_warning(html) is None
         for tier in TIERS:
             assert "is-invalid" in _input_tag(html, f"split_{tier.value}")
         assert "is-invalid" not in _input_tag(html, "plan_count")
         assert "is-invalid" not in _input_tag(html, "cell_0_easy")
-        assert app.book_manager.get_plan(book_id) == DEFAULT_PLAN
+        assert app.book_manager.get_plan(book_id) == stored
 
     @pytest.mark.parametrize(
         "field, value", [("plan_count", "0"), ("cell_2_hard", "-1"), ("cell_0_easy", "2.5")]
@@ -622,6 +655,7 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
 
         assert "Plan not saved" in html
         assert _input_value(html, field) == value
+        assert _planned_row(html)[0].startswith("Not saved")  # CARD-497
         tag = _input_tag(html, field)
         assert "is-invalid" in tag and 'aria-describedby="plan-error"' in tag
         assert html.count("is-invalid") == 1
@@ -631,6 +665,10 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
     def test_trim_refusal_carries_the_plan_input_back(self, app) -> None:
         client = app.test_client()
         book_id = _new_book(app.book_manager)
+        # CARD-497 review F-002: the stored plan disagrees (hard column 38) so a
+        # page that summarised it would say so in its own figures.
+        _store_disagreeing_plan(client, book_id)
+        stored = app.book_manager.get_plan(book_id)
         cells = [list(r) for r in prefill(120, Split(30, 45, 25)).cells]
         cells[1][1] = 33
 
@@ -640,9 +678,20 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
         ).get_data(as_text=True)
 
         assert _shown_plan(html) == (120, (30, 45, 25), tuple(tuple(r) for r in cells))
+        # CARD-497: the Planned row is the submitted plan's (120 at 30/45/25),
+        # not the stored default's 60 / 60 / 30.
+        assert _planned_row(html) == ["36", "54", "30"]
+        # The submitted plan disagrees too (its cell 1 x medium is hand-edited):
+        # the warning describes it, in its own figures, not the stored plan's.
+        totals = " / ".join(str(sum(row[t] for row in cells)) for t in range(3))
+        assert totals != "36 / 54 / 30"
+        assert _plan_warning(html) == (
+            "The per-bucket plan disagrees with the general split. Hand-edited cells give column"
+            f" totals of {totals} (easy / medium / hard), but 120 puzzles at 30/45/25 plan 36 / 54 / 30 ."
+        )
         assert _input_value(html, "width") == "5"
         assert "is-invalid" not in html  # the plan was fine
-        assert app.book_manager.get_plan(book_id) == DEFAULT_PLAN
+        assert app.book_manager.get_plan(book_id) == stored
 
 
 class TestPrintSetup_UnreadableStoredPlanCanBeOverwritten:

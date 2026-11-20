@@ -198,8 +198,8 @@
                         <strong>The per-bucket plan disagrees with the general split.</strong>
                         Hand-edited cells give column totals of
                         <span class="num">{{ plan_column_totals|join(' / ') }}</span> (easy / medium / hard),
-                        but {{ plan.count }} puzzles at
-                        <span class="num">{{ plan.split.easy }}/{{ plan.split.medium }}/{{ plan.split.hard }}</span>
+                        but {{ plan_summary.count }} puzzles at
+                        <span class="num">{{ plan_summary.split.easy }}/{{ plan_summary.split.medium }}/{{ plan_summary.split.hard }}</span>
                         plan <span class="num">{{ plan_tier_counts|join(' / ') }}</span>.
                     </div>
                     {% endif %}
@@ -257,7 +257,7 @@
                         <tfoot>
                             <tr>
                                 <th scope="row">Planned</th>
-                                {% for n in plan_tier_counts %}<td class="num text-end">{{ n }}</td>{% endfor %}
+                                {% if plan_tier_counts is none %}<td colspan="3" class="text-muted">Not saved: correct the plan above</td>{% else %}{% for n in plan_tier_counts %}<td class="num text-end">{{ n }}</td>{% endfor %}{% endif %}
                             </tr>
                         </tfoot>
                     </table>
