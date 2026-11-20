@@ -300,6 +300,25 @@ _UNSTICK = """(on) => {
 #: that reading was taken of.
 _DRAWS = "() => performance.getEntriesByName('nonogram-player-board-draw').length"
 
+#: How many draw-count reads :func:`_quiet` takes before giving up.
+_QUIET_READS = 8
+
+#: :func:`_quiet`'s poll, run in the page so the spacing between reads is the
+#: page's own timer queue rather than a round trip: answers the draw count once
+#: two consecutive reads, one ``spacing`` apart, agree; ``null`` if ``reads``
+#: reads never produced an agreeing pair.
+_QUIET = """async ([spacing, reads]) => {
+  const draws = () => performance.getEntriesByName('nonogram-player-board-draw').length;
+  let last = draws();
+  for (let i = 1; i < reads; i++) {
+    await new Promise((resolve) => setTimeout(resolve, spacing));
+    const now = draws();
+    if (now === last) return now;
+    last = now;
+  }
+  return null;
+}"""
+
 
 def _quiet(page):
     """Wait out any debounced redraw already pending, and answer the draw count.
@@ -312,16 +331,34 @@ def _quiet(page):
     one ``resize`` event is recorded, the draw count is 1 immediately after
     the capture and 2 once ``RESIZE_SETTLE`` has passed. So every capture
     leaves a redraw landing a moment later, and a redraw replaces the whole
-    table.
+    table. (Re-measured at CARD-505: a capture at 390 x 844 still fires one
+    ``resize``, one at 1440 x 900 none, and in neither did the draw count
+    move 400 ms later -- solver.js's ``viewportChanged`` redraws only when its
+    size key changes. So today the wait finds nothing pending; it stays,
+    because whether a capture redraws is solver.js's to change, not this
+    file's.)
 
     Left alone that makes the pair of readings in :func:`_board` unsound
     rather than merely flaky: ``png`` describes the table the screenshot was
     taken of and the geometry afterwards can describe its replacement. Waiting
     here, before anything is read, is what keeps a capture window clean; the
     draw-count comparison in :func:`_board` is what proves it was.
+
+    How it waits (CARD-505): it polls the draw count until two reads agree,
+    instead of sleeping a fixed ``4 * RESIZE_SETTLE`` and reading once. The
+    reads are spaced by the page's own ``setTimeout`` of one settle plus a
+    millisecond, which is what makes "two reads agree" mean "nothing was
+    pending": a redraw still pending at the first read was scheduled by an
+    earlier ``resize``, so its timer is due before the read's own and fires
+    first. A poll spaced shorter than the settle could agree before the
+    debounce fires. Bounded at :data:`_QUIET_READS` reads; running out is a
+    failure that says so, not a reading.
     """
-    page.wait_for_timeout(4 * _RESIZE_SETTLE)
-    return page.evaluate(_DRAWS)
+    drew = page.evaluate(_QUIET, [_RESIZE_SETTLE + 1, _QUIET_READS])
+    assert drew is not None, (
+        f"the draw count did not settle within {_QUIET_READS} reads spaced "
+        f"{_RESIZE_SETTLE + 1} ms apart, so something keeps redrawing the board")
+    return drew
 
 
 def _board(page):

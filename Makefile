@@ -19,7 +19,15 @@
 # and which says how many it left for the wave close. The WAVE CLOSE is
 # `test-wave-close`: the bare suite, marker and all. `test` stays bare too.
 
-PY ?= ./.venv/bin/python
+# PY: ./.venv/bin/python where it exists (the main checkout), else the main
+# checkout's venv found through git's common dir (a card worktree has no venv
+# of its own, and its common dir is the main checkout's .git), else the plain
+# ./.venv/bin/python, so a checkout with no venv anywhere still fails naming
+# the path it looked for. A main checkout whose path holds a space is not
+# handled (make's path functions split on spaces): pass PY= there. An explicit
+# PY=... on the command line wins.
+MAIN_VENV_PY := $(dir $(abspath $(shell git rev-parse --git-common-dir 2>/dev/null))).venv/bin/python
+PY ?= $(firstword $(wildcard ./.venv/bin/python) $(wildcard $(MAIN_VENV_PY)) ./.venv/bin/python)
 BASE ?= $(shell git merge-base HEAD main 2>/dev/null || echo main)
 FILES ?=
 
@@ -55,8 +63,8 @@ test-marked:
 ##   make test-gate                 # changes against the merge-base with main
 ##   make test-gate BASE=<rev>
 ##
-## PY defaults to ./.venv/bin/python, which a card WORKTREE does not have: there,
-## pass PY=/abs/path/to/main/.venv/bin/python (and PYTHONPATH=<worktree>/src).
+## PY defaults to ./.venv/bin/python, and in a card WORKTREE (which has none) to
+## the main checkout's venv -- see PY above; no PY=... needed there (CARD-505).
 ##
 ## `run N:` lines in the block are the commands; `python` in them is $(PY).
 ## Exit codes of impact_set.py --gate: 0 selection, 10 FULL, 11 count failed

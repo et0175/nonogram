@@ -4161,7 +4161,7 @@ ideas:
   source_line: 314
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-505
   method: wsjf
   scores:
@@ -4768,7 +4768,7 @@ ideas:
   source_line: 355
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-505
   method: wsjf
   scores:
@@ -5114,7 +5114,7 @@ ideas:
   source_line: 389
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-505
   method: wsjf
   scores:
