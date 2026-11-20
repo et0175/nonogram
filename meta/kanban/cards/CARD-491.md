@@ -16,7 +16,7 @@
 **Created wave:** 83
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** meta/architecture/requirements.yml, tests/test_difficulty_tiers.py, scripts/README.md, docs/deploy/render.md
+**Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_difficulty_tiers.py, tests/test_check_ref_resolution.py, scripts/README.md, docs/deploy/render.md, src/nonogram/cli.py
 **UI surface:** —
 **Review score:** —
 **Started:** 2026-11-20T01:49Z
@@ -87,3 +87,5 @@
     - test_check_ref_resolution.py, test_difficulty_tiers.py, test_cli.py, the three scripts/README.md readers and the four NFR-009 classes: **333 passed, 1 skipped** (RLIMIT_AS, "the kernel refuses it" on macOS).
     - Registry readers (test_difficulty, test_approval_guess_gate, test_book_page_packing_doc, test_grid_bound_agreement, test_nfr001_generation_time, test_public_player, test_public_player_pages, test_impact_set): **339 passed, 1 xfailed**.
     - Net collected: 10706 → 10706 (0).
+
+[Review 1/3] Score: 8.0, two gating findings, not certified. Root cause: NFR-009's text was written from the memory module's docstrings, not its assertions. F-001 NFR-009 stated 305 and 12 pages where the referenced tests assert CORPUS_PAGE_COUNT 198 and BASELINE_PAGE_COUNT 15; F-002 the threshold claimed the export "fits the 512 MB limit" while the refs assert only the retained page bitmap and a bitmap-plus-file envelope; F-003 (low) "a 20-page book exceeded the limit" is false arithmetic; F-004 (low) cli.py's `--difficulty` help still described `guess` as a tier, pinned by a test — folded into this card by the orchestrator as the same defect class as IDEA-029 (Touches widened to cli.py and trace.yml); F-005 (low) the README misdescribed what conftest refuses. Pins re-derived independently as sets (599/511/474 -> 603/515/478, IN = the four NFR-009 classes); validator unchanged; Tier note true. Fixed in `3240f980`: NFR-009 rewritten from the assertions (metric `book_export_retained_page_memory`, constants named, process not measured against 512 MB stated with why), the rationale's arithmetic, the README sentence, the help text and its test flipped to "guess"/"branch" absent, FR-008 AC-020/021 re-worded.
