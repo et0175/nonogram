@@ -257,7 +257,7 @@
                         <tfoot>
                             <tr>
                                 <th scope="row">Planned</th>
-                                {% for n in plan_tier_counts %}<td class="num text-end">{{ n }}</td>{% endfor %}
+                                {% if plan_tier_counts is none %}<td colspan="3" class="text-muted">Not saved: correct the plan above</td>{% else %}{% for n in plan_tier_counts %}<td class="num text-end">{{ n }}</td>{% endfor %}{% endif %}
                             </tr>
                         </tfoot>
                     </table>

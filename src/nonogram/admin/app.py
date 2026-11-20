@@ -3553,7 +3553,7 @@ def create_app(debug=None):
             app.logger.error("Stored distribution plan of book %s is unreadable: %s", book_id, e)
             return None, True
 
-    def _plan_context(book_id, submitted=None, error_fields=frozenset()):
+    def _plan_context(book_id, submitted=None, error_fields=frozenset(), submitted_plan=None):
         """What the plan half of Print setup shows (CARD-120).
 
         The stored plan, or — for a plan-less book created before migration
@@ -3564,6 +3564,13 @@ def create_app(debug=None):
         owner's input is not lost (F-003); the edited marks stay the stored
         plan's, since nothing was stored. ``error_fields`` names the inputs
         to mark invalid.
+
+        CARD-497: the matrix's ``Planned`` row follows the fields. After a
+        refused submission that carried the plan, it is ``submitted_plan``'s
+        tier counts — the plan the form parsed, when only something else (the
+        trim, the domain) was refused — or ``None`` when the plan itself was
+        refused, which the page shows as "not saved" rather than the stored
+        plan's figures under the owner's own entries.
         """
         stored, damaged = _readable_plan(book_id)
         plan = stored if stored is not None else DEFAULT_PLAN
@@ -3575,6 +3582,10 @@ def create_app(debug=None):
             if submitted is not None:
                 return submitted.get(f"cell_{b}_{tier.value}", value)
             return value
+
+        tier_counts = plan.tier_counts
+        if submitted is not None and "split_easy" in submitted:
+            tier_counts = submitted_plan.tier_counts if submitted_plan is not None else None
 
         if submitted is not None:
             count_value = submitted.get("plan_count", count_value)
@@ -3602,7 +3613,7 @@ def create_app(debug=None):
                 for b, bucket in enumerate(PLAN_BUCKETS)
             ],
             "plan_column_totals": [sum(plan.cell(bucket, tier) for bucket in PLAN_BUCKETS) for tier in PLAN_TIERS],
-            "plan_tier_counts": plan.tier_counts,
+            "plan_tier_counts": tier_counts,
             "plan_disagrees": plan.disagrees_with_split,
         }
 
@@ -3775,6 +3786,9 @@ def create_app(debug=None):
         # a bad domain beside a good plan must mark one box and not the other.
         domain_error = None
         submitted = None
+        # CARD-497: the plan this submission parsed to, kept even when it is
+        # not stored, so a refusal's Planned row shows the owner's figures.
+        submitted_plan = None
 
         if request.method == "POST":
             try:
@@ -3798,6 +3812,7 @@ def create_app(debug=None):
                         plan_error = str(e)
                         plan_error_fields = e.fields
                     else:
+                        submitted_plan = new_plan
                         # Review cycle 1 (F-003): only a plan *edit* is saved.
                         # save_plan is what returns a non-draft book to draft,
                         # so re-opening this page on a book that has left
@@ -4090,7 +4105,7 @@ def create_app(debug=None):
             "interior_divider_pages": interior_divider_pages,
             # CARD-174: the Limits box prints the same figures the refusals state.
             "trim_limits": PrintSpecValidator.trim_limits(),
-            **_plan_context(book_id, submitted, plan_error_fields),
+            **_plan_context(book_id, submitted, plan_error_fields, submitted_plan),
         }
 
         return render_template("book_setup_print.html", **context)

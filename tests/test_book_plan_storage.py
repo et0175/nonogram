@@ -137,6 +137,13 @@ def _page(client, book_id) -> str:
     return response.get_data(as_text=True)
 
 
+def _planned_row(html: str) -> list[str]:
+    """The text of each cell of the plan matrix's ``Planned`` footer row (CARD-497)."""
+    match = re.search(r'<th scope="row">Planned</th>(.*?)</tr>', html, re.S)
+    assert match, "no Planned row on the page"
+    return [re.sub(r"<[^>]+>|\s+", " ", td).strip() for td in re.findall(r"<td\b[^>]*>(.*?)</td>", match.group(1), re.S)]
+
+
 def _shown_plan(html: str) -> tuple[int, tuple[int, int, int], tuple[tuple[int, ...], ...]]:
     count = int(_input_value(html, "plan_count"))
     split = tuple(int(_input_value(html, f"split_{t.value}")) for t in TIERS)
@@ -603,6 +610,10 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
         ).get_data(as_text=True)
 
         assert _input_value(html, "cell_0_easy") == "3"
+        # CARD-497: a split that cannot be read has no planned figures, and the
+        # Planned row says so instead of showing the stored plan's 60 / 60 / 30.
+        planned = _planned_row(html)
+        assert len(planned) == 1 and planned[0].startswith("Not saved"), planned
         for tier in TIERS:
             assert "is-invalid" in _input_tag(html, f"split_{tier.value}")
         assert "is-invalid" not in _input_tag(html, "plan_count")
@@ -640,6 +651,9 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
         ).get_data(as_text=True)
 
         assert _shown_plan(html) == (120, (30, 45, 25), tuple(tuple(r) for r in cells))
+        # CARD-497: the Planned row is the submitted plan's (120 at 30/45/25),
+        # not the stored default's 60 / 60 / 30.
+        assert _planned_row(html) == ["36", "54", "30"]
         assert _input_value(html, "width") == "5"
         assert "is-invalid" not in html  # the plan was fine
         assert app.book_manager.get_plan(book_id) == DEFAULT_PLAN
