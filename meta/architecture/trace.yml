@@ -106,11 +106,7 @@ links:
   contexts: [CTX-001]
   components: [COMP-003, COMP-001]
   adrs: [ADR-0006, ADR-0010, ADR-0012, ADR-0015]
-  tests:
-  - TestGenerateRandom_ProducesRequestedSize
-  - TestGenerateRandom_AcceptsMaxSize50
-  - TestGenerateRandom_RejectsSizeAbove50
-  - TestGenerateRandom_RejectsSizeBelow10
+  tests: []
   notes: >-
     SUPERSEDED 2026-08-30 by FR-019 (CON-011 narrowed 10..50 to 10..30 and
     FR-018 made extent a (width, height) pair). The row is kept so the
@@ -119,12 +115,21 @@ links:
     keeps AC-003/AC-004 validation inward of COMP-001.
     2026-10-31 (CARD-317): AC-001..AC-004 now carry status: superseded in
     requirements.yml, so their retirement is readable by a tool and not only
-    by this note. The four test names above are kept listed, dead, on the
+    by this note. The four test names above were kept listed (until 2026-11-20, see CARD-498 below), dead, on the
     same rule FR-003's row states: the old test name stays until the
     superseded criterion is retired with it. They are the historical record
     of what the criteria claimed, not a coverage claim — AC-002's outcome
     ("a 50x50 grid is produced without error") is FALSE at MAX_SIZE=30, so
     there is no test it could honestly name.
+    2026-11-20 (CARD-498): the four names are no longer LISTED -- the list is
+    the half a tool reads as coverage, which is the carrier the owner's
+    2026-10-31 decision (requirements.yml FR-001's block comment, "the
+    retirement shape for an acceptance criterion") withdrew from these same
+    four criteria there. They stay here as prose, the record of what the row
+    claimed: TestGenerateRandom_ProducesRequestedSize,
+    TestGenerateRandom_AcceptsMaxSize50, TestGenerateRandom_RejectsSizeAbove50
+    and TestGenerateRandom_RejectsSizeBelow10. None is defined anywhere, and
+    none is re-pointed, for CARD-317's reason above.
   status: partial
 
 - req: FR-002
@@ -1187,11 +1192,11 @@ links:
   components: [COMP-007]
   adrs: [ADR-0006]
   tests:
-  - TestLayout_10x10CellMeasures9mm
-  - TestLayout_30x30CellMeasures6point5mm
-  - TestLayout_NonSquareGridUsesLargerDimension
-  - TestLayout_InterpolatesBetweenTabulatedCellSizes
-  - PropertyTest_Layout_CellSizeNonIncreasingInLargerDimension
+  - test_a_small_grid_takes_the_comfort_cap
+  - test_a_large_grid_is_page_fit_bound_not_cap_bound
+  - test_the_cap_comes_from_the_larger_dimension_regardless_of_orientation
+  - test_the_cap_interpolates_between_the_chosen_cell_sizes
+  - test_the_same_larger_dimension_does_not_guarantee_the_same_cell_size
   notes: >-
     export/layout.py already derives grid extent from len(row_clues) /
     len(column_clues) rather than a size parameter, so it is likely already
@@ -1203,6 +1208,23 @@ links:
     introduced by this delta, left as found; requirements.yml's AC-080..
     AC-083/AC-104 and EC-008 are the current source of truth for NFR-005's
     tests.
+    2026-11-20 (CARD-498): the list above now names the tests that assert
+    NFR-005's live criteria AC-080, AC-081, AC-082, AC-083 and AC-104, in that
+    order -- each a def in tests/test_export_image.py, found by ast and read.
+    requirements.yml names them by logical class-style labels that no def
+    carries, so the def names are listed here. The five names this row listed
+    before, defined nowhere, were three claims still live and now listed by
+    their criterion's test -- TestLayout_10x10CellMeasures9mm (AC-080),
+    TestLayout_NonSquareGridUsesLargerDimension (AC-082),
+    TestLayout_InterpolatesBetweenTabulatedCellSizes (AC-083) --
+    and two claims the 2026-08-31/09-01 amendments made FALSE:
+    TestLayout_30x30CellMeasures6point5mm (AC-081 now asserts a 30x30 prints
+    strictly under 6.5 mm) and
+    PropertyTest_Layout_CellSizeNonIncreasingInLargerDimension (AC-104 now
+    asserts the final cell is not a function of max(width, height) alone).
+    EC-008's ceiling property has no test of its own here: its
+    requirements.yml label is defined nowhere either. The description above
+    is still the pre-amendment wording; left as found.
   status: partial
 
 - req: NFR-006
@@ -2186,8 +2208,6 @@ links:
   - test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenMoreWereAvailable
   - TestPackedSolvedLayout_FourUpDeclinesOnTheKdpMinimumTrim
   - TestPackedSolvedLayout_EverySurvivingSlotActuallyFitsItsOwnTile
-  - TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
-  - TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
   - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
   - TestFinaliseCounts_ShowsWhyTheCountIsApproximate
   - TestFinalise_UncountableBookStaysInDraft
@@ -2223,6 +2243,11 @@ links:
     requirements.yml, including what AC-269's test does NOT assert). The rest
     of this list is untouched and most of it is still planned names — several
     define nothing — which is this row's own standing debt, not CARD-317's.
+    2026-11-20 (CARD-498): AC-291's and AC-292's names
+    (TestBookAnswerKey_HeadingOnlyOnLevelFirstPage,
+    TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey) are delisted with the
+    two criteria's `test:` keys, which no def/class defined; requirements.yml
+    says why at each criterion (AC-292's content clause is false today).
   status: partial
 
 - req: FR-043

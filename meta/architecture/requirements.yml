@@ -4684,18 +4684,45 @@ functional:
         when: its answer pages are read
         then: every one of its 3 answer pages (answers 1-4, 5-8, 9) carries a running head naming its own level ("SOLUTIONS · EASY", "SOLUTIONS · EASY", "SOLUTIONS · MEDIUM")
         kind: boundary
-        test: TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
+        # `test:` DROPPED 2026-11-20 (CARD-498). It named
+        # `TestBookAnswerKey_HeadingOnlyOnLevelFirstPage`, which no def/class
+        # defines (the frozen honest-dead class of
+        # tests/test_check_ref_resolution.py). The criterion is TRUE today --
+        # rendered on CARD-498's branch, this book's answer pages 17, 18, 19 carry
+        # "SOLUTIONS · EASY", "SOLUTIONS · EASY", "SOLUTIONS · MEDIUM" -- but no
+        # test asserts its boundary: the nearest,
+        # tests/test_book_pdf_band.py's
+        # `test_the_answer_number_is_the_number_printed_on_the_puzzle`, reads
+        # every answer page's running head on a book of one puzzle per level, so
+        # it has no second page of a level and cannot fail if only a level's
+        # first page carried the head. Dropped rather than re-pointed at it or
+        # re-typed `review-lens` (CARD-316's measured precedent at AC-378: the
+        # validator ignores an AC's `kind:`); the AC stands as an unverified
+        # example. Not an invariant-bound criterion, so no test was written here.
       # AMENDED 2026-10-28 (CARD-305): `given` names the divider-pages
       # setting on both. AC-292's `then` is universally quantified over the
       # books matching its `given`, and an option-off book matched it, so it
       # went false; AC-293 quotes a concrete 32-page figure that is 31 for an
       # option-off book. AC-403 below is the off case.
       - id: AC-292
-        given: a Book 1 profile book of 3 easy 15x15 puzzles that prints its divider pages (the default)
+        given: a book that prints its divider pages (the default) and has no uploaded Solutions picture
         when: the book PDF is generated
-        then: the page immediately after the last puzzle page and immediately before the first answer page carries only the word "SOLUTIONS"
+        then: the page immediately after the last puzzle page and immediately before the first answer page is the Solutions opener drawn by create_solutions_opener
         kind: happy
-        test: TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
+        test: test_no_divider_page_is_drawn_at_all_including_solutions, test_the_interior_is_that_section_between_the_guide_and_the_key
+        # AMENDED 2026-11-20 (owner, on CARD-498 review F-003): the criterion
+        # said the page "carries only the word SOLUTIONS"; the book has printed
+        # the approved mockup's opener (`create_solutions_opener`) instead since
+        # it was built, and the owner chose to describe the page as printed.
+        # That page: a short black rule, the eyebrow "PUZZLES 1–N" in grey, the
+        # title "Solutions", one grey line saying how the key runs, and the
+        # page's folio.
+        # The first test holds that the SOLUTIONS page drawn is the opener (it
+        # counts `create_solutions_opener` among the walk's dividers, after the
+        # three level dividers, and none with divider pages off); the second
+        # holds its position between the puzzle section and the answer key.
+        # The opener's words are drawn into the page image, so no test reads
+        # them as text; `create_solutions_opener` is what sets them.
       - id: AC-293
         given: a Book 1 profile book that prints its divider pages (the default) on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 60, medium 60, hard 30, in that order
         when: the book PDF is generated

@@ -1206,6 +1206,10 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # UserWarning for this class ("lost 6 member(s) whose digest matches no ref"),
 # where at the base it issued none. That warning is the honest residual, not a
 # regression: the snapshot is deliberately not trimmed (HONEST_DEAD_MEMBERS' note).
+# CARD-498 (2026-11-20) measured this class NOT moving: 2 -> 2, OUT 0, IN 0. Its
+# withdrawal UserWarning moves 6 -> 8: two more of BOOKKEEPING_ONLY_MEMBERS'
+# digests are FR-042's AC-291 and AC-292 refs (members once, honestly dead at the
+# base), whose declarations CARD-498 dropped -- see HONEST_DEAD. Not trimmed.
 BOOKKEEPING_ONLY = (2, "d48df7862ca775e1")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
@@ -1402,7 +1406,32 @@ FALSELY_DEAD = (18, "223d7a6c87854dfe")  # CARD-362: +5, the five warnings the v
 # BOOKKEEPING_ONLY. CENSUS's exact pin is the gate. The validator of record
 # moved one-for-one in kind: one INV-011 dead-ref warning (it bundled six of the
 # seven) OUT, seven "acceptance criterion has no 'test'" warnings IN.
-HONEST_DEAD = (11, "ee3c6c612e2a0aa2")
+# CARD-498 (2026-11-20), **11 -> 0: OUT 11, IN 0** -- the class's whole remainder,
+# diffed as sets of this module's own `_verdicts()` with the registry edits
+# reverted and reapplied (the base reproduced all nine pins). Every one is a
+# WITHDRAWAL; no ref here gained a definition, and none was re-pointed to a
+# definition under the same name. By declaration site (G-2):
+#   OUT  four: FR-001's trace.yml row, the retired 10..50 criteria AC-001..AC-004.
+#        Delisted (`tests: []`) under the owner's 2026-10-31 carrier decision that
+#        already dropped the same four from requirements.yml; the names stay in
+#        that row's notes as prose. Not re-pointed, for CARD-317's reason there.
+#   OUT  five: NFR-005's trace.yml row. Three named claims still live (AC-080,
+#        AC-082, AC-083), two named claims the 2026-08/09 amendments made false
+#        (a 30x30 at the 6.5 mm cap; final cell non-increasing in the larger
+#        side). The row now lists the five `def`s in tests/test_export_image.py
+#        that assert AC-080..AC-083 and AC-104 -- each found by an `ast` index,
+#        read, and reddened by a one-line mutant of src/nonogram/export/layout.py
+#        (CARD-498's worktree notes) -- which entered DEFINED, not this class.
+#   OUT  two: FR-042's AC-291 and AC-292 `test:` keys (requirements.yml) and the
+#        same two on FR-042's trace.yml row. Dropped, CARD-316's AC-378 precedent:
+#        AC-291 is true today but no test witnesses its boundary (a level's second
+#        answer page); AC-292's content clause is false today. Each criterion's
+#        comment says so.
+# The snapshot below is NOT trimmed: nine of the eleven are in it, so its
+# withdrawal UserWarning moves 12 -> 21 (digests recoverable by name 16 -> 7 of
+# 28); the
+# other two are in BOOKKEEPING_ONLY_MEMBERS'. CENSUS's exact pin is the gate.
+HONEST_DEAD = (0, "e3b0c44298fc1c14")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -1634,7 +1663,15 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # tests/test_book_pdf_memory.py (CARD-145/CARD-237's checks, which predate the
 # NFR). A declaration arriving with its definition in place: DEFINED and
 # TRACE_TESTS move by the same four; no other class moves.
-CENSUS = (603, "77e7f533c0fa680c")
+# CARD-498 (2026-11-20): 603 -> 597, OUT 11, IN 5, diffed as sets of
+# _declared_refs() with the edit reverted and reapplied. OUT: HONEST_DEAD's
+# eleven (see its note), each declared by no authority now. IN: the five
+# NFR-005 `def` names on that trace.yml row, none declared anywhere at the base,
+# each one `ast`-found def line in tests/test_export_image.py. 603 - 11 + 5.
+# CARD-498, owner amendment of AC-292 (2026-11-20): 597 -> 599, OUT 0, IN 2 --
+# the two tests the amended criterion names, neither declared anywhere before,
+# each an `ast`-found def line under tests/. Diffed as sets as above.
+CENSUS = (599, "0fc55b0fa4d103a1")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1699,7 +1736,10 @@ CENSUS = (603, "77e7f533c0fa680c")
 # each a def/class line under tests/ found by an independent `ast` index.
 # CARD-491 (2026-11-20): 511 -> 515, OUT 0, IN 4 -- CENSUS's four entrants, listed
 # on the new NFR-009 row (see CENSUS).
-TRACE_TESTS = (515, "311409dfdef1109d")
+# CARD-498 (2026-11-20): 515 -> 509, OUT 11, IN 5 -- exactly CENSUS's sets: all
+# eleven departures had a trace.yml site (nine trace.yml alone, AC-291/AC-292 on
+# FR-042's row too), and the five entrants are declared on NFR-005's row only.
+TRACE_TESTS = (509, "b814c5b7e86c092a")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1822,7 +1862,13 @@ TRACE_TESTS = (515, "311409dfdef1109d")
 # (ADR-0029/R4's three overlap tests), each an `ast`-found def line under tests/.
 # CARD-491 (2026-11-20): 474 -> 478, OUT 0, IN 4 -- exactly CENSUS's 4 entrants
 # (NFR-009's criteria), each an `ast`-found class line under tests/.
-DEFINED = (478, "267967c3c317b551")
+# CARD-498 (2026-11-20): 478 -> 483, OUT 0, IN 5 -- exactly CENSUS's 5 entrants
+# (NFR-005's trace.yml row), each an `ast`-found def line in
+# tests/test_export_image.py and collected by pytest by node id. None of
+# HONEST_DEAD's eleven departures was ever here (zero def/class lines each).
+# CARD-498, owner amendment of AC-292 (2026-11-20): 483 -> 485, OUT 0, IN 2 --
+# exactly CENSUS's 2 entrants, each an `ast`-found def line under tests/.
+DEFINED = (485, "d233e2c38a62285c")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
