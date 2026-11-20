@@ -1,6 +1,6 @@
 # CARD-490: The arrange page marks a puzzle that will not print, as the book page already does
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/490-arrange-not-printed
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-490
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-024, WSJF 3.46 (CARD-140 F-007).
 **Idea:** IDEA-024
 **Wave:** 83
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_arrange*.py
 **UI surface:** admin book arrange page (page labels)
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T01:11Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
