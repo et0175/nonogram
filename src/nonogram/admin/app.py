@@ -3584,8 +3584,7 @@ def create_app(debug=None):
         — the default plan, marked as not yet stored. ``submitted`` is a
         submission that was not saved (plan refused, or trim refused): its raw
         count, split and all 12 cells are carried back into the fields so the
-        owner's input is not lost (F-003); the edited marks stay the stored
-        plan's, since nothing was stored. ``error_fields`` names the inputs
+        owner's input is not lost (F-003). ``error_fields`` names the inputs
         to mark invalid.
 
         CARD-497: the plan *summary* — the matrix's ``Planned`` row and the
@@ -3596,8 +3595,15 @@ def create_app(debug=None):
         domain) was refused; when the plan itself was refused there is none
         (``plan_summary`` is ``None``): the Planned row says "not saved" and
         no disagreement warning is shown, since the plan-error alert speaks.
-        Otherwise it is the stored plan. ``plan`` stays the stored one, for
-        the edited marks.
+        Otherwise it is the stored plan.
+
+        CARD-500 (owner, 2026-11-20): the "edited" marks follow that same plan,
+        so the matrix, its marks, the Planned row and the warning never mix two
+        plans: the submitted plan's hand-edits after a refusal that kept a
+        plan, none when the plan itself was refused (there is no plan to judge
+        a cell against), the stored plan's otherwise. This replaces CARD-120's
+        "the edited marks stay the stored plan's". ``plan`` stays the stored
+        one for everything else.
         """
         stored, damaged = _readable_plan(book_id)
         plan = stored if stored is not None else DEFAULT_PLAN
@@ -3613,6 +3619,7 @@ def create_app(debug=None):
         summary = plan
         if submitted is not None and "split_easy" in submitted:
             summary = submitted_plan
+        marked = frozenset() if summary is None else summary.edited
 
         if submitted is not None:
             count_value = submitted.get("plan_count", count_value)
@@ -3633,7 +3640,7 @@ def create_app(debug=None):
                     b,
                     bucket,
                     [
-                        (tier, cell_value(b, bucket, tier), (bucket, tier) in plan.edited)
+                        (tier, cell_value(b, bucket, tier), (bucket, tier) in marked)
                         for tier in PLAN_TIERS
                     ],
                 )

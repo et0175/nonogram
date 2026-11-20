@@ -18,7 +18,7 @@
 **Depends on:** CARD-497
 **Touches:** src/nonogram/admin/app.py, tests/test_book_plan_storage.py
 **UI surface:** admin Print setup (step 2), the refusal re-render's matrix marks
-**Review score:** —
+**Review score:** 9.8 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T12:13Z
 **Closed:** —
 **Actual:** —
@@ -46,3 +46,17 @@ CARD-497 made a refused Print setup page describe one plan (the Planned row, the
 * **G-1**: nothing stored on a refusal; CARD-497's figures unchanged.
 
 ## Worktree notes
+Implemented by the orchestrator.
+
+* **Change.** `_plan_context` (app.py) computes `marked = frozenset() if summary is None else summary.edited` from the same `summary` CARD-497 chose for the Planned row and the warning, and the matrix's `(bucket, tier) in marked` replaces `in plan.edited`. The docstring says the marks follow that plan and that this replaces CARD-120's "the edited marks stay the stored plan's". `summary` is the stored plan whenever no refused submission carried the plan fields, so GET and successful pages read the same marks as before.
+* **AC-1.** `test_trim_refusal_carries_the_plan_input_back` (stored plan disagreeing: hand-edit at cell 2 x hard; submitted 120 at 30/45/25 with cell 1 x medium typed off, refused trim) now asserts the marked cells equal what a real save stores: the same form with a readable trim posted to a twin book in the same stored state, its stored `edited` read back. Measured: that set is six cells (`cell_0_easy`, `cell_1_easy`, `cell_1_medium`, `cell_2_easy`, `cell_2_medium`, `cell_2_hard`), not the one typed off — because the submission changes the split as well as the count, and CARD-489 judges typed cells against the SHOWN split (its review F-003, recorded for the backlog), and the untouched stored edit keeps its mark (CARD-489 F-002's rule). My first two expectations ("only cell 1 x medium", then "not cell 2 x hard") were wrong for that reason; the oracle replaced them. Control (main's app.py): `{'cell_2_hard'} == {six cells}`, both modes.
+* **AC-2.** `test_refused_split_keeps_the_typed_matrix` asserts no cell is marked. Control (main): `{'cell_2_hard'} == set()`, both modes.
+* **AC-3.** CARD-497's capture script on main and on the branch: 12 pages (GET default / disagreeing / inches / after success; successful, disagreeing, inches and unchanged-plan POSTs and the pages they lead to) byte-identical. Collected: 10711 on main and on the branch, net 0.
+* **Gate (unarmed, -o addopts= -rfs):** CARD-497's ten Print setup files: 813 passed, 0 skipped.
+
+[Review 1/3] Score: 9.0, one gating finding, not certified. Behaviour held everywhere it was measured: 3 stored-plan states x 7 submitted plans x 21 refusals, 441 cases per storage mode, 0 mismatches between the marks and what a twin save stores (main: 246 mismatches); 18 unchanged pages byte-identical; 1445 passed over the 21 files that reference /setup-print. F-001 (high, gating, ADR-0022/R4) AC-1's test could not tell "the submitted plan's marks" from "those plus the stored plan's" (the stored hand-edit stayed edited in its one scenario), so a union mutant passed all 73 cases; F-002 (low, pre-existing: CARD-489 F-003) the six-cell surprise is consistent with a save but misleads (a typed value equal to what the new split gives is marked edited, against the matrix caption) — put to the owner 2026-11-20; F-003 (info) the "ten Print setup files" were not named.
+Fix round 1 (orchestrator): F-001 — the same test also submits the stored hand-edit typed back to its split value (150 at 40/40/20, the AC-198 matrix, refused trim) against the disagreeing stored plan, with the twin-save oracle; it asserts `cell_2_hard` is not in what the save stores and the marks equal it, and nothing was stored. Controls: the union mutant (`summary.edited | plan.edited`) reds it in both modes (`{'cell_2_hard'} == set()`); main's app.py reds 4 of 4. F-003 — the ten files: tests/test_book_plan_storage.py, test_book_setup_print_mobile.py, test_book_trim_persistence.py, test_book_player_domain.py, test_book_divider_pages_option.py, test_print_specs.py, test_book_pdf_ink_mode.py, test_book_workflow_steps.py, test_admin_import_consistency.py, test_book_proof_pages.py. tests/test_book_plan_storage.py after the fix: 73 passed.
+
+[Review 2/3] Score: 9.8, nothing gating, certified. F-001 closed, judged per assertion: the union mutant reds only the new check, the intersection mutant only the old one, main's line and "no marks" red both; the second submission's oracle is a real twin save read back and cannot pass vacuously. The 441-case probe re-run on HEAD: 0 mismatches in memory and in db; damaged-plan probe 4 of 4. F-003 closed (the ten files named; 813 passed). F-002 (low, pre-existing, CARD-489 F-003) stays the owner's decision. F-004 (info) the second submission's expected set is empty, so alone it cannot catch "never mark anything"; the older check does.
+
+**Merge gate (orchestrator).** `make test-gate BASE=main` answered SELECTION: 9037 passed / 30 skipped (the expected unarmed count: 29 DATABASE_URL unset + 1 setrlimit) / 1 xfailed / 0 failed, plus 11 marked passed in the lifted files. F-002 answered by the owner the same day ("judge typed cells against the submitted split"): carded as CARD-501.
