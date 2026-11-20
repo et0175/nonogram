@@ -18,7 +18,7 @@
 **Depends on:** CARD-497
 **Touches:** src/nonogram/admin/app.py, tests/test_book_plan_storage.py
 **UI surface:** admin Print setup (step 2), the refusal re-render's matrix marks
-**Review score:** —
+**Review score:** 9.8 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T12:13Z
 **Closed:** —
 **Actual:** —
@@ -56,3 +56,5 @@ Implemented by the orchestrator.
 
 [Review 1/3] Score: 9.0, one gating finding, not certified. Behaviour held everywhere it was measured: 3 stored-plan states x 7 submitted plans x 21 refusals, 441 cases per storage mode, 0 mismatches between the marks and what a twin save stores (main: 246 mismatches); 18 unchanged pages byte-identical; 1445 passed over the 21 files that reference /setup-print. F-001 (high, gating, ADR-0022/R4) AC-1's test could not tell "the submitted plan's marks" from "those plus the stored plan's" (the stored hand-edit stayed edited in its one scenario), so a union mutant passed all 73 cases; F-002 (low, pre-existing: CARD-489 F-003) the six-cell surprise is consistent with a save but misleads (a typed value equal to what the new split gives is marked edited, against the matrix caption) — put to the owner 2026-11-20; F-003 (info) the "ten Print setup files" were not named.
 Fix round 1 (orchestrator): F-001 — the same test also submits the stored hand-edit typed back to its split value (150 at 40/40/20, the AC-198 matrix, refused trim) against the disagreeing stored plan, with the twin-save oracle; it asserts `cell_2_hard` is not in what the save stores and the marks equal it, and nothing was stored. Controls: the union mutant (`summary.edited | plan.edited`) reds it in both modes (`{'cell_2_hard'} == set()`); main's app.py reds 4 of 4. F-003 — the ten files: tests/test_book_plan_storage.py, test_book_setup_print_mobile.py, test_book_trim_persistence.py, test_book_player_domain.py, test_book_divider_pages_option.py, test_print_specs.py, test_book_pdf_ink_mode.py, test_book_workflow_steps.py, test_admin_import_consistency.py, test_book_proof_pages.py. tests/test_book_plan_storage.py after the fix: 73 passed.
+
+[Review 2/3] Score: 9.8, nothing gating, certified. F-001 closed, judged per assertion: the union mutant reds only the new check, the intersection mutant only the old one, main's line and "no marks" red both; the second submission's oracle is a real twin save read back and cannot pass vacuously. The 441-case probe re-run on HEAD: 0 mismatches in memory and in db; damaged-plan probe 4 of 4. F-003 closed (the ten files named; 813 passed). F-002 (low, pre-existing, CARD-489 F-003) stays the owner's decision. F-004 (info) the second submission's expected set is empty, so alone it cannot catch "never mark anything"; the older check does.
