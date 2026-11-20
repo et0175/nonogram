@@ -1,6 +1,6 @@
 # CARD-500: After a refused Print setup save, the "edited" marks follow the plan the page shows
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/500-edited-marks-follow-submitted
-**Worktree:** ../PythonProject4-card-500
+**Worktree:** —
 **Source:** owner 2026-11-20 ("yes, make the edited marks follow the submitted plan"), on CARD-497 review F-005.
 **Idea:** —
 **Wave:** 84
@@ -20,9 +20,9 @@
 **UI surface:** admin Print setup (step 2), the refusal re-render's matrix marks
 **Review score:** 9.8 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T12:13Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T13:01Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** 618d20de5695df188e916b235aecb0f48d2a19b5
 **Blocked by:** —
 
 ## Why this card exists
