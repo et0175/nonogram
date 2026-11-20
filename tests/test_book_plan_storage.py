@@ -716,6 +716,24 @@ class TestPrintSetup_RefusalKeepsInputAndMarksOnlyTheFailingField:
         }
         assert "cell_1_medium" in would_store  # the cell typed off the split
         assert _edited_cells(html) == would_store
+        # Review F-001: the marks are the submitted plan's ALONE, not those plus
+        # the stored plan's. Typing the stored hand-edit (cell 2 x hard) back
+        # to the split's value is a submission whose save clears that mark, so
+        # a page still showing it would be mixing the two plans.
+        back = _form(150, (40, 40, 20), AC198_MATRIX)
+        refused_back = client.post(
+            f"/book/{book_id}/setup-print", data={**back, "width": "5"}
+        ).get_data(as_text=True)
+        twin_back = _new_book(app.book_manager)
+        _store_disagreeing_plan(client, twin_back)
+        assert client.post(f"/book/{twin_back}/setup-print", data=back).status_code == 302
+        would_store_back = {
+            f"cell_{BUCKETS.index(bucket)}_{tier.value}"
+            for bucket, tier in app.book_manager.get_plan(twin_back).edited
+        }
+        assert "cell_2_hard" not in would_store_back
+        assert _edited_cells(refused_back) == would_store_back
+        assert app.book_manager.get_plan(book_id) == stored
         assert _input_value(html, "width") == "5"
         assert "is-invalid" not in html  # the plan was fine
         assert app.book_manager.get_plan(book_id) == stored
