@@ -305,6 +305,11 @@ def test_the_lesson_uses_tokens_and_the_players_probe_colours() -> None:
                          ("--hts-thin", "--player-thin"), ("--hts-cross", "--player-cross"),
                          ("--hts-cross-ink", "--player-cross-ink"), ("--hts-broken", "--player-broken")):
         mine = re.search(rf"{ours}:\s*([^;]+);", css)
+        # Declared once across the two sheets, so the value read here is the
+        # one the player draws with (CARD-506 review F-001: a second, local
+        # declaration in admin.css would win on the stage unseen).
+        declared = re.findall(rf"(?<![\w-]){theirs}\s*:", admin)
+        assert len(declared) == 1, (theirs, len(declared))
         player = re.search(rf"{theirs}:\s*([^;]+);", admin)
         assert mine and player, (ours, theirs)
         assert mine.group(1).strip() == player.group(1).strip(), (ours, theirs)
