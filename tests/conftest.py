@@ -4,6 +4,7 @@ import pytest
 import os
 import re
 import sqlite3 as _sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from sqlalchemy import event as _sqlalchemy_event, text
 from sqlalchemy.engine import Engine as _SQLAlchemyEngine
@@ -665,6 +666,10 @@ def _test_database_tables(test_db_url):
 
     The engine built here is disposed however the fixture exits — including a
     DROP or migration that fails.
+
+    [CARD-508] The build and the whole session that uses it run under
+    :func:`_session_lock`, so a second pytest process on the same database is
+    refused instead of erasing this one's schema and rows.
     """
     _refuse_unless_test_database(test_db_url)
     reason = _unusable_reason(test_db_url)
@@ -683,10 +688,103 @@ def _test_database_tables(test_db_url):
     # that times out, a failed migration and the end of the session all leave
     # through the ``finally``.
     try:
-        tables = _rebuild_public_schema(engine, test_db_url)
-        yield engine, tables
+        with _session_lock(engine, test_db_url):
+            tables = _rebuild_public_schema(engine, test_db_url)
+            yield engine, tables
     finally:
         engine.dispose()
+
+
+#: The advisory-lock key a pytest session holds on its test database for as
+#: long as it uses it. Any fixed bigint; PostgreSQL scopes an advisory lock to
+#: the database it is taken in, so two worktrees' databases never contend --
+#: the isolated arm of ``tests/test_db_isolation.py``'s
+#: ``TestDbIsolation_TwoTreesDoNotCorruptEachOther`` runs two trees on two
+#: databases at once with the lock in place, and both pass.
+_SESSION_LOCK_KEY = 508_031
+
+#: Set in this process's environment while it holds the lock, to the name of
+#: the database it holds it on, so that a child pytest this run starts (and
+#: waits for) against the same database is not refused by its own parent.
+_SESSION_LOCK_ENV = "NONOGRAM_TEST_DB_SESSION_LOCK"
+
+
+@contextmanager
+def _session_lock(engine, database_url: str):
+    """Hold the database for this session, or refuse to start on it.
+
+    CARD-508, IDEA-031. The session fixture empties ``public`` and every
+    ``db_session`` truncates every table, so two pytest processes on one
+    ``*_test`` database (two runs in one worktree, or ``TEST_DATABASE_URL``
+    pointing two trees at one name) wipe each other's rows mid-test: measured
+    on this card as ``saw []`` from a test whose own committed row vanished
+    while a second run built its schema. Per-worktree names (CARD-244) do not
+    cover that case; this does.
+
+    A session-level ``pg_try_advisory_lock`` is taken on a connection kept
+    open until the session ends. A second process that cannot take it fails
+    the fixture with a message naming the database and the holder's pid, so
+    every test that needs the database errors and nothing is erased. It is a
+    refusal, not a wait: a wait would hang a run behind another for its whole
+    length. A killed holder's lock is released by the server with its
+    connection, so no stale lock survives a crash.
+
+    The one exception is a child pytest that a lock holder starts against the
+    same database: ``tests/test_card_349_cold_database.py``'s re-raise
+    control runs one while the parent's session holds the lock. The holder
+    exports :data:`_SESSION_LOCK_ENV`, and a process that inherits it for the
+    same database name proceeds without the lock. That is safe only while the
+    parent waits for the child, which is how every such call in ``tests/``
+    is made (``subprocess.run``); it is a convention, not something this
+    function can check.
+    """
+    from sqlalchemy.engine import make_url
+
+    name = make_url(database_url).database or ""
+    if os.environ.get(_SESSION_LOCK_ENV) == name:
+        yield
+        return
+
+    holder = engine.connect()
+    try:
+        acquired = holder.execute(
+            text("SELECT pg_try_advisory_lock(:key)"), {"key": _SESSION_LOCK_KEY}
+        ).scalar()
+        holder.commit()
+        if not acquired:
+            pids = holder.execute(
+                text(
+                    "SELECT pid FROM pg_locks WHERE locktype = 'advisory' "
+                    "AND granted AND objid = :key "
+                    "AND database = (SELECT oid FROM pg_database "
+                    "WHERE datname = current_database())"
+                ),
+                {"key": _SESSION_LOCK_KEY},
+            ).scalars().all()
+            holder.commit()
+            pytest.fail(
+                f"Refusing to set up the test database {name!r}: another pytest "
+                f"run is using it (database backend pid {pids or 'unknown'}), "
+                f"and this session would erase its schema and rows. Wait for "
+                f"that run to finish, or point TEST_DATABASE_URL at another "
+                f"'*_test' database.",
+                pytrace=False,
+            )
+        previous = os.environ.get(_SESSION_LOCK_ENV)
+        os.environ[_SESSION_LOCK_ENV] = name
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop(_SESSION_LOCK_ENV, None)
+            else:
+                os.environ[_SESSION_LOCK_ENV] = previous
+            holder.execute(
+                text("SELECT pg_advisory_unlock(:key)"), {"key": _SESSION_LOCK_KEY}
+            )
+            holder.commit()
+    finally:
+        holder.close()
 
 
 # --------------------------------------------------------------------------
