@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/diagnose_postgres.sh, tests/helpers/admin_scripts.py, tests/test_start_admin_local.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/templates/puzzle_solve.html
 **UI surface:** admin solve page (tier badge, tab title)
-**Review score:** —
+**Review score:** 9.3 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T00:32Z
 **Closed:** —
 **Actual:** —
@@ -87,3 +87,5 @@ The full suite was not run here; it belongs to the orchestrator's `make test-gat
 
 [Review 1/3] Score: 9.3, nothing gating, certified. Every re-measured figure reproduced (10705 -> 10706, each control's red list, the empty public-site diff over 178 files, the four script runs); item 2's eight moved definitions AST-identical; item 5 agrees with book_page_spec on 6007 decimal spellings; mutants on items 3-5 each red. Low findings fixed inline by the orchestrator: F-001 step 6 reported a working connection for a URL naming no database (psql fell back to the user's own database), now skipped with a warning; F-002 step 5 matched the name as a word anywhere in `\l` (an Owner column, a regex), now the first column whole and as a fixed string. Driven with a stub psql printing a real `\l` layout: `nonogram_dev` found; `nonogram_x` (present only as an Owner) and `nonogram` (a prefix) not found; a URL naming no database skips step 6. tests/test_setup_admin_local.py, test_start_admin_local.py, test_admin_local_cost.py: 82 passed. F-002's other half (step 5 asks localhost:5432, not the URL's server) left as is: its message names localhost:5432. F-003, F-004 info, not taken.
 
+
+**Merge gate (orchestrator).** `make test-gate BASE=main` answered SELECTION: 9140 passed / 30 skipped (the expected unarmed count: 29 DATABASE_URL unset + 1 setrlimit) / 1 xfailed / 0 failed, plus 11 marked (wave_close_only) passed in the lifted files; 2 marked tests owed at the wave close.
