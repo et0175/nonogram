@@ -425,13 +425,22 @@ def solutions_page_number(puzzles: Sequence[dict]) -> int:
     return max(page for _, page in print_plan(puzzles).values()) + 1
 
 
-def answer_page_number(puzzles: Sequence[dict], index: int = 0) -> int:
-    """Where puzzle ``index``'s answer prints.
+def answer_page_number_one_per_level(
+    puzzles: Sequence[dict], index: int = 0
+) -> int:
+    """Where puzzle ``index``'s answer prints, in a book of one puzzle per level.
 
-    One full answer page per puzzle, in book order, behind the SOLUTIONS
-    divider (CARD-198) — so the answer's page is simply its print number's
-    place after that divider, for any book this module builds.
+    Answers pack within a level (CARD-202; up to 30x30 since 2026-11-09), so
+    an answer has a page to itself only when no other puzzle shares its
+    level. In such a book the answer pages follow the SOLUTIONS divider in
+    print order, one each, and the answer's page is its print number's place
+    after that divider. A book where two puzzles share a level packs their
+    answers onto one page, and this arithmetic would name the wrong page, so
+    it is refused rather than answered.
     """
+    ranks = [level_rank(puzzle["difficulty_tier"]) for puzzle in puzzles]
+    if len(set(ranks)) != len(ranks):
+        raise ValueError("two puzzles share a level: their answers share a page")
     number, _ = print_plan(puzzles)[index]
     return solutions_page_number(puzzles) + number
 
@@ -553,7 +562,7 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
         theirs = snowflake_interior
         others = _interior([renamed])
         puzzle_page = puzzle_page_number([snowflake]) - 1
-        answer_page = answer_page_number([snowflake]) - 1
+        answer_page = answer_page_number_one_per_level([snowflake]) - 1
 
         assert theirs[puzzle_page].tobytes() == others[puzzle_page].tobytes()
         assert theirs[answer_page].tobytes() != others[answer_page].tobytes()
@@ -594,7 +603,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         puzzle = _puzzle(name=self.NAME)
         pages = snowflake_interior
         puzzle_raw = snowflake_raw[puzzle_page_number([puzzle]) - 1]
-        answer_raw = snowflake_raw[answer_page_number([puzzle]) - 1]
+        answer_raw = snowflake_raw[answer_page_number_one_per_level([puzzle]) - 1]
         identity = expected_band(number, puzzle["difficulty_tier"])
         caption = ANSWER_CAPTION.format(number=number, title=self.NAME)
 
@@ -613,7 +622,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
             f"the retired caption {caption!r} is still under the grid"
         )
         untitled = _raw_interior([_puzzle(name=None)])[
-            answer_page_number([puzzle]) - 1
+            answer_page_number_one_per_level([puzzle]) - 1
         ]
         untitled_lines = _text_of(untitled)
         assert not any(self.NAME in line.text for line in untitled_lines)
@@ -659,7 +668,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         """
         number = 1
         puzzle = _puzzle(name=self.NAME)
-        page_number = answer_page_number([puzzle])
+        page_number = answer_page_number_one_per_level([puzzle])
         page = snowflake_interior[page_number - 1]
 
         # The control: the same book with no title, drawn and read the same way.
@@ -709,7 +718,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
 
         for index, puzzle in enumerate(puzzles):
             number = index + 1
-            page_number = answer_page_number(puzzles, index)
+            page_number = answer_page_number_one_per_level(puzzles, index)
             page = pages[page_number - 1]
 
             assert isinstance(raw[page_number - 1], ContentStream), "an interior page here is operators"
@@ -1770,9 +1779,10 @@ class TestBookPdf_TheInteriorRefusesATitleItsEncodingCannotSet:
 # What the pixel tests can see follows from how :func:`_lines` cuts a page:
 # every run of page rows holding any ink is one group, split sideways only at
 # gaps at least as wide as the group is tall. So a second copy is found only
-# on rows with no other ink within about a line's height sideways of it — the
-# band strip, the gap between the two slots, the top and bottom margins —
-# where it makes a line of its own (the text is found twice) or, touching the
+# where every other ink sharing its run of rows is at least that run's height
+# away sideways — about a line's height in the band strip, the gap between
+# the two slots and the top and bottom margins, but the ~1158 px grid's
+# height on rows beside the drawing — where it makes a line of its own (the text is found twice) or, touching the
 # band, widens the band's line (it matches nothing). A copy beside the
 # drawing (in a side margin, rows the ~1158 px grid also occupies) or over
 # other ink (clues, grid, a caption) merges into that ink's line and is not
@@ -2298,9 +2308,11 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     """AC-1, AC-2 — each band is one line of ink on one page of the PDF.
 
     Fails if ``_set_band`` (two-up pages) or COMP-007's header (the Hard
-    puzzle's page) prints a second copy of a band on rows with no other ink
-    within about a line's height sideways (the band strip, the gap between
-    slots, the top or bottom margin) or touching the band, or if a band's
+    puzzle's page) prints a second copy of a band where every other ink
+    sharing its run of inked rows is at least that run's height away
+    sideways (in the band strip, the gap between slots, the top or bottom
+    margin, about a line's height; beside the drawing, the grid's height,
+    more than the side margin holds) or touching the band, or if a band's
     line turns up on such rows on any other page — a divider, the guide or
     the answer key. A copy beside the drawing (a side margin) or over other
     ink (clues, grid, captions) is not seen here; only the recorder class
@@ -2574,7 +2586,7 @@ class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
         book.puzzle_titles = {self.PUZZLE_ID: self.TITLE}
         pages = _raw_interior([puzzle], book)
 
-        answer = pages[answer_page_number([puzzle]) - 1]
+        answer = pages[answer_page_number_one_per_level([puzzle]) - 1]
         found = _find([_reading_of(answer)], [self.TITLE, self.NAME])
 
         assert [hit.text for hit in found] == [self.TITLE], (

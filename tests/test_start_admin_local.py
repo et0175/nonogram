@@ -427,16 +427,16 @@ class TestStartAdminLocal_ReadmeMatchesTheScript:
     ) -> None:
         """Prerequisites governs every script the README documents.
 
-        Only ``start_admin_local.sh`` honours an exported ``DATABASE_URL``;
-        ``setup_admin_local.sh`` and ``run_admin_tests.sh`` still
-        ``export DATABASE_URL`` over the caller's value.  This suite drives
-        none of them -- every other assertion in this class comes from a run
-        of ``start_admin_local.sh`` -- so an unqualified precedence claim in
-        Prerequisites was invisible to it (CARD-150 review cycle 1, F-002).
-        Read the siblings' source instead: a documented script that
-        overwrites ``DATABASE_URL`` has to be named where the claim is made.
-        Fixing those scripts is a separate card; when one is fixed it drops
-        out of this check by itself.
+        Written when only ``start_admin_local.sh`` honoured an exported
+        ``DATABASE_URL`` and ``setup_admin_local.sh`` and
+        ``run_admin_tests.sh`` still ran ``export DATABASE_URL=...`` over the
+        caller's value (CARD-150 review cycle 1, F-002). CARD-152 fixed both,
+        so today no documented script matches the ``export DATABASE_URL=``
+        pattern below and the loop names none; it stays as the guard that a
+        script which starts overwriting ``DATABASE_URL`` again has to be named
+        where the precedence claim is made. This class runs only
+        ``start_admin_local.sh``, never its siblings, which is why their
+        source is read instead.
         """
         readme = README.read_text()
         prerequisites = readme.split("## Prerequisites", 1)[1].split("\n## ", 1)[0]
@@ -667,6 +667,7 @@ class TestStartAdminLocal_StillChecksTheTargetDatabase:
 
             assert run.returncode != 0, (url, run.output)
             assert "Database 'nonogram_dev' is not reachable" in run.stdout
+            assert "URL's host, port or credentials are wrong" in run.stdout
             assert f"DATABASE_URL={url} (exported by the caller)" in run.stdout
             assert "does not create a database" in run.stdout
             assert "[2/6]" not in run.output

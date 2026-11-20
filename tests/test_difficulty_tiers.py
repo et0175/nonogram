@@ -739,16 +739,21 @@ def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> Non
     ``Tier.GUESS`` as live after the module's "fourth tier" section was cut.
     Paragraph-level, not line-level, so rewording a retirement note never
     trips it: any blank-line-separated paragraph of ``difficulty.py`` that
-    names the tier (``GUESS``, ``Tier.GUESS``, ``"... or Guess"``) must also
-    say it was retired. ``STRATEGY_GUESS`` and ``_RETIRED_GUESS_TIER`` are the
-    surviving, legitimate names and are not matched.
+    names the tier in any case (``GUESS``, ``Tier.GUESS``, ``"... or Guess"``,
+    a lowercase ``guess`` tier — CARD-155 F-005) must also say it was
+    retired, or say "never as a tier". Not matched: the surviving names
+    ``STRATEGY_GUESS`` and ``_RETIRED_GUESS_TIER`` (the word is glued to an
+    identifier), and the ``guess`` *strategy* (ADR-0031/R2), which is the
+    word followed by ``strategy`` through any inline markup.
     """
     source = Path(difficulty.__file__).read_text(encoding="utf-8")
     live_claims = [
         paragraph.strip().splitlines()[0]
         for paragraph in re.split(r"\n\s*\n", source)
-        if re.search(r"(?<![_A-Z])GUESS\b|\bor Guess\b", paragraph)
-        and not re.search(r"retir", paragraph, re.IGNORECASE)
+        if re.search(
+            r"(?<!\w)guess\b(?![`*\s]*strategy)", paragraph, re.IGNORECASE
+        )
+        and not re.search(r"retir|never as a tier", paragraph, re.IGNORECASE)
     ]
 
     assert live_claims == [], (

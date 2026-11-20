@@ -1292,8 +1292,12 @@ def requested_tier_label(value: object) -> str | None:
 
     COMP-006's output rule (ADR-0031/R1): ``tier_of_record`` reads the stored
     text, ``Tier.label`` names it, so no template spells a tier itself.
-    ``None`` for ``None`` or any value that is not a tier, which the batch
-    pages show as an em dash ("no tier recorded"), never as "Any".
+    ``None`` for whatever ``tier_of_record`` reads as no tier (``None``, a
+    blank, a non-string, an unknown word), which the batch pages show as an
+    em dash ("no tier recorded"), never as "Any". The retired ``"guess"`` is
+    not ``None``: ``tier_of_record`` reads it as Hard (ADR-0031/R3), so it
+    labels as "Hard". ``BatchGenerator.create_batch`` never stores it
+    (``parse_tier`` refuses it).
     """
     tier = tier_of_record(value)
     return tier.label if tier is not None else None

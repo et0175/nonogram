@@ -110,7 +110,8 @@ elif psql "$PSQL_URL" -c "SELECT 1" > /dev/null 2>&1; then
 else
     echo -e "${RED}✗ Database '$DB_NAME' is not reachable${NC}"
     echo "  DATABASE_URL=$DATABASE_URL ($DATABASE_URL_SOURCE)"
-    echo "  Either PostgreSQL is not running, or '$DB_NAME' does not exist."
+    echo "  Either PostgreSQL is not running, '$DB_NAME' does not exist, or the"
+    echo "  URL's host, port or credentials are wrong (only the local psql check reads them)."
     echo "  Start PostgreSQL with: docker-compose up -d postgres"
     echo "  Or:                    brew services start postgresql@15"
     echo "  See which databases you have with: psql -l"

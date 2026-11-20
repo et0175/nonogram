@@ -6289,7 +6289,10 @@ class Generator:
     #: interior's colour mode off the one generator; no position changed.
     #: CARD-493: 760 -> 758. The same call, 2 lines higher: ``_annotate``'s
     #: docstring dropped the refused 8.25 x 8.25 in trim; no position changed.
-    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 758),)
+    #: CARD-504: 758 -> 762. The same call, ``generator.page_spec(position)``,
+    #: re-located by ``ast`` at 762: ``_wrapped``'s docstring gained four
+    #: lines on the token a grouped × takes; no position changed.
+    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 762),)
 
     def test_the_module_axis_bound_is_measured_rather_than_declared(self):
         """AC-4 for the one axis this card leaves open, with its own control.
