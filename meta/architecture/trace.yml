@@ -353,11 +353,11 @@ links:
 
   # ---------------------------------------------------------------- CAP-004
 - req: FR-008
-  description: "Difficulty selector with Easy / Medium / Hard / Guess tiers"
+  description: "Difficulty selector with Easy / Medium / Hard tiers"
   capabilities: [CAP-004]
   contexts: [CTX-001]
   components: [COMP-001, COMP-006]
-  adrs: [ADR-0005, ADR-0010, ADR-0025]
+  adrs: [ADR-0005, ADR-0010, ADR-0025, ADR-0031]
   tests:
   - TestSelectDifficulty_AcceptsValidTier
   - TestSelectDifficulty_RejectsUnknownTier
@@ -384,6 +384,11 @@ links:
     AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-181's tests added — a
     batch stores the tier it asked for (memory and DB modes, migration 014)
     and its pages show it.
+    CORRECTED 2026-11-20 (CARD-491): the SHIPPED note above is the
+    2026-09-13 state. Since ADR-0031 (CARD-098) `difficulty.Tier` has three
+    members, `classify` takes the score alone, `--difficulty guess` is
+    refused, and the CLI help no longer mentions `guess`; AC-020 drops its
+    "guess" case and AC-021's message names the three.
   status: covered
 
 - req: FR-009
@@ -742,6 +747,9 @@ links:
     one classification that IS a guarantee about the solve. Nothing in
     COMP-003 constructs toward a tier either way; the resample loop (FR-010)
     still finds one by sampling.
+    CORRECTED 2026-11-20 (CARD-491): the ADR-0025 shape above is retired.
+    Since ADR-0031 (CARD-098) every tier is a score band; a solve that
+    branched is the `guess` strategy (ADR-0031/R2), not a fourth tier.
   status: covered
 
 - req: CON-005
@@ -2548,6 +2556,23 @@ links:
     by COMP-009 (FR-031). The two-up 7.0 mm minimum (FR-040) sits inside this
     range (EC-028 carries nfr: NFR-008).
   status: partial
+
+- req: NFR-009
+  description: "A book PDF export retains one page bitmap at a time on the baseline and the corpus book alike, and that bitmap plus the written file stay under half the panel's 512 MB limit; the whole process is not measured against 512 MB"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007]
+  adrs: []
+  tests:
+  - TestBookPdfMemory_RealBookExportsUnderTheCap
+  - TestBookPdfMemory_PeakDoesNotGrowWithPageCount
+  - TestMemoryGuard_StillFailsWhenTheExportItselfRegresses
+  - TestBookPdfMemory_InteriorAndCoverStillSeparate
+  notes: >-
+    Added 2026-11-20 (IDEA-009, CARD-491). The checks predate the NFR: CARD-145
+    (streamed export, tests/test_book_pdf_memory.py) and CARD-237 (the tripwire
+    measures the export's marginal cost). Each test is a class in that module.
+  status: covered
 
 - req: CON-018
   description: "The Book 1 print profile is every book's default: trim 8.5x11 in, gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, no bleed, 12 mm title band; an empty margin falls back to it"

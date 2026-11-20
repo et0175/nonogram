@@ -1626,7 +1626,15 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # them (see the ADR's comment). None of the three was declared anywhere under
 # meta/architecture/ at the base; each is one `ast`-found def line in
 # tests/test_solver_witnesses_and_rungs.py.
-CENSUS = (599, "a6db8551da09c2ba")
+# CARD-491 (2026-11-20): 599 -> 603, OUT 0, IN 4, diffed as sets of
+# _declared_refs() with the edit reverted and reapplied (base reproduced all nine
+# pins). The four are the class-style refs of the new NFR-009's AC-418..AC-421
+# (the panel's 512 MB memory limit), declared in requirements.yml and on the new
+# NFR-009 trace.yml row; each is one `ast`-found `class` line in
+# tests/test_book_pdf_memory.py (CARD-145/CARD-237's checks, which predate the
+# NFR). A declaration arriving with its definition in place: DEFINED and
+# TRACE_TESTS move by the same four; no other class moves.
+CENSUS = (603, "77e7f533c0fa680c")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1689,7 +1697,9 @@ CENSUS = (599, "a6db8551da09c2ba")
 # gains the six FR-042 now names (the packing-doc table test, the packed-clues
 # class, the two small-answer-packing properties, two packed-layout classes),
 # each a def/class line under tests/ found by an independent `ast` index.
-TRACE_TESTS = (511, "736039801d53d5e4")
+# CARD-491 (2026-11-20): 511 -> 515, OUT 0, IN 4 -- CENSUS's four entrants, listed
+# on the new NFR-009 row (see CENSUS).
+TRACE_TESTS = (515, "311409dfdef1109d")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1810,7 +1820,9 @@ TRACE_TESTS = (511, "736039801d53d5e4")
 # def/class line under tests/.
 # CARD-487 (2026-11-19): 471 -> 474, OUT 0, IN 3 -- exactly CENSUS's 3 entrants
 # (ADR-0029/R4's three overlap tests), each an `ast`-found def line under tests/.
-DEFINED = (474, "12f31d23ee0c9f27")
+# CARD-491 (2026-11-20): 474 -> 478, OUT 0, IN 4 -- exactly CENSUS's 4 entrants
+# (NFR-009's criteria), each an `ast`-found class line under tests/.
+DEFINED = (478, "267967c3c317b551")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

@@ -216,14 +216,25 @@ python -m flask --app nonogram.admin.app run
 # Or use different port
 python -m flask --app nonogram.admin.app run --port 8000
 
-# Run all tests
-pytest tests/test_wave1_*.py tests/test_wave2_*.py -v
+# Tests run against a test database, never the panel's nonogram_poc above:
+# tests/database_guard.py refuses a DATABASE_URL whose name does not contain
+# "test", and the destructive fixtures (tests/conftest.py) act only on a
+# database whose name ends in "_test".
+# Point DATABASE_URL at this checkout's own test database, the name the suite
+# derives from the repo root (tests/db_name.py) and creates on first use:
+export DATABASE_URL="$(python -c 'import os; from tests import db_name; print(db_name.resolve_test_database_url(os.environ))')"
+# (Or `unset DATABASE_URL`: the db_required tests then skip and the rest run.)
+
+# Run the whole suite
+python -m pytest
+
+# Run the wave 1 and wave 2 end-to-end files
+python -m pytest tests/test_wave1_e2e.py tests/test_wave2_async_generation.py -v
 
 # Run Wave 1 tests only
-pytest tests/test_batch_history.py tests/test_puzzle_preview.py tests/test_bulk_operations.py tests/test_wave1_e2e.py -v
+python -m pytest tests/test_batch_history.py tests/test_puzzle_preview.py tests/test_bulk_operations.py tests/test_wave1_e2e.py -v
 
-# Run with coverage
-pytest tests/test_wave1_*.py --cov=src/nonogram/admin --cov-report=html
+# Coverage needs pytest-cov, which the dev extra does not install.
 ```
 
 ## Troubleshooting
