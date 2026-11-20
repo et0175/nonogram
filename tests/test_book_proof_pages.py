@@ -1225,9 +1225,10 @@ LANDSCAPE_TRIMS_CM = (("20.96", "15.24"), ("27.94", "21.59"))
 
 #: The pages whose foot strip cannot hold the note, so it falls back: the
 #: 30 x 30 on every square and landscape trim, and the 15 x 15 on 8.25 x 6 in,
-#: whose drawing also reaches the bottom margin. On the squares and on
-#: 11 x 8.5 in the 15 x 15 leaves 13.5 to 19.9 mm of foot, so its note stays
-#: at the foot (CARD-172 Worktree notes).
+#: whose drawing also reaches the bottom margin. On the 8.5 x 8.5 in square
+#: and on 11 x 8.5 in the 15 x 15 leaves room for its note at the foot, which
+#: test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note asserts
+#: (CARD-493; the 8.25 x 8.25 in square CARD-172 also measured is refused).
 FALLBACK_PAGES = (
     ("21.59", "21.59", 0),
     ("20.96", "15.24", 0),

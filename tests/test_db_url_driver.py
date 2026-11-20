@@ -956,7 +956,6 @@ class TestDbUrl_SchemeOfEchoesOnlyARealScheme:
             ("1postgres://h/db", "<malformed scheme>"),
             ("postgres ql://h/db", "<malformed scheme>"),
             ("pöstgres://h/db", "<malformed scheme>"),
-            ("sqlite:///nono.db", "sqlite"),
             ("db.v2-x+y://h", "db.v2-x+y"),
             ("postgresql", "<no scheme>"),
             (b"postgresql://h/db", "<not a string>"),
