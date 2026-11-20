@@ -3004,8 +3004,8 @@ def revise_plan(
       its value happens to equal a prefill), an unedited cell stays unedited;
     * submitted value **different from the shown value** — the owner typed
       into it: it becomes hand-edited, unless the new value is that cell's
-      prefill at the submitted ``count`` (and the shown split), which is the
-      owner deliberately putting it back (the edit mark is cleared).
+      prefill at the submitted ``count`` and the submitted ``split``, which is
+      the owner deliberately putting it back (the edit mark is cleared).
 
     Hand-edited cells keep their values; every other cell is re-derived from
     ``count`` and ``split`` (POL-007 via :func:`with_split`), so a changed
@@ -3018,11 +3018,12 @@ def revise_plan(
     """
     shown = current if current is not None else DEFAULT_PLAN
     typed = DistributionPlan(count=count, split=shown.split, cells=submitted_cells)
-    # The prefill at the *submitted* count (CARD-489, IDEA-011): a typed cell
-    # is judged against the matrix the new count would prefill, not the one
-    # the page showed, so a count change neither marks a cell that equals the
-    # new prefill nor clears one that equals only the old prefill.
-    reference = prefill(typed.count, shown.split)
+    # The prefill at the *submitted* count (CARD-489, IDEA-011) and the
+    # *submitted* split (CARD-501, owner 2026-11-20): a typed cell is judged
+    # against the matrix this submission would prefill, not the one the page
+    # showed, so changing count and split together neither marks a cell typed
+    # to the new values nor clears one that equals only the old ones.
+    reference = prefill(typed.count, split)
 
     def is_edited(bucket, tier) -> bool:
         value = typed.cell(bucket, tier)

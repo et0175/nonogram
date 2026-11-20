@@ -490,6 +490,29 @@ class TestRevisePlan:
         assert revised.edited == {(B20, M)}
         assert revised.cell(B20, M) == 27
 
+        # CARD-501 (owner, 2026-11-20): count AND split changed together. Every
+        # cell typed to what 120 at 30/45/25 prefills, one typed off it: only
+        # that one is an edit. Judged against the shown split (40/40/20), the
+        # cells typed to the new values were marked too.
+        target = prefill(120, Split(30, 45, 25))
+        typed = [list(r) for r in target.cells]
+        typed[1][1] += 5
+        # typed off the new prefill AND off the shown value (an equal-to-shown
+        # value is "left alone" and keeps its old mark, by design)
+        assert typed[1][1] not in (target.cell(B20, M), DEFAULT_PLAN.cell(B20, M))
+        both = revise_plan(DEFAULT_PLAN, 120, Split(30, 45, 25), typed)
+        assert both.edited == {(B20, M)}
+        assert [list(r) for r in both.cells] == typed
+
+        # Review F-001: the split alone changed (count kept at 150) is judged
+        # the same way, against the prefill at the submitted split.
+        split_only = prefill(150, Split(30, 45, 25))
+        retyped = [list(r) for r in split_only.cells]
+        retyped[2][0] += 4
+        assert retyped[2][0] not in (split_only.cell(B25, E), DEFAULT_PLAN.cell(B25, E))
+        alone = revise_plan(DEFAULT_PLAN, 150, Split(30, 45, 25), retyped)
+        assert alone.edited == {(B25, E)}
+
     def test_a_typed_cell_is_edited_and_kept(self) -> None:
         cells = [list(r) for r in DEFAULT_PLAN.cells]
         cells[0][0] = 3
