@@ -44,3 +44,30 @@
 * **G-2**: do not delete main's existing untracked text.pdf; the orchestrator handles it.
 
 ## Worktree notes
+
+### Implementation (2026-11-21)
+
+**Premises, re-verified by a run.** IDEA-219: running `TestPlayPage_TocAndFoliosFollowTheInsertedPages` on the unchanged tree left an untracked `text.pdf` in the worktree (removed; main's copy untouched, G-2). IDEA-094: `_scheme_of(' postgresql://u:p@h/db')` returned `'<malformed scheme>'`, and `normalized_url` raised with it.
+
+**IDEA-219.** `tests/helpers/pdf_vector.py`: new private `_scratch(out_dir)` context manager. It yields `out_dir` (created, left in place) when given; with no `out_dir` it yields a `tempfile.TemporaryDirectory` that is removed on exit. `rendered_page`, `extracted_text` and `word_boxes` all write inside it. `rendered_page`'s body moved to `_render_into` so the read-back happens before the directory goes away. Callers found by `ast` (every Call named one of the three, repo-wide): 40 call sites before this card, 42 after (the two added to the play-page test below). Exactly one passes no `out_dir`: `test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers` (extracted_text). None reads a scratch file back afterwards; every result is the return value. Out of scope, found on the way: `test_book_grid_rules.py`'s `Drawn.render` has its own `self._tmp_path or Path(".")` fallback. It is dead today because all four `Drawn(...)` constructions pass `tmp_path=` (checked by `ast`). Not changed.
+
+**IDEA-094: name, not strip.** `_scheme_of` appends `", with leading whitespace"` (or `trailing`, or `leading and trailing`) to its answer for the stripped text. For example, `' postgresql://…'` now reads `'postgresql, with leading whitespace'`. Only the error message changes. Stripping inside `normalized_url` would change a *successful* parse for all its callers (`_init_engine`, both modes of `migrations/env.py`, the test suite's DB probe in `tests/conftest.py`, and test helpers). `'postgresql://u:p@h/db '` parses today with `database == 'db '`, measured. So stripping is a behaviour decision, not a message fix. The password stays out: the scheme grammar is applied to the stripped text exactly as before.
+
+**Tests (folded, no new items).**
+- `test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers`: chdir to an empty `tmp_path`. The existing `extracted_text` call runs there, plus one `word_boxes(data)` and one `rendered_page(data, 9)` with results unused. Then it asserts the directory is still empty. The PDF assertions are unchanged (G-1).
+- `test_scheme_of_returns_a_grammatical_scheme_or_a_placeholder`: each string row is also checked padded leading, trailing, and both.
+- `test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret`: each of the 720 corpus URLs is also run with a leading space. It must raise, name the space, and keep the secret out of the rendered traceback. The AC-2 literal `' postgresql://u:<secret>@h/db'` is checked after the loop.
+
+**ACs.**
+- AC-1: the folded test is green.
+- AC-2: `'postgresql, with leading whitespace'` is asserted for the literal. The 14 existing rows and the corpus's unpadded expectations still hold.
+- AC-3: collected 10689 before (stash) and 10689 after, so net 0.
+
+**Controls (each restored; `git diff --stat` after shows only the four intended files).**
+- `_scratch`'s temp branch replaced by `Path(".")`: the folded play-page test reds with `AssertionError: assert [PosixPath('/.../vector.pdf')] == []`, "Left contains 4 more items, first extra item: ...bbox.pdf".
+- Whitespace branch disabled (`if False:`): 13 failed, namely 12 of the 14 `_scheme_of` rows (`assert '<malformed scheme>' == 'postgresql, ...ng whitespace'` and similar) and the property test (`assert '<malformed scheme>' == 'POSTGRESQL, ...ng whitespace'`). The 2 non-string rows are not padded, so they stay green.
+- Leading-only mutant: 12 failed (the trailing assert).
+- "both" misnamed `leading`: 12 failed (the both assert).
+- Message echoes the stripped text: the property test reds with `assert 'QXSECRE)TdX8o' not in 'Traceback (...'`.
+
+**Gate (unarmed, `-o addopts= -rfs`).** Files: test_db_url_driver, test_book_play_online_page, test_db_engine_lifecycle, test_db_isolation, test_card_349_cold_database, test_admin_binding, test_book_pdf_vector_primitives, test_book_pdf_memory, test_qr_vector_draw, test_book_footer_pointer, test_kill_matrix, test_impact_set, test_suite_profile, test_book_interior_type_floor. Result: 1151 passed, 0 failed, 18 skipped. 17 skips are "Database not reachable: DATABASE_URL is not set" (db_required, unarmed). 1 is the setrlimit(RLIMIT_AS) platform skip in test_book_pdf_memory. No scratch PDF was left in the worktree afterwards.

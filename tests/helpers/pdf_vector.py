@@ -29,10 +29,12 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import tempfile
 from collections import Counter
+from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import Mapping, NamedTuple
+from typing import Iterator, Mapping, NamedTuple
 
 import numpy as np
 from PIL import Image, PdfParser
@@ -442,6 +444,24 @@ def stroke_widths(stream: str) -> list[float]:
     return [float(m) for m in re.findall(rf"(?m)^({NUMBER}) w$", stream)]
 
 
+@contextmanager
+def _scratch(out_dir: Path | None) -> Iterator[Path]:
+    """Where poppler is handed the PDF it reads (and writes what it renders).
+
+    ``out_dir`` itself when the caller gave one, created if missing and left
+    in place afterwards, since it is the caller's. Otherwise a fresh temporary
+    directory that is removed on exit (CARD-509): the default used to be the
+    current directory, which under pytest is the checkout, so a full suite
+    left ``text.pdf`` behind in whichever checkout it ran from.
+    """
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        yield out_dir
+        return
+    with tempfile.TemporaryDirectory(prefix="pdf_vector-") as directory:
+        yield Path(directory)
+
+
 def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = None):
     """``page`` of ``data`` rasterised by **poppler**, as a greyscale array.
 
@@ -463,8 +483,12 @@ def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = N
     """
     if PDFTOPPM is None:  # pragma: no cover - guarded at the call site
         raise RuntimeError("poppler's pdftoppm is not on this host")
-    directory = out_dir or Path(".")
-    directory.mkdir(parents=True, exist_ok=True)
+    with _scratch(out_dir) as directory:
+        return _render_into(directory, data, dpi, page)
+
+
+def _render_into(directory: Path, data: bytes, dpi: int, page: int):
+    """:func:`rendered_page`'s work, in a directory that exists."""
     source = directory / "vector.pdf"
     source.write_bytes(data)
     # SCOPE+ (CARD-355): the output prefix is unique to the page asked for. It
@@ -514,13 +538,12 @@ def extracted_text(data: bytes, out_dir: Path | None = None) -> str:
     """
     if PDFTOTEXT is None:  # pragma: no cover - guarded at the call site
         raise RuntimeError("poppler's pdftotext is not on this host")
-    directory = out_dir or Path(".")
-    directory.mkdir(parents=True, exist_ok=True)
-    source = directory / "text.pdf"
-    source.write_bytes(data)
-    done = subprocess.run(
-        [PDFTOTEXT, str(source), "-"], check=True, capture_output=True
-    )
+    with _scratch(out_dir) as directory:
+        source = directory / "text.pdf"
+        source.write_bytes(data)
+        done = subprocess.run(
+            [PDFTOTEXT, str(source), "-"], check=True, capture_output=True
+        )
     return done.stdout.decode("utf-8")
 
 
@@ -571,15 +594,14 @@ def word_boxes(data: bytes, page: int = 1, out_dir: Path | None = None) -> list[
     """
     if PDFTOTEXT is None:  # pragma: no cover - guarded at the call site
         raise RuntimeError("poppler's pdftotext is not on this host")
-    directory = out_dir or Path(".")
-    directory.mkdir(parents=True, exist_ok=True)
-    source = directory / "bbox.pdf"
-    source.write_bytes(data)
-    done = subprocess.run(
-        [PDFTOTEXT, "-bbox", "-f", str(page), "-l", str(page), str(source), "-"],
-        check=True,
-        capture_output=True,
-    )
+    with _scratch(out_dir) as directory:
+        source = directory / "bbox.pdf"
+        source.write_bytes(data)
+        done = subprocess.run(
+            [PDFTOTEXT, "-bbox", "-f", str(page), "-l", str(page), str(source), "-"],
+            check=True,
+            capture_output=True,
+        )
     found = []
     for left, top, right, bottom, text in _WORD.findall(done.stdout.decode("utf-8")):
         unescaped = (
