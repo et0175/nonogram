@@ -1237,6 +1237,38 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         # (CARD-165), where a page label would stand, so it is not read as
         # printing on page 6 with the row above it.
         assert shown_unprinted(markup) == [("Not printed: cannot be drawn", None)]
+        # CARD-494 (owner, 2026-11-20): the marker is a warning, not a page
+        # label, so the stylesheet gives it the warning token, text and rules
+        # alike. Collected by selector over whole rules (a rule split across
+        # lines is still one rule): every rule that names a divider or the
+        # marker in any spelling, since any of them could repaint the marker
+        # (review F-002: a later `[data-unprinted="true"]` rule and a
+        # `.page-break-divider span` rule each did, with the first form of this
+        # check green).
+        from pathlib import Path
+
+        css = (Path(book_manager_module.__file__).parent / "static" / "admin.css").read_text()
+        rules = {}
+        for chunk in re.sub(r"/\*.*?\*/", "", css, flags=re.S).split("}"):
+            if "{" not in chunk:
+                continue
+            selector, body = (" ".join(part.split()) for part in chunk.rsplit("{", 1))
+            if "page-break-divider" in selector or "data-unprinted" in selector:
+                rules[selector] = body
+        # Every rule that styles a divider, the base pair included: a later rule
+        # of equal weight (`.puzzle-list .page-break-divider`) or an
+        # `!important` on the base would repaint the marker too (review F-006).
+        assert sorted(rules) == [
+            ".page-break-divider",
+            ".page-break-divider::before, .page-break-divider::after",
+            ".page-break-divider[data-unprinted]",
+            ".page-break-divider[data-unprinted]::before, .page-break-divider[data-unprinted]::after",
+        ], sorted(rules)
+        assert not any("!important" in body for body in rules.values()), rules
+        assert rules[".page-break-divider[data-unprinted]"] == "color: var(--color-warning);"
+        assert rules[
+            ".page-break-divider[data-unprinted]::before, .page-break-divider[data-unprinted]::after"
+        ] == "background: var(--color-warning);"
 
     def test_a_row_after_an_unprinted_one_says_its_page_again(self, panel) -> None:
         """CARD-490: a pair the dropped rows sat between is labelled on both sides.
@@ -1244,7 +1276,9 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         Two small puzzles of one level pair onto one page (FR-040) with two
         adjacent undrawable rows listed between them. The second of the pair
         does not open its page, so without a label of its own it would read as
-        part of the unprinted rows' run; it says its page again instead. The
+        part of the unprinted rows' run; it says its page again instead, as
+        "page 6, continued" (CARD-494, owner 2026-11-20), so the pair's two
+        halves never read as two pages. The
         second unprinted row follows an unprinted one but has no page, so it
         gets its marker and no page label.
         """
@@ -1261,6 +1295,6 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         assert shown_labels(markup) == [
             "page 5 · Easy divider page",
             "page 6 · two puzzles",
-            "page 6 · two puzzles",
-        ], "the row after the unprinted one is labelled with the page it prints on"
+            "page 6, continued",
+        ], "the row after the unprinted one names its page as continued, once"
         assert shown_plan(markup)[0] == {1: 6, 2: 6}
