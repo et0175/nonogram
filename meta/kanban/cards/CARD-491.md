@@ -16,7 +16,7 @@
 **Created wave:** 83
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** meta/architecture/requirements.yml, tests/test_difficulty_tiers.py, scripts/README.md, docs/deploy/render.md
+**Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_difficulty_tiers.py, tests/test_check_ref_resolution.py, scripts/README.md, docs/deploy/render.md, src/nonogram/cli.py
 **UI surface:** —
 **Review score:** —
 **Started:** 2026-11-20T01:49Z
