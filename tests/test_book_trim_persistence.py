@@ -433,6 +433,9 @@ class TestSetPrintSpec_WritesOnlyTheTrim:
         assert books.get_plan(book_id) == DEFAULT_PLAN
         assert list(after.floor_overrides) == before_overrides
         assert after.updated_at >= before_updated_at
+        # CARD-496: written by ``_utc_now``, not ``utcnow``; still naive UTC,
+        # the kind the ``books.updated_at`` column and the Book always held.
+        assert after.updated_at.tzinfo is None and before_updated_at.tzinfo is None
 
     @pytest.mark.parametrize("mode", MODES)
     def test_the_margins_are_not_the_writers_to_touch(self, mode, scope) -> None:

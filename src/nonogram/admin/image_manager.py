@@ -9,9 +9,21 @@ import mimetypes
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+
+
+def _utc_now() -> datetime:
+    """The current time as **naive** UTC, the kind every timestamp here stores.
+
+    ``datetime.utcnow()``'s replacement (deprecated since Python 3.12,
+    CARD-496): the same value, read through an aware clock and stripped of
+    its zone. ``uploaded_at`` has always been naive, and ``to_dict`` writes
+    it with ``isoformat()``, which an aware value would suffix with
+    ``+00:00``; this keeps both the kind and the text.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 try:
     from PIL import Image as PILImage
@@ -585,7 +597,7 @@ class ImageManager:
                 file_size=Path(stored_path).stat().st_size,
                 dimensions=dimensions,
                 format=ext.lstrip(".").upper(),
-                uploaded_at=datetime.utcnow(),
+                uploaded_at=_utc_now(),
             )
 
             # Prime the ink-bounding-box cache now, while this upload

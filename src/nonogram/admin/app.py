@@ -31,7 +31,7 @@ what stands when someone opens a door in it.
 from flask import Flask, Response, abort, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from fractions import Fraction
 import hmac
 import json
@@ -76,6 +76,7 @@ from nonogram.admin.book_manager import (
     TITLE_PAGE_TEXT_MAX,
     get_book_manager,
     BookStatus,
+    StatusRefusal,
     revise_plan,
     unreadable_print_setup_refusal,
 )
@@ -1187,6 +1188,28 @@ BOOK_DELETE_FAILED = f"The book could not be deleted. {_SEE_LOG}"
 PLAYER_EXPORT_FAILED = f"Could not export the player bundle. {_SEE_LOG}"
 IMAGE_SERVE_FAILED = f"Error loading image. {_SEE_LOG}"
 GRID_SERVE_FAILED = f"Error generating grid. {_SEE_LOG}"
+
+
+def _same_site_back(fallback: str) -> str:
+    """Where a failed download sends the owner back to (CARD-496, IDEA-015).
+
+    The page the request came from, when its ``Referer`` names this panel —
+    an ``http``/``https`` URL whose authority is the request's own ``Host``
+    — and ``fallback`` (a ``url_for`` target) otherwise. A ``Referer`` is the
+    caller's to write, so an off-site one, a malformed one or none at all
+    never becomes the redirect's target. The ``Host`` it is compared with is
+    the one the panel's host guard has already admitted.
+    """
+    referrer = request.referrer
+    if not referrer:
+        return fallback
+    try:
+        split = urllib.parse.urlsplit(referrer)
+    except ValueError:
+        return fallback
+    if split.scheme in ("http", "https") and split.netloc.lower() == request.host.lower():
+        return referrer
+    return fallback
 
 
 def _about(refusal: str, page_count: int) -> str:
@@ -5442,7 +5465,10 @@ def create_app(debug=None):
                         #
                         # CARD-171: the gate's refusal is flashed here, with
                         # the text the outer handler gave it, and not logged:
-                        # it is the owner's answer, not an error.
+                        # it is the owner's answer, not an error. CARD-496:
+                        # only a StatusRefusal is; the gate's other
+                        # ValueError (no puzzle store to read the selection
+                        # through) is a fault, and takes the outer handler.
                         try:
                             book_mgr._refuse_unless_the_planned_book(
                                 book_id,
@@ -5450,7 +5476,7 @@ def create_app(debug=None):
                                 BookStatus.READY_FOR_PDF.value,
                                 list(book.puzzle_ids),
                             )
-                        except ValueError as gate_refusal:
+                        except StatusRefusal as gate_refusal:
                             refusal = f"Error: {gate_refusal}"
                         else:
                             refusal = UNCOUNTABLE_INTERIOR_REFUSAL
@@ -5459,15 +5485,20 @@ def create_app(debug=None):
                     if refusal:
                         flash(refusal, "error")
                     else:
-                        # Mark book as ready and return to books list. A
-                        # ValueError here is set_book_status's refusal (the
-                        # plan gate's among them): flashed as before, not
-                        # logged (CARD-171).
+                        # Mark book as ready and return to books list.
+                        # CARD-496: set_book_status's owner refusals — a
+                        # published book, no puzzles, the plan gate's — are a
+                        # StatusRefusal, flashed with their own sentence and
+                        # not logged (CARD-171). Any other ValueError (an
+                        # unknown status, an unreadable selection, a
+                        # library's own) is a fault: it falls through to the
+                        # handler below, which logs it and shows
+                        # FINALISE_ACTION_FAILED (CARD-177/CARD-480's rule).
                         try:
                             book_mgr.set_book_status(
                                 book_id, BookStatus.READY_FOR_PDF.value
                             )
-                        except ValueError as gate_refusal:
+                        except StatusRefusal as gate_refusal:
                             flash(f"Error: {gate_refusal}", "error")
                         else:
                             flash(
@@ -5872,7 +5903,7 @@ def create_app(debug=None):
 
     def generate_book_pdf_download(book, puzzle_review, part=None):
         """Export the book and return the requested part as a download."""
-        back = request.referrer or url_for("book_detail", book_id=book.book_id)
+        back = _same_site_back(url_for("book_detail", book_id=book.book_id))
         requested = _requested_part(part)
         if requested is None:
             flash(f"Unknown export part {part!r}: choose interior or cover", "error")
@@ -5883,7 +5914,7 @@ def create_app(debug=None):
 
         try:
             pdf_bytes = _export_part(book, requested)
-            timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
             return _send_export_part(pdf_bytes, requested, f"book_{timestamp}")
 
         except (UnsettablePuzzleTitle, DividerRefused) as refusal:
@@ -5999,11 +6030,9 @@ def create_app(debug=None):
                 flash(f"Failed to generate proof pages: {e}", "error")
             else:
                 flash(PROOF_PAGES_FAILED, "error")
-            return redirect(
-                request.referrer or url_for("setup_print", book_id=book_id)
-            )
+            return redirect(_same_site_back(url_for("setup_print", book_id=book_id)))
 
-        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         return send_file(
             pdf_bytes,
             mimetype="application/pdf",
