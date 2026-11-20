@@ -781,12 +781,7 @@ async function load() {
     // QA "Return to book": a Back onto this entry carries the reader's view; paint it
     // instead of the defaults, then put the page back where they left it.
     const view = keptView();
-    if (view === null) paint();
-    else {
-      paint(viewSections(page, view, entries));
-      try { window.history.scrollRestoration = "manual"; } catch { /* keep auto */ }
-      window.scrollTo(0, view.scroll);
-    }
+    paint(view === null ? undefined : viewSections(page, view, entries));
     // Kept on every toggle and every tap of a square (bubbling, so after the
     // head's own handler has flipped it), and on leaving by any other way.
     const list = page.querySelector("[data-pages-list]");
@@ -795,6 +790,13 @@ async function load() {
     });
     window.addEventListener("pagehide", () => keepView(page));
     wireJump(page, entries, slug);
+    // The scroll goes back only once the page is whole. wireJump shows the jump
+    // box, 166 px on a 390 px phone; scrolled before it, the page was too short
+    // to reach the kept place and the browser clamped it (220 asked, 145 given).
+    if (view !== null) {
+      try { window.history.scrollRestoration = "manual"; } catch { /* keep auto */ }
+      window.scrollTo(0, view.scroll);
+    }
     // CARD-437: progress is read again when the page is SHOWN again, not
     // only when it is first loaded.
     //
