@@ -1,6 +1,6 @@
 # CARD-504: Nine stale texts: docstrings, comments, a README version, a script message, a test helper's name, a narrow regex
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/504-stale-texts
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-504
 **Source:** roadmap wave 6 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-026, 027, 030, 037, 039, 102, 134, 145, 197 (WSJF 2.31 each, each about 0.125 d: bundled because each alone is below `sizing.min_estimate`).
 **Idea:** IDEA-026, IDEA-027, IDEA-030, IDEA-037, IDEA-039, IDEA-102, IDEA-134, IDEA-145, IDEA-197
 **Wave:** 85
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/export/book_pdf_generator.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/app.py, src/nonogram/web/__init__.py, scripts/README.md, scripts/*.sh, scripts/measure_difficulty_cutoff.py, tests/test_book_pdf_band.py, tests/test_difficulty_tiers.py, tests/test_start_admin_local.py, tests/test_admin_tier_surfaces.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T16:30Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
