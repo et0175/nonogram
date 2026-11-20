@@ -892,10 +892,6 @@ class TestDbUrl_NormalisationChangesNothingElse:
 # --------------------------------------------------------------------------
 
 
-#: The placeholders `_scheme_of` may return instead of a scheme.
-_SCHEME_PLACEHOLDERS = frozenset({"<malformed scheme>", "<no scheme>", "<not a string>"})
-
-
 def _echoed_scheme(error: BaseException) -> str:
     """The value `normalized_url` put after ``scheme:`` in its message."""
     message = str(error)
@@ -953,6 +949,7 @@ class TestDbUrl_SchemeOfEchoesOnlyARealScheme:
             ("u:hunter2@h://x", "u"),
             # The documented limit: scheme-shaped text cannot be told from a
             # scheme, so these are echoed (CARD-176 [Limit]).
+            ("hunter2://h/db", "hunter2"),
             ("hunter2:x://h/db", "hunter2"),
             ("postgresqlhunter2://h/db", "postgresqlhunter2"),
             ("://panel:pw@h/db", "<malformed scheme>"),
@@ -1015,12 +1012,20 @@ _SECRET_POSITIONS = {
 #: outside the grammar.
 _NEEDS_A_NON_SCHEME_CHARACTER = frozenset({"scheme-glued"})
 
+#: Positions whose pre-`://` text is not a scheme: a non-scheme character glued
+#: to it, or an `@`, so `_scheme_of` must answer with the placeholder.
+_ECHOES_A_PLACEHOLDER = frozenset({"scheme-glued", "before-separator-behind-at"})
 
-def _secret_corpus() -> list[tuple[str, str, str, bool]]:
-    """``(position, secret, raw_url, secret_is_alphanumeric)``, seeded."""
+
+def _secret_corpus() -> list[tuple[str, str, str, bool, str]]:
+    """``(position, secret, raw_url, secret_is_alphanumeric, scheme)``, seeded.
+
+    ``scheme`` is the one drawn for the case, which the templates without a
+    ``{scheme}`` field (the ``@`` shape) draw and do not use.
+    """
     rng = random.Random(_SECRET_CORPUS_SEED)
     alphanumeric = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    cases: list[tuple[str, str, str, bool]] = []
+    cases: list[tuple[str, str, str, bool, str]] = []
     for position, template in _SECRET_POSITIONS.items():
         for _ in range(90):
             # The marker makes a chance collision with scheme, host or database
@@ -1032,14 +1037,17 @@ def _secret_corpus() -> list[tuple[str, str, str, bool]]:
             if not plain:
                 at = rng.randint(1, len(secret))
                 secret = secret[:at] + rng.choice(_NON_SCHEME_CHARACTERS) + secret[at:]
+            # Drawn here, in the same place in the stream as before, so the
+            # corpus is the same set of URLs.
+            scheme = rng.choice(_SECRET_CORPUS_SCHEMES)
             raw = template.format(
-                scheme=rng.choice(_SECRET_CORPUS_SCHEMES),
+                scheme=scheme,
                 secret=secret,
                 host=rng.choice(("db", "db.example.com", "10.0.0.7", "h")),
                 db=rng.choice(("nono", "nonogram_test", "d")),
                 user=rng.choice(("panel", "u", "admin")),
             )
-            cases.append((position, secret, raw, plain))
+            cases.append((position, secret, raw, plain, scheme))
     return cases
 
 
@@ -1047,7 +1055,7 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
     """AC-1 / CARD-148 EC-1: for any malformed URL, the secret never surfaces —
     not in the message and not in the rendered traceback (`from None`)."""
     raised: list[tuple[str, bool]] = []
-    for position, secret, raw, plain in _secret_corpus():
+    for position, secret, raw, plain, scheme in _secret_corpus():
         assert raw.index(secret) > 0, f"secret at position 0: {raw!r}"
         try:
             db_session.normalized_url(raw)
@@ -1055,12 +1063,13 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
             rendered = "".join(traceback.format_exception(error))
             assert secret not in str(error), (position, raw, str(error))
             assert secret not in rendered, (position, raw)
-            echoed = _echoed_scheme(error)
-            assert echoed in _SECRET_CORPUS_SCHEMES or echoed in _SCHEME_PLACEHOLDERS, (
-                position,
-                raw,
-                echoed,
+            # The case's own scheme, not any corpus scheme (CARD-176 F-002):
+            # where the secret is glued to the scheme or no scheme leads the
+            # text, the placeholder; everywhere else, the scheme drawn.
+            expected = (
+                "<malformed scheme>" if position in _ECHOES_A_PLACEHOLDER else scheme
             )
+            assert _echoed_scheme(error) == expected, (position, raw, str(error))
             raised.append((position, plain))
 
     # Only raising cases prove anything, so it is *those* that are counted.
