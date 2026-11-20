@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 4 — CUT 2026-11-20 (board wave 83)
+
+Cut against main on 2026-11-20, every premise re-read the same day. The feature bucket has nothing workable left: IDEA-178 is an owner layout call and IDEA-125/126 are owner questions, so its budget rolls over to tech-debt. **IDEA-009 shrank at the cut**: CARD-145 and CARD-237 already built the memory checks; only the NFR naming them is missing, so it joins the registry card. Not carded: IDEA-031 (skipped once already as CARD-378), IDEA-106/112 (held for the owner's say), IDEA-111 (forge-plugin defect).
+
+### tech-debt  (≈ 2.6 d, feature roll-over included)
+- **CARD-489** (IDEA-011, IDEA-014) Two book_manager leaks: hand-edit mark on a count change; memory mode's live Book — 2c
+- **CARD-490** (IDEA-024) The arrange page marks a puzzle that will not print — 1c
+- **CARD-491** (IDEA-009, IDEA-029, IDEA-081) Registry and docs: the memory-cap NFR, Tier's member count, the scripts README — 1c
+- **CARD-492** (IDEA-035, IDEA-038, IDEA-054, IDEA-062, IDEA-044) Five small code-hygiene items — 2c
+- **CARD-493** (IDEA-068, IDEA-093, IDEA-097) Three test minors — 1c
+
 ## Wave 2 as planned
 
 ### feature  (1.50 / 1.50 d)
