@@ -1,6 +1,6 @@
 # CARD-490: The arrange page marks a puzzle that will not print, as the book page already does
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/490-arrange-not-printed
-**Worktree:** ../PythonProject4-card-490
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-024, WSJF 3.46 (CARD-140 F-007).
 **Idea:** IDEA-024
 **Wave:** 83
@@ -20,9 +20,9 @@
 **UI surface:** admin book arrange page (page labels)
 **Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T01:11Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T02:56Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** 728130842900d4cc6d549c70e210fe1ef5ed473b
 **Blocked by:** —
 
 ## Why this card exists

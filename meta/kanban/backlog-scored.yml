@@ -669,7 +669,7 @@ ideas:
     labels with no marker, so the screen implies it prints on page 3   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-490
   method: wsjf
   scores:
