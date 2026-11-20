@@ -743,8 +743,10 @@ def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> Non
     lowercase ``guess`` tier — CARD-155 F-005) or an underscore-glued name
     built on it (``GUESS_TIER``) other than the two surviving ones,
     ``STRATEGY_GUESS`` and ``_RETIRED_GUESS_TIER``. Such a paragraph must say,
-    in prose, that the tier was retired — ``retir`` inside an identifier
-    such as ``_RETIRED_GUESS_TIER`` does not count — or say it is "never as
+    in prose, that the tier was retired — ``retir`` with a letter or
+    underscore before it, as in ``_RETIRED_GUESS_TIER``, does not count;
+    an identifier that starts with it (``retired_tiers``), or a negated
+    "not retired", still excuses the paragraph — or say it is "never as
     a tier" / "no longer a tier". The ``guess`` *strategy* (ADR-0031/R2) is
     not the tier: the word in backticks followed by an emphasised
     ``strategy`` is not matched. A bare "guess strategy" is matched, and so

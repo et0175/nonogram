@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/export/book_pdf_generator.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/app.py, src/nonogram/web/__init__.py, scripts/README.md, scripts/*.sh, scripts/measure_difficulty_cutoff.py, tests/test_book_pdf_band.py, tests/test_difficulty_tiers.py, tests/test_start_admin_local.py, tests/test_admin_tier_surfaces.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.7 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T16:30Z
 **Closed:** —
 **Actual:** —
@@ -104,3 +104,5 @@ Re-verify each first; drop any already closed with one line. Each text states on
   - Collected count 10713, still net 0.
 
 [Review 1/3] Score: 9.5, one gating finding, not certified. Every rewritten text measured against the code (export_book has no src caller; _wrapped's examples re-run; _lines's rule exact; tier_of_record, create_batch and migration 014's downgrade read; _ADAPTERS = {cli, web, admin}); AC-2 plants red; the Tier.label pin reds under a label change and CARD-181's M6; the line pin re-derived by ast (762); net 0. F-001 (Important) how-it-works 09-the-three-inbound-adapters.md still called the closed web/__init__ claim open; F-002 the renamed helper's docstring said "only when"; F-003 the widened regex's exemptions were loose (identifier "retir", "guess strategy", GUESS_TIER); F-004 the root README still said 3.11; F-005 (out of scope) two app.py sites title-case tier values instead of Tier.label. Fixed in `c102aaea`: F-001, F-002, F-004; F-003 tightened (three new plants red, today's text green), the paragraph-wide "never/no longer a tier" excuse left open with the reason stated.
+
+[Review 2/3] Score: 9.7, nothing gating, certified. F-001..F-004 resolved and re-measured: a sweep of docs/, meta/architecture, src/, scripts/, tests/, both READMEs and CLAUDE.md found no other text this diff made false; the guess-paragraph census re-derived (9 name it, 6 match, each excused); the implementer's three plants, AC-2's and the reviewer's own tuple plant all red; the paragraph-wide "never/no longer a tier" excuse accepted as stated. Net 0 (422 on the seven changed files). F-006 (low) the docstring said identifier "retir" does not count, true only with a letter or underscore before it; an identifier starting with it, or "not retired", still excuses -- the docstring narrowed to say exactly that by the orchestrator, no rule change. F-005 (info, out of scope) carried.
