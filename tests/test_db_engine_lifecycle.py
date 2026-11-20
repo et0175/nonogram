@@ -197,40 +197,137 @@ def _test_functions_in(source: str):
     return every, db_required, test_classes
 
 
-def _global_names_assigned_by(function_name: str) -> frozenset:
+def _global_names_assigned_by(function_name: str, source: str | None = None) -> frozenset:
     """The module-level names ``session.py``'s ``function_name`` declares global and assigns.
 
     Derived from ``session.py``'s own AST rather than hand-written (ADR-0039/R2):
     the set this guard consults is the set the module actually keeps, so a
     fourth global added to the builder tomorrow is inside the guard's reach on
     the day it is added, not on the day somebody remembers to extend a list.
+    ``source`` replaces the file's text, so a control can plant into a copy
+    (CARD-499 G-1: the plant never touches ``session.py``).
+
+    **What is collected**: the names an ``ast.Global`` anywhere in the
+    function declares, intersected with every ``ast.Name`` in ``Store``
+    context anywhere in it. That is every binding Python spells as a name
+    node: the target of ``=`` (tuple and starred targets included), ``+=``
+    (``ast.AugAssign``), ``x: T = v`` (``ast.AnnAssign``), a ``for`` or
+    ``with … as`` target and a walrus. Before CARD-499 only ``ast.Assign``
+    targets were read, so a global the builder set with ``+=`` or ``x: T =``
+    was never collected and the equality below passed by silence (IDEA-113).
+    ``x: T = v`` on a name the function declares ``global`` is a
+    ``SyntaxError`` when compiled ("annotated name ... can't be global"), so
+    ``session.py`` can never ship that shape; ``ast.parse`` accepts it, and
+    that arm guards a parsed string only.
+
+    **What raises instead of being collected.** A declared global bound by a
+    binder that carries the name as a **string** and not as a name node -- an
+    import alias, a nested ``def``/``class``, an ``except … as``, a ``match``
+    capture -- and a declared global's name bound anywhere inside a **nested
+    scope** (a comprehension's target, a lambda's or nested def's parameter,
+    any store inside a nested def, lambda, class or comprehension). The walk
+    does enter nested scopes, where a store is usually not an assignment to the
+    global (a walrus in a comprehension, or a nested def's own ``global``, is
+    one): measured, ``global X`` plus ``[X for X in range(2)]`` in reset_engine
+    was collected as resetting ``X`` and would have matched a builder's ``X = 1``
+    silently. So it refuses those names rather than guess. A missing function raises too, and
+    ``assert built`` in the caller catches a blind read. Not seen at all: a
+    global set dynamically (``globals()[...] =``, ``setattr`` on the module),
+    which names nothing in the AST.
 
     Measured, not hoped for: a fourth global added to
     :func:`~nonogram.db.session._init_engine` reds
     ``test_it_resets_exactly_the_globals_the_builder_creates`` with the message
-    below (mutant R4). A shape this function cannot analyse biases it to red
-    rather than to a pass: a missing function raises, a tuple or partial-tuple
-    target is simply not collected into ``assigned``, and ``assert built`` in
-    the caller catches a blind read.
+    below (mutant R4); the ``+=``, ``x: T =``, reset-side, import-alias and
+    comprehension plants are that test's own CARD-499 arms.
     """
-    tree = ast.parse(SESSION_SOURCE.read_text(encoding="utf-8"))
+    text = SESSION_SOURCE.read_text(encoding="utf-8") if source is None else source
+    tree = ast.parse(text)
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name == function_name:
             declared = {
                 name for child in ast.walk(node)
                 if isinstance(child, ast.Global) for name in child.names
             }
-            assigned = set()
-            for child in ast.walk(node):
-                if isinstance(child, ast.Assign):
-                    for target in child.targets:
-                        if isinstance(target, ast.Name):
-                            assigned.add(target.id)
+            assigned = {
+                child.id for child in ast.walk(node)
+                if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
+            }
+            unanalysed = sorted(
+                declared & (_string_bound_names(node) | _nested_scope_bound_names(node))
+            )
+            if unanalysed:
+                raise AssertionError(
+                    f"{function_name} binds the declared global(s) {unanalysed} "
+                    "by an import, def/class, except-as, match capture or inside "
+                    "a nested scope, which this guard does not analyse; it "
+                    "refuses rather than pass by silence (CARD-499)."
+                )
             return frozenset(declared & assigned)
     raise AssertionError(
         f"session.py has no module-level function {function_name!r}; this guard "
         "reads it from the source and cannot default to a pass (ADR-0039/R2)."
     )
+
+
+#: Globals :func:`nonogram.db.session.reset_engine` assigns that
+#: :func:`~nonogram.db.session._init_engine` does not build: its own call
+#: counter (CARD-258), set with ``+=``. A declaration held inside the equality
+#: of ``test_it_resets_exactly_the_globals_the_builder_creates``, so a second
+#: reset-only global reds. Until CARD-499 the derivation could not see an
+#: ``ast.AugAssign`` at all, and that equality held over this name only by
+#: being blind to it (CARD-258's declared bound 9).
+_RESET_ONLY_GLOBALS = frozenset({"_reset_count"})
+
+
+def _string_bound_names(function: ast.FunctionDef) -> set:
+    """Names bound inside ``function`` by a binder that holds a string, not an ``ast.Name``."""
+    bound = set()
+    for child in ast.walk(function):
+        if isinstance(child, (ast.Import, ast.ImportFrom)):
+            bound |= {(alias.asname or alias.name).split(".")[0] for alias in child.names}
+        elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if child is not function:
+                bound.add(child.name)
+        elif isinstance(child, ast.ExceptHandler) and child.name:
+            bound.add(child.name)
+        elif isinstance(child, (ast.MatchAs, ast.MatchStar)) and child.name:
+            bound.add(child.name)
+        elif isinstance(child, ast.MatchMapping) and child.rest:
+            bound.add(child.rest)
+    return bound
+
+
+#: The nodes that open a scope of their own inside a function.
+_NESTED_SCOPES = (
+    ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef,
+    ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp,
+)
+
+
+def _nested_scope_bound_names(function: ast.FunctionDef) -> set:
+    """Names stored, or taken as a parameter, inside any scope nested in ``function``."""
+    bound = set()
+    for child in ast.walk(function):
+        if child is function or not isinstance(child, _NESTED_SCOPES):
+            continue
+        for inner in ast.walk(child):
+            if isinstance(inner, ast.Name) and isinstance(inner.ctx, ast.Store):
+                bound.add(inner.id)
+            elif isinstance(inner, ast.arg):
+                bound.add(inner.arg)
+    return bound
+
+
+def _session_source_with_prelude(prelude: str, function_name: str = "_init_engine") -> str:
+    """``session.py``'s text with ``prelude`` prepended to ``function_name``'s body -- a copy only."""
+    tree = ast.parse(SESSION_SOURCE.read_text(encoding="utf-8"))
+    function = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == function_name
+    )
+    function.body[:0] = ast.parse(prelude).body
+    return ast.unparse(tree)
 
 
 #: Test files allowed to hand-set ``session.py``'s engine globals, with the
@@ -949,11 +1046,48 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         built = _global_names_assigned_by("_init_engine")
         assert built, "no module-level globals found in _init_engine (guard is blind)"
         reset = _global_names_assigned_by("reset_engine")
-        assert reset == built, (
+        assert reset == built | _RESET_ONLY_GLOBALS, (
             f"reset_engine() resets {sorted(reset)} but _init_engine() builds "
-            f"{sorted(built)}. A global the builder sets and the reset leaves "
-            "behind is a cache key that outlives the schema."
+            f"{sorted(built)} and the reset alone may add only "
+            f"{sorted(_RESET_ONLY_GLOBALS)}. A global the builder sets and the "
+            "reset leaves behind is a cache key that outlives the schema."
         )
+        assert not (built & _RESET_ONLY_GLOBALS), (
+            f"_init_engine() now builds {sorted(built & _RESET_ONLY_GLOBALS)}, "
+            "which _RESET_ONLY_GLOBALS exempts as set by the reset alone; the "
+            "allowance would absorb a builder global (CARD-499 F-001)"
+        )
+        # CARD-499 (IDEA-113): the derivation sees the builder's ``+=`` and
+        # ``x: T = v`` too, so either one, planted into a copy of session.py,
+        # opens the very gap the equality above reds on; and a global bound by
+        # an import is refused rather than passed by silence.
+        for shape in ("_planted += 1", "_planted: int = 1"):
+            planted = _session_source_with_prelude(f"global _planted\n{shape}")
+            gap = _global_names_assigned_by(
+                "_init_engine", planted
+            ) - _global_names_assigned_by("reset_engine", planted)
+            assert gap == {"_planted"}, (
+                f"a global the builder sets as {shape!r} is invisible to the "
+                f"derivation (gap {sorted(gap)}), so the equality above passes "
+                "by silence (CARD-499)"
+            )
+        # The allowance absorbs ``_reset_count`` and nothing else: a second
+        # global the reset alone sets is still a mismatch.
+        planted = _session_source_with_prelude("global _planted\n_planted = 1", "reset_engine")
+        extra = _global_names_assigned_by("reset_engine", planted) - (
+            _global_names_assigned_by("_init_engine", planted) | _RESET_ONLY_GLOBALS
+        )
+        assert extra == {"_planted"}, (
+            f"a second reset-only global is absorbed (extra {sorted(extra)}); "
+            "_RESET_ONLY_GLOBALS must exempt _reset_count alone (CARD-499 F-001)"
+        )
+        for prelude, function_name in (
+            ("global engine\nimport engine", "_init_engine"),
+            ("global engine\n[engine for engine in ()]", "reset_engine"),
+        ):
+            planted = _session_source_with_prelude(prelude, function_name)
+            with pytest.raises(AssertionError, match="does not analyse"):
+                _global_names_assigned_by(function_name, planted)
 
     def test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters(
         self,

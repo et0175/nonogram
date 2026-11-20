@@ -14,11 +14,11 @@ _engine_url = None  # DATABASE_URL the current engine/SessionLocal were built fo
 #: How many times :func:`reset_engine` has run in this process. Read through
 #: :func:`reset_count`; see that function for why it exists and who reads it.
 #:
-#: Incremented with ``+=``, which is an ``ast.AugAssign`` and therefore
-#: *outside* the ``ast.Assign`` sweep CARD-252's
+#: Incremented with ``+=``, an ``ast.AugAssign``, which CARD-252's
 #: ``test_it_resets_exactly_the_globals_the_builder_creates`` derives its
-#: globals from: that test's agreement between builder and reset is silent
-#: about this name rather than covering it (CARD-258 declared bound 9).
+#: globals from since CARD-499 (it read only ``ast.Assign`` before, CARD-258
+#: declared bound 9); that test declares this name as the one global the
+#: reset sets and the builder does not.
 _reset_count = 0
 
 #: How long a connection attempt may take before it is an error (CARD-097).
