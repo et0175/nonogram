@@ -40,7 +40,7 @@ Re-verify each against main first, in a test, before changing code; drop any alr
 ## Acceptance criteria
 
 * **AC-1**: a count change followed by a read gives marks consistent with the new prefill; control: the old comparison reds it.
-* **AC-2**: mutating the object `get_book` returns (memory mode) leaves the stored book unchanged; control: return the live object, it reds. Every existing memory-mode caller that mutated the returned book on purpose is found (by `ast`/grep of call sites, listed in the notes) and moved to a setter, or the card stops and reports.
+* **AC-2**: mutating the object `get_book` returns (memory mode) leaves the stored book unchanged; control: return the live object, it reds. Every existing memory-mode caller that mutated the returned book on purpose is found (by `ast`/grep of call sites, listed in the notes) and moved to a setter, or the card stops and reports. (Amended 2026-11-20 by the orchestrator after the implementation: a TEST seed site that stores a value no setter accepts on purpose — an unreadable trim or ink mode, a raw puzzle order, a forced status — writes the memory store directly, `manager.books[book_id]`, as its DB branch writes the row; product callers still go through setters.)
 * **AC-3**: net test count at most +2; report it.
 
 ## Guardrails
