@@ -37,6 +37,7 @@ from nonogram.admin.book_manager import (
     BookStatus,
     DistributionPlan,
     Split,
+    StatusRefusal,
 )
 from nonogram.admin.book_plan import BUCKETS, TIERS, InvalidPlan
 from nonogram.admin.puzzle_review import PuzzleReviewService
@@ -278,8 +279,11 @@ class Shelf:
         return self.books.get_book(book_id).status
 
     def refusal(self, book_id, status=READY_FOR_PDF) -> str:
-        """The refusal the gate raises for that transition (it must raise one)."""
-        with pytest.raises(ValueError) as refused:
+        """The refusal the gate raises for that transition (it must raise one).
+
+        A ``StatusRefusal``, the owner-refusal class Finalise flashes rather than
+        logs (CARD-496), in both storage modes."""
+        with pytest.raises(StatusRefusal) as refused:
             self.books.set_book_status(book_id, status)
         return str(refused.value)
 
@@ -748,12 +752,12 @@ class TestBookStatus_EveryExitFromDraftIsGatedOnThePlan:
     def test_the_rules_the_gate_joins_still_hold(self, shelf) -> None:
         """The empty-book and published-book rules are not replaced by it."""
         empty = shelf.books.create_book("Empty", "a book", "christmas", "adults")
-        with pytest.raises(ValueError, match="Must have puzzles"):
+        with pytest.raises(StatusRefusal, match="Must have puzzles"):
             shelf.books.set_book_status(empty, READY_FOR_PDF)
 
         book_id = shelf.book(cells_of(AC218_SELECTION), title="Out")
         shelf.books.set_book_status(book_id, BookStatus.PUBLISHED.value)
-        with pytest.raises(ValueError, match="published book"):
+        with pytest.raises(StatusRefusal, match="published book"):
             shelf.books.set_book_status(book_id, DRAFT)
 
 
@@ -805,7 +809,7 @@ class TestBookReady_UnreadableSelectionIsRefused:
         book_id = books.create_book("Empty", "a book", "christmas", "adults")
         books.save_plan(book_id, NOTHING_PLANNED)
 
-        with pytest.raises(ValueError, match="Must have puzzles"):
+        with pytest.raises(StatusRefusal, match="Must have puzzles"):
             books.set_book_status(book_id, READY_FOR_PDF)
 
     def test_with_a_store_an_unresolvable_id_still_counts_towards_no_cell(self) -> None:

@@ -8,11 +8,24 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from enum import Enum
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncio
 import random
 
 import logging
+
+
+def _utc_now() -> datetime:
+    """The current time as **naive** UTC, the kind every timestamp here stores.
+
+    ``datetime.utcnow()``'s replacement (deprecated since Python 3.12,
+    CARD-496): the same value, read through an aware clock and stripped of
+    its zone. A batch's timestamps are written to the ``batches`` table's
+    naive ``DateTime`` columns, and an in-memory job's ``created_at`` is
+    compared with ``list_batches``' naive day bounds (``strptime``); an aware
+    value would change the kind both see, and this does not.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from nonogram import difficulty, orchestrator
 from nonogram.orchestrator import MAX_BATCH_COUNT
@@ -75,7 +88,7 @@ class GeneratedPuzzle:
     height: int
     theme: str
     metrics: PuzzleMetrics
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
 
 
 @dataclass
@@ -88,8 +101,8 @@ class BatchJob:
     completed_count: int = 0
     puzzles: List[GeneratedPuzzle] = field(default_factory=list)
     error_message: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
     completed_at: Optional[datetime] = None  # When batch completed
     count: Optional[int] = None  # Alias for total_count for test compatibility
     sizes: Optional[List[int]] = None  # Store sizes for retry
@@ -163,7 +176,7 @@ class BatchGenerator:
                 for key, value in fields.items():
                     if hasattr(job, key):
                         setattr(job, key, value)
-                job.updated_at = datetime.utcnow()
+                job.updated_at = _utc_now()
         else:
             # DB mode: update Batch row
             import uuid as uuid_module
@@ -184,7 +197,7 @@ class BatchGenerator:
                             batch.puzzle_count = value
                         elif key == "completed_at":
                             batch.completed_at = value
-                    batch.updated_at = datetime.utcnow()
+                    batch.updated_at = _utc_now()
 
     def create_batch(
         self,
@@ -294,12 +307,12 @@ class BatchGenerator:
                 # TODO: else if source == "images": self._generate_from_images(...)
 
                 job.status = BatchStatus.COMPLETE
-                job.updated_at = datetime.utcnow()
-                job.completed_at = datetime.utcnow()
+                job.updated_at = _utc_now()
+                job.completed_at = _utc_now()
             except Exception as e:
                 job.status = BatchStatus.ERROR
                 job.error_message = str(e)
-                job.updated_at = datetime.utcnow()
+                job.updated_at = _utc_now()
                 raise
         else:
             # DB mode: create Batch row with status=generating
@@ -337,7 +350,7 @@ class BatchGenerator:
                 self._update_batch_status(
                     batch_id,
                     BatchStatus.COMPLETE,
-                    completed_at=datetime.utcnow(),
+                    completed_at=_utc_now(),
                 )
             except Exception as e:
                 self._update_batch_status(
@@ -493,7 +506,7 @@ class BatchGenerator:
                 # Legacy mode
                 job = self.jobs[batch_id]
                 job.completed_count += 1
-                job.updated_at = datetime.utcnow()
+                job.updated_at = _utc_now()
             else:
                 # DB mode: update completed_count after each puzzle
                 self._update_batch_status(batch_id, completed_count=made)
@@ -838,7 +851,7 @@ class BatchGenerator:
         # Can only cancel if still generating
         if job.status in (BatchStatus.GENERATING, BatchStatus.PENDING):
             job.status = BatchStatus.CANCELLED
-            job.updated_at = datetime.utcnow()
+            job.updated_at = _utc_now()
             return True
 
         return False

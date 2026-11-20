@@ -1826,31 +1826,68 @@ class TestFinalisePost_TransientErrorIsLogged:
         assert panel.status(book_id) == DRAFT
 
 
+def _off_plan(make_book):
+    """A book the plan gate refuses: a plan for three medium puzzles against
+    a selection of three easy ones (ADR-0035/R1 refuses both cells)."""
+
+    def case(panel):
+        book_id = make_book(panel)
+        panel.books.save_plan(book_id, plan_of(corpus((alone, "medium", 3))))
+        return book_id, "x medium: 0% against 100%", DRAFT
+
+    return case
+
+
+def _published(panel):
+    """CARD-496: a published book, which ``set_book_status`` will not move."""
+    book_id = panel.book(SMALL_CORPUS)
+    panel.books.books[book_id].status = BookStatus.PUBLISHED.value
+    return (
+        book_id,
+        "Error: Cannot change status of published book",
+        BookStatus.PUBLISHED.value,
+    )
+
+
+def _no_puzzles(panel):
+    """CARD-496: a book with no puzzles, on a plan, which Finalise can count."""
+    book_id = panel.books.create_book("Empty", "a book", "generic", "adults")
+    panel.books.save_plan(book_id, plan_of(corpus(*SMALL_CORPUS)))
+    return book_id, "Error: Must have puzzles before advancing status", DRAFT
+
+
 class TestFinalisePost_PlanGateRefusalIsNotAnError:
-    """AC-5 — the plan gate's refusal is flashed, and is not an ERROR."""
+    """AC-5 — the plan gate's refusal is flashed, and is not an ERROR.
+
+    CARD-496 (AC-1): the same for ``set_book_status``'s other two owner
+    refusals Finalise can reach (each a ``StatusRefusal``) — flashed in their
+    own words, nothing logged. Its faults (a plain ``ValueError``) are the
+    other class, pinned in tests/test_admin_error_text.py's corpus (the
+    ``set_book_status`` seam): fixed text, logged once.
+    """
 
     @pytest.mark.parametrize(
-        "make_book",
+        "case",
         (
-            lambda panel: panel.book(SMALL_CORPUS),
-            lambda panel: _uncountable(panel),
+            _off_plan(lambda panel: panel.book(SMALL_CORPUS)),
+            _off_plan(lambda panel: _uncountable(panel)),
+            _published,
+            _no_puzzles,
         ),
-        ids=("countable", "uncountable"),
+        ids=("countable", "uncountable", "published", "no-puzzles"),
     )
     def test_the_refusal_is_flashed_and_nothing_is_logged(
-        self, panel, caplog, make_book
+        self, panel, caplog, case
     ) -> None:
-        book_id = make_book(panel)
-        # A plan for three medium puzzles against a selection of three easy
-        # ones: the gate (ADR-0035/R1) refuses the easy and the medium cell.
-        panel.books.save_plan(book_id, plan_of(corpus((alone, "medium", 3))))
+        book_id, refusal, status = case(panel)
 
         with caplog.at_level("ERROR", logger=PANEL_LOGGER):
             response = panel.finalise(book_id)
         shown = html.unescape(refusal_of(response))
 
-        assert "x medium: 0% against 100%" in shown, shown
-        assert panel.status(book_id) == DRAFT
+        assert refusal in shown, shown
+        assert FINALISE_ACTION_FAILED not in shown
+        assert panel.status(book_id) == status
         assert _panel_errors(caplog) == []
 
 

@@ -8,11 +8,24 @@ import copy
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import math
 import uuid as uuid_module
+
+
+def _utc_now() -> datetime:
+    """The current time as **naive** UTC, the kind every timestamp here stores.
+
+    ``datetime.utcnow()``'s replacement (deprecated since Python 3.12,
+    CARD-496): the same value, read through an aware clock and stripped of
+    its zone. A book's ``created_at``/``updated_at`` are written to the
+    ``books`` table's naive ``DateTime`` columns and kept on the in-memory
+    ``Book`` the same way; an aware value would change the stored kind, and
+    this does not.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from nonogram.admin.book_page_spec import (
     BOOK1_PROFILE,
@@ -82,8 +95,8 @@ class Book:
     puzzle_ids: List[str] = field(default_factory=list)
     puzzle_titles: Dict[str, str] = field(default_factory=dict)  # {puzzle_id: "custom title"}
     status: str = BookStatus.DRAFT.value
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
     # The stored print specification (the ``books`` print columns, cm as
     # strings). ``None`` is an empty column: ``book_page_spec`` falls back to
     # CON-018's Book 1 profile for it. create_book stores the profile (AC-181).
@@ -199,6 +212,23 @@ UNREADABLE_SELECTION_REFUSAL = (
     "This book's selection cannot be read (the panel has no puzzle store), so it "
     "cannot be checked against its plan and cannot leave draft."
 )
+
+
+class StatusRefusal(ValueError):
+    """A status change refused for a reason the owner can act on (CARD-496).
+
+    Its message is the sentence the owner is shown, and it is not an error:
+    a published book keeps its status, a book with no puzzles needs some, and
+    a book off its plan (or with none) needs the plan or the selection
+    changed (ADR-0035/R1). :meth:`BookManager.set_book_status` raises it for
+    those three and nothing else.
+
+    A plain ``ValueError`` from the same call is not a refusal of this kind:
+    an unknown status (a caller's bug) or :data:`UNREADABLE_SELECTION_REFUSAL`
+    (a wiring error — no puzzle store) is a fault the owner cannot fix, and
+    Finalise shows fixed text for it and logs it. A ``ValueError`` subclass,
+    so every caller that catches ``ValueError`` still catches it.
+    """
 
 
 def off_plan_cells(plan: DistributionPlan, puzzles) -> List[tuple]:
@@ -925,7 +955,7 @@ class BookManager:
                 return False
             self._plans[book_id] = plan
             book.status = BookStatus.DRAFT.value
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
             if print_spec is not None:
                 self._apply_print_spec(book, print_spec, ink_mode)
             return True
@@ -938,7 +968,7 @@ class BookManager:
                 return False
             book_row.distribution_plan = plan_to_json(plan)
             book_row.status = BookStatus.DRAFT.value
-            book_row.updated_at = datetime.utcnow()
+            book_row.updated_at = _utc_now()
             if print_spec is not None:
                 self._apply_print_spec(book_row, print_spec, ink_mode)
             db.commit()
@@ -1119,7 +1149,7 @@ class BookManager:
             book.player_domain = PrintSpecValidator.player_domain_as_stored(
                 spec.player_domain
             )
-        book.updated_at = datetime.utcnow()
+        book.updated_at = _utc_now()
 
     def floor_overrides(self, book_id: str) -> List[str]:
         """The ids this book has stored an under-floor override for (TERM-025).
@@ -1655,7 +1685,7 @@ class BookManager:
 
             # Update page count (rough estimate: ~2 puzzles per page)
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             self._mirror_onto_puzzles(new_puzzles, book_id)
             return outcome
@@ -1705,7 +1735,7 @@ class BookManager:
                 if book_row.book_metadata is None:
                     book_row.book_metadata = {}
                 book_row.book_metadata['page_count'] = max(1, len(book_row.puzzle_ids) // 2)
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
 
@@ -1798,7 +1828,7 @@ class BookManager:
                 }
             book.status = _draft_after_membership_change(book_id, book.status)
             book.metadata.page_count = max(1, len(book.puzzle_ids) // 2)
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             self._mirror_onto_puzzles([puzzle_id], None)
             return RemoveOutcome(True)
@@ -1829,7 +1859,7 @@ class BookManager:
                     **(book_row.book_metadata or {}),
                     'page_count': max(1, len(book_row.puzzle_ids) // 2),
                 }
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 # Also remove custom title if it exists — a new dict, same reason
                 if book_row.puzzle_titles and puzzle_id in book_row.puzzle_titles:
@@ -1914,7 +1944,7 @@ class BookManager:
                 raise ValueError("Puzzle IDs must match book's current puzzles")
 
             book.puzzle_ids = puzzle_ids
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             return True
         else:
@@ -1930,7 +1960,7 @@ class BookManager:
                     raise ValueError("Puzzle IDs must match book's current puzzles")
 
                 book_row.puzzle_ids = puzzle_ids
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True
@@ -2202,7 +2232,7 @@ class BookManager:
             elif puzzle_id in book.puzzle_titles:
                 del book.puzzle_titles[puzzle_id]  # Remove custom title
 
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
             return True
         else:
             # DB mode: update Book row
@@ -2223,7 +2253,7 @@ class BookManager:
                     del puzzle_titles[puzzle_id]
 
                 book_row.puzzle_titles = puzzle_titles
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True
@@ -2336,10 +2366,12 @@ class BookManager:
         aggregate has already accepted.
 
         Raises:
-            ValueError: no stored plan (a damaged one included), a cell out of
-                tolerance, or a selection that cannot be read at all
-                (:meth:`_selection_records`). The message is the refusal the
-                owner is shown. No :class:`InvalidPlan` leaves here.
+            StatusRefusal: no stored plan (a damaged one included) or a cell
+                out of tolerance. The message is the refusal the owner is
+                shown. No :class:`InvalidPlan` leaves here.
+            ValueError: a selection that cannot be read at all
+                (:meth:`_selection_records`) — a wiring fault, not a refusal
+                (CARD-496).
         """
         if current_status != BookStatus.DRAFT.value or new_status == BookStatus.DRAFT.value:
             return
@@ -2356,7 +2388,7 @@ class BookManager:
             plan = None
         refusal = ready_refusal(plan, self._selection_records(puzzle_ids))
         if refusal is not None:
-            raise ValueError(refusal)
+            raise StatusRefusal(refusal)
 
     def set_book_status(self, book_id: str, status: str) -> bool:
         """Update book status.
@@ -2406,12 +2438,16 @@ class BookManager:
             True if updated, False if not found
 
         Raises:
-            ValueError: If invalid status, or the transition is refused. Every
-                refusal this method makes is a ``ValueError`` carrying the text
-                the owner is shown: a damaged stored plan is turned into the
-                plan-less refusal rather than surfacing as ``InvalidPlan``
+            StatusRefusal: the transition is refused for a reason the owner can
+                act on — a published book, a book with no puzzles, or the plan
+                gate's refusal. The message is the text the owner is shown: a
+                damaged stored plan is turned into the plan-less refusal rather
+                than surfacing as ``InvalidPlan``
                 (:meth:`_refuse_unless_the_planned_book`), so a caller needs no
                 second except clause to keep the refusal on the screen.
+            ValueError: an invalid status, or a selection that cannot be read
+                (:data:`UNREADABLE_SELECTION_REFUSAL`) — faults, not refusals
+                (CARD-496). ``StatusRefusal`` is a ``ValueError`` too.
         """
         valid_statuses = {s.value for s in BookStatus}
         if status not in valid_statuses:
@@ -2426,17 +2462,17 @@ class BookManager:
             # Status progression rules
             current_status = book.status
             if current_status == BookStatus.PUBLISHED.value:
-                raise ValueError("Cannot change status of published book")
+                raise StatusRefusal("Cannot change status of published book")
 
             if len(book.puzzle_ids) == 0 and status != BookStatus.DRAFT.value:
-                raise ValueError("Must have puzzles before advancing status")
+                raise StatusRefusal("Must have puzzles before advancing status")
 
             self._refuse_unless_the_planned_book(
                 book_id, current_status, status, list(book.puzzle_ids)
             )
 
             book.status = status
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             return True
         else:
@@ -2450,10 +2486,10 @@ class BookManager:
 
                 # Status progression rules
                 if book_row.status == BookStatus.PUBLISHED.value:
-                    raise ValueError("Cannot change status of published book")
+                    raise StatusRefusal("Cannot change status of published book")
 
                 if len(book_row.puzzle_ids or []) == 0 and status != BookStatus.DRAFT.value:
-                    raise ValueError("Must have puzzles before advancing status")
+                    raise StatusRefusal("Must have puzzles before advancing status")
 
                 current_status = book_row.status
                 selection = list(book_row.puzzle_ids or [])
@@ -2469,7 +2505,7 @@ class BookManager:
                     return False
 
                 book_row.status = status
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True
@@ -2548,7 +2584,7 @@ class BookManager:
                 return False
 
             book.metadata.cover_image_url = cover_url
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             return True
         else:
@@ -2563,7 +2599,7 @@ class BookManager:
                 if book_row.book_metadata is None:
                     book_row.book_metadata = {}
                 book_row.book_metadata['cover_image_url'] = cover_url
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True
@@ -2606,7 +2642,7 @@ class BookManager:
                 db.add(BookDividerImage(book_id=book_uuid, slot=slot, image=bytes(png)))
             else:
                 row.image = bytes(png)
-                row.updated_at = datetime.utcnow()
+                row.updated_at = _utc_now()
             db.commit()
             return True
 
@@ -2664,7 +2700,7 @@ class BookManager:
                 return False
 
             book.metadata.pdf_url = pdf_url
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             return True
         else:
@@ -2679,7 +2715,7 @@ class BookManager:
                 if book_row.book_metadata is None:
                     book_row.book_metadata = {}
                 book_row.book_metadata['pdf_url'] = pdf_url
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True
@@ -2701,7 +2737,7 @@ class BookManager:
                 return False
 
             book.metadata.kdp_asin = asin
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             return True
         else:
@@ -2716,7 +2752,7 @@ class BookManager:
                 if book_row.book_metadata is None:
                     book_row.book_metadata = {}
                 book_row.book_metadata['kdp_asin'] = asin
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True
@@ -2791,7 +2827,7 @@ class BookManager:
             book.metadata.description = description
             book.metadata.theme = theme
             book.metadata.target_audience = target_audience
-            book.updated_at = datetime.utcnow()
+            book.updated_at = _utc_now()
 
             return True
         else:
@@ -2809,7 +2845,7 @@ class BookManager:
                 book_row.target_audience = target_audience
                 for name, value in title_page.items():
                     setattr(book_row, name, value)
-                book_row.updated_at = datetime.utcnow()
+                book_row.updated_at = _utc_now()
 
                 db.commit()
                 return True

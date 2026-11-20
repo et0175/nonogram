@@ -114,14 +114,20 @@ def _panel_errors(caplog) -> list:
     ]
 
 
-def _request_export(client, route, book_id):
+def _request_export(client, route, book_id, headers=None):
     """Ask for the book's interior through ``route``."""
     if route == "finalise":
         return client.post(
             f"/book/{book_id}/finalize",
             data={"action": "download_pdf", "part": "interior"},
+            headers=headers,
         )
-    return client.post(f"/book/{book_id}/{route}?part=interior")
+    return client.post(f"/book/{book_id}/{route}?part=interior", headers=headers)
+
+
+#: CARD-496 (IDEA-015): a ``Referer`` the panel did not serve. A failed
+#: download never redirects to it.
+OFF_SITE_REFERER = {"Referer": "https://evil.example/book/phish"}
 
 
 def _assert_logged_once(caplog, error, book_id):
@@ -145,11 +151,13 @@ class TestBookPdfDownload_ErrorIsGenericAndLogged:
         _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
 
         with caplog.at_level("ERROR", logger=PANEL_LOGGER):
-            response = _request_export(client, route, book_id)
+            response = _request_export(client, route, book_id, OFF_SITE_REFERER)
 
         assert response.status_code == 302
-        # With no Referer every route goes back to the book's detail page.
+        # With an off-site Referer (or none) every route goes back to the
+        # book's detail page on this panel (CARD-496).
         assert response.headers["Location"].endswith(f"/book/{book_id}")
+        assert "evil.example" not in response.headers["Location"]
         assert marker not in response.headers["Location"]
         flashes = _flashes(client)
         assert [m for c, m in flashes if c == "error"] == [PDF_EXPORT_FAILED]
@@ -158,7 +166,7 @@ class TestBookPdfDownload_ErrorIsGenericAndLogged:
 
 
 # --------------------------------------------------------------------------
-# AC-3: a seeded corpus of fake-credential exceptions at five seams
+# AC-3: a seeded corpus of fake-credential exceptions at six seams
 # --------------------------------------------------------------------------
 
 
@@ -175,11 +183,16 @@ EXCEPTION_CLASSES = (
     OperationalError,
 )
 
+#: CARD-496: ``set_book_status`` is Finalise's sixth seam, placed fifth so the
+#: corpus's first pass puts a ``ValueError`` there (``EXCEPTION_CLASSES[4]``):
+#: a ``ValueError`` that is not a ``StatusRefusal`` is a fault — fixed text,
+#: logged — however it reads.
 SEAMS = (
     "clear_cover",
     "save_and_finish",
     "export:finalise",
     "export:download-pdf",
+    "set_book_status",
     "export:generate-pdf",
 )
 
@@ -238,9 +251,11 @@ def _inject_and_request(app, client, monkeypatch, tmp_path, seam, error):
         response = client.post(
             f"/book/{book_id}/finalize", data={"action": "clear_cover"}
         )
-    elif seam == "save_and_finish":
-        # The row read (members_in_order), as a database error would surface.
-        _raise_once(monkeypatch, app.book_manager, "get_puzzle_title", error)
+    elif seam in ("save_and_finish", "set_book_status"):
+        # The row read (members_in_order), as a database error would surface;
+        # or the status write itself (CARD-496), after every check passed.
+        name = "get_puzzle_title" if seam == "save_and_finish" else seam
+        _raise_once(monkeypatch, app.book_manager, name, error)
         response = client.post(
             f"/book/{book_id}/finalize", data={"action": "save_and_finish"}
         )
@@ -258,6 +273,7 @@ def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
     assert len(cases) >= 60
     assert {type(e) for _, e, _ in cases} == set(EXCEPTION_CLASSES)
     assert {seam for seam, _, _ in cases} == set(SEAMS)
+    assert ("set_book_status", ValueError) in {(s, type(e)) for s, e, _ in cases}
 
     checked = 0
     for n, (seam, error, password) in enumerate(cases):
@@ -280,7 +296,9 @@ def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
             assert password not in value, (where, name)
         flashes = _flashes(client)
         assert not any(password in m for _, m in flashes), where
-        expected = FINALISE_ACTION_FAILED if seam in SEAMS[:2] else PDF_EXPORT_FAILED
+        expected = (
+            PDF_EXPORT_FAILED if seam.startswith("export:") else FINALISE_ACTION_FAILED
+        )
         if response.status_code == 200:
             assert expected in html.unescape(body), where
         else:
@@ -707,7 +725,9 @@ def test_a_planted_failure_shows_fixed_text_and_is_logged(
 def test_a_domain_refusal_still_says_what_it_is(admin_app, monkeypatch, caplog) -> None:
     """AC-2, one control per surface a touched handler or its route uses.
     Flash: the proof pages' expected refusal is a ValueError written for the
-    owner, and still reaches the flash. JSON: the puzzles API's own
+    owner, and still reaches the flash — and its redirect (CARD-496,
+    IDEA-015) goes back to a same-site Referer, never to an off-site one,
+    which gives way to Print setup. JSON: the puzzles API's own
     refusal of an out-of-range value still answers with its message (an
     untouched ``except ValueError``). Plain text: the touched plain-text
     routes have no domain refusal of their own — their refusals ("Not
@@ -716,9 +736,22 @@ def test_a_domain_refusal_still_says_what_it_is(admin_app, monkeypatch, caplog) 
     book_id = _make_book(admin_app, puzzle_count=1)
     refusal = ValueError("this trim leaves no room for the proof note")
     monkeypatch.setattr(_app_module, "render_proof_pdf", _raising(refusal))
-    response = client.get(f"/book/{book_id}/proof-pages")
+    response = client.get(f"/book/{book_id}/proof-pages", headers=OFF_SITE_REFERER)
     assert response.status_code == 302
     assert ("error", f"Failed to generate proof pages: {refusal}") in _flashes(client)
+    assert response.headers["Location"].endswith(f"/book/{book_id}/setup-print")
+    assert "evil.example" not in response.headers["Location"]
+    # Review F-001: the scheme and the port are part of "same site" too. Another
+    # service on this host, and a script URL naming this host, each fall back.
+    for referer in (
+        f"http://localhost:5001/book/{book_id}/finalize",
+        "javascript://localhost/%0aalert(1)",
+    ):
+        other = client.get(f"/book/{book_id}/proof-pages", headers={"Referer": referer})
+        assert other.headers["Location"].endswith(f"/book/{book_id}/setup-print"), referer
+    same_site = f"http://localhost/book/{book_id}/finalize"
+    back = client.get(f"/book/{book_id}/proof-pages", headers={"Referer": same_site})
+    assert back.headers["Location"] == same_site
 
     refused = client.get("/api/puzzles?limit=1000")
     assert (refused.status_code, refused.get_json()) == (400, {"error": "Limit must be 1-100"})
