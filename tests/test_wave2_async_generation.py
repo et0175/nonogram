@@ -129,13 +129,6 @@ class TestBookManagement:
 
         assert len(approved) == 25
 
-    @pytest.mark.integration
-    def test_auto_balanced_puzzle_selection(self):
-        """Test auto-balanced selection by difficulty."""
-        # TODO: Implement auto-balanced selection algorithm
-        # Should select 70% Easy, 20% Medium, 10% Hard
-        pass
-
 
 class TestPDFGeneration:
     """Tests for PDF generation (CARD-004n)."""
@@ -177,12 +170,6 @@ class TestPDFGeneration:
         assert len(puzzles) == counts[0], (
             "a page larger than the batch returns the whole batch, not an error"
         )
-
-    @pytest.mark.integration
-    def test_pdf_download_works(self):
-        """Test that PDF can be downloaded."""
-        # TODO: Implement and test PDF download
-        pass
 
 
 # Run with: pytest tests/test_wave2_async_generation.py -v
