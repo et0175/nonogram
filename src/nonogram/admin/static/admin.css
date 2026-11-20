@@ -456,7 +456,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .side a { border-left: 0; border-bottom: 3px solid transparent; }
   .side a[aria-current="page"] { border-bottom-color: var(--color-accent); }
   .main { padding: var(--space-4); }
-  .puzzle-list-item { grid-template-columns: 2.5rem 80px 1fr auto; }
+  .puzzle-list-item { grid-template-columns: 2.5rem 80px minmax(0, 1fr) auto; }
+  /* CARD-495: on a phone the arrange row stays inside its card. The preview
+     shrinks to its 80 px column (it stayed 120 px and lay over the info), the
+     middle column may shrink below its content, and the info line wraps, so
+     the move and delete buttons no longer run 44 px past the card at 390 px. */
+  .puzzle-list-item .thumb.thumb-md { --thumb: 80px; }
+  .puzzle-list-item .item-info { flex-wrap: wrap; min-width: 0; }
+  .puzzle-list-item .item-title { min-width: 0; }
+}
+/* CARD-495: on the narrowest phones (320-360 px) the middle column is too thin
+   for the title box, so the title (and the reader's link under it) take a row
+   of their own across the preview, info and buttons columns. */
+@media (max-width: 360px) {
+  .puzzle-list-item .item-title { grid-row: 3; grid-column: 2 / 5; }
+  .puzzle-list-item .play-link { grid-row: 4; grid-column: 2 / 5; }
 }
 /* CARD-466 (UX review M10): under the board there is only the one-line "How
    to play", so the solve page does not keep .main's 56 px bottom padding,

@@ -291,6 +291,19 @@ class TestArrangePlayLink_TheUrlWrapsRatherThanSpill:
             or row["urlScrollWidth"] > row["urlClientWidth"] + EDGE_SLACK_PX
         ]
         assert spilled == [], spilled
+        # CARD-495: on the phone the rest of the row stays inside it too. The
+        # move and delete buttons ended 44 px past the card at 390 px, and the
+        # page scrolled sideways, while the URL itself wrapped correctly.
+        escaped = [
+            (name, row[name], row["row"])
+            for row in rows
+            for name in ("title", "actions")
+            if row[name]["right"] > row["row"]["right"] + EDGE_SLACK_PX
+            or row[name]["left"] < row["row"]["left"] - EDGE_SLACK_PX
+        ]
+        assert escaped == [], escaped
+        width = phone_page.evaluate("() => document.documentElement.scrollWidth")
+        assert width <= PHONE["width"], f"the page scrolls sideways: {width} px wide"
 
     def test_the_url_is_broken_over_several_lines(self, phone_page) -> None:
         # The positive form of the same fact, because containment alone could
