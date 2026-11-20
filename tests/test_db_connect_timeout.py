@@ -37,8 +37,21 @@ import pytest
 from nonogram.db import session as db_session
 
 #: Generous enough not to be flaky on a loaded machine, short enough that a
-#: regression is a slow test rather than a hung suite.
-_ALLOWED_SECONDS = 15
+#: regression is a slow test rather than a hung suite. CARD-508 (IDEA-174)
+#: raised it from 15 s: under 22 busy loops on an 11-core host (load average
+#: up to 350 with the host's other work) the 2 s deadline below took 17.4 s,
+#: 23.2 s and 29.0 s in three of ten runs. 60 s is twice the worst of those
+#: and still finite where the defect is not: a connect with no deadline never
+#: returns, so it fails here at any bound (or at the hang guard's 300 s).
+_ALLOWED_SECONDS = 60
+
+#: How long a child pytest the two hang-guard tests start may take. CARD-508
+#: (IDEA-174) raised it from 60 s: under 22 busy loops on an 11-core host
+#: both children exceeded 60 s (``subprocess.TimeoutExpired``) in one of ten
+#: runs, though each finishes in seconds on a quiet one. It must stay below
+#: ``tests/hang_guard.py``'s 300 s per-test default, so a child that never
+#: ends still fails as this test rather than as a killed suite.
+_CHILD_SECONDS = 240
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -149,7 +162,7 @@ def test_a_hanging_test_is_killed_and_its_stack_printed(tmp_path) -> None:
         ],
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=_CHILD_SECONDS,
         cwd=REPO_ROOT,
         env=environment,
     )
@@ -236,7 +249,7 @@ def test_a_run_says_where_a_hang_dump_would_go(tmp_path) -> None:
         ],
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=_CHILD_SECONDS,
         cwd=REPO_ROOT,
         env=environment,
     )
