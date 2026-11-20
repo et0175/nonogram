@@ -150,9 +150,11 @@ def _resolution_block(script: str) -> tuple[str, list[str]]:
 def test_the_three_copies_of_the_url_resolution_are_identical() -> None:
     # Review F-004: the block is copied, not sourced (start_admin_local.sh's own
     # suite runs it alone in a throwaway root), so drift is caught here.
+    # CARD-492 (IDEA-035) made diagnose_postgres.sh a fourth copy; the test's
+    # name is kept because tests/test_admin_local_cost.py pins it by node id.
     _, reference = _resolution_block("start_admin_local.sh")
     assert len(reference) >= 20, reference  # the block, not a stray line
-    for script in (SCRIPT, "run_admin_tests.sh"):
+    for script in (SCRIPT, "run_admin_tests.sh", "diagnose_postgres.sh"):
         assert _resolution_block(script)[1] == reference, (
             f"{script}'s DATABASE_URL resolution differs from start_admin_local.sh's"
         )
@@ -168,6 +170,9 @@ def test_each_script_defaults_to_its_own_database() -> None:
         "start_admin_local.sh": f'DEFAULT_DATABASE_URL="{url}nonogram_poc"',
         SCRIPT: f'DEFAULT_DATABASE_URL="{url}nonogram_poc"',
         "run_admin_tests.sh": f'DEFAULT_DATABASE_URL="{url}nonogram_test"',
+        # CARD-492: the diagnostic defaults to the panel's database, the one
+        # the two panel scripts would use in the same shell.
+        "diagnose_postgres.sh": f'DEFAULT_DATABASE_URL="{url}nonogram_poc"',
     }
     for script, line in expected.items():
         assert _resolution_block(script)[0] == line, script

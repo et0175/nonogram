@@ -26,7 +26,8 @@ blocked, not computing. A bare ``bash -c :`` costs 4 ms here and a fresh
 interpreter 18 ms, which is the other half of the same finding: a *repeated*
 spawn is cheap.
 
-The whole of this card is therefore :func:`tests.test_start_admin_local.tool_dir`
+The whole of this card is therefore ``tool_dir`` (then in
+``tests/test_start_admin_local.py``; ``tests/helpers/admin_script_stubs.py`` since CARD-492)
 -- the stub directory is built once per process per stub set instead of once per
 test -- and **no test stopped executing its script**. Nothing was converted to
 parsing and nothing was retired, so there is no named survivor to declare: the
@@ -40,7 +41,7 @@ It is worth saying why not, since the card offered it. Reading
 does not prove it *passes* the URL: CARD-151's two defects were both of that
 shape -- the script named the right things and handed psql a string it cannot
 parse. The suite's whole method is that the psql model
-(``tests/test_start_admin_local._PSQL_MODEL``) reads the argument list the way
+(``tests/helpers/admin_script_stubs.PSQL_MODEL``) reads the argument list the way
 real psql does and logs what it would have connected to, which only exists if
 the script ran. Converting those assertions to a grep would have bought the
 same seconds this card gets for free and given up the one thing that caught

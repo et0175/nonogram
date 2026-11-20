@@ -213,6 +213,22 @@ class TestMarginValidation_RefusesNonFiniteValues:
         assert spec is None
         assert error == f"{label} must be a numeric value"
 
+    def test_a_side_margin_below_the_minimum_is_refused(self) -> None:
+        """CARD-492 (IDEA-044): "0.5" used to be stored and only refused when
+        a page was laid out. The minimum is KDP's 0.25 in, written here as the
+        literal 0.635 cm rather than read off the constant, so a change to
+        either side is caught; the boundary itself is accepted."""
+        for field, label in (("gutter_margin_cm", "Gutter margin"),
+                             ("outside_margin_cm", "Outside margin")):
+            for below in ("0.5", "0.6349", "0", "-1"):
+                assert PrintSpecValidator.create_spec(**{field: below}) == (
+                    None, f"{label} must be at least 0.635 cm"), (field, below)
+            spec, error = PrintSpecValidator.create_spec(**{field: "0.635"})
+            assert error is None and getattr(spec, field) == "0.635", (field, error)
+        # The bleed margin is not a side margin book_page_spec reads.
+        spec, error = PrintSpecValidator.create_spec(outside_margin_bleed_cm="0.5")
+        assert error is None and spec.outside_margin_bleed_cm == "0.5"
+
     def test_valid_and_absent_margins_are_unchanged(self) -> None:
         """G-1: the defaults and an explicit finite margin come through as before."""
         spec, error = PrintSpecValidator.create_spec()

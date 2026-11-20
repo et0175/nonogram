@@ -18,7 +18,8 @@ and CARD-151.  This module drives either of them the way
 
 The ``psql`` stub is CARD-151's independent model of how real psql reads its
 target (libpq URI + query semantics, built on ``urllib.parse``), imported from
-that suite rather than copied, so the three scripts are judged by one model.
+``tests/helpers/admin_script_stubs.py`` -- the one copy that suite uses too --
+rather than copied, so the three scripts are judged by one model.
 It logs a ``connect user= password= host= port= dbname=`` line: what psql
 would actually have connected to.
 
@@ -42,16 +43,14 @@ from functools import cache
 from itertools import combinations
 from pathlib import Path
 
-# These are private names of tests/test_start_admin_local.py, which CARD-152
-# had to leave unmodified (its Touches). Renaming or moving any of them there
-# breaks tests/test_setup_admin_local.py and tests/test_run_admin_tests.py
-# with an ImportError -- move them here, or to their own tests/helpers/
-# module, when that file is next open (backlog: CARD-152 F-005).
-from tests.test_start_admin_local import (
-    _DOCKER_STUB,
-    _PSQL_SHIM,
-    _all_pairs,
-    _plain,
+# Shared with tests/test_start_admin_local.py, which used to own them: this
+# module imported them from that test file by their private names until
+# CARD-492 moved them to their own helper module (CARD-152 F-005, IDEA-038).
+from tests.helpers.admin_script_stubs import (
+    DOCKER_STUB,
+    PSQL_SHIM,
+    all_pairs,
+    plain,
     tool_dir,
 )
 
@@ -100,9 +99,9 @@ exit 0
 #: ``SIBLING_TOOLS[1:]`` is the ``without_psql`` set, and the two sets are one
 #: slice apart rather than two lists that could drift.
 SIBLING_TOOLS: tuple[tuple[str, str], ...] = (
-    ("psql", _PSQL_SHIM),
-    ("docker", _DOCKER_STUB),
-    ("docker-compose", _DOCKER_STUB),
+    ("psql", PSQL_SHIM),
+    ("docker", DOCKER_STUB),
+    ("docker-compose", DOCKER_STUB),
     ("alembic", _ALEMBIC_STUB),
     ("pytest", _PYTEST_STUB),
 )
@@ -256,9 +255,9 @@ def run_script(
     )
     return Run(
         returncode=completed.returncode,
-        output=_plain(completed.stdout + completed.stderr),
-        stdout=_plain(completed.stdout),
-        stderr=_plain(completed.stderr),
+        output=plain(completed.stdout + completed.stderr),
+        stdout=plain(completed.stdout),
+        stderr=plain(completed.stderr),
         calls=[line for line in log.read_text().splitlines() if line.strip()],
     )
 
@@ -524,7 +523,7 @@ class DatabaseCheckContract(_SiblingScript):
             ("?dbname=", {"dbname": ""}),
         )
         dimensions = [schemes, credentials, ports, paths, queries]
-        shapes = _all_pairs(dimensions)
+        shapes = all_pairs(dimensions)
         covered = {
             (i, dimensions[i].index(s[i]), j, dimensions[j].index(s[j]))
             for s in shapes
