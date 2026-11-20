@@ -727,7 +727,7 @@ ideas:
     `book_pdf_generator.py`   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -755,7 +755,7 @@ ideas:
     in its name (correct at both remaining call sites)   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -838,7 +838,7 @@ ideas:
     and the phrase "or Guess"   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -1021,7 +1021,7 @@ ideas:
     database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -1078,7 +1078,7 @@ ideas:
     stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -2622,7 +2622,7 @@ ideas:
   raw: '- [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other
     ink within about a line''s height sideways" rule loosely; no measured case is misdescribed   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -3361,7 +3361,7 @@ ideas:
   source_line: 200
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -3579,7 +3579,7 @@ ideas:
   source_line: 216
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
@@ -4847,7 +4847,7 @@ ideas:
   source_line: 363
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-504
   method: wsjf
   scores:
