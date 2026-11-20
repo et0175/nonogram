@@ -11,7 +11,7 @@ Generate, curate, and publish nonogram puzzles on Amazon KDP. Features strategy-
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.14+ (`requires-python` in `pyproject.toml`)
 - PostgreSQL 15+
 - Node.js 20+
 - Docker Desktop (recommended for PostgreSQL)

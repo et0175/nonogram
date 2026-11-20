@@ -314,9 +314,11 @@ at all (CARD-147 / migration 013).
 
 ## The book PDF: what is on each page, and how it is written
 
-`book_pdf_generator.py` (6,602 lines) builds the interior; `export_book` is the one
-entry point every export route goes through and returns two files, the interior
-PDF and the cover file (FR-043, INV-013). Its central claim (ADR-0036/R2) is still
+`book_pdf_generator.py` (6,602 lines) builds the interior and the cover file
+(FR-043, INV-013): the admin's download routes go through `app._export_part`,
+which renders only the file asked for, through `export_interior` or
+`export_cover`; `export_book` returns both files in one call, and its callers
+are tests. Its central claim (ADR-0036/R2) is still
 a *negative* one: **this module fits no cell and places no grid line.** Every
 number it uses is read off `nonogram.export.layout.compute_layout` called with the
 book's own spec; it places only text the layout knows nothing about.

@@ -4759,8 +4759,12 @@ class BookPDFGenerator:
     ) -> BookExport:
         """Export a book as its two files: the interior PDF and the cover file.
 
-        The one entry point every export route goes through (FR-043, INV-013).
-        The interior holds no cover page — its page 1 is the blank title
+        Both files of FR-043 (INV-013) in one call. No admin route calls
+        this: the download routes go through ``app._export_part``, which
+        renders only the file asked for, through :meth:`export_interior` or
+        :meth:`export_cover`. This method calls :meth:`export_cover` itself
+        and writes the interior the way :meth:`export_interior` does; its
+        callers are tests. The interior holds no cover page — its page 1 is the blank title
         page (``TITLE_PAGE_COUNT``, CARD-206) and its pages 2-3 are the guide
         (CARD-201's 2-page tutorial, ``GUIDE_PAGE_COUNT``) — and
         the cover file is a single page at the book's page size holding the

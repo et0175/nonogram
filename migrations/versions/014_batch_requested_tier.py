@@ -19,9 +19,10 @@ A batch made before this migration may or may not have asked for a tier
 So every existing row stays ``NULL``, which the pages read as "no tier
 recorded" and show as an em dash, never as "Any".
 
-**Rolling back.** ``downgrade`` drops the column and nothing else: the recorded
-tiers are lost, and no puzzle row and no other batch column is touched. Roll
-the code back first: code that knows the column selects it, and fails against
+**Rolling back.** ``downgrade`` drops the column: the recorded tiers are lost.
+It alters the ``batches`` table alone, and a batch row's other columns come
+back unchanged (``TestBatchRequestedTier_Migration014IsReversible``, which
+holds no puzzle row, so says nothing about one). Roll the code back first: code that knows the column selects it, and fails against
 a database without it.
 
 Revision ID: 014

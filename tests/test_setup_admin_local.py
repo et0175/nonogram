@@ -69,6 +69,7 @@ class TestSetupAdminLocal_ChecksTheTargetDatabase(_Setup, DatabaseCheckContract)
 
         self.assert_stopped_at_the_check(run)
         assert "Database 'nonogram_poc' is not reachable" in run.stdout
+        assert "URL's host, port or credentials are wrong" in run.stdout
         assert "(project default)" in run.stdout
         assert [c["dbname"] for c in connections(run)] == ["nonogram_poc"]
 

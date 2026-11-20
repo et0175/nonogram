@@ -738,17 +738,45 @@ def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> Non
     Review F-001 (CARD-155 cycle 1) found three docstrings still describing
     ``Tier.GUESS`` as live after the module's "fourth tier" section was cut.
     Paragraph-level, not line-level, so rewording a retirement note never
-    trips it: any blank-line-separated paragraph of ``difficulty.py`` that
-    names the tier (``GUESS``, ``Tier.GUESS``, ``"... or Guess"``) must also
-    say it was retired. ``STRATEGY_GUESS`` and ``_RETIRED_GUESS_TIER`` are the
-    surviving, legitimate names and are not matched.
+    trips it. A paragraph of ``difficulty.py`` names the tier when it holds
+    the word in any case (``GUESS``, ``Tier.GUESS``, ``"... or Guess"``, a
+    lowercase ``guess`` tier — CARD-155 F-005) or an underscore-glued name
+    built on it (``GUESS_TIER``) other than the two surviving ones,
+    ``STRATEGY_GUESS`` and ``_RETIRED_GUESS_TIER``. Such a paragraph must say,
+    in prose, that the tier was retired — ``retir`` with a letter or
+    underscore before it, as in ``_RETIRED_GUESS_TIER``, does not count;
+    an identifier that starts with it (``retired_tiers``), or a negated
+    "not retired", still excuses the paragraph — or say it is "never as
+    a tier" / "no longer a tier". The ``guess`` *strategy* (ADR-0031/R2) is
+    not the tier: the word in backticks followed by an emphasised
+    ``strategy`` is not matched. A bare "guess strategy" is matched, and so
+    is the unemphasised one in ``SolverSignals``'s "what is deliberately
+    absent" paragraph, which passes because that paragraph says "retired".
+
+    Left loose, measured (CARD-504 fix round 1): the two denial phrases
+    excuse their whole paragraph, not only their own sentence. The ladder
+    comment names ``guess`` in one sentence ("deliberately **not** a rung")
+    and denies it is a tier in the next, so a sentence-level rule would red
+    on today's text.
     """
     source = Path(difficulty.__file__).read_text(encoding="utf-8")
+    tier_word = re.compile(
+        r"(?<!\w)guess\b(?!``\s+\*{1,2}strategy\b)", re.IGNORECASE
+    )
+    glued_name = re.compile(r"\w*_guess\w*|\w*guess_\w*", re.IGNORECASE)
+    surviving_names = {"STRATEGY_GUESS", "_RETIRED_GUESS_TIER"}
+    excused = re.compile(
+        r"(?<![_A-Za-z])retir|never\s+as\s+a\s+tier|no\s+longer\s+a\s+tier",
+        re.IGNORECASE,
+    )
     live_claims = [
         paragraph.strip().splitlines()[0]
         for paragraph in re.split(r"\n\s*\n", source)
-        if re.search(r"(?<![_A-Z])GUESS\b|\bor Guess\b", paragraph)
-        and not re.search(r"retir", paragraph, re.IGNORECASE)
+        if (
+            tier_word.search(paragraph)
+            or set(glued_name.findall(paragraph)) - surviving_names
+        )
+        and not excused.search(paragraph)
     ]
 
     assert live_claims == [], (

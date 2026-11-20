@@ -164,6 +164,7 @@ class TestRunAdminTests_DefaultsToTheTestDatabase:
 
         assert run.returncode != 0, run.output
         assert "Database 'nonogram_test' is not reachable" in run.stdout
+        assert "URL's host, port or credentials are wrong" in run.stdout
         assert run.called("pytest") == [], run.calls
 
     def test_an_exported_url_still_wins_and_is_named_as_the_source(
