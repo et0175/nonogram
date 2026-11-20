@@ -1,6 +1,6 @@
 # CARD-496: The book routes' error paths: Finalise's other status refusals logged, the proof route's raw text, the referrer redirects, utcnow
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/496-book-route-error-paths
-**Worktree:** ../PythonProject4-card-496
+**Worktree:** —
 **Source:** roadmap wave 5 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-101 WSJF 3.08, IDEA-015 WSJF 2.31; one card because both live in the same routes of src/nonogram/admin/app.py.
 **Idea:** IDEA-101, IDEA-015
 **Wave:** 84
@@ -20,9 +20,9 @@
 **UI surface:** admin book Finalise and Print setup (flash messages, redirects)
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T09:21Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T10:24Z
+**Actual:** 1c — ratio 1/2 = 0.5
+**Merge commit:** 2ee32a1dc867cc2d12d9d9bc7eca20598a28787e
 **Blocked by:** —
 
 ## Why this card exists

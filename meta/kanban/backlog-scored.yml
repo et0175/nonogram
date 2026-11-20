@@ -422,7 +422,7 @@ ideas:
     deprecation; the `ast` importer guard matches on bare filename, not relative path   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-496
   method: wsjf
   scores:
@@ -2583,7 +2583,7 @@ ideas:
     refusals ("published", "no puzzles", "invalid status") to a flash with no log line (never logged before
     either; only the plan-gate case is tested) — decide whether they are owner refusals or errors   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-496
   method: wsjf
   scores:
