@@ -92,7 +92,11 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 6 — IN PROGRESS (board wave 85)
+## Wave 6 — DONE 2026-11-20 (board wave 85)
+
+Five cards merged: CARD-502 (`bda13f6f`, 9.5 cycle 1), CARD-503 (`8578049e`, 9.5 cycle 1), CARD-504 (`38d9eb58`, 9.7 cycle 2), CARD-505 (`916ee1bc`, 9.4 cycle 1), CARD-506 (`be1da7ae`, 9.5 cycle 1). Wave close: `make test-wave-close` on `main` at `72c2a3ff`, 10658 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 33 min. Net tests -22 over the wave (CARD-505 deleted 24 stub tests; CARD-502 +2). Not published: CARD-506's token move reaches the public player, but a build from base and HEAD differs in no measured value. Findings: CARD-503 found FR-044's "board cells are pointer-only" premise false (keyboard play exists since 2026-11-17, untested); recorded **IDEA-218** (a long solved name moves the desktop board, owner decision) and **IDEA-219** (pdf_vector writes text.pdf into the working directory). Recorded, not carded: EC-029 still says "explicit move" (CARD-503 F-002); two app.py sites title-case tier values instead of Tier.label (CARD-504 F-005); the guide strip's separator spells out the 28% mix (CARD-506 F-004).
+
+### As cut
 
 Cut against main on 2026-11-20 on the owner's "please start the next wave". The feature bucket still has nothing workable (IDEA-105, 125, 126, 178 wait on the owner), so the wave is the next tech-debt band (WSJF 2.31), bundled by area. Premises spot-checked against main the same day; each card re-verifies its items before changing anything. CARD-502 also takes CARD-496 F-003 (the status route's raw ValueError text), recorded at the wave-5 close. Not carded: IDEA-111, 106, 112, 031, 215, 010 (as at wave 5); the other three wave-5 leftovers stay recorded.
 
