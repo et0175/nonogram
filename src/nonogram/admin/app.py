@@ -816,6 +816,13 @@ def _ask_for_a_credential() -> Response:
     )
 
 
+#: What a book member the interior cannot draw shows instead of a puzzle number
+#: or a page (CARD-165, CARD-490): the book page's "#" column and the arrange
+#: page's page label both say it, from one string, about the same rows — a row
+#: the page plan holds but did not print (``section_plan``'s ``printed``).
+NOT_PRINTED_CANNOT_BE_DRAWN = "Not printed: cannot be drawn"
+
+
 def _printed_places(book, puzzles):
     """Where the printed book puts each of its puzzles (FR-036, CARD-140).
 
@@ -836,7 +843,7 @@ def _printed_places(book, puzzles):
             gets back.
 
     Returns:
-        ``(places, divider_pages)``. ``places`` maps ``id(row)`` — the identity
+        ``(places, divider_pages, printed)``. ``places`` maps ``id(row)`` — the identity
         of a row object the caller passed in — to
         ``{"page", "opens_page", "shares_page"}``: the **interior** page number
         the puzzle prints on (page 1 is the blank title page, pages 2-3 are
@@ -844,7 +851,12 @@ def _printed_places(book, puzzles):
         the first puzzle on that page, and whether it shares the page with its
         neighbour (FR-040, INV-010). ``divider_pages`` maps a level's tier value
         to the interior page of the divider page that opens it (CARD-128).
-        A row the interior cannot print is in neither.
+        A row the interior cannot print is in neither. ``printed`` is the set
+        of ``id(row)`` of :attr:`SectionPlan.printed` itself — the rows the
+        interior draws, the set ``book_detail`` numbers from (CARD-165) — so a
+        caller that marks a row "not printed" reads the plan's own answer
+        rather than inferring it from a row's absence from ``places``
+        (CARD-490).
 
         The key is the **plan's own coordinate**, resolved to the row it names:
         a page's :attr:`~nonogram.admin.book_pdf_generator.PuzzlePagePlan.numbers`
@@ -868,7 +880,7 @@ def _printed_places(book, puzzles):
                 "opens_page": position == 0,
                 "shares_page": len(page.numbers) > 1,
             }
-    return places, divider_pages
+    return places, divider_pages, {id(row) for row in plan.printed}
 
 
 @dataclass(frozen=True)
@@ -5251,19 +5263,19 @@ def create_app(debug=None):
         # if it were the book.
         page_plan_failed = False
         try:
-            places, divider_pages = _printed_places(book, puzzles_in_book)
+            places, divider_pages, printed = _printed_places(book, puzzles_in_book)
         except (RuntimeError, ValueError) as e:
             app.logger.warning(
                 "No page plan for book %s's arrange screen: %s", book_id, e
             )
-            places, divider_pages = {}, {}
+            places, divider_pages, printed = {}, {}, set()
             page_plan_failed = True
         except Exception:
             app.logger.exception(
                 "The arrange screen's page plan failed unexpectedly for book %s",
                 book_id,
             )
-            places, divider_pages = {}, {}
+            places, divider_pages, printed = {}, {}, set()
             page_plan_failed = True
         for puzzle in puzzles_in_book:
             place = places.get(id(puzzle), {})
@@ -5272,6 +5284,16 @@ def create_app(debug=None):
             puzzle["page"] = place.get("page")
             puzzle["opens_page"] = place.get("opens_page", False)
             puzzle["shares_page"] = place.get("shares_page", False)
+            # CARD-490: a row the plan was built over but is not in its
+            # `printed` rows is one the interior cannot draw — the same test
+            # `book_detail` numbers by — so it is marked as the book page marks
+            # it, in place of a page label. With no plan, nothing is known
+            # about any row and the page-plan notice says so instead.
+            puzzle["unprinted"] = (
+                NOT_PRINTED_CANNOT_BE_DRAWN
+                if not page_plan_failed and id(puzzle) not in printed
+                else None
+            )
         for group in level_groups:
             group["divider_page"] = divider_pages.get(group["tier"])
 
@@ -6086,7 +6108,7 @@ def create_app(debug=None):
                     row_ids[id(row)],
                     row,
                     numbers.get(id(row)),
-                    None if id(row) in numbers else "Not printed: cannot be drawn",
+                    None if id(row) in numbers else NOT_PRINTED_CANNOT_BE_DRAWN,
                 )
                 for row in plan.puzzles
             ]

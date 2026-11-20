@@ -144,13 +144,27 @@
                        puzzles the book pairs (FR-040, INV-010) have no break
                        between them, so they are shown sharing the one page the
                        label names — and nothing here works that out: the route
-                       asked the generator (G-1). #}
-                    {% if puzzle.opens_page %}
+                       asked the generator (G-1).
+
+                       CARD-490: a row the interior cannot draw has no page, so
+                       it gets the book page's "Not printed" words where a page
+                       label would go, and is not left listed under the label
+                       above it. A printed row right after it says its page
+                       again, even mid-page (a pair the dropped row sat
+                       between), so it is not read as part of the unprinted
+                       one's run. The whitespace control keeps a book with no
+                       such row byte-identical to the page before this card. #}
+                    {% if puzzle.opens_page or (puzzle.page and loop.previtem and loop.previtem.unprinted) %}
                     <div class="page-break-divider" data-page="{{ puzzle.page }}">
                         <span>page {{ puzzle.page }}{% if puzzle.shares_page %} · two puzzles{% endif %}</span>
                     </div>
                     {% endif %}
-                    <div class="puzzle-list-item"{% if puzzle.page %} data-page="{{ puzzle.page }}"{% endif %}>
+                    {%- if puzzle.unprinted %}
+                    <div class="page-break-divider" data-unprinted="true">
+                        <span>{{ puzzle.unprinted }}</span>
+                    </div>
+                    {%- endif %}
+                    <div class="puzzle-list-item"{% if puzzle.page %} data-page="{{ puzzle.page }}"{% endif %}{% if puzzle.unprinted %} data-unprinted="true"{% endif %}>
                         <div class="item-order">{{ puzzle.order }}</div>
 
                         <div class="item-preview thumb thumb-md">
