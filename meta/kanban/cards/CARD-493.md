@@ -1,6 +1,6 @@
 # CARD-493: Three test minors: a vacuous trim assertion, a bare-token echo row, and two claims a proof test makes
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/493-test-minors
-**Worktree:** ../PythonProject4-card-493
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-068 WSJF 3.08 (unverified at the rescore), IDEA-093 WSJF 3.08, IDEA-097 WSJF 3.08 (partly).
 **Idea:** IDEA-068, IDEA-093, IDEA-097
 **Wave:** 83
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.6 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T02:27Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T04:14Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 8d589e5bd1352f816fc58112b8b99daa38dd3a69
 **Blocked by:** —
 
 ## Why this card exists

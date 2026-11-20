@@ -1792,7 +1792,7 @@ ideas:
     mode   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-493
   method: wsjf
   scores:
@@ -2383,7 +2383,7 @@ ideas:
   raw: '- [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token
     (`hunter2://`); AC-1''s echo check accepts any corpus scheme rather than the one drawn for that case   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-493
   method: wsjf
   scores:
@@ -2476,7 +2476,7 @@ ideas:
     OS/2 field the bundled font lacks (value correct); `_annotate`''s docstring claims square page 2 keeps
     its foot note but only 11×8.5 is asserted   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-493
   method: wsjf
   scores:
