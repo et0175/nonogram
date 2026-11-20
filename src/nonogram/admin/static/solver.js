@@ -182,8 +182,10 @@
 //   pointer   pointerdown on a cell, then pointerup without having been over
 //             another cell = a click: clickStroke with the tool selected at
 //             pointerdown and a `repeat` flag (solver_state.js clickedState:
-//             a first click gives the cell the brush's state, a repeat click
-//             moves it one step along the brush's sequence — see there).
+//             a first click gives the cell the brush's state, or moves it
+//             one step on when it already holds that state (Clear excepted:
+//             it always clears); a repeat click moves it one step along the
+//             brush's sequence — see there).
 //             A click is a repeat when the previous input was a recorded
 //             click on the same cell with the same tool: wireMarking keeps
 //             that one click as `lastClick` ({row, col, tool} or null). It

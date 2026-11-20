@@ -12,10 +12,11 @@ the numeral floor can still force a sideways scroll ("where a board cannot
 fit at 12 px, it scrolls sideways") — that is a deliberate, accepted trade-off
 for legibility, not a defect, and several tests below measure it rather than
 assume it away. Since CARD-194, a cell's ``touch-action`` follows Region
-(off by default; the brush menu's fifth item then, its own toggle beside the
-brush since CARD-211): ``auto`` with Region off, so a
-touch drag pans instead of marking; ``none`` with Region on, which every
-touch drag below arms first, so it marks as it always has. Every clue box
+(the brush menu's fifth item then, its own toggle beside the brush since
+CARD-211; off at load on a board that does not fit in view, CARD-433):
+``pan-x pan-y`` with Region off (``auto`` until CARD-195), so a touch drag
+pans instead of marking; ``none`` with Region on, which every touch drag
+below arms first, so it marks as it always has. Every clue box
 (column, row, corner) keeps the default ``auto`` regardless (AC-10).
 
 Browser tests only (pytest-playwright + Chromium, ADR-0038/R7), refusing loudly
@@ -645,10 +646,11 @@ class TestSolverPhone_TouchDragMarksOnAFittedBoard:
 
 @pytest.mark.browser
 class TestSolverPhone_SwipingTheCluesPansTheBoard:
-    """AC-10. (CARD-193: nothing pans the board on a phone any more, so the
-    old swipe-pans-the-stage test — which also assumed the column-clue band
-    was reachable at a fixed scroll position — is gone; this touch-action
-    check is what AC-10 actually asks for.)"""
+    """AC-10. (CARD-193 retired the old swipe-pans-the-stage test, which
+    assumed the column-clue band was reachable at a fixed scroll position;
+    a board can still scroll sideways where the numeral floor binds — see
+    the module docstring — but this touch-action check is what AC-10
+    actually asks for.)"""
 
     def test_cells_take_no_touch_action_and_clue_boxes_keep_the_default(self, browser_page, live) -> None:
         """AC-13 / CARD-194 — a cell's touch-action follows Region (CARD-211:

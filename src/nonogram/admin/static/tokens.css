@@ -48,6 +48,9 @@
   /* Color — the puzzle grid itself (SVG thumbnails, previews) */
   --grid-paper: #fffdf8;
   --grid-ink: #1c2333;
+  /* The puzzle player's thin rule between cells: 28% ink on paper
+     (CARD-160 F-004, a local value in admin.css until CARD-506). */
+  --player-thin: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper));
 
   /* Color — data-viz categorical slots (charts pull from here, in order) */
   --viz-1: #1f5f5b; --viz-2: #9b3b26; --viz-3: #8f6400; --viz-4: #2f6b3a;
@@ -83,6 +86,12 @@
   /* Layout sizes */
   --side-w: 220px; --topbar-h: 52px; --control-h: 36px;
   --row-h: 64px; --thumb: 52px; --measure: 68ch;
+  /* Component sizes (local values in admin.css until CARD-506): the puzzle
+     player's cell side bounds (CARD-160 F-004; admin.css re-sets them on
+     .player-stage for some widths and pages) and the book guide strip's
+     cell (CARD-169 F-002). */
+  --player-cell-min: 14px; --player-cell-max: 28px;
+  --strip-cell: 1.5rem;
 }
 
 /* Book theme "christmas" (CARD-420, owner 2026-11-10). Set by the public

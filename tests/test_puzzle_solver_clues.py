@@ -1238,9 +1238,10 @@ class TestSolverClues_TheCircleIsVisible:
     Separately, any two rings are at least _RING_GAP (admin.css
     --player-ring-gap) apart — EXCEPT two adjacent SINGLE-DIGIT ROW rings
     (CARD-196 AC-8, F-006 narrowing, owner option b, 2026-10-07): the
-    shared 1.45ch row gap leaves them only about 0.125-0.141 px apart,
-    across all three viewports above (never an actual overlap — the gap
-    stays positive), while every other pair — two-digit row, two-digit
+    shared 1.45ch row gap leaves them under _RING_GAP apart at 1440 px
+    (never an actual overlap — the gap stays positive; at the other two
+    viewports the 12 px numeral floor parts them, see
+    TestSolverClues_SingleDigitRowRingsMayTouch), while every other pair — two-digit row, two-digit
     column, single-digit column, and any row/column mix — keeps the full
     _RING_GAP floor, pinned by the `_RING_GAP` close-pairs check in
     test_two_digit_rings_clear_their_digits_on_a_30x30 (whose fixture has
@@ -1413,22 +1414,21 @@ class TestSolverClues_SingleDigitRowRingsMayTouch:
     2026-10-07): two adjacent SINGLE-DIGIT row rings are not required to
     keep the full _RING_GAP (admin.css --player-ring-gap) apart. Uses the
     15 x 15 _player_grid's OWNER_ROW (clue "2 2", the owner's own AC-6
-    example row) — already the only adjacent single-digit row ring pair in
-    this file — rather than a new board, at the same three viewports
+    example row) — one already-named adjacent single-digit row ring pair
+    (the 15 x 15 board has many) — rather than a new board, at the same three viewports
     (_RING_VIEWPORTS) TestSolverClues_TheCircleIsVisible checks the 30 x 30
     ring floor at. Fully marking OWNER_ROW circles both its "2"s (AC-3: a
     fully marked line circles everything), so both rings are live.
 
-    At the floor and desktop viewports (cell 14.4 / 17.67 px, numeral above
-    the 12 px floor) the gap between them is always positive (the rings
-    touch, never overlap) but measures well under _RING_GAP (about
-    0.125-0.141 px). At the phone viewport (CARD-193: the 24 px phone floor
-    is gone, so this 15 x 15 board's cell is the fit, well under 20 px) the
-    numeral sits at its 12 px floor (CARD-196) while the ring still scales
-    with the now much smaller cell, so the two rings are no longer tight —
-    the pair keeps the ordinary full _RING_GAP there instead, like every
-    other pair; this is asserted below per viewport rather than as one
-    shared bound. Each ring's OWN digit clearance (the >= 0.5 px bar from
+    At the desktop viewport the gap between them is always positive (the
+    rings touch, never overlap) but measures well under _RING_GAP. At the
+    phone viewport (CARD-193: the 24 px phone floor is gone, so this 15 x 15
+    board's cell is the fit, well under 20 px) and, since CARD-411, at the
+    1100 x 700 floor viewport too, the numeral sits at its 12 px floor
+    (CARD-196) while the ring still scales with the smaller cell, so the two
+    rings are no longer tight — the pair keeps the ordinary full _RING_GAP
+    there instead, like every other pair; this is asserted below per
+    viewport rather than as one shared bound. Each ring's OWN digit clearance (the >= 0.5 px bar from
     the cycle-1 F-001 fix) is unaffected either way and is asserted here
     too."""
 
@@ -1451,7 +1451,8 @@ class TestSolverClues_SingleDigitRowRingsMayTouch:
 
         gap = second["left"] - first["right"]
         # Never an actual overlap (always positive, less one 1/64 px layout
-        # unit, as the existing close-pairs check below tolerates)...
+        # unit, as the close-pairs check in
+        # TestSolverClues_TheCircleIsVisible tolerates)...
         assert gap > -1 / 64, gap
         if viewport["width"] in (390, 1100):
             # CARD-193: below the 24 px phone floor this pair is no longer

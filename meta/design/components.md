@@ -227,7 +227,7 @@ Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CA
 - Parts: column-clue boxes above, row-clue boxes left, W×H cells; a heavy rule after every 5th line on both axes and on the frame (the printed page's counting aid); the clue area carries the same rules.
 - States: loading / no-script (fallback sentence "…the player script did not load") · error (danger alert, no board, when the payload is unreadable) · drawn — each cell `unknown` (bare --grid-paper), `filled` (--grid-ink) or `empty` (small --color-text-secondary dot).
 - Sizing: cell side clamp(14px, fit, 28px) from the board size and clue depth; fits 1440×900 at 30×30; below the floor it scrolls inside `.player-stage`, and the page never scrolls sideways (1366×768 scroll for deep-clue 30×30 is owner-accepted for the admin POC).
-- Tokens: --grid-paper, --grid-ink, --color-surface, --color-text-secondary, --border-width, --font-num, --topbar-h, --space-*. Candidate tokens still local custom properties in admin.css (CARD-160 F-004): --player-cell-min 14px, --player-cell-max 28px, thin rule = color-mix(--grid-ink 28%, --grid-paper).
+- Tokens: --grid-paper, --grid-ink, --color-surface, --color-text-secondary, --border-width, --font-num, --topbar-h, --space-*. Since CARD-506 also the tokens that were local custom properties in admin.css (CARD-160 F-004): --player-cell-min 14px, --player-cell-max 28px, --player-thin (the thin rule, color-mix(--grid-ink 28%, --grid-paper)).
 - Interactive states (CARD-161): cells are interactive (cursor: pointer, touch-action none, no text selection); a drag in progress shows a live preview (cells take the tool's state as the pointer passes, recorded on release). No hover tint (it would hide the state while the pointer rests on a cell). Error and solved states arrive with CARD-162.
 - Solved state (CARD-162): a 2px --color-success outline drawn just inside the table's edge (outline-offset = minus the major rule width — outside, the stage clipped it), a ~1s diagonal success sweep over the filled cells, and the board locked (`.player-board.is-solved`).
 - Reduced-motion solved state: under prefers-reduced-motion the same banner, name and outline appear with no animation or transition.
@@ -301,7 +301,7 @@ Used by: /book/<id>. The "#" cell is the puzzle's printed number from the export
 
 ## Guide strip (CARD-169)
 
-Used by: /book/<id>/finalize, the guide-page preview. One worked-example line drawn as a row of square cells: `.guide-strip` (heavier ink frame) > `.guide-strip-cell[data-state=filled|crossed|blank]` (ink fill / X / paper), thin separators; grid tokens only. Hidden from screen readers (`aria-hidden`); the step caption above it is its text. The cell size `--strip-cell: 1.5rem` is a local value in admin.css: a candidate token.
+Used by: /book/<id>/finalize, the guide-page preview. One worked-example line drawn as a row of square cells: `.guide-strip` (heavier ink frame) > `.guide-strip-cell[data-state=filled|crossed|blank]` (ink fill / X / paper), thin separators; grid tokens only. Hidden from screen readers (`aria-hidden`); the step caption above it is its text. The cell size `--strip-cell: 1.5rem` is a token (tokens.css, since CARD-506; a local value in admin.css before).
 
 ## Batch pages — "Tier asked" (CARD-181)
 
