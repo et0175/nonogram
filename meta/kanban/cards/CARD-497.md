@@ -73,3 +73,42 @@ CARD-120 F-008: when Print setup refuses a submission (a split that does not sum
 **Observed, not changed (cut bar).** On a refused render, the FR-034 "disagrees with the split" alert above the matrix is still built from the stored plan (`plan_disagrees`, `plan_column_totals`). It is the same family as this card, but outside its AC.
 
 **AC-3.** Net collected count (`--collect-only -q -o addopts= tests/`) is 10708 before and 10708 after, so +0. I extended 2 existing tests and added no new test.
+
+### 2026-11-20 implementer, fix round 1 (review cycle 1: 7.0; RC-1, findings F-001 to F-003)
+
+**Cause (RC-1).** Round 0 moved only the Planned row onto the submitted plan. The FR-034 `#plan-warning` alert still read the stored plan, through `plan_disagrees`, `plan_column_totals` and the `plan.count` and `plan.split` its sentence quotes. Two failures followed:
+- **F-001:** a refused plan on a book whose stored plan disagrees with its split rendered `None|join`, which was HTTP 500 (`TypeError: 'NoneType' object is not iterable`).
+- **F-002:** on a refused trim, the alert mixed the stored and submitted plans and stated false arithmetic. A submitted plan that disagreed with its split got no alert at all.
+
+**Change.**
+- `_plan_context` picks one *summary* plan. If a refused submission carried the plan fields, it is `submitted_plan`, which is `None` when the plan itself was refused. Otherwise it is the stored plan.
+- From that plan it takes `plan_tier_counts`, `plan_column_totals`, `plan_disagrees`, and a new `plan_summary`, whose count and split the alert's sentence quotes. When there is no summary plan, there is no alert; the plan-error alert explains the refusal.
+- `plan` stays the stored plan, which the edited marks use.
+- `book_setup_print.html` quotes `plan_summary.count` and `plan_summary.split` in `#plan-warning`.
+
+**Tests.** No new test: I extended existing ones, to keep within the owner's test budget. The coordinator asked for one new memory-and-db test, but a new parametrized def collects +2. I folded its scenario into `test_refused_split_keeps_the_typed_matrix`, which already POSTs a refused split.
+- New helpers (not tests): `_plan_warning` and `_store_disagreeing_plan`. The second saves 150 at 40/40/20 with cell 2 x hard set to 20, which gives a hard column of 38.
+- `test_refused_split_keeps_the_typed_matrix` now starts from a disagreeing stored plan. It asserts HTTP 200, the "Not saved" row, no `#plan-warning`, and that the stored plan is unchanged.
+- `test_trim_refusal_carries_the_plan_input_back` now starts from the disagreeing stored plan. Its submitted 120 at 30/45/25 has a hand edit, so it disagrees too. The test asserts the whole warning sentence in the submitted plan's own figures (totals 36 / 63 / 30, 120 at 30/45/25, plan 36 / 54 / 30), and that the stored plan is unchanged.
+- `test_only_the_failing_field_is_marked` (F-003) now asserts that a count or cell refusal shows the "Not saved" row.
+- `test_book_trim_persistence.py::test_a_trim_only_form_with_a_blank_field_is_refused_too` (F-003) now asserts that a refusal without plan fields keeps the stored Planned row, 60 / 60 / 30.
+
+**Controls.** The scope is the 12 cases of those 4 tests. After each control the files were restored, and `git diff --stat` shows only the intended files.
+- **A: round-0 head's app.py and template.** 4 red.
+  - `test_refused_split_keeps_the_typed_matrix` [memory, db]: `TypeError: 'NoneType' object is not iterable`, which is F-001 reproduced.
+  - `test_trim_refusal_carries_the_plan_input_back` [memory, db]: the warning reads "...column totals of 60 / 60 / 38 ... but 150 puzzles at 40/40/20 plan 36 / 54 / 30", which is F-002 reproduced.
+- **B: the `"split_easy" in submitted` guard deleted.** 2 red: `test_a_trim_only_form_with_a_blank_field_is_refused_too` [memory, db], with `['Not saved: ...e plan above'] == ['60', '60', '30']`.
+- **C: the merge-base route and template.** 10 red. Each assertion was checked separately:
+  - the trim test: `['60', '60', '30'] == ['36', '54', '30']`;
+  - the split test: `AssertionError: ['60', '60', '30']`;
+  - `test_only_the_failing_field_is_marked` (6 cases): `assert False` on the "Not saved" check.
+
+**AC-2, re-captured.** I captured 12 pages with `nonogram.__file__` asserted inside each tree: a `git archive` of the merge-base 87a6c372, and the worktree.
+- The pages: the default GET; the successful POST (302) and the page it leads to; the GET after it; an unchanged-plan POST and the page it leads to; a disagreeing-plan POST and the page it leads to; the disagreeing-plan GET; an inches POST and the page it leads to; and the inches GET.
+- All 12 are byte-identical.
+
+**Gate (unarmed, `-rfs`).** The same 10 files as round 0 gave 813 passed, 0 failed, 0 skipped. The parametrized cases were extended, not added, so the count is unchanged.
+
+**AC-3.** `--collect-only -q -o addopts= tests/` gives 10708, the same as the merge-base, so +0.
+
+**F-004** (`plan_count` has no upper bound) is the reviewer's info note: it was already like that, and it is not on a refusal path. Not changed.

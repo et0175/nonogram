@@ -3565,12 +3565,16 @@ def create_app(debug=None):
         plan's, since nothing was stored. ``error_fields`` names the inputs
         to mark invalid.
 
-        CARD-497: the matrix's ``Planned`` row follows the fields. After a
-        refused submission that carried the plan, it is ``submitted_plan``'s
-        tier counts — the plan the form parsed, when only something else (the
-        trim, the domain) was refused — or ``None`` when the plan itself was
-        refused, which the page shows as "not saved" rather than the stored
-        plan's figures under the owner's own entries.
+        CARD-497: the plan *summary* — the matrix's ``Planned`` row and the
+        FR-034 disagreement warning (its column totals, count, split and tier
+        counts) — describes one plan, the one the fields show. After a refused
+        submission that carried the plan fields that is ``submitted_plan``,
+        the plan the form parsed when only something else (the trim, the
+        domain) was refused; when the plan itself was refused there is none
+        (``plan_summary`` is ``None``): the Planned row says "not saved" and
+        no disagreement warning is shown, since the plan-error alert speaks.
+        Otherwise it is the stored plan. ``plan`` stays the stored one, for
+        the edited marks.
         """
         stored, damaged = _readable_plan(book_id)
         plan = stored if stored is not None else DEFAULT_PLAN
@@ -3583,9 +3587,9 @@ def create_app(debug=None):
                 return submitted.get(f"cell_{b}_{tier.value}", value)
             return value
 
-        tier_counts = plan.tier_counts
+        summary = plan
         if submitted is not None and "split_easy" in submitted:
-            tier_counts = submitted_plan.tier_counts if submitted_plan is not None else None
+            summary = submitted_plan
 
         if submitted is not None:
             count_value = submitted.get("plan_count", count_value)
@@ -3612,9 +3616,14 @@ def create_app(debug=None):
                 )
                 for b, bucket in enumerate(PLAN_BUCKETS)
             ],
-            "plan_column_totals": [sum(plan.cell(bucket, tier) for bucket in PLAN_BUCKETS) for tier in PLAN_TIERS],
-            "plan_tier_counts": tier_counts,
-            "plan_disagrees": plan.disagrees_with_split,
+            "plan_summary": summary,
+            "plan_column_totals": (
+                None
+                if summary is None
+                else [sum(summary.cell(bucket, tier) for bucket in PLAN_BUCKETS) for tier in PLAN_TIERS]
+            ),
+            "plan_tier_counts": None if summary is None else summary.tier_counts,
+            "plan_disagrees": summary is not None and summary.disagrees_with_split,
         }
 
     def _stored_trim_cm(book):

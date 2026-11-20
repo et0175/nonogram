@@ -68,6 +68,7 @@ from tests.test_book_plan_storage import (
     _input_value,
     _new_book,
     _page,
+    _planned_row,
 )
 
 #: 6 x 9 inches: what the owner types on Print setup, and the centimetres the
@@ -1066,6 +1067,9 @@ class TestBookTrim_ABlankTrimFieldStoresNothing:
             )
 
         assert response.status_code == 200
+        # CARD-497: no plan fields were submitted, so the Planned row still
+        # summarises the stored plan (150 at 40/40/20).
+        assert _planned_row(response.get_data(as_text=True)) == ["60", "60", "30"]
         assert flashes == [
             "Error: Trim height must be entered: an empty trim field is not"
             " a size, so nothing was stored and the book keeps the trim it is on."
