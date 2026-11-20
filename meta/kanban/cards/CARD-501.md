@@ -44,3 +44,9 @@ The reference is the prefill at the submitted count **and** the submitted split.
 * **G-1**: no schema change; a stored plan's existing marks are not rewritten (the rule applies to new submissions only).
 
 ## Worktree notes
+Implemented by the orchestrator.
+
+* **Change.** `revise_plan`: `reference = prefill(typed.count, split)` (was `shown.split`); the comment and the docstring's second bullet say the typed cell is judged against the prefill at the submitted count and split. The left-alone rule and `with_split`'s re-derivation unchanged.
+* **AC-1.** `TestRevisePlan::test_a_count_change_judges_typed_cells_against_the_new_prefill` gains a second case (no new test): DEFAULT_PLAN, submitted 120 at 30/45/25, every cell typed to that prefill except 16-20 x medium (prefill + 5, asserted to differ from both the new prefill and the shown value — my first offset, +3, equalled the shown value and was rightly treated as left alone). Asserts the only edit is that cell and the matrix is as typed. Control (reference back on the shown split): reds, extra cells marked.
+* **AC-2.** The plan and Print setup files (test_book_plan_storage, _setup_print_mobile, _trim_persistence, _player_domain, _divider_pages_option, test_print_specs, _pdf_ink_mode, _workflow_steps, test_admin_import_consistency, _proof_pages, test_book_manager, _ready_gate, test_book_plan and property/test_book_plan): 977 passed, 0 skipped, unarmed, -rfs. CARD-500's save-based oracle follows the new rule by construction (it reads what a save stores).
+* **AC-3.** 10711 collected on main and on the branch, net 0.
