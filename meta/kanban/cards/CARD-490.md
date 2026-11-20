@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_arrange*.py
 **UI surface:** admin book arrange page (page labels)
-**Review score:** —
+**Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T01:11Z
 **Closed:** —
 **Actual:** —
@@ -82,3 +82,5 @@ On the arrange page (`arrange_puzzles_in_book`, `book_arrange_puzzles.html`) a p
 - **Gate** (unarmed, `-rfs`, the round-0 files): 367 passed, 0 failed, 0 skipped. **Count**: 10705 at the merge-base, 10706 on the branch (net +1).
 
 [Review 1/3] Score: 9.0, one gating finding, not certified. F-001 two ADJACENT undrawable rows had no test: a mutant dropping `puzzle.page and` from the re-label condition printed "page None" above the second of them with all 96 arrange/detail/size-filter tests green; F-002 (low) the arrange page derived "unprinted" from "not placed" while book_detail uses "not in plan.printed" — equal today, by coincidence of `puzzle_section`; F-003 (low, owner's visual question) the repeated "page 6 · two puzzles" label and the marker styled exactly like a page label (screenshots in ~/Documents/nonogram-reviews/CARD-490/); F-004 (info, pre-existing on main) a pair's second puzzle shows no page label when a size filter hides the first; F-005 (info) the row's `data-unprinted` attribute is read by nothing. Byte-identical ordinary page re-captured over seven filter views; same rows marked as book_detail on a six-undrawable book. Fixed in `06b68d52`: F-001 by extending the re-label test to four puzzles (two adjacent undrawable), F-002 by marking from the plan's own printed set. F-003 left for the owner; F-004, F-005 not taken.
+
+[Review 2/3] Score: 9.6, nothing gating, certified. F-001 closed: M9 reds the extended test on two separate assertions ("page None" absent; the label list), every figure in the test is what HEAD's route produces. F-002 closed: four mutants diverging the arrange page's set from book_detail's each red (2-4 tests); the two `except` branches' three-tuples each have a red control. Ordinary book byte-identical against the merge-base over 7 captures; page plan unchanged on the six-undrawable book. F-003 (owner's visual question), F-004 (pre-existing, size filter hides a pair's first puzzle), F-005 (`data-unprinted` unread) carried; F-006 (info) the cycle-1 "not placed" definition passes every test, as it must while the plan places every printed row. 367 passed over the 8 gate files; net +1.
