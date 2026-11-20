@@ -1,6 +1,6 @@
 # CARD-503: Registry wording owed: INV-009's "move", AC-343's 24 px floor, FR-044's two unstated player rules
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/503-registry-wording
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-503
 **Source:** roadmap wave 6 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-159, IDEA-167, IDEA-064 (WSJF 2.31 each); bundled as registry amendments.
 **Idea:** IDEA-159, IDEA-167, IDEA-064
 **Wave:** 85
@@ -19,7 +19,7 @@
 **Touches:** meta/architecture/domain/aggregates.yml, meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_check_ref_resolution.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T15:14Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
