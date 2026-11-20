@@ -391,7 +391,7 @@ against two brute-force counters in `tests/helpers/brute_force_oracle.py`, which
 
 ## 7. Difficulty grade (COMP-006) — `difficulty`
 
-ADR-0029 (the strategy ladder) and ADR-0025 (the fourth tier) replaced ADR-0013's five-signal
+ADR-0029 (the strategy ladder) and ADR-0025 (a fourth tier, since retired by ADR-0031) replaced ADR-0013's five-signal
 weighted sum in CARD-076. There is no clock, no size and no density term anywhere in what
 follows; the scorer never re-enters the solver.
 
@@ -500,7 +500,7 @@ Retired with ADR-0013 — none of these exist any more: <!-- historical -->
 and deliberately not `elapsed_seconds`: CON-014 holds because the scorer is never handed a
 clock, not because it declines to read one.
 
-`difficulty.parse_tier` is case- and whitespace-insensitive and its error message lists all four
+`difficulty.parse_tier` is case- and whitespace-insensitive and its error message lists all three
 tiers, read off the enum (AC-021). The empty string is a tier name that does not exist, not
 "any tier" (CARD-070).
 

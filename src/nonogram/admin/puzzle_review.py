@@ -313,7 +313,7 @@ class PuzzleFilter:
     #: Either spelling of any tier — the enum value ("easy") a
     #: pipeline-written row carries, or the display label ("Easy") an older
     #: one does. Resolved through difficulty.tier_of_record where it is
-    #: applied, so both match the same rows (ADR-0025's four tiers included).
+    #: applied, so both match the same rows (a retired "guess" row too).
     difficulty: Optional[str] = None
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None

@@ -49,3 +49,11 @@
 * **G-2**: comment/doc edits only in the three passages' files; no code behaviour there.
 
 ## Worktree notes
+Implemented by the orchestrator (the change is two template branches, one CSS pair and four comment lines).
+
+* **Item 1 / AC-1.** `book_arrange_puzzles.html`: the label that opens a page is unchanged; the one repeated after an unprinted row is a separate `elif` and reads "page N, continued". `test_a_row_after_an_unprinted_one_says_its_page_again` now expects `["page 5 · Easy divider page", "page 6 · two puzzles", "page 6, continued"]`. Control C1 (main's template): that test reds, `assert [... 'two puzzles'] == [... '6, continued']`.
+* **Item 2 / AC-2.** admin.css: `.page-break-divider[data-unprinted]` takes `color: var(--color-warning)` and its two rules `background: var(--color-warning)`. `test_an_undrawable_member_shifts_no_other_rows_page` now also collects every rule whose selector names `[data-unprinted]` (as tests/test_admin_design_tokens.py collects its rules) and asserts exactly those two, token-only. Control C2 (main's admin.css): it reds, `assert {} == {...}`. In Chromium (the branch's stylesheets served to the captured page) the marker's computed colour is rgb(133, 93, 0), equal to the resolved token; screenshots ~/Documents/nonogram-reviews/CARD-494/arrange-continued-{desktop,phone}.png.
+* **Item 3.** `nonogram.export`'s `difficulty` docstring (three tiers; ADR-0031 retired "Guess"; `cat-hard.pdf`), `PuzzleFilter.difficulty`'s comment, docs/GENERATION_ALGORITHM.md §7's opening and its "lists all three tiers" (measured: `parse_tier('x')` says "supported tiers are: easy, medium, hard"). Comments and docs only. Two docs/how-it-works pages (05-difficulty-calibration, 06-exporting) quote the old docstring as past findings; left as they are.
+* **AC-3.** CARD-490's capture script run on main and on the branch: the ordinary book (all sizes and the <=15 band) and the single-undrawable book byte-identical; the pair-straddle book differs in one line, "page 6 · two puzzles" -> "page 6, continued".
+* **AC-4.** Collected over tests/: 10708 tests collected in 8.78s (no test added or removed).
+* **Gate (unarmed, -o addopts= -rfs):** test_book_arrange_page_breaks.py + test_admin_design_tokens.py 34 passed, 0 skipped.

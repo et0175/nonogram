@@ -154,9 +154,16 @@
                        between), so it is not read as part of the unprinted
                        one's run. The whitespace control keeps a book with no
                        such row byte-identical to the page before this card. #}
-                    {% if puzzle.opens_page or (puzzle.page and loop.previtem and loop.previtem.unprinted) %}
+                    {% if puzzle.opens_page %}
                     <div class="page-break-divider" data-page="{{ puzzle.page }}">
                         <span>page {{ puzzle.page }}{% if puzzle.shares_page %} · two puzzles{% endif %}</span>
+                    </div>
+                    {% elif puzzle.page and loop.previtem and loop.previtem.unprinted %}
+                    {#- CARD-494 (owner, 2026-11-20): the page an unprinted row
+                       interrupted is named again as "continued", so a pair's
+                       two halves never read as two pages. #}
+                    <div class="page-break-divider" data-page="{{ puzzle.page }}">
+                        <span>page {{ puzzle.page }}, continued</span>
                     </div>
                     {% endif %}
                     {%- if puzzle.unprinted %}
