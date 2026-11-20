@@ -1,6 +1,6 @@
 # CARD-499: Two test instruments' blind spots: the globals guard ignores augmented and annotated assignment; the kill matrix cannot measure a test that patches its own module
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/499-instrument-blind-spots
-**Worktree:** ../PythonProject4-card-499
+**Worktree:** —
 **Source:** roadmap wave 5 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-113 WSJF 3.08, IDEA-196 WSJF 3.08; bundled as test-instrument fixes, each 0.125 d.
 **Idea:** IDEA-113, IDEA-196
 **Wave:** 84
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T10:24Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T12:12Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** d2d00b91cb7d16eaa2369718b9dbe9c354442204
 **Blocked by:** —
 
 ## Why this card exists

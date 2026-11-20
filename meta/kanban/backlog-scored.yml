@@ -2896,7 +2896,7 @@ ideas:
   source_line: 24
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-499
   method: wsjf
   scores:
@@ -4789,7 +4789,7 @@ ideas:
   source_line: 361
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-499
   method: wsjf
   scores:
