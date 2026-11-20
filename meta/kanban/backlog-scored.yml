@@ -264,7 +264,7 @@ ideas:
     could break it through five waves with every gate green. Needs an NFR with a check   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-491
   method: wsjf
   scores:
@@ -805,7 +805,7 @@ ideas:
     148-204   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-491
   method: wsjf
   scores:
@@ -2082,7 +2082,7 @@ ideas:
     table omits PYTHONUNBUFFERED (set in render.yaml); F-003: the 2026-09-23 incident evidence render.md
     cites is recorded nowhere in the repo   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-491
   method: wsjf
   scores:

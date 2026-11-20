@@ -1,6 +1,6 @@
 # CARD-491: The registry and two docs catch up: the panel's memory cap as an NFR, Tier's member count, and the scripts README
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/491-registry-docs
-**Worktree:** ../PythonProject4-card-491
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-009 WSJF 3.59 (shrunk at the cut: CARD-145/237 already built the checks, only the NFR is missing), IDEA-029 WSJF 3.08, IDEA-081 WSJF 3.08.
 **Idea:** IDEA-009, IDEA-029, IDEA-081
 **Wave:** 83
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.3 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T01:49Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T03:37Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** 4a654343ceaa088338b16d07f848d44acf05fc72
 **Blocked by:** —
 
 ## Why this card exists
