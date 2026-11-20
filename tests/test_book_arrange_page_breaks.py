@@ -1240,11 +1240,11 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         # CARD-494 (owner, 2026-11-20): the marker is a warning, not a page
         # label, so the stylesheet gives it the warning token, text and rules
         # alike. Collected by selector over whole rules (a rule split across
-        # lines is still one rule): every rule that names the marker in any
-        # spelling, and every rule that reaches INTO a divider, since either
-        # could repaint the marker (review F-002: a later
-        # `[data-unprinted="true"]` rule and a `.page-break-divider span` rule
-        # each did, with the first form of this check green).
+        # lines is still one rule): every rule that names a divider or the
+        # marker in any spelling, since any of them could repaint the marker
+        # (review F-002: a later `[data-unprinted="true"]` rule and a
+        # `.page-break-divider span` rule each did, with the first form of this
+        # check green).
         from pathlib import Path
 
         css = (Path(book_manager_module.__file__).parent / "static" / "admin.css").read_text()
@@ -1253,13 +1253,22 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
             if "{" not in chunk:
                 continue
             selector, body = (" ".join(part.split()) for part in chunk.rsplit("{", 1))
-            if "data-unprinted" in selector or re.search(r"\.page-break-divider[^,{]*\s+\S", selector):
+            if "page-break-divider" in selector or "data-unprinted" in selector:
                 rules[selector] = body
-        assert rules == {
-            ".page-break-divider[data-unprinted]": "color: var(--color-warning);",
-            ".page-break-divider[data-unprinted]::before, .page-break-divider[data-unprinted]::after":
-                "background: var(--color-warning);",
-        }, rules
+        # Every rule that styles a divider, the base pair included: a later rule
+        # of equal weight (`.puzzle-list .page-break-divider`) or an
+        # `!important` on the base would repaint the marker too (review F-006).
+        assert sorted(rules) == [
+            ".page-break-divider",
+            ".page-break-divider::before, .page-break-divider::after",
+            ".page-break-divider[data-unprinted]",
+            ".page-break-divider[data-unprinted]::before, .page-break-divider[data-unprinted]::after",
+        ], sorted(rules)
+        assert not any("!important" in body for body in rules.values()), rules
+        assert rules[".page-break-divider[data-unprinted]"] == "color: var(--color-warning);"
+        assert rules[
+            ".page-break-divider[data-unprinted]::before, .page-break-divider[data-unprinted]::after"
+        ] == "background: var(--color-warning);"
 
     def test_a_row_after_an_unprinted_one_says_its_page_again(self, panel) -> None:
         """CARD-490: a pair the dropped rows sat between is labelled on both sides.
