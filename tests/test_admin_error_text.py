@@ -3,6 +3,11 @@
     AC-2  TestBookPdfDownload_ErrorIsGenericAndLogged
     AC-3  test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen
 
+CARD-502 extends both: the export test also fails the file's send, with a
+same-site Referer (no success flash survives a failed send; the redirect goes
+back to the page the owner was on), and the corpus gains the book page's
+status route and pins that every handler it reaches logs before it flashes.
+
 The panel can be reached at a public hostname behind a credential (ADR-0030,
 CON-016), and a database driver's message can name hosts, users and
 connection details. Each failure here is injected once, at a seam the request
@@ -21,7 +26,11 @@ import pytest
 
 import nonogram.admin.book_manager as book_manager_module
 from nonogram import clues, errors
-from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
+from nonogram.admin.app import (
+    FINALISE_ACTION_FAILED,
+    PDF_EXPORT_FAILED,
+    STATUS_CHANGE_FAILED,
+)
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 
 #: The logger the panel logs through (``Flask(__name__)``'s own name).
@@ -144,25 +153,47 @@ class TestBookPdfDownload_ErrorIsGenericAndLogged:
     def test_the_flash_is_the_constant_and_the_error_is_logged(
         self, admin_app, monkeypatch, caplog, route
     ) -> None:
-        client = admin_app.test_client()
-        book_id = _make_book(admin_app)
+        """Two failures per route: the export's own (off-site Referer), and
+        the file's send after the export succeeded (same-site Referer).
+
+        CARD-502: the second is the one ``/generate-pdf`` flashed success
+        for before it failed (IDEA-138), and the one that shows a same-site
+        Referer is kept by the two routes that honour one."""
         marker = "export-card177-marker"
-        error = RuntimeError(marker)
-        _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
+        failures = (
+            (BookPDFGenerator, "__init__", OFF_SITE_REFERER),
+            (_app_module, "send_file", None),  # same-site, below
+        )
+        for owner, name, headers in failures:
+            client = admin_app.test_client()
+            book_id = _make_book(admin_app)
+            same_site = f"http://localhost/book/{book_id}/finalize"
+            error = RuntimeError(marker)
+            caplog.clear()
+            with monkeypatch.context() as patch:
+                _raise_once(patch, owner, name, error)
+                with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+                    response = _request_export(
+                        client, route, book_id, headers or {"Referer": same_site}
+                    )
 
-        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
-            response = _request_export(client, route, book_id, OFF_SITE_REFERER)
-
-        assert response.status_code == 302
-        # With an off-site Referer (or none) every route goes back to the
-        # book's detail page on this panel (CARD-496).
-        assert response.headers["Location"].endswith(f"/book/{book_id}")
-        assert "evil.example" not in response.headers["Location"]
-        assert marker not in response.headers["Location"]
-        flashes = _flashes(client)
-        assert [m for c, m in flashes if c == "error"] == [PDF_EXPORT_FAILED]
-        assert not any(marker in m for _, m in flashes)
-        _assert_logged_once(caplog, error, book_id)
+            where = (route, name)
+            assert response.status_code == 302, where
+            location = response.headers["Location"]
+            if headers is None and route != "generate-pdf":
+                # A same-site Referer is where the owner goes back to
+                # (CARD-496); /generate-pdf never read it.
+                assert location == same_site, where
+            else:
+                # With an off-site Referer (or none) every route goes back to
+                # the book's detail page on this panel (CARD-496).
+                assert location.endswith(f"/book/{book_id}"), where
+            assert "evil.example" not in location
+            assert marker not in location
+            # Exactly the failure: no success flash beside it (CARD-502).
+            flashes = _flashes(client)
+            assert flashes == [("error", PDF_EXPORT_FAILED)], (where, flashes)
+            _assert_logged_once(caplog, error, book_id)
 
 
 # --------------------------------------------------------------------------
@@ -187,6 +218,10 @@ EXCEPTION_CLASSES = (
 #: corpus's first pass puts a ``ValueError`` there (``EXCEPTION_CLASSES[4]``):
 #: a ``ValueError`` that is not a ``StatusRefusal`` is a fault — fixed text,
 #: logged — however it reads.
+#: CARD-502: ``status_route`` is the book page's own status change
+#: (``update_book_status``), failing in ``set_book_status``; appended, so
+#: CARD-496's placement above is unchanged. The corpus asserts it is reached
+#: with a ``ValueError`` too.
 SEAMS = (
     "clear_cover",
     "save_and_finish",
@@ -194,7 +229,16 @@ SEAMS = (
     "export:download-pdf",
     "set_book_status",
     "export:generate-pdf",
+    "status_route",
 )
+
+#: The fixed sentence each seam's handler shows.
+_EXPECTED = {
+    "clear_cover": FINALISE_ACTION_FAILED,
+    "save_and_finish": FINALISE_ACTION_FAILED,
+    "set_book_status": FINALISE_ACTION_FAILED,
+    "status_route": STATUS_CHANGE_FAILED,
+}
 
 CORPUS_SEED = 177
 CORPUS_SIZE = 60
@@ -259,6 +303,11 @@ def _inject_and_request(app, client, monkeypatch, tmp_path, seam, error):
         response = client.post(
             f"/book/{book_id}/finalize", data={"action": "save_and_finish"}
         )
+    elif seam == "status_route":
+        _raise_once(monkeypatch, app.book_manager, "set_book_status", error)
+        response = client.post(
+            f"/book/{book_id}/status", data={"status": "ready_for_pdf"}
+        )
     else:
         _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
         response = _request_export(client, seam.split(":", 1)[1], book_id)
@@ -268,12 +317,20 @@ def _inject_and_request(app, client, monkeypatch, tmp_path, seam, error):
 def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
     admin_app, monkeypatch, caplog, tmp_path
 ) -> None:
-    """AC-3 — no fake credential from an exception reaches body, flash or header."""
+    """AC-3 — no fake credential from an exception reaches body, flash or header.
+
+    CARD-502: and the handler logs the error BEFORE it flashes its sentence
+    (CARD-171's order: an error that clears before the re-render is not
+    lost). Every ``flash`` call is recorded with how many times the error
+    had been logged by then."""
     cases = _corpus()
     assert len(cases) >= 60
     assert {type(e) for _, e, _ in cases} == set(EXCEPTION_CLASSES)
     assert {seam for seam, _, _ in cases} == set(SEAMS)
-    assert ("set_book_status", ValueError) in {(s, type(e)) for s, e, _ in cases}
+    reached = {(s, type(e)) for s, e, _ in cases}
+    assert ("set_book_status", ValueError) in reached
+    assert ("status_route", ValueError) in reached
+    real_flash = _app_module.flash
 
     checked = 0
     for n, (seam, error, password) in enumerate(cases):
@@ -281,7 +338,15 @@ def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
         case_dir = tmp_path / f"case{n}"
         case_dir.mkdir()
         caplog.clear()
+        flashed = []
+
+        def recording_flash(message, category="message", error=error):
+            logged = [r for r in _panel_errors(caplog) if r.exc_info and r.exc_info[1] is error]
+            flashed.append((message, len(logged)))
+            return real_flash(message, category)
+
         with monkeypatch.context() as patch:
+            patch.setattr(_app_module, "flash", recording_flash)
             with caplog.at_level("ERROR", logger=PANEL_LOGGER):
                 response, book_id = _inject_and_request(
                     admin_app, client, patch, case_dir, seam, error
@@ -296,9 +361,9 @@ def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
             assert password not in value, (where, name)
         flashes = _flashes(client)
         assert not any(password in m for _, m in flashes), where
-        expected = (
-            PDF_EXPORT_FAILED if seam.startswith("export:") else FINALISE_ACTION_FAILED
-        )
+        expected = PDF_EXPORT_FAILED if seam.startswith("export:") else _EXPECTED[seam]
+        # Flashed once, after the error was logged (CARD-502, AC-2).
+        assert [logged for m, logged in flashed if m == expected] == [1], (where, flashed)
         if response.status_code == 200:
             assert expected in html.unescape(body), where
         else:
@@ -441,8 +506,9 @@ _ALLOWED_USES = {
 }
 
 #: Broad handlers in app.py at this card's head (22, by ``_is_broad``): a
-#: floor, so the population cannot silently shrink.
-_BROAD_HANDLER_FLOOR = 22
+#: floor, so the population cannot silently shrink. CARD-502 added one
+#: (``update_book_status``'s): 23.
+_BROAD_HANDLER_FLOOR = 23
 
 
 def _is_broad(handler: _ast.ExceptHandler) -> bool:
@@ -551,13 +617,15 @@ def test_no_broad_handler_puts_its_exception_on_screen() -> None:
 
 
 
-#: CARD-177's three handlers, by (function, fixed sentence); they are planted
+#: CARD-177's three handlers and CARD-502's one, by (function, fixed sentence); they are planted
 #: by the tests above this section, through ``SEAMS``. Keyed by both, so a new
 #: handler elsewhere that shows one of these sentences is not exempt.
 _PLANTED_BY_CARD_177 = {
     ("finalize_book", "FINALISE_ACTION_FAILED"),
     ("generate_book_pdf_download", "PDF_EXPORT_FAILED"),
     ("generate_book_pdf", "PDF_EXPORT_FAILED"),
+    # CARD-502: planted through SEAMS too (``status_route``).
+    ("update_book_status", "STATUS_CHANGE_FAILED"),
 }
 
 

@@ -463,18 +463,28 @@ class TestBookReady_RefusalNamesOffendingCell:
         assert "21-25 x hard: 0% against 5%" in refusal
         assert refusal.count(" against ") == 2
 
-    def test_the_status_route_flashes_it(self, panel) -> None:
-        """The user-facing half: the route flashes what the domain refused."""
+    def test_the_status_route_flashes_it(self, panel, caplog) -> None:
+        """The user-facing half: the route flashes what the domain refused.
+
+        CARD-502: a ``StatusRefusal`` is the owner's answer, not an error —
+        its sentence is the only flash, and nothing reaches the panel's log
+        at ERROR (a fault there shows ``STATUS_CHANGE_FAILED`` instead)."""
+        from nonogram.admin.app import STATUS_CHANGE_FAILED
+
         app, shelf = panel
         book_id = shelf.book(cells_of(AC220_SELECTION))
         client = app.test_client()
 
-        response = client.post(f"/book/{book_id}/status", data={"status": READY_FOR_PDF})
+        with caplog.at_level("ERROR", logger="nonogram.admin.app"):
+            response = client.post(
+                f"/book/{book_id}/status", data={"status": READY_FOR_PDF}
+            )
 
         assert response.status_code == 302
-        assert any(OFFENDING_CELL_TEXT in message for message in flashes(client)), flashes(
-            client
-        )
+        shown = flashes(client)
+        assert len(shown) == 1 and OFFENDING_CELL_TEXT in shown[0], shown
+        assert STATUS_CHANGE_FAILED not in shown
+        assert not [r for r in caplog.records if r.levelname == "ERROR"], caplog.text
         assert shelf.status(book_id) == DRAFT
 
     def test_the_finalize_route_flashes_it(self, panel) -> None:

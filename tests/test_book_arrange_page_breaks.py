@@ -1167,33 +1167,48 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         labels looks the same either way, so the two must be distinguishable in
         the log. Simulated by a plan whose pages name puzzles it does not carry,
         which is what either mistake leaves behind.
+
+        CARD-502 (IDEA-023): and ``puzzle_section``'s own precondition — ids
+        parallel to payloads — broken by its caller, the same seam-bug class.
+        It is reached here by handing the real check one id too few.
         """
         from nonogram.admin import book_pdf_generator
 
-        book_id = panel.book_of(panel.puzzle("easy", size=10, teeth=3))
-
-        original = book_pdf_generator.BookPDFGenerator.section_plan
+        generator = book_pdf_generator.BookPDFGenerator
+        original_plan = generator.section_plan
+        original_section = generator.puzzle_section
 
         def truncated(self, puzzles):
-            plan = original(self, puzzles)
+            plan = original_plan(self, puzzles)
             return replace(plan, printed=[])
 
-        monkeypatch.setattr(
-            book_pdf_generator.BookPDFGenerator, "section_plan", truncated
-        )
+        def one_id_short(self, payloads, *args, ids=None, **kwargs):
+            return original_section(self, payloads, *args, ids=list(ids)[:-1], **kwargs)
 
-        with caplog.at_level(logging.DEBUG):
-            markup = panel.arrange(book_id)  # asserts the 200 itself
+        for name, broken in (("section_plan", truncated), ("puzzle_section", one_id_short)):
+            book_id = panel.book_of(panel.puzzle("easy", size=10, teeth=3))
+            caplog.clear()
+            with monkeypatch.context() as patch:
+                patch.setattr(generator, name, broken)
+                with caplog.at_level(logging.DEBUG):
+                    markup = panel.arrange(book_id)  # asserts the 200 itself
 
-        assert 'id="page-plan-unavailable"' in markup, "the owner is still told"
-        assert shown_labels(markup) == []
-        failures = [record for record in caplog.records if record.levelno >= logging.ERROR]
-        assert failures, caplog.text
-        assert any(record.exc_info is not None for record in failures), (
-            "an unexpected failure is logged with its traceback, not as a "
-            "one-line warning, so it can be told apart from a book whose "
-            "stored specification is at fault"
-        )
+            assert 'id="page-plan-unavailable"' in markup, (name, "the owner is still told")
+            assert shown_labels(markup) == [], name
+            failures = [record for record in caplog.records if record.levelno >= logging.ERROR]
+            assert failures, (name, caplog.text)
+            assert any(record.exc_info is not None for record in failures), (
+                name,
+                "an unexpected failure is logged with its traceback, not as a "
+                "one-line warning, so it can be told apart from a book whose "
+                "stored specification is at fault",
+            )
+            if name == "puzzle_section":
+                # The real check fired, not a TypeError of this test's own.
+                assert any(
+                    "ids must be parallel to payloads" in str(record.exc_info[1])
+                    for record in failures if record.exc_info
+                ), caplog.text
 
     def test_an_undrawable_member_shifts_no_other_rows_page(self, panel) -> None:
         """A row that builds no export payload takes no puzzle number with it.

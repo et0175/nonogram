@@ -70,7 +70,13 @@
                         (F-006) — as the Print setup page's `#plan-error` does. -#}
                     {% if invalid_fields %}
                     <div class="alert alert-danger" role="alert" id="general-info-error">
+                        {#- CARD-502 (CARD-159 F-003): a refused New book has nothing
+                            stored to keep, so its alert does not say so. -#}
+                        {% if editing %}
                         <strong>General info not saved:</strong> correct the field marked below. Nothing stored was changed, and your other entries are kept as you typed them.
+                        {% else %}
+                        <strong>Book not created:</strong> correct the field marked below. Your other entries are kept as you typed them.
+                        {% endif %}
                     </div>
                     {% endif %}
 
