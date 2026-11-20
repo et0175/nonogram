@@ -292,14 +292,24 @@ def test_the_lesson_uses_tokens_and_the_players_probe_colours() -> None:
     assert used - defined == set()
 
     # The probe edge is the player's: the same two expressions admin.css
-    # gives --player-probe and --player-probe-ink.
-    admin = (REPO_ROOT / "src/nonogram/admin/static/admin.css").read_text(encoding="utf-8")
+    # gives --player-probe and --player-probe-ink. (--player-thin is a
+    # tokens.css token since CARD-506, so the player's side is read from
+    # both of the player's sheets.)
+    admin = "\n".join(
+        (REPO_ROOT / "src/nonogram/admin/static" / sheet).read_text(encoding="utf-8")
+        for sheet in ("tokens.css", "admin.css")
+    )
     # CARD-445: and the ruled grid's thin rule, the crosshair's two tints and
     # the broken clue's red, the boards now being drawn as the player's.
     for ours, theirs in (("--hts-probe", "--player-probe"), ("--hts-probe-ink", "--player-probe-ink"),
                          ("--hts-thin", "--player-thin"), ("--hts-cross", "--player-cross"),
                          ("--hts-cross-ink", "--player-cross-ink"), ("--hts-broken", "--player-broken")):
         mine = re.search(rf"{ours}:\s*([^;]+);", css)
+        # Declared once across the two sheets, so the value read here is the
+        # one the player draws with (CARD-506 review F-001: a second, local
+        # declaration in admin.css would win on the stage unseen).
+        declared = re.findall(rf"(?<![\w-]){theirs}\s*:", admin)
+        assert len(declared) == 1, (theirs, len(declared))
         player = re.search(rf"{theirs}:\s*([^;]+);", admin)
         assert mine and player, (ours, theirs)
         assert mine.group(1).strip() == player.group(1).strip(), (ours, theirs)

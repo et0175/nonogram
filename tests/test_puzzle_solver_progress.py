@@ -682,6 +682,10 @@ class TestSolverProgress_ResetAfterConfirm:
             # goes back to Reset, as focus inside the confirmation does.
             browser_page.evaluate("document.activeElement.blur()")
             assert browser_page.evaluate("document.activeElement === document.body")
+        if change in ("redo-key-noop", "redo-button-noop"):
+            # The precondition the comment above states: Redo says
+            # aria-disabled="true" BEFORE the press (CARD-163 F-003).
+            assert _is_disabled(browser_page, "Redo")
 
         self._CHANGES[change](browser_page)
 

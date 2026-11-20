@@ -351,7 +351,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .guide-preview .guide-steps { list-style: none; padding-left: 0; }
 .guide-step + .guide-step { margin-top: var(--space-3); }
 .guide-step-caption { margin-bottom: var(--space-1); }
-.guide-strip { --strip-cell: 1.5rem; display: inline-flex; border: calc(2 * var(--border-width)) solid var(--grid-ink); background: var(--grid-paper); }
+.guide-strip { display: inline-flex; border: calc(2 * var(--border-width)) solid var(--grid-ink); background: var(--grid-paper); }
 .guide-strip-cell { position: relative; width: var(--strip-cell); height: var(--strip-cell); background: var(--grid-paper); }
 .guide-strip-cell + .guide-strip-cell { border-left: var(--border-width) solid color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
 .guide-strip-cell[data-state="filled"] { background: var(--grid-ink); }
@@ -504,11 +504,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-head { align-items: center; margin-bottom: var(--space-4); }
 .player-head .badge { font-size: var(--text-sm); }
 .player-stage {
-  --player-cell-min: 14px;
-  --player-cell-max: 28px;
+  /* The cell bounds (--player-cell-min/-max) and the thin rule's colour
+     (--player-thin) are tokens.css's (CARD-506). */
   --player-rule: var(--border-width);
   --player-rule-major: calc(2 * var(--border-width));
-  --player-thin: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper));
   /* What stands above the board: top bar, the main column's top padding, the
      header and its margin, the marking toolbar's one row and its margin
      (CARD-161), and some air below. */
@@ -1071,7 +1070,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* Progress (CARD-187): .player-counters holds the errors / hints pair and,
    after it in the DOM, "Progress: N%", laid out right to left (row-reverse)
    with wrapping and flex-basis 0. At 1440 px the three share one line,
-   Progress left of Errors, Hints at the toolbar's right end. Before
+   Progress left of Errors, Hints at the toolbar's right end (the one line:
+   tests/test_puzzle_solver_percent.py TestSolverPercent_SitsNextToTheCounters;
+   Hints' right end: tests/test_puzzle_solver_hint.py
+   TestSolverHint_PlacesTheButtonAndTheCounter). Before
    CARD-194 (four tool buttons, wider than today's one trigger) this also
    held at 1280 px only down to the buttons' own row — narrower than that,
    the pair dropped to the buttons' row while Progress wrapped below it.
@@ -1104,7 +1106,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    which found two numbers written as heights elsewhere were bottom-edge
    coordinates): #puzzle-player-controls is 74.80 px high at 1280 px with
    Check against 38.80 px without it, exactly 36.00 px more, one wrapped
-   counter line; at 1440 px it is 38.80 px either way. Both cases
+   counter line; at 1440 px it is 38.80 px either way. Those heights are
+   measurements (recorded in the test named next); the two layouts behind
+   them — Progress wrapped below the pair at 1280 px, one line at 1440 px —
    are asserted in tests/test_puzzle_solver_percent.py,
    TestSolverPercent_SitsNextToTheCounters. The toolbar's items align to the top
    of their row, so the buttons stay at the toolbar's top; the pair is as
@@ -1402,8 +1406,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    .is-circled (solver.js) and gets a thin round grid-ink ring; the digit
    keeps its ink and size. The ring is the number's ::before, absolutely
    positioned and centred on the number's box, so it takes no part in
-   layout. A row number's box is a cell tall with a cell's line-height, as a
-   column number's is, so on a 30 x 30 (14 px cell floor, about 17 px at
+   layout. A row number's box is a cell tall (line-height: normal), as a
+   column number's is a clue cell tall, so on a 30 x 30 (14 px cell floor, about 17 px at
    1440 px, about 14.4 px at 390 px — CARD-193 removed the 24 px phone
    floor, so a two-digit-column grid's own numeral-driven column floor binds
    instead) the ring's centre is within 0.5 px of the
@@ -1424,7 +1428,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    --player-ring-gap (so --player-rule and --player-rule-major also size
    the ring). On a 30 x 30 (14 px cell floor, about 17 px at 1440 px, about
    14.4 px at 390 px — see above) the pill clears its digits by at least 0.5 px on the left and
-   on the right, and any two rings are at least --player-ring-gap apart —
+   on the right — except a two-digit COLUMN number's, which the cap may
+   hold short of its digits (CARD-196 AC-8 option a; see the column rule
+   below) — and any two rings are at least --player-ring-gap apart —
    except two adjacent SINGLE-DIGIT ROW rings (CARD-196 AC-8, F-006, owner
    option b): see the comment below the row rule for that one exception.
    No transition. */
@@ -1472,13 +1478,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    same 1.45ch gap is not wide enough to also keep two adjacent
    SINGLE-DIGIT row rings a full --player-ring-gap apart from each other —
    they may come within it, measured down to about 0.125-0.141px (always
-   positive: the rings touch, never overlap). Every other pair — two-digit
-   row, two-digit column, single-digit column, and any row/column mix —
-   still keeps the full --player-ring-gap, pinned by the `_RING_GAP`
-   close-pairs check in test_two_digit_rings_clear_their_digits_on_a_30x30;
-   the single-digit-row exception is pinned separately by
-   TestSolverClues_SingleDigitRowRingsMayTouch (that fixture has no
-   adjacent single-digit row pair). */
+   positive: the rings touch, never overlap). The `_RING_GAP` close-pairs
+   check in test_two_digit_rings_clear_their_digits_on_a_30x30 pins the full
+   --player-ring-gap for the pairs its 30 x 30 fixture has — two-digit row,
+   two-digit column, single-digit column and row/column mixes; that fixture
+   has no single-digit row number, so a single-digit/two-digit ROW pair is
+   in no gap assertion. The single-digit-row exception is pinned separately
+   by TestSolverClues_SingleDigitRowRingsMayTouch. */
 .player-board .player-clue.is-col .player-clue-num::before {
   --player-ring: min(
     max(var(--player-circle),

@@ -284,8 +284,9 @@ body {
   --hts-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper));
   --hts-lit: var(--color-warning-tint);
   /* CARD-445: the player's thin rule and crosshair tints, the same
-     expressions admin.css gives --player-thin, --player-cross and
-     --player-cross-ink (tests/test_how_to_solve_page.py holds them equal). */
+     expressions tokens.css gives --player-thin (CARD-506) and admin.css
+     --player-cross and --player-cross-ink (tests/test_how_to_solve_page.py
+     holds them equal). */
   --hts-thin: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper));
   --hts-cross: var(--color-surface-hover);
   --hts-cross-ink: color-mix(in srgb, var(--color-surface-hover) 16%, var(--grid-ink));

@@ -843,8 +843,10 @@ def _glyph_box(page, cells, r, c, width):
 @pytest.mark.browser
 class TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell:
     """AC-13 — the "?" cell's ::after is "?", at least 12 px and 0.5 x the cell
-    side, drawn inside the cell (both axes), with >= 4.5:1 contrast on the
-    cell's background."""
+    side, drawn inside the cell (both axes) and centred in it (the glyph's
+    drawn box within 2 px of the cell's centre, both axes — CARD-186 F-002,
+    folded in by CARD-506), with >= 4.5:1 contrast on the cell's
+    background."""
 
     @pytest.mark.parametrize("case", ["30x30@390", "15x15@1440"])
     def test_glyph(self, browser_page, live, case) -> None:
@@ -875,6 +877,8 @@ class TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell:
         g_left, g_top, g_right, g_bottom = (v / dpr for v in box)
         assert left <= g_left and g_right <= right, (box, seen["rect"])
         assert top <= g_top and g_bottom <= bottom, (box, seen["rect"])
+        assert abs((g_left + g_right) / 2 - (left + right) / 2) <= 2, (box, seen["rect"])
+        assert abs((g_top + g_bottom) / 2 - (top + bottom) / 2) <= 2, (box, seen["rect"])
         ratio = _contrast(_rgb(seen["color"]), _rgb(seen["background"]))
         assert ratio >= 4.5, ratio
 

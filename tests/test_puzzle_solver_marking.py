@@ -479,7 +479,7 @@ class TestSolverClickFollowsTheBrush:
         then redo — and also a drag that changes nothing, Black picked by the
         keyboard, Ctrl+Z then Shift+Ctrl+Z, a hint, setBoard, a click on another
         cell in the same row, one in the same column, Reset opened and then
-        cancelled with Keep marks: the next click is a first click
+        cancelled with Keep marks, and with Escape: the next click is a first click
         (white -> dark). With nothing between it gives blank.
         A confirmed reset is checked with White (after a reset the cell is
         blank, where only White's first and repeat clicks differ)."""
@@ -501,6 +501,12 @@ class TestSolverClickFollowsTheBrush:
             _button(page, "Reset").click()
             _button(page, "Keep marks").click()
 
+        def reset_opened_and_escaped():
+            _button(page, "Reset").click()
+            assert page.locator("#puzzle-player-confirm").is_visible()
+            page.keyboard.press("Escape")
+            assert not page.locator("#puzzle-player-confirm").is_visible()
+
         between = {
             "nothing": lambda: None,
             "(a) another cell": lambda: _cell(page, 14, 14).click(),
@@ -517,6 +523,10 @@ class TestSolverClickFollowsTheBrush:
             "another cell in the same row": lambda: _cell(page, 10, 13).click(),
             "another cell in the same column": lambda: _cell(page, 14, 10).click(),
             "reset opened and cancelled (Keep marks)": reset_opened_and_cancelled,
+            # CARD-189 F-004: the other way out of the confirmation, so the
+            # run is shown to end when Reset OPENS it, not in one cancel
+            # handler (row 13, column 10: the drags above touch columns 0-3).
+            "reset opened and cancelled (Escape)": reset_opened_and_escaped,
         }
         third = {}
         for row, (name, step) in enumerate(between.items()):
