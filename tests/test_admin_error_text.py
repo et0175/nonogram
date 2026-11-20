@@ -741,6 +741,14 @@ def test_a_domain_refusal_still_says_what_it_is(admin_app, monkeypatch, caplog) 
     assert ("error", f"Failed to generate proof pages: {refusal}") in _flashes(client)
     assert response.headers["Location"].endswith(f"/book/{book_id}/setup-print")
     assert "evil.example" not in response.headers["Location"]
+    # Review F-001: the scheme and the port are part of "same site" too. Another
+    # service on this host, and a script URL naming this host, each fall back.
+    for referer in (
+        f"http://localhost:5001/book/{book_id}/finalize",
+        "javascript://localhost/%0aalert(1)",
+    ):
+        other = client.get(f"/book/{book_id}/proof-pages", headers={"Referer": referer})
+        assert other.headers["Location"].endswith(f"/book/{book_id}/setup-print"), referer
     same_site = f"http://localhost/book/{book_id}/finalize"
     back = client.get(f"/book/{book_id}/proof-pages", headers={"Referer": same_site})
     assert back.headers["Location"] == same_site
