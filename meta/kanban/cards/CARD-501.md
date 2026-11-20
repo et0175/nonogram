@@ -1,6 +1,6 @@
 # CARD-501: A typed matrix cell is judged against the count and split the owner submitted
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/501-judge-against-submitted-split
-**Worktree:** ../PythonProject4-card-501
+**Worktree:** —
 **Source:** owner 2026-11-20 ("yes, judge typed cells against the submitted split"), on CARD-500 review F-002 = CARD-489 review F-003.
 **Idea:** —
 **Wave:** 84
@@ -20,9 +20,9 @@
 **UI surface:** admin Print setup (step 2), which matrix cells are marked hand-edited after a save or a refusal
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T13:01Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T13:40Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 7bda4cbd79eefce9788a84863755d706d6cd7199
 **Blocked by:** —
 
 ## Why this card exists
