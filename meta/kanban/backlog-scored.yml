@@ -867,7 +867,7 @@ ideas:
     databases or a session-level advisory lock would make it safe   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -895,7 +895,7 @@ ideas:
     first   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -2424,7 +2424,7 @@ ideas:
   raw: '- [ ] CARD-176 F-003: a URL with leading whitespace (`'' postgresql://…''`) now gets `<malformed
     scheme>` — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -3472,7 +3472,7 @@ ideas:
   source_line: 209
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -4220,7 +4220,7 @@ ideas:
   source_line: 316
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -5362,8 +5362,9 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: backlog
-  needs_owner_decision: true
+  status: in_kanban
+  needs_owner_decision: false
+  owner_decision: 'option 2, the compact two-line --text-xs clamp at every width (owner, 2026-11-20)'
   scored_at: '2026-11-20'
 - id: IDEA-219
   title: pdf_vector's text helper writes text.pdf into the current directory
@@ -5373,5 +5374,5 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   scored_at: '2026-11-20'
