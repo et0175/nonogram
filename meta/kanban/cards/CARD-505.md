@@ -1,6 +1,6 @@
 # CARD-505: Three test-instrument costs: the wave-3 stub tests, the Makefile's PY default, the fifth-rule capture settle
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/505-test-instrument-costs
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-505
 **Source:** roadmap wave 6 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-172, IDEA-194, IDEA-208 (WSJF 2.31 each).
 **Idea:** IDEA-172, IDEA-194, IDEA-208
 **Wave:** 85
@@ -19,7 +19,7 @@
 **Touches:** tests/test_wave3_image_generation.py, tests/test_wave3_e2e.py, Makefile, CLAUDE.md, tests/test_puzzle_solver_fifth_rule.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T15:51Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
