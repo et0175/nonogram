@@ -867,7 +867,7 @@ ideas:
     databases or a session-level advisory lock would make it safe   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -895,7 +895,7 @@ ideas:
     first   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -3472,7 +3472,7 @@ ideas:
   source_line: 209
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -4220,7 +4220,7 @@ ideas:
   source_line: 316
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -5376,3 +5376,12 @@ ideas:
   category: tech-debt
   status: in_kanban
   scored_at: '2026-11-20'
+- id: IDEA-220
+  title: A stale exported NONOGRAM_TEST_DB_SESSION_LOCK turns the test-database session lock off
+  raw: '- [ ] CARD-508 review F-001 (medium): the child-inheritance escape of `_session_lock` (tests/conftest.py) trusts `NONOGRAM_TEST_DB_SESSION_LOCK` alone. Exported by hand (or left in a shell), it lets a concurrent run in, and the measured result was the wipe CARD-508 fixed (`UndefinedTable: relation "batches" does not exist`). Suggested: carry the holder pid in the value and have the child confirm the lock in `pg_locks` before skipping it.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  scored_at: '2026-11-21'
+
