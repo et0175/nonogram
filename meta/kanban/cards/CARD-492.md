@@ -1,6 +1,6 @@
 # CARD-492: Five small code-hygiene items: a script's hardcoded database, a helper's private imports, a private read, an upper-cased tier, and the margin minimum
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/492-code-hygiene
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-492
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-035, IDEA-038, IDEA-054, IDEA-062, IDEA-044, each WSJF 3.08-3.85 and 0.125 d: bundled because each alone is below sizing.min_estimate.
 **Idea:** IDEA-035, IDEA-038, IDEA-054, IDEA-062, IDEA-044
 **Wave:** 83
@@ -19,7 +19,7 @@
 **Touches:** scripts/diagnose_postgres.sh, tests/helpers/admin_scripts.py, tests/test_start_admin_local.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/templates/puzzle_solve.html
 **UI surface:** admin solve page (tier badge, tab title)
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T00:32Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

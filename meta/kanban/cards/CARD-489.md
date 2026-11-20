@@ -1,6 +1,6 @@
 # CARD-489: Two book_manager leaks: the hand-edit mark survives a count change, and memory mode hands out the live Book
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/489-book-manager-leaks
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-489
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-011 WSJF 3.46, IDEA-014 WSJF 3.08; one card because both live in src/nonogram/admin/book_manager.py.
 **Idea:** IDEA-011, IDEA-014
 **Wave:** 83
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/book_manager.py, tests/test_book_plan_storage.py, tests/test_book_manager*.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T00:32Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
