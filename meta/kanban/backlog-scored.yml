@@ -350,7 +350,8 @@ ideas:
     one. Site: `app.py` (setup-print)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-497
   method: wsjf
   scores:
     user_business_value: 2
@@ -421,7 +422,8 @@ ideas:
     deprecation; the `ast` importer guard matches on bare filename, not relative path   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
+  card: CARD-496
   method: wsjf
   scores:
     user_business_value: 2
@@ -1577,7 +1579,8 @@ ideas:
     failed once in CARD-161''s gate 0 and passed 3x in isolation and in every later gate   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: done
+  closed_note: 'Closed 2026-11-20 at the wave-5 cut: a flake watch with no fix of its own; CARD-244 (per-worktree test DB) removed its likeliest cause, and it has not recurred in any gate or full suite since (including the 2026-11-20 wave-close runs, 0 failed).'
   method: wsjf
   scores:
     user_business_value: 2
@@ -2580,7 +2583,8 @@ ideas:
     refusals ("published", "no puzzles", "invalid status") to a flash with no log line (never logged before
     either; only the plan-gate case is tested) — decide whether they are owner refusals or errors   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-496
   method: wsjf
   scores:
     user_business_value: 1
@@ -2892,7 +2896,8 @@ ideas:
   source_line: 24
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-499
   method: wsjf
   scores:
     user_business_value: 1
@@ -4784,7 +4789,8 @@ ideas:
   source_line: 361
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-499
   method: wsjf
   scores:
     user_business_value: 1
@@ -5275,7 +5281,8 @@ ideas:
   source_line: 406
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
+  card: CARD-498
   method: wsjf
   scores:
     user_business_value: 2

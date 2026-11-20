@@ -92,6 +92,16 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 5 — CUT 2026-11-20 (board wave 84)
+
+Cut against main on 2026-11-20, every premise re-read the same day. The feature bucket is still empty of workable items (IDEA-105 waits for the owner to say what the guide preview needs; IDEA-178, IDEA-125/126 are owner calls), so the wave is tech-debt. **IDEA-059 closed at the cut**: a flake watch with no fix, its likeliest cause removed by CARD-244 and no recurrence since. Not carded: IDEA-031 (skipped once as CARD-378), IDEA-106/112 (owner's say), IDEA-111 (forge-plugin defect), IDEA-215 (a re-fire of old mutants, no product effect), IDEA-010 (formalising shipped behaviour as ACs; next registry wave).
+
+### tech-debt
+- **CARD-496** (IDEA-101, IDEA-015) The book routes' error paths: Finalise's other status refusals, the proof route, the referrer redirects, utcnow — 2c
+- **CARD-497** (IDEA-012) The Print setup refusal page shows the submitted plan — 1c
+- **CARD-498** (IDEA-216) The registry's 11 honest-dead check refs — 2c
+- **CARD-499** (IDEA-113, IDEA-196) Two test instruments' blind spots — 2c
+
 ## Wave 4 — DONE 2026-11-20 (board wave 83)
 
 Five cards merged: CARD-489 (`0c3c6a0c`, 9.8 cycle 2), CARD-490 (`72813084`, 9.6 cycle 2), CARD-491 (`4a654343`, 9.3 cycle 2), CARD-492 (`31cfe144`, 9.3 cycle 1), CARD-493 (`8d589e5b`, 9.6 cycle 1). Wave close: `make test-wave-close` on `main` at `38ba72b2`, 10677 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 40 min. Net tests +3 over the wave. No public-player file changed, so nothing to publish. Owner's open questions: CARD-490 F-003 (the arrange page's repeated page label and the marker's styling); three stale "guess is a tier" passages outside CARD-491's files (src/nonogram/export/__init__.py, src/nonogram/admin/puzzle_review.py, docs/GENERATION_ALGORITHM.md §7), recorded on that card. Recorded, not carded: CARD-489 F-003 (no test pins which split the plan reference uses on a count+split change), CARD-493 F-003 (a book_proof.py comment cites the refused 8.25 in trim).
