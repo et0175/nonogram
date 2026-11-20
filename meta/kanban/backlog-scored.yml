@@ -1716,8 +1716,9 @@ ideas:
     AC-310 covers only tools/undo/redo/reset). Formalise at /forge:architect   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-503
+  closed_note: 'Closed 2026-11-20 by CARD-503: the drag rule is FR-044 AC-422 (pinned by the seeded replay corpus). The pointer-only half was false: board cells are keyboard-playable since the 2026-11-17 review pass, so FR-044''s keyboard sentence stays; no test pins keyboard play (CARD-503 review F-003).'
   method: wsjf
   scores:
     user_business_value: 2
@@ -3887,8 +3888,9 @@ ideas:
   source_line: 237
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-503
+  closed_note: 'Closed 2026-11-20 by CARD-503: INV-009 reworded to reorder (move or Sort by size). The AC-7 half was dropped by decision: AC-7 is CARD-191''s own card criterion, and the fact it wanted stated holds in code (width/height nullable=False).'
   method: wsjf
   scores:
     user_business_value: 1
@@ -4050,8 +4052,9 @@ ideas:
   source_line: 249
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-503
+  closed_note: 'Closed 2026-11-20 by CARD-503: AC-343''s given names the column-numeral floor (--player-col-floor).'
   method: wsjf
   scores:
     user_business_value: 1
