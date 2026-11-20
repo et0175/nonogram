@@ -1,6 +1,6 @@
 # CARD-502: The admin's remaining error paths: the status route's raw text, log-before-flash untested, the double flash, a refused New book's alert
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/502-admin-error-paths
-**Worktree:** ../PythonProject4-card-502
+**Worktree:** —
 **Source:** roadmap wave 6 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-138, IDEA-023, IDEA-050 (each WSJF 2.31) plus CARD-496's out-of-scope F-003 (recorded at the wave-5 close); one card because all are error paths of src/nonogram/admin/app.py.
 **Idea:** IDEA-138, IDEA-023, IDEA-050
 **Wave:** 85
@@ -20,9 +20,9 @@
 **UI surface:** admin book status change, PDF download, New book (flash messages, alerts)
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T15:14Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T16:30Z
+**Actual:** 1c — ratio 1/2 = 0.5
+**Merge commit:** bda13f6ff1057c7cafc587fed678c84a99cae4bd
 **Blocked by:** —
 
 ## Why this card exists

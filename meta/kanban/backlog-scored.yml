@@ -644,7 +644,7 @@ ideas:
     today   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-502
   method: wsjf
   scores:
@@ -1352,7 +1352,7 @@ ideas:
     ("General info not saved… Nothing stored was changed")   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-502
   method: wsjf
   scores:
@@ -3429,7 +3429,7 @@ ideas:
   source_line: 206
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   card: CARD-502
   method: wsjf
   scores:
