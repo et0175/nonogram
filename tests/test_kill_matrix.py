@@ -1562,7 +1562,7 @@ def test_ac5_a_no_op_mutant_is_refused(simple_target):
 #: The five-occurrence case from the wild, named in CARD-257's cycle-3 record.
 #: A correction that is itself trap 5's shape: what occurs **five** times in
 #: ``tests/test_db_engine_lifecycle.py`` is the assert's *message*; the whole
-#: source line occurs four times, because ``:1012`` asserts ``built`` where the
+#: source line occurs four times, because ``:1047`` asserts ``built`` where the
 #: other four assert ``names``. Measured here rather than carried over, and
 #: both numbers are asserted below so neither can drift.
 #:
@@ -1575,10 +1575,10 @@ NAMES_BLIND_LINE = (
     '        assert names, "no module-level globals found in _init_engine '
     '(guard is blind)"'
 )
-NAMES_BLIND_OCCURRENCES = (1012, 1140, 1302, 1348, 1475)
-#: ``:1140`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
+NAMES_BLIND_OCCURRENCES = (1047, 1194, 1356, 1402, 1529)
+#: ``:1194`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
 #: is the whole point: a caller who did not name it would have mutated
-#: ``:1012``, in a different test, and read the answer off the wrong arm.
+#: ``:1047``, in a different test, and read the answer off the wrong arm.
 NAMES_BLIND_ARM_OCCURRENCE = 2
 LIFECYCLE = REPO / "tests" / "test_db_engine_lifecycle.py"
 
@@ -1616,8 +1616,8 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
     """Each of the five is reachable, and each hits its own line and no other.
 
     This is trap 5's second half in the wild: ``occurrence=2`` is CARD-257's
-    ``NAMES-BLIND`` arm at ``:1140``, and a caller who did not name it would
-    have silently mutated ``:1012``, which belongs to a different test.
+    ``NAMES-BLIND`` arm at ``:1194``, and a caller who did not name it would
+    have silently mutated ``:1047``, which belongs to a different test.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     mutated = km.apply_edit(
@@ -1637,7 +1637,7 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
         if before != after
     ]
     assert moved == [lineno], moved
-    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1140
+    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1194
 
 
 def test_ac5_an_occurrence_past_the_end_is_refused():
@@ -2872,7 +2872,7 @@ FOUR_ARM = (
 )
 #: CARD-257's four arms, restated from its cycle-3 record and re-derived from
 #: the unmodified parse below rather than trusted.
-PREAMBLE, NAMES, HEADS, POINTER = 1140, 1216, 1223, 1229
+PREAMBLE, NAMES, HEADS, POINTER = 1194, 1270, 1277, 1283
 WORD = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 
@@ -3066,13 +3066,13 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     """``tests/test_db_engine_lifecycle.py``: the second anchor, CARD-257's grid.
 
     The **grid** is CARD-257's, measured at ``b441ba00``. The **positions** are
-    not: they are ``:1140`` (preamble), ``:1216`` (names), ``:1223`` (heads)
-    and ``:1229`` (pointer) at HEAD. That is the anchor's own distinction: what reproduces is
+    not: they are ``:1194`` (preamble), ``:1270`` (names), ``:1277`` (heads)
+    and ``:1283`` (pointer) at HEAD. That is the anchor's own distinction: what reproduces is
     the grid cell for cell, not an address. Re-derived from the unmodified
     parse here, never reused from a previous reading.
 
     **The shift still overlaps, measured rather than assumed.** Of the four
-    previous addresses, none (``:1060``, ``:1136``, ``:1143``, ``:1149``) is an
+    previous addresses, none (``:1140``, ``:1216``, ``:1223``, ``:1229``) is an
     assert lineno at HEAD, so a stale constant reads loudly here. That is the
     seventh shape this
     instrument refuses for a *mutant* standing inside its own anchor, whose
