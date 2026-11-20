@@ -1562,7 +1562,7 @@ def test_ac5_a_no_op_mutant_is_refused(simple_target):
 #: The five-occurrence case from the wild, named in CARD-257's cycle-3 record.
 #: A correction that is itself trap 5's shape: what occurs **five** times in
 #: ``tests/test_db_engine_lifecycle.py`` is the assert's *message*; the whole
-#: source line occurs four times, because ``:950`` asserts ``built`` where the
+#: source line occurs four times, because ``:1012`` asserts ``built`` where the
 #: other four assert ``names``. Measured here rather than carried over, and
 #: both numbers are asserted below so neither can drift.
 #:
@@ -1575,10 +1575,10 @@ NAMES_BLIND_LINE = (
     '        assert names, "no module-level globals found in _init_engine '
     '(guard is blind)"'
 )
-NAMES_BLIND_OCCURRENCES = (950, 1060, 1222, 1268, 1395)
-#: ``:1060`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
+NAMES_BLIND_OCCURRENCES = (1012, 1140, 1302, 1348, 1475)
+#: ``:1140`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
 #: is the whole point: a caller who did not name it would have mutated
-#: ``:950``, in a different test, and read the answer off the wrong arm.
+#: ``:1012``, in a different test, and read the answer off the wrong arm.
 NAMES_BLIND_ARM_OCCURRENCE = 2
 LIFECYCLE = REPO / "tests" / "test_db_engine_lifecycle.py"
 
@@ -1616,8 +1616,8 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
     """Each of the five is reachable, and each hits its own line and no other.
 
     This is trap 5's second half in the wild: ``occurrence=2`` is CARD-257's
-    ``NAMES-BLIND`` arm at ``:1060``, and a caller who did not name it would
-    have silently mutated ``:950``, which belongs to a different test.
+    ``NAMES-BLIND`` arm at ``:1140``, and a caller who did not name it would
+    have silently mutated ``:1012``, which belongs to a different test.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     mutated = km.apply_edit(
@@ -1637,7 +1637,7 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
         if before != after
     ]
     assert moved == [lineno], moved
-    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1060
+    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1140
 
 
 def test_ac5_an_occurrence_past_the_end_is_refused():
@@ -2011,6 +2011,44 @@ def test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure(tmp_p
         "instead of an out-of-domain kill"
     )
 
+
+
+#: A test module inside a package that patches **its own module** through a
+#: dotted string -- the shape CARD-264 found the instrument could not measure
+#: (IDEA-196). pytest resolves ``"pkg.mod.VALUE"`` by walking attributes from
+#: ``pkg``; the assert reads the global of the module that actually ran.
+SELF_PATCH_TARGET = """\
+VALUE = "shipped"
+
+
+def test_patches_its_own_module_by_a_dotted_path(monkeypatch):
+    monkeypatch.setattr(f"{__name__}.VALUE", "patched")
+    assert VALUE == "patched"
+"""
+
+
+def test_card_499_a_test_that_patches_its_own_module_by_a_dotted_path_is_measured(
+    tmp_path,
+):
+    """The child plugin binds the rewritten module on its parent package.
+
+    Without that binding the dotted ``setattr`` cannot find the module by
+    attribute walk: pytest raises ``AttributeError`` before the assert, the run
+    exits 1 and the one arm reads NOT-REACHED -- the "exit 1 outside the
+    matrix's domain" shape, measured here as the control. Had the walk reached
+    some *other* module object, the assert would read FAIL instead, because
+    the patch would land where the instrumented test does not look.
+    """
+    package = tmp_path / "km_self_patch_pkg"
+    package.mkdir()
+    _write(package, "__init__.py", "")
+    target = _write(package, "km_self_patch_target.py", SELF_PATCH_TARGET)
+    shipped = (
+        Runner(selection=[str(target)], repo_root=tmp_path).run(Pass.RECORDING).shipped
+    )
+    assert shipped.denominator == 1, shipped.figure()
+    assert shipped.exit_code == 0, shipped.table()
+    assert len(shipped.passed) == 1 and shipped.collected_tests == 1, shipped.table()
 
 def test_g2_the_lock_it_watches_is_the_one_the_gates_write(monkeypatch, tmp_path):
     """The resolved path, compared against its owner. The control that can fail.
@@ -2834,7 +2872,7 @@ FOUR_ARM = (
 )
 #: CARD-257's four arms, restated from its cycle-3 record and re-derived from
 #: the unmodified parse below rather than trusted.
-PREAMBLE, NAMES, HEADS, POINTER = 1060, 1136, 1143, 1149
+PREAMBLE, NAMES, HEADS, POINTER = 1140, 1216, 1223, 1229
 WORD = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 
@@ -3028,13 +3066,13 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     """``tests/test_db_engine_lifecycle.py``: the second anchor, CARD-257's grid.
 
     The **grid** is CARD-257's, measured at ``b441ba00``. The **positions** are
-    not: they are ``:1060`` (preamble), ``:1136`` (names), ``:1143`` (heads)
-    and ``:1149`` (pointer) at HEAD. That is the anchor's own distinction: what reproduces is
+    not: they are ``:1140`` (preamble), ``:1216`` (names), ``:1223`` (heads)
+    and ``:1229`` (pointer) at HEAD. That is the anchor's own distinction: what reproduces is
     the grid cell for cell, not an address. Re-derived from the unmodified
     parse here, never reused from a previous reading.
 
     **The shift still overlaps, measured rather than assumed.** Of the four
-    previous addresses, none (``:1077``, ``:1121``, ``:1128``, ``:1134``) is an
+    previous addresses, none (``:1060``, ``:1136``, ``:1143``, ``:1149``) is an
     assert lineno at HEAD, so a stale constant reads loudly here. That is the
     seventh shape this
     instrument refuses for a *mutant* standing inside its own anchor, whose

@@ -655,7 +655,7 @@ itself:
   **preamble** with the three arms below it `NOT-REACHED`, `POINTER-ROT` and
   `POINTER-DEL-WORD` RED at the **pointer** arm, `CONTROLS-RENAME-ONLY` `PASS`,
   SHIPPED all-PASS. What the anchor reproduces is that **grid**, not an
-  address: the four addresses are `:1060` / `:1136` / `:1143` / `:1149` at
+  address: the four addresses are `:1140` / `:1216` / `:1223` / `:1229` at
   HEAD. They live as literals in
   `test_kill_matrix.py` and are **re-derived by hand and re-committed** at
   each card that moves that file — nothing in the suite re-derives them,
