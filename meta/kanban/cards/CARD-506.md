@@ -1,6 +1,6 @@
 # CARD-506: Player and admin-CSS minors: two local values to tokens, Redo's aria-disabled, the ? centring, the Reset Escape path, stale comments, a scale-1 render
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/506-player-css-minors
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-506
 **Source:** roadmap wave 6 (cut 2026-11-20 on the owner's "please start the next wave"). IDEA-053, 060, 095, 147, 151, 157, 161, 166 (WSJF 2.31 each, about 0.125 d each). Several are marked unverified in the backlog: the player was reworked through the November cards, so expect some to be closed already.
 **Idea:** IDEA-053, IDEA-060, IDEA-095, IDEA-147, IDEA-151, IDEA-157, IDEA-161, IDEA-166
 **Wave:** 85
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/static/solver.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_*.py, tests/test_admin_design_tokens.py
 **UI surface:** puzzle player (admin, and the public player built from the same files), guide strip
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T17:17Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
