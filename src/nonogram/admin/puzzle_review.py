@@ -313,9 +313,8 @@ class PuzzleFilter:
     #: Either spelling of any tier — the enum value ("easy") a
     #: pipeline-written row carries, or the display label ("Easy") an older
     #: one does. Resolved through difficulty.tier_of_record where it is
-    #: applied, so both match the same rows. A retired "guess" row is read as
-    #: Hard by the in-memory branch only; the database query matches the
-    #: stored spellings of the tier itself and leaves such a row out.
+    #: applied, so both match the same rows, a retired "guess" row as Hard
+    #: in both branches (CARD-495).
     difficulty: Optional[str] = None
     quality_min: Optional[int] = None  # 1-100
     theme: Optional[str] = None
@@ -1760,7 +1759,7 @@ class PuzzleReviewService:
 
         else:
             # DB mode: query database
-            from sqlalchemy import String, case, cast, or_
+            from sqlalchemy import String, case, cast, func, or_
             from nonogram.db.models import Puzzle
             import uuid as uuid_module
 
@@ -1789,12 +1788,26 @@ class PuzzleReviewService:
                         longest.between(low, high),
                     )
                 if filter_opts.difficulty:
-                    # Both spellings, for the reason in the in-memory branch
-                    # above: value and label are the same tier and a row may
-                    # carry either.
+                    # Every stored spelling the in-memory branch reads as the
+                    # wanted tier: value and label, any case or surrounding
+                    # space, and the retired "guess" as Hard (CARD-495). The
+                    # spellings are taken from `_TIER_RANK_BY_SPELLING`, which
+                    # is derived through `tier_of_record` itself, and compared
+                    # trimmed and lower-cased as the tier sort above compares
+                    # them. The branches agree for any case and for space
+                    # padding; SQL `trim()` strips spaces only, so a value
+                    # padded with any other whitespace (a tab, a newline, a
+                    # no-break space) reads as its tier in memory but not
+                    # here, as in the tier sort.
                     wanted = tier_of_record(filter_opts.difficulty)
                     query = query.filter(
-                        Puzzle.difficulty_tier.in_((wanted.value, wanted.label))
+                        func.trim(func.lower(Puzzle.difficulty_tier)).in_(
+                            sorted(
+                                spelling
+                                for spelling in _TIER_RANK_BY_SPELLING
+                                if tier_of_record(spelling) is wanted
+                            )
+                        )
                         if wanted is not None
                         else Puzzle.difficulty_tier == filter_opts.difficulty
                     )

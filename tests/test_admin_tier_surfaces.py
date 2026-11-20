@@ -135,19 +135,56 @@ def test_the_filter_selects_pipeline_rows_whatever_the_form_submitted(
     assert _ids(selected) == {"p0", "p1"}
 
 
-def test_the_filter_reads_a_stored_guess_row_as_hard() -> None:
+def test_the_filter_reads_a_stored_guess_row_as_hard(tmp_path) -> None:
     """CARD-098: the word is no longer a tier, but the rows are still there.
 
     ``guess`` cannot be *asked* for — the form does not offer it and
     ``parse_tier`` refuses it — yet a row written while the tier existed still
     has to appear somewhere rather than vanish from every filter. It reads as
     Hard (``difficulty.tier_of_record``), so asking for Hard finds it.
+
+    CARD-495: in BOTH stores. The database branch used to match only the
+    tier's own two spellings, so on the live panel a stored "guess" row
+    appeared under no tier filter at all while the in-memory branch found it.
+    The same rows go through the in-memory service and a SQLite-backed one.
     """
-    service = _service_holding("guess", "Guess", "hard", "easy")
+    from tests.helpers.db import sqlite_session_scope
 
-    selected = service.filter_puzzles(PuzzleFilter(difficulty="Hard"))
+    spellings = ("guess", "Guess", " GUESS ", "hard", "HARD", "easy", "extreme")
+    service = _service_holding(*spellings)
+    stored = PuzzleReviewService(session_factory=sqlite_session_scope(tmp_path))
+    for index, tier in enumerate(spellings):
+        stored.add_puzzle(
+            grid=[[True] * 10 for _ in range(10)],
+            clues_rows=[[10]] * 10,
+            clues_cols=[[10]] * 10,
+            width=10,
+            height=10,
+            theme="t",
+            difficulty_score=33,
+            difficulty_tier=tier,
+            quality_score=50,
+            recognizability="medium",
+            strategies_used=[],
+            source_image=f"p{index}",
+        )
 
-    assert _ids(selected) == {"p0", "p1", "p2"}
+    def by_store(requested: str) -> dict[str, set[str]]:
+        return {
+            "memory": _ids(service.filter_puzzles(PuzzleFilter(difficulty=requested))),
+            "database": {
+                puzzle["source_image"]
+                for puzzle in stored.filter_puzzles(PuzzleFilter(difficulty=requested)).puzzles
+            },
+        }
+
+    hard = {"p0", "p1", "p2", "p3", "p4"}
+    assert by_store("Hard") == {"memory": hard, "database": hard}
+    assert by_store("easy") == {"memory": {"p5"}, "database": {"p5"}}
+    # G-1 in both stores (review F-002): a value that names no tier is compared
+    # exactly, so it selects its own row and is not widened by case.
+    assert by_store("extreme") == {"memory": {"p6"}, "database": {"p6"}}
+    assert by_store("Extreme") == {"memory": set(), "database": set()}
 
 
 def test_a_query_string_that_names_no_tier_does_not_widen_the_filter() -> None:
