@@ -92,7 +92,11 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 5 — CUT 2026-11-20 (board wave 84)
+## Wave 5 — DONE 2026-11-20 (board wave 84)
+
+Six cards merged: CARD-496 (`2ee32a1d`, 9.5 cycle 1), CARD-497 (`7a055f48`, 9.5 cycle 2), CARD-498 (`6ffb60f2`, 9.5 cycle 1, with the owner's AC-292 rewording), CARD-499 (`d2d00b91`, 9.6 cycle 2), and two the owner asked for during the wave: CARD-500 (`618d20de`, 9.8 cycle 2: after a refused Print setup save the edited marks follow the submitted plan) and CARD-501 (`7bda4cbd`, 9.5 cycle 1: typed cells judged against the submitted split). Wave close: `make test-wave-close` on `main` at `cec8c5a0`, 10680 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 33 min. No public-player file changed. Recorded, not carded (reviewers' out-of-scope findings): `update_book_status` still shows any ValueError's raw text unlogged (CARD-496 F-003); on Postgres `books.created_at` is the server's local time while `updated_at` is naive UTC (CARD-496 F-004); requirements.yml's NFR-005 labels are falsely-alive class names, so it and trace.yml name different tests for the same ACs (CARD-498 F-004); an edit whose value a later split's prefill happens to equal stays edited until retyped twice (CARD-501 F-003, CARD-120's left-alone rule).
+
+### As cut
 
 Cut against main on 2026-11-20, every premise re-read the same day. The feature bucket is still empty of workable items (IDEA-105 waits for the owner to say what the guide preview needs; IDEA-178, IDEA-125/126 are owner calls), so the wave is tech-debt. **IDEA-059 closed at the cut**: a flake watch with no fix, its likeliest cause removed by CARD-244 and no recurrence since. Not carded: IDEA-031 (skipped once as CARD-378), IDEA-106/112 (owner's say), IDEA-111 (forge-plugin defect), IDEA-215 (a re-fire of old mutants, no product effect), IDEA-010 (formalising shipped behaviour as ACs; next registry wave).
 
