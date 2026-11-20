@@ -96,7 +96,7 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 
 ### As cut
 
-Cut against main on 2026-11-20 on the owner's "go with option 2, start wave 7". The owner decided IDEA-218 (option 2: the compact two-line `--text-xs` clamp on the solved banner at every width). The rest is the test-database faults most likely to red a gate for no code reason, and two small leftovers. Not carded: IDEA-215 (CARD-276's six mutants, optional at the proposal), IDEA-111, 106, 112, 010 (as at wave 6).
+Cut against main on 2026-11-20 on the owner's "go with option 2, start wave 7". The owner decided IDEA-218 (option 2: the compact two-line `--text-xs` clamp on the solved banner at every width). The rest is the test-database faults most likely to red a gate for no code reason, and two small leftovers. IDEA-215 added the same day on the owner's "add IDEA-215 to this wave too" (CARD-510). Not carded: IDEA-111, 106, 112, 010 (as at wave 6).
 
 ### feature
 - **CARD-507** (IDEA-218) A long solved name no longer moves the desktop board — 1c
@@ -104,6 +104,7 @@ Cut against main on 2026-11-20 on the owner's "go with option 2, start wave 7". 
 ### tech-debt
 - **CARD-508** (IDEA-031, 032, 140, 174) Test-database hygiene — 2c
 - **CARD-509** (IDEA-219, IDEA-094) text.pdf in the cwd; whitespace around DATABASE_URL — 1c
+- **CARD-510** (IDEA-215) Re-fire CARD-276's six mutant cells, or declare them — 1c
 
 ## Wave 6 — DONE 2026-11-20 (board wave 85)
 

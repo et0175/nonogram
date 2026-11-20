@@ -5279,7 +5279,7 @@ ideas:
   source_line: 404
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
