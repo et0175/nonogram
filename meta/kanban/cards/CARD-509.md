@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/helpers/pdf_vector.py, src/nonogram/db/session.py, tests/test_db_url_*.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T23:31Z
 **Blocked by:** —
 
@@ -71,3 +71,5 @@
 - Message echoes the stripped text: the property test reds with `assert 'QXSECRE)TdX8o' not in 'Traceback (...'`.
 
 **Gate (unarmed, `-o addopts= -rfs`).** Files: test_db_url_driver, test_book_play_online_page, test_db_engine_lifecycle, test_db_isolation, test_card_349_cold_database, test_admin_binding, test_book_pdf_vector_primitives, test_book_pdf_memory, test_qr_vector_draw, test_book_footer_pointer, test_kill_matrix, test_impact_set, test_suite_profile, test_book_interior_type_floor. Result: 1151 passed, 0 failed, 18 skipped. 17 skips are "Database not reachable: DATABASE_URL is not set" (db_required, unarmed). 1 is the setrlimit(RLIMIT_AS) platform skip in test_book_pdf_memory. No scratch PDF was left in the worktree afterwards.
+
+[Review 1/3] Score: 9.5, nothing gating, certified. Re-measured: both controls re-fired red (temp-dir default -> `Path(".")`: the play-page test reds on 4 left-over PDFs; whitespace branch off: 13 red); 42 reader calls found by `ast`, 3 without `out_dir`, none reading a scratch file back; all 17 caller files run from an empty cwd, 797 passed, 1 skipped (setrlimit), cwd still empty; `make_url` keeps a trailing space or newline in the database name, so naming rather than stripping holds; 2,160 padded corpus variants never echo the secret; `_scheme_of` total on odd inputs; net 0 (10689). F-001 (low, out of scope, owner's call) a trailing space still passes silently into the database name, and the "trailing whitespace" wording appears only when the URL also fails for another reason. F-002 (info) two `_scratch` helpers (pdf_vector, pdf_pages), forced by the import direction. F-003 (info) `Drawn.render`'s cwd fallback in test_book_grid_rules.py is dead today.
