@@ -16,7 +16,7 @@
 **Created wave:** 84
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** tests/test_db_engine_lifecycle.py, tests/kill_matrix.py, tests/test_kill_matrix.py
+**Touches:** tests/test_db_engine_lifecycle.py, tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md, src/nonogram/db/session.py (one comment, widened 2026-11-20 by the orchestrator)
 **UI surface:** —
 **Review score:** —
 **Started:** 2026-11-20T10:24Z
