@@ -226,11 +226,11 @@ def _global_names_assigned_by(function_name: str, source: str | None = None) -> 
     capture -- and a declared global's name bound anywhere inside a **nested
     scope** (a comprehension's target, a lambda's or nested def's parameter,
     any store inside a nested def, lambda, class or comprehension). The walk
-    does enter nested scopes, and a store there is not an assignment to the
-    function's global: measured, ``global X`` plus ``[X for X in range(2)]``
-    in ``reset_engine`` was collected as resetting ``X``, which would have
-    matched a builder's ``X = 1`` and passed by silence. So the collector
-    refuses those names rather than guess. A missing function raises too, and
+    does enter nested scopes, where a store is usually not an assignment to the
+    global (a walrus in a comprehension, or a nested def's own ``global``, is
+    one): measured, ``global X`` plus ``[X for X in range(2)]`` in reset_engine
+    was collected as resetting ``X`` and would have matched a builder's ``X = 1``
+    silently. So it refuses those names rather than guess. A missing function raises too, and
     ``assert built`` in the caller catches a blind read. Not seen at all: a
     global set dynamically (``globals()[...] =``, ``setattr`` on the module),
     which names nothing in the AST.

@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_db_engine_lifecycle.py, tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md, src/nonogram/db/session.py (one comment, widened 2026-11-20 by the orchestrator)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T10:24Z
 **Closed:** —
 **Actual:** —
@@ -85,3 +85,5 @@
 - **Net test count:** 10711 collected (10710 before the card; +1 unchanged).
 
 [Review 1/3] Score: 9.0, one gating finding, not certified. F-001 (ADR-0039/R3, R1 behind it) the new `_RESET_ONLY_GLOBALS` exemption had no committed control for what it must not absorb, and was not held to being reset-only (a builder that also binds `_reset_count` stayed green); F-002 (minor) the collector's docstring presented `x: T = v` on a declared global as reachable (it is a SyntaxError) and did not say the walk enters nested scopes. Re-measured and held: the plugin's setattr control, top-level targets untouched, each AC-1 arm red, the anchors derived not shifted, the session.py diff comment-only. Fixed in `9753298c`: F-001 by asserting the builder binds no exempted name and planting a second reset-only global (both red under their mutants); F-002's AnnAssign sentence added, and its nested-scope sentence measured FALSE (a comprehension binding a declared global in `reset_engine` was collected and could match a builder binding silently), so the collector now raises on a declared global bound in any nested scope — beyond the doc-only fix asked; for review cycle 2 to judge.
+
+[Review 2/3] Score: 9.6, nothing gating, certified. The implementer's F-002 departure confirmed: on the round-0 collector a builder's `global X; X = 1` and a reset's `global X; [X for X in range(2)]` both came out `['X']`, so the equality passed without a reset; HEAD raises; every listed nested-scope kind raises and nothing else does; the real session.py gives the same sets on both collectors. F-001 closed: M5 reds at `not (built & _RESET_ONLY_GLOBALS)`, a second reset-only global reds at the equality, widening or emptying the allowance reds, dropping the nested-scope check gives DID NOT RAISE. Anchors re-derived (the file 1998 -> 2052, +54 = 1194 - 1140); tests/README.md matches. 102 passed, 2 skipped (DATABASE_URL unset). F-003 (low) one docstring sentence said a store in a nested scope "is not an assignment" to the global, but a walrus in a comprehension and a nested def's own `global` are: reworded by the orchestrator in the same five lines ("usually not … is one"), so no anchor moved (file still 2052 lines); the two files re-run: 102 passed, 2 skipped.
