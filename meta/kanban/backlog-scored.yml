@@ -971,7 +971,7 @@ ideas:
     the same defect CARD-150..152 removed from the other three scripts   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-492
   method: wsjf
   scores:
@@ -1043,7 +1043,7 @@ ideas:
     one breaks both new suites   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-492
   method: wsjf
   scores:
@@ -1199,7 +1199,7 @@ ideas:
     N"   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-492
   method: wsjf
   scores:
@@ -1449,7 +1449,7 @@ ideas:
     expose a public read   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-492
   method: wsjf
   scores:
@@ -1655,7 +1655,7 @@ ideas:
     badge and tab title say "MEDIUM" where every other screen shows the stored "medium"   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   card: CARD-492
   method: wsjf
   scores:

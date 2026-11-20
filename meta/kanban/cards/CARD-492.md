@@ -1,6 +1,6 @@
 # CARD-492: Five small code-hygiene items: a script's hardcoded database, a helper's private imports, a private read, an upper-cased tier, and the margin minimum
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/492-code-hygiene
-**Worktree:** ../PythonProject4-card-492
+**Worktree:** —
 **Source:** roadmap rescore 2026-11-18, wave 4 (cut 2026-11-20; premises re-read against main the same day). IDEA-035, IDEA-038, IDEA-054, IDEA-062, IDEA-044, each WSJF 3.08-3.85 and 0.125 d: bundled because each alone is below sizing.min_estimate.
 **Idea:** IDEA-035, IDEA-038, IDEA-054, IDEA-062, IDEA-044
 **Wave:** 83
@@ -20,9 +20,9 @@
 **UI surface:** admin solve page (tier badge, tab title)
 **Review score:** 9.3 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T00:32Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T01:42Z
+**Actual:** 1c — ratio 1/2 = 0.5
+**Merge commit:** 31cfe1445387b1fe738667687fde78dcae75f233
 **Blocked by:** —
 
 ## Why this card exists
