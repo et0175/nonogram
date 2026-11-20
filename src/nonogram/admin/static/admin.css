@@ -1133,10 +1133,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    wraps a longer name inside it (overflow-wrap: anywhere also breaks a name
    with no spaces, such as a file name; the check icon keeps its size,
    flex: none on .player-solved .icon). The box is centred down the tools'
-   box. A banner taller than the tools' box makes the row taller.
+   box. CARD-507: the banner's text is clamped to two --text-xs lines
+   (the rule after .player-solved-name), which fit the tools' box, so the
+   banner no longer makes the row taller.
    tests/test_puzzle_solver_maybe.py: the board does not move at 960..1480 px
-   (step 20, height 900) and at 390 x 844; 120-character names at 1440, 1200
-   and 390 px stay within the tools' width and overlap no other control. */
+   (step 20, height 900) and at 390 x 844; 120-character names at 1440 x 900,
+   1100 x 700 and 390 x 844 stay within the tools' width, overlap no other
+   control and leave the board where it was. */
 .player-slot { display: grid; }
 .player-slot > * { grid-area: 1 / 1; }
 .player-solved-box { contain: inline-size; align-self: center; }
@@ -1354,6 +1357,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-solved[hidden] { display: none; }
 .player-solved .icon { flex: none; color: var(--color-success); }
 .player-solved-name { font-weight: 600; }
+/* CARD-507 (IDEA-218, owner 2026-11-20, option 2): the banner's text takes
+   the compact rule's treatment at every width — --text-xs, --leading-tight,
+   at most two lines, the rest cut. Two such lines fit the tools' box, so a
+   long name no longer makes the toolbar row taller and the board no longer
+   moves on solve. The clamp is visual only: the whole name stays in the DOM
+   and in the banner's text. This rule lived in the compact block until then;
+   the phone's values are unchanged. Held by tests/test_puzzle_solver_maybe.py
+   TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth. */
+.player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 /* The success frame is drawn just inside the table's edge: .player-stage
    scrolls (overflow-x: auto) and would clip a frame drawn outside it on the
    top and left. */
@@ -2216,7 +2228,6 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-zoom > .player-zoom-readout { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 52px; }
   .player-zoom > :focus-visible { outline-offset: -3px; }
   .player-solved { gap: var(--space-1); padding: 0 var(--space-1); }
-  .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 }
 
 /* CARD-438 (owner play-test doc "Гра - тест", 2026-11-12, item 7: "Is it
