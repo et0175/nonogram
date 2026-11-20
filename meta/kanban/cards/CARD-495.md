@@ -1,6 +1,6 @@
 # CARD-495: A stored "guess" row is Hard in the database filter too; the arrange row fits a phone
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/495-guess-filter-and-phone-buttons
-**Worktree:** ../PythonProject4-card-495
+**Worktree:** —
 **Source:** owner 2026-11-20 ("yes, fix both"), on CARD-494 review F-005 and F-007.
 **Idea:** —
 **Wave:** 83
@@ -20,9 +20,9 @@
 **UI surface:** admin puzzle filter (tier); admin book arrange page on a phone
 **Review score:** 9.6 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T07:48Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T08:39Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** cca388ba18c6a318758dbbebded83a1c4c3f41b3
 **Blocked by:** —
 
 ## Why this card exists
