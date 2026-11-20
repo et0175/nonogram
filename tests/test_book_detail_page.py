@@ -564,7 +564,7 @@ class TestBookDetail_ShowsTheStoredTrim:
         self, admin_app, client
     ):
         book_id, _ = _make_book(admin_app, size="8x10")
-        book = admin_app.book_manager.get_book(book_id)
+        book = admin_app.book_manager.books[book_id]
         book.trim_width_cm = None
         book.trim_height_cm = None
 
@@ -579,7 +579,7 @@ class TestBookDetail_ShowsTheStoredTrim:
         self, admin_app, client
     ):
         book_id, _ = _make_book(admin_app)
-        admin_app.book_manager.get_book(book_id).trim_width_cm = "not-a-number"
+        admin_app.book_manager.books[book_id].trim_width_cm = "not-a-number"
 
         page = _read(client, f"/book/{book_id}")
 
@@ -614,7 +614,7 @@ def _book_stored_as(app, members, title="Mixed levels"):
         names=[name for name, _ in members],
         tiers=[tier for _, tier in members],
     )
-    app.book_manager.get_book(book_id).puzzle_ids = list(ids)
+    app.book_manager.books[book_id].puzzle_ids = list(ids)
     return book_id, ids
 
 
@@ -723,7 +723,7 @@ class TestBookDetail_NumbersPuzzlesLikeTheBook:
         from nonogram.admin.book_pdf_generator import BookPDFGenerator
 
         book_id, ids = _book_stored_as(admin_app, (("E1", "easy"), ("M1", "medium")))
-        book = admin_app.book_manager.get_book(book_id)
+        book = admin_app.book_manager.books[book_id]
         book.puzzle_ids = [ids[1], ids[0], ids[0]]
         service = admin_app.puzzle_review_service
         plan = BookPDFGenerator(book).section_plan(
@@ -766,7 +766,7 @@ class TestBookDetail_NumbersPuzzlesLikeTheBook:
             book_id, ids = _book_stored_as(admin_app, members, title=f"Corpus {b}")
             stored = list(ids)
             rng.shuffle(stored)
-            admin_app.book_manager.get_book(book_id).puzzle_ids = stored
+            admin_app.book_manager.books[book_id].puzzle_ids = stored
             tier_of = dict(zip(ids, tiers))
             gone, broken = set(), set()
             for puzzle_id in stored:
@@ -869,7 +869,7 @@ class TestBookDetail_UndrawableMemberHasNoNumber:
     ):
         """An unreadable trim: no plan, so no numbers — and the page says so."""
         book_id, ids = _book_stored_as(admin_app, MIXED)
-        admin_app.book_manager.get_book(book_id).trim_width_cm = "not-a-number"
+        admin_app.book_manager.books[book_id].trim_width_cm = "not-a-number"
 
         import logging
 

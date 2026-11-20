@@ -41,6 +41,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from nonogram.admin.print_specs import PrintSpec
+
 import nonogram.admin.book_manager as book_manager_module
 from nonogram import clues
 from nonogram.admin.book_kdp import (
@@ -298,8 +300,10 @@ class Panel:
             self.store.puzzles[record["id"]] = record
         self.books.add_puzzles_to_book(book_id, [r["id"] for r in records])
         self.books.save_plan(book_id, plan_of(records))
-        stored = self.books.get_book(book_id)
-        stored.trim_width_cm, stored.trim_height_cm = TRIM_CM
+        assert self.books.set_print_spec(book_id, PrintSpec(*TRIM_CM))
+        # The margins have no setter (Print setup offers no margin field), so
+        # they are written onto the stored book itself (CARD-489).
+        stored = self.books.books[book_id]
         stored.gutter_margin_cm = gutter
         stored.outside_margin_cm = GUTTER_0375_IN
         return book_id
@@ -622,7 +626,7 @@ class TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount:
         assert panel.counts(legal).page_count == AC179_PAGES
         assert panel.counts(legal).unpaired_page_count == AC179_SHEET_FREE_PAGES
 
-        book = panel.books.get_book(legal)
+        book = panel.books.books[legal]
         book.gutter_margin_cm = "1.27"
         assert panel.counts(legal).page_count == AC179_PAGES
 
@@ -832,7 +836,10 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
     ) -> None:
         plain = panel.book(AC288_CORPUS)
         with_domain = panel.book(AC288_CORPUS, title="Spring")
-        panel.books.get_book(with_domain).player_domain = self.DOMAIN
+        stored = panel.books.get_book(with_domain)
+        assert panel.books.set_print_spec(with_domain, PrintSpec(
+            stored.trim_width_cm, stored.trim_height_cm, player_domain=self.DOMAIN
+        ))
 
         assert panel.counts(plain).page_count == AC288_PAGES
         assert panel.counts(with_domain).page_count == 152
@@ -841,7 +848,7 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
         # A stored value no address can be made of is no domain at all: no
         # page, no blank, and the screen says so (F-2).
         hand_edited = panel.book(AC288_CORPUS, title="Autumn")
-        panel.books.get_book(hand_edited).player_domain = "not a domain"
+        panel.books.books[hand_edited].player_domain = "not a domain"
         assert panel.counts(hand_edited).page_count == AC288_PAGES
         assert "No valid player domain set" in panel.shown(hand_edited)
         assert panel.finalise(plain).status_code == 302
@@ -1353,7 +1360,7 @@ class TestFinaliseCounts_ShowsWhyTheCountIsApproximate:
         self, panel, column, value, reason
     ) -> None:
         book_id = panel.book(SMALL_CORPUS)
-        setattr(panel.books.get_book(book_id), column, value)
+        setattr(panel.books.books[book_id], column, value)
 
         shown = panel.shown(book_id)
 
@@ -2047,7 +2054,7 @@ class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
         book1_counts = _counts_of(panel, book_id)
         assert book1_counts.exact is False  # no sheet: the approximate path
 
-        stored.trim_height_cm = "12.00"
+        assert panel.books.set_print_spec(book_id, PrintSpec(stored.trim_width_cm, "12.00"))
         shrunk_counts = _counts_of(panel, book_id)
 
         assert shrunk_counts.exact is False

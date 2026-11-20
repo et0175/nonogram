@@ -1414,7 +1414,7 @@ class TestBookInk_PrintSetupAndFinaliseShowTheMode:
     def test_finalise_says_so_when_the_stored_mode_cannot_be_read(self, panel):
         """The posture the Trim size row already takes for an unreadable trim."""
         book_id = panel.book()
-        panel.books.get_book(book_id).interior_ink_mode = "sepia"
+        panel.books.books[book_id].interior_ink_mode = "sepia"
         shown = panel.finalise(book_id)
         assert "Cannot be read — set it again on Print setup" in shown
         assert "data-interior-ink-mode" not in shown
