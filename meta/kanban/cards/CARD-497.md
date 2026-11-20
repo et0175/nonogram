@@ -1,6 +1,6 @@
 # CARD-497: The Print setup refusal page shows the plan that was submitted, not the stored one
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/497-refusal-planned-row
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-497
 **Source:** roadmap wave 5 (cut 2026-11-20 on the owner's "please start the next wave"; premises re-read against main the same day). IDEA-012, WSJF 2.31 (unverified at the rescore).
 **Idea:** IDEA-012
 **Wave:** 84
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_plan_storage.py, tests/test_book_setup_print*.py
 **UI surface:** admin Print setup (step 2), the refusal re-render
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-20T09:50Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
