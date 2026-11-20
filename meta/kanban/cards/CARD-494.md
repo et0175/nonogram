@@ -1,6 +1,6 @@
 # CARD-494: The arrange page's continued label and warning-tinted "Not printed" line; the last "guess is a tier" passages
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/494-continued-label-and-guess-text
-**Worktree:** ../PythonProject4-card-494
+**Worktree:** —
 **Source:** owner 2026-11-20 ("make these changes"), on the two questions left after wave 4: CARD-490 review F-003 and the three passages CARD-491 recorded outside its files.
 **Idea:** —
 **Wave:** 83
@@ -20,9 +20,9 @@
 **UI surface:** admin book arrange page (page labels, "Not printed" marker)
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-20T06:45Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-20T07:32Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** 2f2b6d9e15743b9b2305d5cc5dbea509d617d20f
 **Blocked by:** —
 
 ## Why this card exists
