@@ -290,7 +290,12 @@ class TestBookPlan_RejectsSplitNotSummingTo100:
         client = app.test_client()
         book_id = _new_book(app.book_manager)
         assert app.book_manager.get_plan(book_id) == prefill(150, Split(40, 40, 20))
-        size_before = app.book_manager.get_book(book_id).metadata.size
+        # The trim of record is the book's two print columns (CARD-136), not
+        # ``metadata.size``, which no route writes any more: an assertion on
+        # that string held in both modes whatever the route stored (CARD-120
+        # F-009, measured on CARD-493).
+        before = app.book_manager.get_book(book_id)
+        trim_before = (before.trim_width_cm, before.trim_height_cm)
 
         # A valid, non-default trim alongside the refused split: the refusal
         # must store nothing, the trim included (review F-005).
@@ -308,8 +313,9 @@ class TestBookPlan_RejectsSplitNotSummingTo100:
         assert _input_value(html, "split_hard") == "30"
         assert "is-invalid" in html
 
-        assert app.book_manager.get_book(book_id).metadata.size == size_before
-        assert "15.24" not in (size_before or "")
+        after = app.book_manager.get_book(book_id)
+        assert (after.trim_width_cm, after.trim_height_cm) == trim_before
+        assert trim_before == ("21.59", "27.94")  # so the submitted trim differs
 
         stored = app.book_manager.get_plan(book_id)
         assert stored.count == 150

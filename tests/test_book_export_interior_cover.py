@@ -6287,7 +6287,9 @@ class Generator:
     #: CARD-482: 756 -> 760. The same call, 4 lines lower: the page loop moved
     #: into ``_drawn_pages(generator)`` so ``render_proof_pdf`` can read the
     #: interior's colour mode off the one generator; no position changed.
-    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 760),)
+    #: CARD-493: 760 -> 758. The same call, 2 lines higher: ``_annotate``'s
+    #: docstring dropped the refused 8.25 x 8.25 in trim; no position changed.
+    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 758),)
 
     def test_the_module_axis_bound_is_measured_rather_than_declared(self):
         """AC-4 for the one axis this card leaves open, with its own control.

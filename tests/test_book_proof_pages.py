@@ -1210,8 +1210,10 @@ BOOK1_OUTSIDE_CM = "1.27"
 FALLBACK_INSET_MM = 1.0
 FALLBACK_INSET_PX = int(FALLBACK_INSET_MM * PX_PER_MM)
 
-#: CON-020's floor, and DejaVu Sans's cap height as a share of its em
-#: (OS/2 sCapHeight 1493 over unitsPerEm 2048 in the bundled face).
+#: CON-020's floor, and DejaVu Sans's cap height as a share of its em: the
+#: ``glyf`` yMax of "H" and of "P" (the glyph measured below), 1493, over the
+#: ``head`` table's unitsPerEm, 2048, in the bundled face. Its OS/2 table is
+#: version 1, which has no sCapHeight field (read from the bytes, CARD-493).
 FLOOR_PT = 10
 DEJAVU_CAP_HEIGHT_RATIO = 1493 / 2048
 FLOOR_CAP_PX = FLOOR_PT * 300 / 72 * DEJAVU_CAP_HEIGHT_RATIO
@@ -1223,9 +1225,10 @@ LANDSCAPE_TRIMS_CM = (("20.96", "15.24"), ("27.94", "21.59"))
 
 #: The pages whose foot strip cannot hold the note, so it falls back: the
 #: 30 x 30 on every square and landscape trim, and the 15 x 15 on 8.25 x 6 in,
-#: whose drawing also reaches the bottom margin. On the squares and on
-#: 11 x 8.5 in the 15 x 15 leaves 13.5 to 19.9 mm of foot, so its note stays
-#: at the foot (CARD-172 Worktree notes).
+#: whose drawing also reaches the bottom margin. On the 8.5 x 8.5 in square
+#: and on 11 x 8.5 in the 15 x 15 leaves room for its note at the foot, which
+#: test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note asserts
+#: (CARD-493; the 8.25 x 8.25 in square CARD-172 also measured is refused).
 FALLBACK_PAGES = (
     ("21.59", "21.59", 0),
     ("20.96", "15.24", 0),
@@ -1432,11 +1435,16 @@ class TestBookProof_LandscapeTrimsCarryTheNote:
         assert top >= d_top, "the note rises into the band"
 
     def test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note(self) -> None:
-        book = _book1_margins("27.94", "21.59")
-        page = proof_pages(book)[1]
-        plain = _plain_page(book, 1)
-        _, top, _, _ = _assert_note_inside_margins_and_clear(page, plain, 1)
-        assert top > _drawing_ink_box(plain)[3], "the note is not below the drawing"
+        """And the 8.5 x 8.5 in square's: ``book_proof._annotate`` says both
+        trims leave the 15 x 15 room at its foot (CARD-493)."""
+        for width_cm, height_cm in (("27.94", "21.59"), *SQUARE_TRIMS_CM):
+            book = _book1_margins(width_cm, height_cm)
+            page = proof_pages(book)[1]
+            plain = _plain_page(book, 1)
+            _, top, _, _ = _assert_note_inside_margins_and_clear(page, plain, 1)
+            assert top > _drawing_ink_box(plain)[3], (
+                f"the note is not below the drawing on {width_cm} x {height_cm} cm"
+            )
 
 
 class TestBookProof_FallbackNoteHoldsTheTenPointFloor:

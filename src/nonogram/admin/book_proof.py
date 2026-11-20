@@ -667,8 +667,7 @@ def _annotate(page: Image.Image, layout: Layout, frame: PageFrame) -> Image.Imag
     bottom edge and the bottom margin, less :data:`_NOTE_GAP_MM` of air, at
     :data:`_NOTE_MM` shrinking to :data:`_NOTE_FLOOR_MM`. The portrait KDP
     trims of the test corpus all take this path. So does the 15 x 15 on
-    the 8.25 x 8.25, 8.5 x 8.5 and 11 x 8.5 in trims, which leave room at
-    its foot.
+    the 8.5 x 8.5 and 11 x 8.5 in trims, which leave room at its foot.
 
     **Otherwise in the outer side strip, then the blank clue corner**
     (CARD-172). On a square or landscape trim the drawing is limited by the
@@ -683,8 +682,7 @@ def _annotate(page: Image.Image, layout: Layout, frame: PageFrame) -> Image.Imag
     those rules recognise). Lines are spaced at
     :data:`_FALLBACK_NOTE_LEADING`, or at :data:`_FALLBACK_NOTE_TIGHT_LEADING`
     in a spot that holds the note only at the tighter pitch — at the Book 1
-    margins, the 8.25 x 8.25 and 8.5 x 8.5 in clue corners
-    (:func:`_fallback_note`).
+    margins, the 8.5 x 8.5 in clue corner (:func:`_fallback_note`).
 
     **The note never overprints the grid or enters a margin.** If no spot holds
     it — a small square such as 15 x 15 cm — the export refuses rather than
