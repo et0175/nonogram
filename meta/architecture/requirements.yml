@@ -4705,29 +4705,24 @@ functional:
       # went false; AC-293 quotes a concrete 32-page figure that is 31 for an
       # option-off book. AC-403 below is the off case.
       - id: AC-292
-        given: a Book 1 profile book of 3 easy 15x15 puzzles that prints its divider pages (the default)
+        given: a book that prints its divider pages (the default) and has no uploaded Solutions picture
         when: the book PDF is generated
-        then: the page immediately after the last puzzle page and immediately before the first answer page carries only the word "SOLUTIONS"
+        then: the page immediately after the last puzzle page and immediately before the first answer page is the Solutions opener drawn by create_solutions_opener
         kind: happy
-        # `test:` DROPPED 2026-11-20 (CARD-498). It named
-        # `TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey`, which no
-        # def/class defines (the frozen honest-dead class of
-        # tests/test_check_ref_resolution.py). FALSE today in its content
-        # clause: with no uploaded picture the walk draws
-        # `create_solutions_opener` (book_pdf_generator.py), measured on
-        # CARD-498's branch to be the page `divider_page` returns for the
-        # SOLUTIONS slot and NOT the word-only `create_divider_page` page; it
-        # sets the eyebrow "PUZZLES 1–N", the title "Solutions" and a grey line
-        # under it, plus a folio. The POSITION clause is asserted, by
-        # tests/test_book_pdf_levels.py's
-        # `test_the_interior_is_that_section_between_the_guide_and_the_key`
-        # (page 13 is the opener and pages 14-16 carry the answers; its sibling
-        # `test_the_puzzle_section_runs_divider_then_that_levels_puzzles` holds
-        # page 12 to a puzzle page), but a test of half a criterion re-pointed here
-        # would read the false half as verified. Dropped rather than re-typed
-        # `review-lens` (CARD-316's measured precedent at AC-378). Whether to
-        # amend this AC to the opener the book prints is the owner's /
-        # architect's call; no card owns it yet.
+        test: test_no_divider_page_is_drawn_at_all_including_solutions, test_the_interior_is_that_section_between_the_guide_and_the_key
+        # AMENDED 2026-11-20 (owner, on CARD-498 review F-003): the criterion
+        # said the page "carries only the word SOLUTIONS"; the book has printed
+        # the approved mockup's opener (`create_solutions_opener`) instead since
+        # it was built, and the owner chose to describe the page as printed.
+        # That page: a short black rule, the eyebrow "PUZZLES 1–N" in grey, the
+        # title "Solutions", one grey line saying how the key runs, and the
+        # page's folio.
+        # The first test holds that the SOLUTIONS page drawn is the opener (it
+        # counts `create_solutions_opener` among the walk's dividers, after the
+        # three level dividers, and none with divider pages off); the second
+        # holds its position between the puzzle section and the answer key.
+        # The opener's words are drawn into the page image, so no test reads
+        # them as text; `create_solutions_opener` is what sets them.
       - id: AC-293
         given: a Book 1 profile book that prints its divider pages (the default) on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 60, medium 60, hard 30, in that order
         when: the book PDF is generated

@@ -115,7 +115,7 @@ links:
     keeps AC-003/AC-004 validation inward of COMP-001.
     2026-10-31 (CARD-317): AC-001..AC-004 now carry status: superseded in
     requirements.yml, so their retirement is readable by a tool and not only
-    by this note. The four test names above are kept listed, dead, on the
+    by this note. The four test names above were kept listed (until 2026-11-20, see CARD-498 below), dead, on the
     same rule FR-003's row states: the old test name stays until the
     superseded criterion is retired with it. They are the historical record
     of what the criteria claimed, not a coverage claim — AC-002's outcome

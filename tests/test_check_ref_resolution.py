@@ -1668,7 +1668,10 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # eleven (see its note), each declared by no authority now. IN: the five
 # NFR-005 `def` names on that trace.yml row, none declared anywhere at the base,
 # each one `ast`-found def line in tests/test_export_image.py. 603 - 11 + 5.
-CENSUS = (597, "b65aca60624bfbd7")
+# CARD-498, owner amendment of AC-292 (2026-11-20): 597 -> 599, OUT 0, IN 2 --
+# the two tests the amended criterion names, neither declared anywhere before,
+# each an `ast`-found def line under tests/. Diffed as sets as above.
+CENSUS = (599, "0fc55b0fa4d103a1")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1863,7 +1866,9 @@ TRACE_TESTS = (509, "b814c5b7e86c092a")
 # (NFR-005's trace.yml row), each an `ast`-found def line in
 # tests/test_export_image.py and collected by pytest by node id. None of
 # HONEST_DEAD's eleven departures was ever here (zero def/class lines each).
-DEFINED = (483, "90fde6e8de3198e9")
+# CARD-498, owner amendment of AC-292 (2026-11-20): 483 -> 485, OUT 0, IN 2 --
+# exactly CENSUS's 2 entrants, each an `ast`-found def line under tests/.
+DEFINED = (485, "d233e2c38a62285c")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
