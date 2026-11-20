@@ -504,6 +504,15 @@ class TestRevisePlan:
         assert both.edited == {(B20, M)}
         assert [list(r) for r in both.cells] == typed
 
+        # Review F-001: the split alone changed (count kept at 150) is judged
+        # the same way, against the prefill at the submitted split.
+        split_only = prefill(150, Split(30, 45, 25))
+        retyped = [list(r) for r in split_only.cells]
+        retyped[2][0] += 4
+        assert retyped[2][0] not in (split_only.cell(B25, E), DEFAULT_PLAN.cell(B25, E))
+        alone = revise_plan(DEFAULT_PLAN, 150, Split(30, 45, 25), retyped)
+        assert alone.edited == {(B25, E)}
+
     def test_a_typed_cell_is_edited_and_kept(self) -> None:
         cells = [list(r) for r in DEFAULT_PLAN.cells]
         cells[0][0] = 3
