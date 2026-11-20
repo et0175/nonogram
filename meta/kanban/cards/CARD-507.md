@@ -1,6 +1,6 @@
 # CARD-507: A long solved-puzzle name no longer moves the desktop board: the banner text takes the compact two-line --text-xs clamp
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/507-solved-name-clamp
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-507
 **Source:** roadmap wave 7 (cut 2026-11-20 on the owner's "go with option 2, start wave 7"). IDEA-218, owner decision 2026-11-20: option 2 of five (ellipsis, two-line --text-xs clamp, reserved line, wider tools box, leave it).
 **Idea:** IDEA-218
 **Wave:** 86
@@ -19,6 +19,7 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_*.py
 **UI surface:** puzzle player (admin, and the public player built from the same files): the solved banner at desktop widths
 **Review score:** —
+**Started:** 2026-11-20T21:24Z
 **Blocked by:** —
 
 ## Why this card exists

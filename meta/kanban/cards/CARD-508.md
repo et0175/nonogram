@@ -1,6 +1,6 @@
 # CARD-508: Test-database hygiene: concurrent runs, the schema-once test run alone, engine globals restored, the connect-timeout flake
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/508-test-db-hygiene
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-508
 **Source:** roadmap wave 7 (cut 2026-11-20 on the owner's "go with option 2, start wave 7"). IDEA-031 (WSJF 3.33), IDEA-032, IDEA-140, IDEA-174 (1.92 each): the faults most likely to red a merge gate for no code reason. Two are marked unverified/partly in the backlog; expect some to be closed already.
 **Idea:** IDEA-031, IDEA-032, IDEA-140, IDEA-174
 **Wave:** 86
@@ -19,6 +19,7 @@
 **Touches:** tests/conftest.py, tests/test_card_156_db_fixture.py, tests/test_db_connect_timeout.py, tests/test_db_*.py
 **UI surface:** —
 **Review score:** —
+**Started:** 2026-11-20T21:24Z
 **Blocked by:** —
 
 ## Why this card exists
