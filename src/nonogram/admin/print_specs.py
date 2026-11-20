@@ -31,6 +31,7 @@ from nonogram.admin.book_page_spec import (
     DEFAULT_INK_MODE,
     MAX_TRIM_HEIGHT_CM,
     MAX_TRIM_WIDTH_CM,
+    MIN_SIDE_MARGIN_MM,
     MIN_TRIM_CM,
     InkMode,
 )
@@ -508,18 +509,24 @@ class PrintSpecValidator:
         ``None`` and the empty string are "the caller named none" and are
         valid (:meth:`create_spec` fills the gutter and outside margins with
         the profile's). Anything else must parse to a finite number:
-        ``"nan"``, ``"inf"`` and ``"1e999"`` are refused like ``"abc"``. The
-        side-margin minimum is not restated here — it is
-        :func:`~nonogram.admin.book_page_spec.book_page_spec`'s verdict on a
-        stored margin, which already refuses a non-finite one on the way out.
+        ``"nan"``, ``"inf"`` and ``"1e999"`` are refused like ``"abc"``.
+
+        The two side margins (gutter and outside) must also be at least
+        :data:`~nonogram.admin.book_page_spec.MIN_SIDE_MARGIN_MM` (0.635 cm),
+        the minimum :func:`~nonogram.admin.book_page_spec.book_page_spec`
+        holds a stored margin to. Until CARD-492 (IDEA-044) a smaller one was
+        accepted here and stored, and only refused on the way out. The bleed
+        margin is not a side margin that function reads, so it is held to
+        finiteness only.
 
         Returns:
             Tuple of (is_valid, error_message).
         """
-        for label, value in (
-            ("Gutter margin", gutter_margin_cm),
-            ("Outside margin", outside_margin_cm),
-            ("Outside margin with bleed", outside_margin_bleed_cm),
+        minimum_cm = MIN_SIDE_MARGIN_MM / 10
+        for label, value, side in (
+            ("Gutter margin", gutter_margin_cm, True),
+            ("Outside margin", outside_margin_cm, True),
+            ("Outside margin with bleed", outside_margin_bleed_cm, False),
         ):
             if value is None or (isinstance(value, str) and not value.strip()):
                 continue
@@ -529,6 +536,8 @@ class PrintSpecValidator:
                 return False, f"{label} must be a numeric value"
             if not math.isfinite(number):
                 return False, f"{label} must be a numeric value"
+            if side and number < minimum_cm:
+                return False, f"{label} must be at least {minimum_cm:g} cm"
         return True, None
 
     @staticmethod

@@ -11,7 +11,49 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# The database to diagnose -- resolved exactly as start_admin_local.sh,
+# setup_admin_local.sh and run_admin_tests.sh resolve it (CARD-150..152), so
+# this script checks the database those scripts would use in the same shell.
+# It used to check and suggest nonogram_poc whatever DATABASE_URL said, and
+# overwrote DATABASE_URL with it (CARD-492, IDEA-035).
+#
+# An exported DATABASE_URL wins. Copied rather than sourced, like the other
+# copies; tests/test_setup_admin_local.py holds them identical.
+DEFAULT_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+if [ -n "${DATABASE_URL:-}" ]; then
+    DATABASE_URL_SOURCE="exported by the caller"
+else
+    DATABASE_URL="$DEFAULT_DATABASE_URL"
+    DATABASE_URL_SOURCE="project default"
+fi
+# The database name: whatever follows the host, up to any ?query -- unless the
+# query names one itself (?dbname= overrides the path for libpq and the panel's
+# driver alike; the last one wins). Empty when the URL names no database, which
+# the check below refuses rather than let psql substitute the user's database.
+DB_PATH="${DATABASE_URL#*://}"
+DB_QUERY=""
+if [[ "$DB_PATH" == *\?* ]]; then
+    DB_QUERY="${DB_PATH#*\?}"
+fi
+DB_PATH="${DB_PATH%%\?*}"
+if [[ "$DB_PATH" == */* ]]; then
+    DB_NAME="${DB_PATH#*/}"
+else
+    DB_NAME=""
+fi
+DBNAME_IN_QUERY='.*&dbname=([^&]*)'
+if [[ "&$DB_QUERY" =~ $DBNAME_IN_QUERY ]]; then
+    DB_NAME="${BASH_REMATCH[1]}"
+fi
+# The URL as psql is handed it: psql parses only postgresql:// and postgres://,
+# so drop a +driver from the scheme (postgresql+psycopg2:// is what the panel
+# builds, CARD-148) and nothing else -- the check still carries the URL's host,
+# port, credentials and query. Alembic and the panel get DATABASE_URL as given.
+PSQL_URL="${DATABASE_URL%%://*}"
+PSQL_URL="${PSQL_URL%%+*}://${DATABASE_URL#*://}"
+
 echo -e "${BLUE}PostgreSQL Diagnostic${NC}"
+echo "  DATABASE_URL=$DATABASE_URL ($DATABASE_URL_SOURCE)"
 echo ""
 
 # 1. Check if psql command exists
@@ -73,27 +115,30 @@ echo -e "${YELLOW}Testing connection to localhost:5432...${NC}"
 if psql -h localhost -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Successfully connected to localhost:5432${NC}"
 
-    # Check if nonogram_poc database exists
+    # Check if the resolved database exists on this server. Inside the `if`,
+    # so `set -e` cannot end the script when the name is not listed (the bare
+    # `psql ... | grep` that stood here did exactly that, CARD-492).
     echo ""
     echo -e "${YELLOW}5. Checking databases...${NC}"
-    psql -h localhost -U postgres -d postgres -c "\l" | grep nonogram_poc
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ nonogram_poc database exists${NC}"
+    if [ -z "$DB_NAME" ]; then
+        echo -e "${YELLOW}⚠ DATABASE_URL names no database${NC}"
+        echo "  Put the database's name after the host, e.g. .../nonogram_dev (or ?dbname=...)"
+    elif psql -h localhost -U postgres -d postgres -c "\l" | grep -qw -- "$DB_NAME"; then
+        echo -e "${GREEN}✓ $DB_NAME database exists${NC}"
     else
-        echo -e "${YELLOW}⚠ nonogram_poc database not found${NC}"
-        echo "  Create with: createdb nonogram_poc"
+        echo -e "${YELLOW}⚠ $DB_NAME database not found on localhost:5432${NC}"
+        echo "  Create with: createdb $DB_NAME"
     fi
     echo ""
 
-    # Test with DATABASE_URL
+    # Test with DATABASE_URL, as given (psql is handed it without a +driver)
     echo -e "${YELLOW}6. Testing with DATABASE_URL...${NC}"
-    export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
-    if psql $DATABASE_URL -c "SELECT 1" > /dev/null 2>&1; then
+    if psql "$PSQL_URL" -c "SELECT 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ DATABASE_URL connection works${NC}"
     else
         echo -e "${YELLOW}⚠ DATABASE_URL connection failed${NC}"
-        echo "  URL: $DATABASE_URL"
-        echo "  Try: psql \$DATABASE_URL -c 'SELECT 1'"
+        echo "  URL: $DATABASE_URL ($DATABASE_URL_SOURCE)"
+        echo "  Try: psql \"$PSQL_URL\" -c 'SELECT 1'"
     fi
 else
     echo -e "${RED}✗ Cannot connect to PostgreSQL${NC}"
@@ -110,7 +155,7 @@ else
         # driver alone — so an operator who followed the old advice got
         # `ModuleNotFoundError: No module named 'psycopg'`, the 2026-09-25
         # outage's exact error, out of the repo's own diagnostic (CARD-148).
-        echo "  Your DATABASE_URL should use: postgresql+psycopg2://postgres:postgres@/nonogram_poc?host=/tmp"
+        echo "  Your DATABASE_URL should use: postgresql+psycopg2://postgres:postgres@/${DB_NAME:-<database>}?host=/tmp"
     else
         echo -e "${RED}✗ Socket connection also failed${NC}"
         echo ""
@@ -132,11 +177,11 @@ echo "  → Then: ./scripts/start_admin_local.sh"
 echo ""
 echo "If PostgreSQL is NOT running:"
 echo "  → Run: brew services start postgresql@15"
-echo "  → Then: createdb nonogram_poc  (if database doesn't exist)"
+echo "  → Then: createdb ${DB_NAME:-<database>}  (if database doesn't exist)"
 echo "  → Then: ./scripts/start_admin_local.sh"
 echo ""
 echo "If connection fails but PostgreSQL shows as running:"
 echo "  → Check password: default is 'postgres'"
-echo "  → Check if database 'nonogram_poc' exists"
+echo "  → Check if database '${DB_NAME:-<database>}' exists"
 echo "  → Try: psql -h localhost -U postgres -d postgres -c 'SELECT 1'"
 echo ""

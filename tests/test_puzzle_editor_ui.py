@@ -885,11 +885,14 @@ class TestPuzzleEditor_Guardrails:
         editor = client.get(EDITOR.format(puzzle_id)).get_data(as_text=True)
         player = client.get(f"/puzzle/{puzzle_id}/solve").get_data(as_text=True)
 
+        # The badge's text is the stored tier ("hard"; upper-cased until
+        # CARD-492), so the pair below is checked by the badge, not the word.
+        badge = ">hard</span>"
         assert "player-tier" not in editor
-        assert "HARD" not in editor
+        assert badge not in editor
         assert "difficulty shown above" not in (_STATIC / "puzzle_edit.js").read_text()
         # G-1: the player's header is untouched.
-        assert "player-tier" in player and "HARD" in player
+        assert "player-tier" in player and badge in player
 
     def test_every_refusal_carries_a_reason_the_editor_branches_on(self, admin_app) -> None:
         """F-005, both halves so neither is true alone: CARD-245's refusals

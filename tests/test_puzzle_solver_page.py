@@ -285,12 +285,16 @@ class TestSolverPageHeader:
         html = _page(panel, puzzle_id)
 
         assert re.search(r"<h1>\s*Puzzle 25×15\s*</h1>", html)
-        assert re.search(r'<span class="player-tier"><span class="badge tier"[^>]*>MEDIUM</span>', html)
+        assert re.search(r'<span class="player-tier"><span class="badge tier"[^>]*>medium</span>', html)
 
     def test_header_reads_a_display_label_tier_too(self, panel) -> None:
+        # Read through tier_of_record, so a display-label row shows the
+        # store's own spelling; not upper-cased (CARD-492, IDEA-062).
         puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="Hard")
 
-        assert ">HARD</span>" in _page(panel, puzzle_id)
+        html = _page(panel, puzzle_id)
+        assert ">hard</span>" in html
+        assert "HARD" not in html
 
     def test_header_without_a_tier_shows_no_chip(self, panel) -> None:
         puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="")
@@ -371,9 +375,10 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
     def test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name(self, panel) -> None:
         """The size is "25×15" with the multiplication sign U+00D7, never the
         letter "x" (width first, ADR-0022/R1; AC-323 as amended 2026-10-04,
-        CARD-166). The tier badge renders the stored tier upper-cased
-        ("MEDIUM", the admin badge's spelling), so the tier is compared
-        case-insensitively — and pinned exactly as rendered."""
+        CARD-166). The tier badge renders the tier as stored ("medium", as
+        every other admin badge does; it was upper-cased until CARD-492), so
+        the tier is compared case-insensitively — and pinned exactly as
+        rendered."""
         puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="medium", name=SECRET_NAME)
 
         html = _page(panel, puzzle_id)
@@ -383,8 +388,8 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
         for shown in (header, _tab_title(html)):
             assert "25x15" not in shown.lower()
         assert "medium" in header.lower().split()
-        assert header == "Puzzle 25×15 MEDIUM"
-        assert _tab_title(html) == "Puzzle 25×15 · MEDIUM - Nonogram admin"
+        assert header == "Puzzle 25×15 medium"
+        assert _tab_title(html) == "Puzzle 25×15 · medium - Nonogram admin"
 
     @pytest.mark.browser
     def test_the_drawn_page_keeps_the_name_out_of_the_header_until_the_banner_reveals_it(
@@ -398,8 +403,8 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
         banner = browser_page.locator("#puzzle-player-solved")
 
         assert not banner.is_visible()
-        assert " ".join(head.inner_text().split()) == "Puzzle 25×15 MEDIUM"
-        assert browser_page.title() == "Puzzle 25×15 · MEDIUM - Nonogram admin"
+        assert " ".join(head.inner_text().split()) == "Puzzle 25×15 medium"
+        assert browser_page.title() == "Puzzle 25×15 · medium - Nonogram admin"
 
         browser_page.evaluate(
             """async (solution) => {
@@ -413,8 +418,8 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
 
         assert banner.is_visible()
         assert SECRET_NAME in banner.inner_text()
-        assert " ".join(head.inner_text().split()) == "Puzzle 25×15 MEDIUM"
-        assert browser_page.title() == "Puzzle 25×15 · MEDIUM - Nonogram admin"
+        assert " ".join(head.inner_text().split()) == "Puzzle 25×15 medium"
+        assert browser_page.title() == "Puzzle 25×15 · medium - Nonogram admin"
 
 
 class TestSolverPageStoredRows:
@@ -439,10 +444,25 @@ class TestSolverPageStoredRows:
         assert (payload["width"], payload["height"]) == (25, 15)
 
     def test_a_legacy_zero_one_grid_is_read_as_booleans(self, monkeypatch) -> None:
+        from nonogram.admin.puzzle_review import PuzzleReviewService
+
         legacy = [[int(cell) for cell in row] for row in AC_GRID]
         panel, puzzle_id = self._raw(monkeypatch, legacy)
+        # The route reads the row through the store's PUBLIC read (CARD-492,
+        # IDEA-054; it used to reach the private _as_readable_grid). The spy
+        # passes through, so everything below is still the real read.
+        seen = []
+        read = PuzzleReviewService.readable_grid
+
+        def spy(grid):
+            seen.append(grid)
+            return read(grid)
+
+        monkeypatch.setattr(PuzzleReviewService, "readable_grid", staticmethod(spy))
 
         payload = _payload(_page(panel, puzzle_id))
+
+        assert seen == [legacy], "the route did not read the grid through readable_grid"
 
         # `1 == True` in Python, so equality alone would pass on ints too; the
         # renderer's isSolution refuses anything but JSON booleans.

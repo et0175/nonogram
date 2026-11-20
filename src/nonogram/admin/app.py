@@ -2658,7 +2658,7 @@ def create_app(debug=None):
         if puzzle is None:
             abort(404)
 
-        grid = PuzzleReviewService._as_readable_grid(puzzle.get("grid"))
+        grid = PuzzleReviewService.readable_grid(puzzle.get("grid"))
         if grid is None:
             abort(500, description=f"Puzzle {puzzle_id} has no readable grid")
 
@@ -6701,7 +6701,9 @@ def create_app(debug=None):
             "puzzle_solve.html",
             title=title,
             extent=(payload["width"], payload["height"]),
-            tier_label=tier.value.upper() if tier else None,
+            # The tier as the store spells it ("medium"), as every other
+            # admin screen shows it; it was upper-cased here alone (CARD-492).
+            tier_label=tier.value if tier else None,
             payload=payload,
             # CARD-484: the hint's easiest-first grade, OUTSIDE the payload
             # and solved per page open under a bounded deadline; None (the

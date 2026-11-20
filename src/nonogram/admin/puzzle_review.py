@@ -606,6 +606,18 @@ class PuzzleReviewService:
             rows.append([bool(cell) for cell in line])
         return rows
 
+    @staticmethod
+    def readable_grid(grid: object) -> Optional[List[List[bool]]]:
+        """A stored ``grid`` as the boundary type, or ``None`` if it is not one.
+
+        The public face of :meth:`_as_readable_grid`, for readers outside the
+        store: the admin panel's board pages (``app._board_page_payload``)
+        read a row's grid through this, where they used to reach the private
+        method (CARD-160 F-006, CARD-492). The same rule, not a second copy of
+        it; a read only, so the store's one solver call site is unchanged.
+        """
+        return PuzzleReviewService._as_readable_grid(grid)
+
     def _why_this_is_not_a_puzzle(
         self, grid: List[List[bool]], *, deadline_seconds: float
     ) -> tuple[Optional[str], Optional[BaseException], Optional[Any]]:
