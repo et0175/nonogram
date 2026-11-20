@@ -145,9 +145,9 @@ def test_a_score_lands_in_the_band_adr_0005_puts_it_in(
     implementation that used ``<`` instead of ``<=`` would pass every "inside"
     case here and fail exactly these two.
     """
-    # Through ``classify`` with a zero branch count, because that is the only
-    # way a caller can ask: ADR-0025 makes a score alone insufficient to
-    # classify, and ``tier_for_score`` is private for exactly that reason.
+    # Through ``classify``, which takes the score alone: every tier is a score
+    # band (ADR-0031/R1). ADR-0025 once made a score alone insufficient — the
+    # retired ``GUESS`` tier also needed the branch count — which CARD-098 undid.
     assert classify(score) is expected
 
 
@@ -161,11 +161,12 @@ def test_classification_and_the_band_table_never_disagree() -> None:
     band contains the score, reading ``low < score <= high`` (with the floor
     included in the lowest band).
 
-    Every call passes ``branch_nodes=0``, which is not incidental: the band
-    table describes the three score-band tiers, and ``Tier.GUESS`` is outside
-    that description entirely (ADR-0025). A classifier that let a branch count
-    of zero reach ``GUESS`` would fail the band lookup below with a
-    ``KeyError``, which is a better failure than a wrong tier.
+    ``classify`` takes the score alone and :class:`Tier` has three members,
+    all score bands (ADR-0031/R1), so the band table describes every tier. The
+    retired ``GUESS`` tier (ADR-0025, retired by CARD-098) was the one member
+    outside that table; a tier the table did not hold would fail the band
+    lookup below with a ``KeyError``, which is a better failure than a wrong
+    tier.
     """
     steps = 1000
     for step in range(steps + 1):
@@ -185,7 +186,7 @@ def test_classification_and_the_band_table_never_disagree() -> None:
 
 @pytest.mark.parametrize("tier", list(Tier))
 def test_a_tier_is_its_flag_value_and_carries_a_display_label(tier: Tier) -> None:
-    """FR-008's four tiers, in the two spellings the tool needs.
+    """FR-008's three tiers, in the two spellings the tool needs.
 
     ``str`` value = what ``--difficulty`` takes; :attr:`Tier.label` = the
     capitalized form AC-020 writes ("Medium"). One type, so the flag value and
@@ -197,13 +198,16 @@ def test_a_tier_is_its_flag_value_and_carries_a_display_label(tier: Tier) -> Non
 
 
 def test_the_tool_supports_exactly_the_four_tiers_adr_0025_names() -> None:
-    """FR-008 named three tiers; ADR-0025 (DEC-030) added ``guess`` as a fourth.
+    """FR-008's three tiers, and only those: ``easy``, ``medium``, ``hard``.
+
+    The name is historical: ADR-0025 (DEC-030) added ``guess`` as a fourth
+    tier, and ADR-0031 (CARD-098) retired it, so :class:`Tier` has three
+    members again; ``guess`` survives only as a strategy (FR-029).
 
     The *values* are asserted and not just the count, because the value is the
     contract: it is what a user types, what an export payload carries, what a
     PDF filename is built from and what a DB row stores. ``Tier.label`` is
-    presentational and ADR-0025 says outright that "Guess" may be renamed later
-    without any of that moving.
+    presentational.
     """
     assert [tier.value for tier in Tier] == ["easy", "medium", "hard"]
 
@@ -754,7 +758,7 @@ def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> Non
 
 
 # --------------------------------------------------------------------------
-# AC-020 (re-worded) — `guess` is a request the pipeline tries to satisfy
+# AC-020 (re-worded) — the --difficulty help, read off the three-member enum
 # --------------------------------------------------------------------------
 
 
@@ -762,13 +766,13 @@ def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> Non
 
 
 def test_the_cli_help_names_the_fourth_tier_and_says_what_it_means() -> None:
-    """``--difficulty``'s help is read off the enum, so ``guess`` arrived for free.
+    """``--difficulty``'s help names every tier, read off the enum, and explains ``guess``.
 
-    The half that did *not* arrive for free is the explanation. Four tier names
-    in a list tell a user nothing about why one of them is not a difficulty in
-    the ordinary sense, and "which tiers exist" is the question the help exists
-    to answer (AC-021's message answers "which did you mean"). So the help
-    says what the three bands grade and what the fourth is keyed on.
+    The name is historical: it dates from ADR-0025's fourth tier. Since
+    ADR-0031 (CARD-098) :class:`Tier` has three members, and ``guess`` is not
+    one of them (``test_tiers_guess_is_no_longer_a_requestable_tier``); the
+    help still says what the three bands grade and mentions ``guess`` and
+    branching, which is what the assertions below hold it to.
     """
     parser = cli.build_parser()
     help_text = parser.format_help()

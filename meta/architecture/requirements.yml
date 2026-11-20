@@ -2083,7 +2083,7 @@ functional:
       refines: [FR-009, FR-026]
       depends_on_dec: [DEC-030, DEC-031]
       enum: [simple_overlap, line_dp, probe_contradiction, guess]   # fixed by ADR-0029 rev. 2026-09-12; cross_line dropped (it was iteration, not inference)
-      enum_note: "CLOSED 2026-09-13 (CARD-076). No longer provisional: ADR-0029 fixes the three rungs (simple_overlap < line_dp < probe_contradiction, `cross_line` dropped as iteration rather than inference) and ADR-0025 fixes `guess` as the fourth member, keyed on branch_nodes >= 1 (EC-015). The members are confirmed in code — `difficulty.LADDER` and `solver.RUNG_ORDER`, bound to each other from the test tree because ADR-0007 forbids the import (tests/test_difficulty.py::test_the_ladder_is_the_solvers_own_ladder), and `difficulty.Tier` with four members. Writing the list into `strategies_used`, the JSON `strategies` array and the admin filter remains CARD-072's."
+      enum_note: "CLOSED 2026-09-13 (CARD-076). No longer provisional: ADR-0029 fixes the three rungs (simple_overlap < line_dp < probe_contradiction, `cross_line` dropped as iteration rather than inference) and `guess` is the fourth member, present iff the search branched (branch_nodes >= 1) — ADR-0025 introduced `guess` as a fourth difficulty TIER; ADR-0031 (CARD-098) retired that tier and kept `guess` only as this strategy (EC-015 retired with it). The members are confirmed in code — `difficulty.LADDER` and `solver.RUNG_ORDER`, bound to each other from the test tree because ADR-0007 forbids the import (tests/test_difficulty.py::test_the_ladder_is_the_solvers_own_ladder), and `solver.STRATEGY_GUESS`. `difficulty.Tier` is not this enum and has three members, easy, medium and hard (tests/test_difficulty_tiers.py::test_tiers_three_bands_and_no_fourth_tier; corrected 2026-11-20, CARD-491 — this note said four). Writing the list into `strategies_used`, the JSON `strategies` array and the admin filter remains CARD-072's."
       delivery: CARD-072
       # CARD-318: the line numbers and the claims in `evidence` below are the
       # 2026-09-12 PRE-CARD-072 state and are now wrong — `strategies_used` is no
@@ -6932,6 +6932,62 @@ non_functional:
         then: the puzzle is not added — 4.430 mm is below the 4.75 mm floor, and FR-031's stored override is the only way in
         kind: negative
         test: TestBookCellSize_BelowFloorFlagFollowsTheSharedSize
+
+  - id: NFR-009
+    # New 2026-11-20 (IDEA-009, CARD-491). The deployed admin panel's 512 MB
+    # memory limit was stated by no requirement: CARD-145 found a 20-page book
+    # export OOM-killing the worker with no traceback (every page bitmap was
+    # built into a list before any was written), streamed the export, and wrote
+    # tests/test_book_pdf_memory.py; CARD-237 aimed its tripwire at the
+    # export's own marginal cost. Those checks existed before this NFR; it
+    # names what they verify, and no test was added for it. Each `test:` below
+    # is a `class` in that module, found by `ast`, not by text search.
+    # The 512 MB figure is the module's ENVELOPE_BYTES (512 x 1024 x 1024 B);
+    # the hosting plan behind it is dashboard-managed (docs/deploy/render.md).
+    category: performance
+    metric: book_export_peak_memory
+    threshold: >-
+      a book PDF export fits the deployed admin panel's 512 MB memory limit:
+      the export retains exactly one page bitmap at a time (2550 x 3300 x 3 =
+      25,245,000 B at 300 DPI), that peak does not grow with the book's page
+      count, and the retained bitmap plus the written file stay under half
+      of the 512 MB
+    condition: >-
+      the admin panel's book export, interior PDF alone and interior plus
+      the separate cover file (FR-043); measured on the 12-page baseline book
+      and on a 305-page 150-puzzle book, so "does not grow" is the claim that
+      the two peaks are equal, not a bound proved for every page count
+    rationale: >-
+      The panel runs on a 512 MB instance and an export that outgrows it is
+      killed by the host with no traceback — a failure the panel cannot
+      report and the owner sees only as a dead request. CARD-145 measured it:
+      the pre-streaming shape held one 25,245,000 B bitmap per page, so a
+      20-page book already exceeded the limit. Source: CARD-145, CARD-237.
+    acceptance:
+      - id: AC-418
+        given: a 150-puzzle book (305 interior pages) exported end to end through the panel's own export path
+        when: its retained page-bitmap memory and its written file are measured
+        then: it retains exactly one page bitmap, bitmap plus file stay under half of 512 MB, and the old every-page-at-once shape would have exceeded 512 MB
+        kind: boundary
+        test: TestBookPdfMemory_RealBookExportsUnderTheCap
+      - id: AC-419
+        given: the small baseline book and the 305-page book, exported the same way
+        when: their peak retained page-bitmap memory is compared
+        then: the two peaks are equal and each is exactly one page bitmap — the peak does not grow with page count
+        kind: happy
+        test: TestBookPdfMemory_PeakDoesNotGrowWithPageCount
+      - id: AC-420
+        given: an export whose own marginal memory cost regresses (every page retained, or a fraction of the book's pages retained)
+        when: the memory tripwire judges it against the floor child's footprint
+        then: the tripwire fails it — a regression of the export is caught by the export's own term, not by growth of the interpreter around it
+        kind: negative
+        test: TestMemoryGuard_StillFailsWhenTheExportItselfRegresses
+      - id: AC-421
+        given: the baseline book exported as a whole book — the interior PDF and the separate cover file
+        when: its retained page-bitmap memory is measured across both files
+        then: it retains exactly one page bitmap at a time, the cover included
+        kind: edge
+        test: TestBookPdfMemory_InteriorAndCoverStillSeparate
 
 
 constraints:

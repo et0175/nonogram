@@ -2549,6 +2549,23 @@ links:
     range (EC-028 carries nfr: NFR-008).
   status: partial
 
+- req: NFR-009
+  description: "A book PDF export fits the deployed admin panel's 512 MB memory limit: one retained page bitmap, a peak that does not grow with page count, bitmap plus file under half the limit"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007]
+  adrs: []
+  tests:
+  - TestBookPdfMemory_RealBookExportsUnderTheCap
+  - TestBookPdfMemory_PeakDoesNotGrowWithPageCount
+  - TestMemoryGuard_StillFailsWhenTheExportItselfRegresses
+  - TestBookPdfMemory_InteriorAndCoverStillSeparate
+  notes: >-
+    Added 2026-11-20 (IDEA-009, CARD-491). The checks predate the NFR: CARD-145
+    (streamed export, tests/test_book_pdf_memory.py) and CARD-237 (the tripwire
+    measures the export's marginal cost). Each test is a class in that module.
+  status: covered
+
 - req: CON-018
   description: "The Book 1 print profile is every book's default: trim 8.5x11 in, gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, no bleed, 12 mm title band; an empty margin falls back to it"
   capabilities: [CAP-006, CAP-005]

@@ -47,6 +47,7 @@ show which of them the dashboard actually sets.
 | `FLASK_ENV` | `src/nonogram/admin/app.py` | TODO(owner): copy from the Render dashboard |
 | `PYTHON_VERSION` | Render's Python runtime | TODO(owner): copy from the Render dashboard |
 | `PORT`, `WEB_CONCURRENCY` | `start.sh` (Render provides `PORT`) | TODO(owner): copy from the Render dashboard |
+| `PYTHONUNBUFFERED` | The Python interpreter (no code reads it): set, stdout and stderr are unbuffered, so log lines reach Render's log stream as they are written | TODO(owner): copy from the Render dashboard. `render.yaml` sets it to `"1"`, but `render.yaml` is not what this dashboard-managed service runs. |
 
 TODO(owner): add any other names the dashboard sets that are not listed here.
 
@@ -68,6 +69,13 @@ It took four redeploys to see that the repo was not configuring production:
 The repo's `Procfile` contains `flask --app src.nonogram.admin.app run --host=0.0.0.0
 --port=$PORT`, which matches what was observed. Nothing here shows whether the
 dashboard's Start Command was copied from it.
+
+Where this is recorded (checked 2026-11-20, CARD-491): the observations are in the repo
+second-hand: the 2026-09-23 report in `meta/kanban/backlog.md` (four redeploys, `flask
+run` on python3.14 against `render.yaml`'s 3.11), CARD-168's card, and commit `1abc08c3`
+(2026-09-23, the `src.`-prefix boot fix). The log lines themselves are not: the
+access-log excerpt above has no source in the repo but this page.
+TODO(owner): if the Render log for 2026-09-23 is still available, keep a copy of the lines.
 
 ## Drift check
 
