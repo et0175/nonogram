@@ -2316,7 +2316,7 @@ links:
   - TestSolverProgress_ReducedMotion
   - TestSolverProgress_ResetAfterConfirm
   - TestSolverPage_HidesThePictureNameUntilSolved
-  - PropertyTest_SolverHistory_ReplayReproducesTheBoard
+  - test_PropertyTest_SolverHistory_ReplayReproducesTheBoard
   - PropertyTest_SolverProgress_SolvedMatchesTheSolution
   - PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition
   - TestSolverPhone_BoardFitsThePhoneWidth
@@ -2429,6 +2429,13 @@ links:
     "given" clause ("cells at the 24 px phone floor") is now stale as a
     direct consequence of this card — flagged to backlog for the next
     architect delta, not fixed here.
+    AMENDED 2026-11-20 (CARD-503): AC-343's given now names the
+    column-numeral floor (CARD-196) that binds at 390 px, test unchanged.
+    AC-422 added (a drag keeps to the line of its first move away from the
+    start cell), pinned by the EC-035 corpus test, whose name this list now
+    spells as its def does (test_PropertyTest_SolverHistory_ReplayReproducesTheBoard,
+    was the unprefixed PropertyTest_..., which resolved to the same def), so
+    this row and requirements.yml name it alike.
   status: partial
 
 - req: FR-045
