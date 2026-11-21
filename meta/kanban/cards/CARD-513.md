@@ -1,6 +1,6 @@
 # CARD-513: Two book-route minors: a no-puzzle book's download, and the plan tripwire logged twice
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/513-book-route-minors
-**Worktree:** ../PythonProject4-card-513
+**Worktree:** —
 **Source:** roadmap wave 8, cut 2026-11-21 on the owner's "yes, start wave 8". IDEA-052 (wave-30 goal check) and IDEA-043 (CARD-153 F-009/F-011), bundled: each alone is below `sizing.min_estimate`.
 **Idea:** IDEA-052, IDEA-043
 **Wave:** 87
@@ -20,6 +20,9 @@
 **UI surface:** books list, book detail (interior download button)
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-21T05:47Z
+**Closed:** 2026-11-21T10:25Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 2fdbf14d6a97de823658d21368beeef7619bc82f
 **Blocked by:** —
 
 ## Why this card exists
