@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js (if the banner's reveal needs it), tests/test_puzzle_solver_maybe.py
 **UI surface:** puzzle player (compact layout, solved banner)
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T05:47Z
 **Blocked by:** —
 
@@ -76,3 +76,5 @@ An earlier coarser run (step 10, plus 412x844, 480/540/600x844, 600x1024, 600x70
 **Screenshots (G-3).** ~/Documents/nonogram-reviews/CARD-511/before/ and .../after/: 600x900, 1100x700 and 390x844, short and long name, unsolved and solved (12 each).
 
 **Load note.** The machine's load average was ~64 during this work; one gate attempt of test_sweep failed on `Page.goto: Timeout 30000ms` (not an assertion) and passed when rerun alone.
+
+[Review 1/3] Score: 9.5, nothing gating, certified. Re-measured with the reviewer's own probe: base 600x900 dx +12.656, dy +27.203, both names, fix 0,0 (600x844, 600x700, 600x1024 likewise); no overflow at any portrait width 320-600 (probe bar's scrollWidth − clientWidth 0, no sideways scroll); pre-solve boxes identical to base at all 27 viewports; base-CSS control reds `test_sweep` and both `test_wraps[chromium-600-900-*]`; census 33 passed; worktree collects 10689 (net 0). F-001 (low): a second partly-fixed band at 327-339 px (base dy +52.0, now +24.797), not in the notes; it joins the backlog idea with 421-451. F-002 (low): `test_wraps` no longer checks a long name at 1440x900 (1100x700 shares the rule; 1440 measured 0,0 today), accepted for the net-0 budget. F-003 (info): a `RENAMED_SINCE_BEFORE` entry starts on the previous entry's closing line. F-004 (info): no test holds the probe bar inside the toolbar now that it cannot wrap; no overflow measured.
