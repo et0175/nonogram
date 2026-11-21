@@ -703,10 +703,66 @@ def _test_database_tables(test_db_url):
 #: databases at once with the lock in place, and both pass.
 _SESSION_LOCK_KEY = 508_031
 
-#: Set in this process's environment while it holds the lock, to the name of
-#: the database it holds it on, so that a child pytest this run starts (and
-#: waits for) against the same database is not refused by its own parent.
+#: Set in this process's environment while it holds the lock, so that a child
+#: pytest this run starts (and waits for) against the same database is not
+#: refused by its own parent. [CARD-512] The value is
+#: ``<database>:<holder os pid>:<holder backend pid>`` (see
+#: :func:`_session_lock_value`), not the bare name, and a child trusts it only
+#: after :func:`_held_by_parent` has checked it against the process tree and
+#: ``pg_locks``.
 _SESSION_LOCK_ENV = "NONOGRAM_TEST_DB_SESSION_LOCK"
+
+
+def _session_lock_value(name: str, backend_pid: int) -> str:
+    """What a holder exports: the database, its own pid, its backend's pid."""
+    return f"{name}:{os.getpid()}:{backend_pid}"
+
+
+def _held_by_parent(engine, name: str, value: str | None) -> bool:
+    """Whether *value* proves this process is a child of the run holding *name*.
+
+    CARD-512, IDEA-220. Before this, the bare database name was the whole
+    proof, so a value exported by hand or left in a shell let a concurrent run
+    in, and that run erased the holder's schema (measured on CARD-508's review
+    and again on this card: the holder failed with ``saw []``). All three
+    must hold:
+
+    1. the value names this database;
+    2. the pid it names is this process's parent (``os.getppid()``), so a
+       value copied out of a live holder into some other process does not
+       pass -- nor does a grandchild, which no test in ``tests/`` starts;
+    3. the backend pid it names holds this session lock in ``pg_locks`` on
+       this database right now. ``granted`` there means a live session: the
+       server drops a session's advisory locks with its connection, so a
+       dead holder's backend pid is not found.
+
+    Anything else returns ``False`` and the caller takes the lock as usual,
+    so a forged or stale value meets the ordinary refusal rather than a new
+    message. What this still cannot see: a real child that its parent does
+    not wait for. Every such call in ``tests/`` is a ``subprocess.run``.
+    """
+    if not value:
+        return False
+    parts = value.rsplit(":", 2)
+    if len(parts) != 3 or parts[0] != name:
+        return False
+    try:
+        holder_pid, backend_pid = int(parts[1]), int(parts[2])
+    except ValueError:
+        return False
+    if holder_pid != os.getppid():
+        return False
+    with engine.connect() as connection:
+        held = connection.execute(
+            text(
+                "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' "
+                "AND granted AND objid = :key AND pid = :pid "
+                "AND database = (SELECT oid FROM pg_database "
+                "WHERE datname = current_database())"
+            ),
+            {"key": _SESSION_LOCK_KEY, "pid": backend_pid},
+        ).scalar()
+    return bool(held)
 
 
 @contextmanager
@@ -732,16 +788,16 @@ def _session_lock(engine, database_url: str):
     The one exception is a child pytest that a lock holder starts against the
     same database: ``tests/test_card_349_cold_database.py``'s re-raise
     control runs one while the parent's session holds the lock. The holder
-    exports :data:`_SESSION_LOCK_ENV`, and a process that inherits it for the
-    same database name proceeds without the lock. That is safe only while the
-    parent waits for the child, which is how every such call in ``tests/``
-    is made (``subprocess.run``); it is a convention, not something this
-    function can check.
+    exports :data:`_SESSION_LOCK_ENV`, and a process whose
+    :func:`_held_by_parent` check passes on it proceeds without the lock.
+    That is safe only while the parent waits for the child, which is how
+    every such call in ``tests/`` is made (``subprocess.run``); it is a
+    convention, not something this function can check.
     """
     from sqlalchemy.engine import make_url
 
     name = make_url(database_url).database or ""
-    if os.environ.get(_SESSION_LOCK_ENV) == name:
+    if _held_by_parent(engine, name, os.environ.get(_SESSION_LOCK_ENV)):
         yield
         return
 
@@ -770,8 +826,10 @@ def _session_lock(engine, database_url: str):
                 f"'*_test' database.",
                 pytrace=False,
             )
+        backend_pid = holder.execute(text("SELECT pg_backend_pid()")).scalar()
+        holder.commit()
         previous = os.environ.get(_SESSION_LOCK_ENV)
-        os.environ[_SESSION_LOCK_ENV] = name
+        os.environ[_SESSION_LOCK_ENV] = _session_lock_value(name, backend_pid)
         try:
             yield
         finally:

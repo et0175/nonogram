@@ -632,6 +632,21 @@ def _existing_databases(reference_url: str) -> set[str]:
         engine.dispose()
 
 
+def _closed_backend_pid(reference_url: str) -> int:
+    """The backend pid of a connection that is closed by the time this returns.
+
+    CARD-512: what a lock value left behind by a finished holder names.
+    """
+    from sqlalchemy import text
+
+    engine = _maintenance_engine(reference_url)
+    try:
+        with engine.connect() as connection:
+            return int(connection.execute(text("SELECT pg_backend_pid()")).scalar())
+    finally:
+        engine.dispose()
+
+
 def _drop_database(reference_url: str, name: str) -> None:
     """Remove a database this test made.
 
@@ -841,6 +856,13 @@ def _wait_for(path):
 if os.environ.get("CARD244_WAIT_FIRST"):
     _wait_for(Path(os.environ["CARD244_WAIT_FIRST"]))
 
+# CARD-512: an intruder takes the holder's exported lock value as its own,
+# before its session fixture runs.
+if os.environ.get("CARD512_COPY_LOCK"):
+    os.environ["NONOGRAM_TEST_DB_SESSION_LOCK"] = Path(
+        os.environ["CARD512_COPY_LOCK"]
+    ).read_text()
+
 
 def test_this_tree_sees_only_its_own_rows(db_session):
     from nonogram.db.models import Batch
@@ -852,6 +874,9 @@ def test_this_tree_sees_only_its_own_rows(db_session):
     finally:
         session.close()
 
+    Path(f"{SIGNAL}.lock").write_text(
+        os.environ.get("NONOGRAM_TEST_DB_SESSION_LOCK", "")
+    )
     SIGNAL.write_text(TAG)
     _wait_for(PEER)
 
@@ -920,17 +945,26 @@ def _make_root(destination: Path) -> Path:
 
 
 def _run_two_trees(
-    roots: tuple[Path, Path], rendezvous: Path, shared_url: str | None
+    roots: tuple[Path, Path],
+    rendezvous: Path,
+    shared_url: str | None,
+    intruders: dict[str, dict[str, str]] | None = None,
 ) -> list[subprocess.CompletedProcess]:
     """Run both trees' probes at once; return their results in tree order.
 
     ``shared_url`` is the single variable between AC-6's two arms. ``None``
     lets each tree derive its own database (the fix); a URL forces both onto
     that one database (the world before the fix).
+
+    [CARD-512] ``intruders`` maps a tag to extra environment for a further
+    probe run in tree B's root, started once tree A holds the database. Their
+    results follow the two trees', in the mapping's order. An intruder never
+    signals, so tree A's rendezvous is with tree B alone.
     """
     rendezvous.mkdir(parents=True, exist_ok=True)
     signals = [rendezvous / "tree-a", rendezvous / "tree-b"]
-    results: list = [None, None]
+    extra = list((intruders or {}).items())
+    results: list = [None] * (2 + len(extra))
 
     def go(index: int):
         results[index] = _run_pytest(
@@ -948,7 +982,26 @@ def _run_two_trees(
             ),
         )
 
+    def intrude(index: int, tag: str, overrides: dict[str, str]):
+        results[index] = _run_pytest(
+            roots[1],
+            "tests/test_probe_card244.py",
+            _pytest_env(
+                TEST_DATABASE_URL=shared_url,
+                CARD244_TAG=tag,
+                CARD244_SIGNAL=str(rendezvous / f"intruder-{tag}"),
+                CARD244_PEER=str(signals[0]),
+                CARD244_DEADLINE=str(_RENDEZVOUS_SECONDS),
+                CARD244_WAIT_FIRST=str(signals[0]),
+                **overrides,
+            ),
+        )
+
     threads = [threading.Thread(target=go, args=(i,)) for i in (0, 1)]
+    threads += [
+        threading.Thread(target=intrude, args=(2 + i, tag, overrides))
+        for i, (tag, overrides) in enumerate(extra)
+    ]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -1005,10 +1058,27 @@ class TestDbIsolation_TwoTreesDoNotCorruptEachOther:
                 assert "skipped" not in output, f"tree {tag}: {output}"
 
             # ---- The counterfactual: one database, same everything else. --
+            # [CARD-512, IDEA-220] Plus two intruders carrying a lock value
+            # that is not their parent's: "copied" takes tree A's exported
+            # value as its own (live holder, wrong parent), and "dead" names
+            # this process -- its real parent -- with a backend pid whose
+            # connection is already closed. Each must meet the same refusal
+            # as tree B. Before CARD-512 the bare database name was the whole
+            # value, and "copied" got in.
             shared = _run_two_trees(
                 roots,
                 tmp_path / "rv-shared",
                 shared_url=_server_url(test_db_url, derived[0]),
+                intruders={
+                    "copied": {
+                        "CARD512_COPY_LOCK": str(tmp_path / "rv-shared" / "tree-a.lock")
+                    },
+                    "dead": {
+                        "NONOGRAM_TEST_DB_SESSION_LOCK": (
+                            f"{derived[0]}:{os.getpid()}:{_closed_backend_pid(test_db_url)}"
+                        )
+                    },
+                },
             )
             shared_output = [r.stdout + r.stderr for r in shared]
 
@@ -1027,6 +1097,12 @@ class TestDbIsolation_TwoTreesDoNotCorruptEachOther:
             # the rendezvous). Before the lock this arm red with A's row
             # destroyed ("saw []"), which this now forbids.
             assert "another pytest run is using it" in shared_output[1], shared_output[1]
+            assert "another pytest run is using it" in shared_output[2], (
+                f"copied: {shared_output[2]}"
+            )
+            assert "another pytest run is using it" in shared_output[3], (
+                f"dead: {shared_output[3]}"
+            )
             assert "saw [" not in shared_output[0], shared_output[0]
             assert "peer never reached" in shared_output[0], shared_output[0]
         finally:
