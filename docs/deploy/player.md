@@ -1093,7 +1093,7 @@ Not observed: a real phone, and a screen reader's queueing of the two announceme
 
 Not observed: a real phone, or a Back restored from the back/forward cache (this run defeats the cache on purpose).
 
-**The wave-7 publish, 2026-11-21.** The owner's "please publish player" after CARD-507 merged. Built from **`b842be49`** with `git archive b842be49 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-21-wave7/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. Cards reaching served files since the scroll-return publish: **CARD-507** (the solved banner's text takes the two-line `--text-xs` clamp at every width), **CARD-506** (player/admin-CSS minors: four values to tokens, stale comments), and admin-only rules in `admin.css` from CARD-494 and CARD-495.
+**The wave-7 publish, 2026-11-21.** The owner's "please publish player" after CARD-507 merged. Built from **`b842be49`** with `git archive b842be49 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-21-wave7/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. Cards reaching served files since the scroll-return publish: **CARD-507** (the solved banner's text takes the two-line extra-small text clamp (the `text-xs` token) at every width), **CARD-506** (player/admin-CSS minors: four values to tokens, stale comments), and admin-only rules in `admin.css` from CARD-494 and CARD-495.
 
 | Step | Record |
 |---|---|
