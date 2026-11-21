@@ -2373,6 +2373,22 @@ RENAMED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
         "the parametrize pairs the brush label with the state it paints; the "
         "label moved to Clear and the state it is paired with is still unknown",
     ),
+    f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+    "test_wraps[chromium-1200-900-one-token]": (
+        "CARD-507",
+        f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+        "test_wraps[chromium-1100-700-one-token]",
+        "the desktop viewport moved from 1200x900 to 1100x700, the size "
+        "CARD-507's AC-1 measures the board shift at; same test, same names",
+    ),
+    f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+    "test_wraps[chromium-1200-900-words]": (
+        "CARD-507",
+        f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+        "test_wraps[chromium-1100-700-words]",
+        "the desktop viewport moved from 1200x900 to 1100x700, the size "
+        "CARD-507's AC-1 measures the board shift at; same test, same names",
+    ),
 }
 
 

@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_*.py
 **UI surface:** puzzle player (admin, and the public player built from the same files): the solved banner at desktop widths
-**Review score:** —
+**Review score:** 9.5 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-20T21:24Z
 **Blocked by:** —
 
@@ -46,3 +46,104 @@ Measured by CARD-506 and its review (2026-11-20): the solved banner wraps inside
 * **G-2**: no other visible change. Short names (that fit on one line today) render at the new text size; state that change and its measured size in the notes, because the owner sees it.
 
 ## Worktree notes
+
+### Implementation (2026-11-21)
+
+**Change.** admin.css: the rule `.player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }` moved out of the compact media block (`@media (max-width: 600px), (max-height: 500px)`) to the base rules, after `.player-solved-name`. It was moved, not copied. The compact block keeps `.player-solved { gap; padding }`. The CARD-186 comment above `.player-slot` now says the banner no longer makes the row taller, and names the new widths.
+
+**Test (AC-5, net 0).** `TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::test_wraps` in tests/test_puzzle_solver_maybe.py now carries three new checks: the board's (x, y) is the same before and after the solving click; the text span is at most two lines tall (`height <= 2 * line-height + 0.5`); and the banner's textContent contains the whole name, next to the existing `inner_text == long_name`. Its viewport `(1200, 900)` became `(1100, 700)` to match AC-1, so it still has 6 cases (3 viewports x 2 names of 120 characters). The docstring no longer says a long name moves the board.
+
+**Measurement method.** A throwaway Playwright probe under /private/tmp/claude-501/card507/ used the suite's `live`, `_open`, `_set` and `_cell` helpers. It asserted at import that `nonogram` and `tests` resolve to this worktree. A first pair of runs had imported the main checkout's editable install, so they measured main's CSS twice; those runs were thrown away. Base = HEAD's admin.css swapped into the worktree. After = this branch. Boards were 15x15 (GRID) and 30x30 (BIG), and both gave the same figures. Names: 10, 12, 14, 24, 60 and 100 characters with spaces, 26 and 120 characters with no spaces.
+
+**Re-measured premise (step 1): board dy on solve, base.**
+- 1440x900: 10 and 12 give 0; 14 gives +12.797; 24 and 26 (no spaces) give +37.594; 60 gives +87.188; 100 gives +136.781; 120 (no spaces) gives +161.578 px.
+- 1100x700: 0, 0, +12.812, +37.609, +37.609, +87.203, +136.797, +161.594 px.
+- 390x844: 0 for every length.
+- The premise holds. Where my 24- and 60-character figures differ from the card's (+12.8, +62.4), the cause is where the words break: these are different strings.
+
+**After (AC-1, AC-2).**
+- 1440x900 and 1100x700, both boards, every name: dy 0 and dx 0.
+- Text lines: names of 14 characters or fewer take 1 line, longer names 2, and no name takes more than 2.
+- Sweep at height 900 (700, 800, 960, 1000, 1200, 1280, 1480 and 1920 px wide, all eight names): dy 0, at most 2 lines.
+
+**AC-3 (390x844).** The probe saved computed values (font-size, line-height, display, overflow, -webkit-line-clamp, width, height, padding, gap, margin-top, font-weight, white-space) and the rectangle of each of these: the banner, its text span, the label, the name, the icon, the board, the tools and the solved box. Comparing base and after over 2 boards x 8 names x 9 snapshots gave 144 compared and 0 differences. Board dy is 0 in both.
+
+**AC-4.** In the probe, the name element's textContent equals the stored name for all 48 cases (2 boards x 3 viewports x 8 names). `test_wraps` asserts the same for 120-character names at all three viewports.
+
+**G-2: the visible change for short names (owner, please note).** At desktop widths a short name now renders smaller. Measured on a 10-character name at 1440x900 and 1100x700:
+- the text: 16px / 24.8px line-height became 12.48px / 14.976px (`--text-xs` / `--leading-tight`, the phone's size);
+- the text span's width: 136.23 to 106.28 px;
+- the banner's width: 188.23 to 158.28 px;
+- the banner's height stays 36 px and its left/top are unchanged.
+
+The board does not move for any name. A 14-character name that used to wrap to 2 lines now fits on 1.
+
+**Seen, not fixed (out of scope).** At 600x900 (inside the compact block, portrait) the board moves on solve by dy +27.203 px and dx +12.656 px for every name length, the 10-character one included (dx added in fix round 1, review F-004; re-measured in base2/after2). Base and after are identical, so this card did not cause it and does not change it. It is recorded here only. It is not the banner text: a 1-line name moves it too.
+
+**Controls.**
+1. With the new rule deleted from admin.css, `test_wraps` reds 6 of 6 on the two-line assert: `AssertionError: [198.375, 24.8]` at 1440 and 1100 (both names), and `[446.34375, 24.8]` and `[396.75, 24.8]` at 390.
+2. With the rule deleted and the two-line assert also removed (so the board-shift assert is reached), it reds 6 of 6 on the shift: `AssertionError: (0, 161.578125)` at 1440, `(0, 161.59375)` at 1100, and `(0, 404.34375)` / `(0, 354.75)` at 390. At 390 the rule is gone everywhere in this control, so the phone loses its clamp too.
+
+Both files were restored after each control: `git diff --stat` shows the same 2 files, 31 insertions and 11 deletions, and admin.css is byte-identical (`cmp`) to the saved branch copy. There is no separate control for the textContent check: the clamp is CSS-only, so there is no mechanism to revert that would take text out of the DOM.
+
+**Gate (unarmed, `-o addopts= -rfs`).** Files: tests/test_puzzle_solver_maybe.py (touched), tests/test_puzzle_solver_progress.py, test_puzzle_solver_phone.py and test_puzzle_solver_solved_reveal.py (its neighbours), and the public player set: test_player_base_css.py, test_player_bundle.py, test_player_public_mode.py, test_player_shared_ui_site.py, test_player_viewport_matrix.py, test_public_player.py and test_public_player_pages.py. Result: 414 passed, 0 failed, 0 skipped. tests/test_kanban_review_record.py: 71 passed.
+
+**Net test count.** 10689 collected before and 10689 after, so net 0.
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. F-001 (high) removing `overflow: hidden` from the moved rule leaves `test_wraps` green while lines 3+ paint over the Probe/Show grid buttons: AC-2's "cut, not wrapped further" has no control. F-002 (medium) `--text-xs` -> `--text-sm` survives `test_wraps` (two --text-sm lines still fit the tools' box): the owner's chosen size is unheld. F-003 (low, owner's eye) a name without spaces breaks after the label on desktop, so line 1 shows only "Solved!" and the name gets one cut line. F-004 (low) the 600x900 pre-existing shift note omits dx +12.656. Measured: AC-1 0/0 in 24 cases; AC-3 0 differences over 73,344 values at 390x844 and 844x390; AC-4 full name in the accessibility snapshot; control re-fired 6/6 red; 414 passed.
+
+### Fix round 1 (review cycle 1, 8.5; F-001..F-004)
+
+**F-001 (gating): the cut is now held where it is painted.** `test_wraps` gets a module constant, `_BANNER_TEXT`, that returns the text span's measurements. The test now also asserts:
+- `scrollHeight > clientHeight`, so the name runs past the two lines;
+- a third line is laid out: the first client rect of a Range over `[data-player-solved-name]` whose centre lies below the span's box;
+- no element of `#puzzle-player-solved` is in `document.elementsFromPoint` at the middle of that line.
+
+It reads the whole hit stack on purpose. Under the no-overflow mutant, the third line paints beneath the Show grid button there, so `elementFromPoint` returns the button either way, and only the stack lists `STRONG.player-solved-name`. Measured at 1440x900 with a 120-character name:
+- mutant stack: `SPAN.player-btn-label`, `BUTTON...player-show-grid`, `DIV.player-probe`, `STRONG.player-solved-name`, ...
+- with the rule: `SPAN.player-btn-label`, `BUTTON...player-show-grid`, `DIV.player-probe`, `DIV.player-toolbar is-solved`, `MAIN.main`.
+
+My first version took the first line whose top was below the box, which skipped line 3: its content area starts above the box edge. It switched to the line's centre.
+
+**F-002: the size is held.** `test_wraps` asserts the span's computed font-size equals `--text-xs` as the page resolves it: a temporary element is given `font-size: var(--text-xs)` and its computed size is read. No px value is written in the test.
+
+**F-003 (owner-visible): a rule was tried in this round and REVERTED in fix round 2 (see below); F-003 is an owner-visible leftover.** I tried three candidates by injecting a style tag, and listed each line's characters at 1440x900, 1100x700, 390x844 and 844x390 for names of 10, 24, 60 and 120 characters with spaces, and 26, 60 and 120 without:
+- `word-break: break-all` on the name: starts a name with no spaces on line 1, but also breaks names with spaces mid-word at every view.
+- `line-break: anywhere` on the name: the same.
+- `.player-solved-label { white-space: nowrap; }`: starts a name with no spaces beside "Solved!" and fills both lines at 1440 and 1100 (for example `Solved! The_lighthouse_k` / `eepers_cottage_on_the_n`, where it was `Solved! ` / `The_lighthouse_keepers_`). Names with spaces had identical line content, name rectangle and shift at all four views, but only for the names measured, whose first word fits beside the label. That claim is false for a name whose first word does not fit: review F-005 showed "Solved! Northumberlands" / "hire lighthouse at dawn", where it was "Solved!" / "Northumberlandshire…". Every name was identical at 390x844 and 844x390.
+
+The third was adopted in this round and reverted in fix round 2. The compact block's visually-hidden rule already gives that label `white-space: nowrap`, so nothing new applies on the phone. Screenshots of the toolbar at 1440 with a 60-character no-space name: /private/tmp/claude-501/card507/f003/none-t60-1440.png (before) and /private/tmp/claude-501/card507/f003/label-nowrap-t60-1440.png (after). `test_wraps` held it with a beside-label assert, which was removed in fix round 2 together with the rule.
+
+**F-004:** the 600x900 note above now gives dx +12.656 too. Re-measured, not pasted: base2 and after2 both give dy +27.203 and dx +12.656 for all eight names.
+
+**Re-measurement with the F-003 rule (since reverted)** (base2 = fc3f33e2's admin.css swapped into the worktree; after2 = this round):
+- AC-1: board shift 0 (dx and dy) for all eight names at 1440x900 and 1100x700, on both boards.
+- AC-2: at most 2 lines everywhere; the height-900 sweep from 700 to 1920 px gives 0 for every name.
+- AC-3: 390x844 and 844x390, 2 boards x 8 names x 9 snapshots each: 288 compared, 0 differences, shift 0.
+- G-2: the short-name figures are unchanged from the first round.
+
+**Controls (mutants of admin.css; after each one admin.css was copied back and `cmp`-checked against the branch copy).**
+1. No-overflow mutant (` overflow: hidden;` removed from `.player-solved > span`): `test_wraps` fails 6 of 6 on the `inBanner` assert with `assert True is False`.
+2. `--text-sm` mutant: 6 of 6 fail on the font-size assert with `assert '14.4px' == '12.48px'`.
+3. (Rule and assert both removed in fix round 2.) Label-nowrap rule removed: 2 of 6 fail, the one-token name at 1440 and at 1100, on the beside-label assert with `assert False is True`. The words cases and 390 stay green, as designed.
+
+**Gate, fix round 1 (unarmed, `-o addopts= -rfs`, same files as the first round).** 414 passed, 0 failed, 0 skipped. tests/test_kanban_review_record.py: 71 passed.
+
+**Net test count.** 10689 tests collected in 3.84s; that equals the 10689 before this card, so net 0. No test was added: the new asserts are folded into `test_wraps`.
+
+[Review 2/3] Score: 9.0, one gating finding, not certified. F-001..F-004 closed, each re-fired (no-overflow 6/6 red on the elementsFromPoint assert; `--text-sm` 6/6 red; label rule removed 2/6 red; F-004 note carries dx). F-005 (high, G-2) the fix round's `.player-solved-label { white-space: nowrap; }` removes the break after "Solved! ", so a name WITH spaces whose first word does not fit beside the label now breaks mid-word ("Solved! Northumberlands" / "hire lighthouse at dawn", was "Solved!" / "Northumberlandshire…"); the CSS comment and card note claimed names with spaces were unchanged. F-006 (low) the elementsFromPoint assert follows hit-testing, so `pointer-events: none` in place of `overflow: hidden` passes 6/6; recorded as IDEA-222. Measured: AC-3 0 differences over 85,568 values at 390x844 and 844x390; names whose first word fits unchanged. Orchestrator's decision for round 2: revert the label rule (whole words over a filled first line; F-003 goes back to an owner-visible leftover, IDEA-221).
+
+### Fix round 2 (review cycle 2, 9.0; F-005)
+
+**The label rule is reverted.** Fix round 1's `.player-solved-label { white-space: nowrap; }` removed the break after "Solved! ". A name with spaces whose first word does not fit beside the label then broke mid-word (review F-005: "Solved! Northumberlands" / "hire lighthouse at dawn", where it was "Solved!" / "Northumberlandshire…"). My round-1 claim that names with spaces were unchanged held only for the names I measured, whose first word fits. The orchestrator decided to keep words whole: the rule and its comment are removed from admin.css, which is now byte-identical to d3f4615b's (`git diff d3f4615b -- src` is empty). The beside-label assert and its `_BANNER_TEXT` fields are removed from `test_wraps`. F-003 is again an owner-visible leftover: on desktop, a name with no spaces shows "Solved!" alone on line 1 and gets one cut line. The orchestrator records it in the backlog (IDEA-221). The F-001 (elementsFromPoint) and F-002 (font-size) asserts stay.
+
+**Controls, re-fired once each (admin.css copied back and `cmp`-checked after each).**
+- Unmutated: `test_wraps` 6 passed.
+- No-overflow mutant: 6 of 6 fail, `assert True is False` on the inBanner assert.
+- `--text-sm` mutant: 6 of 6 fail, `assert '14.4px' == '12.48px'`.
+
+**Gate (unarmed, `-o addopts= -rfs`, same files as before).** 414 passed, 0 failed, 0 skipped. Net test count: 10689 collected, unchanged, so net 0.
+
+[Review 3/3] Score: 9.5, nothing gating, certified. F-005 closed: admin.css byte-identical to d3f4615b; "Northumberlandshire lighthouse at dawn" breaks at the space again. Controls re-fired: no-overflow 6/6 red, `--text-sm` 6/6 red; unmutated `test_wraps` 6 passed in 3 runs; player set 414 passed, 0 skipped. F-003 (IDEA-221) and F-006 (IDEA-222) recorded, not gating.
+
+**Merge gate (orchestrator).** `make test-gate BASE=main` answered SELECTION: 1 failed / 7562 passed / 30 skipped (29 DATABASE_URL unset + 1 setrlimit) / 1 xfailed, then the 6 lifted wave_close_only tests 6 passed (7 owed at the wave close). The red: `test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`, because the round-0 viewport change (1200x900 -> 1100x700) renamed two `test_wraps` node ids that CARD-217's artefact records. Fixed by the orchestrator: both recorded as moves in `RENAMED_SINCE_BEFORE` (CARD-507). Re-run: tests/test_browser_fixture_scope.py whole, 33 passed; the gate's other 7562 tests do not read that table.
