@@ -78,7 +78,7 @@ Measured by CARD-506 and its review (2026-11-20): the solved banner wraps inside
 
 The board does not move for any name. A 14-character name that used to wrap to 2 lines now fits on 1.
 
-**Seen, not fixed (out of scope).** At 600x900 (inside the compact block, portrait) the board moves +27.203 px on solve for every name length, the 10-character one included. Base and after are identical, so this card did not cause it and does not change it. It is recorded here only. It is not the banner text: a 1-line name moves it too.
+**Seen, not fixed (out of scope).** At 600x900 (inside the compact block, portrait) the board moves on solve by dy +27.203 px and dx +12.656 px for every name length, the 10-character one included (dx added in fix round 1, review F-004; re-measured in base2/after2). Base and after are identical, so this card did not cause it and does not change it. It is recorded here only. It is not the banner text: a 1-line name moves it too.
 
 **Controls.**
 1. With the new rule deleted from admin.css, `test_wraps` reds 6 of 6 on the two-line assert: `AssertionError: [198.375, 24.8]` at 1440 and 1100 (both names), and `[446.34375, 24.8]` and `[396.75, 24.8]` at 390.
@@ -91,3 +91,42 @@ Both files were restored after each control: `git diff --stat` shows the same 2 
 **Net test count.** 10689 collected before and 10689 after, so net 0.
 
 [Review 1/3] Score: 8.5, one gating finding, not certified. F-001 (high) removing `overflow: hidden` from the moved rule leaves `test_wraps` green while lines 3+ paint over the Probe/Show grid buttons: AC-2's "cut, not wrapped further" has no control. F-002 (medium) `--text-xs` -> `--text-sm` survives `test_wraps` (two --text-sm lines still fit the tools' box): the owner's chosen size is unheld. F-003 (low, owner's eye) a name without spaces breaks after the label on desktop, so line 1 shows only "Solved!" and the name gets one cut line. F-004 (low) the 600x900 pre-existing shift note omits dx +12.656. Measured: AC-1 0/0 in 24 cases; AC-3 0 differences over 73,344 values at 390x844 and 844x390; AC-4 full name in the accessibility snapshot; control re-fired 6/6 red; 414 passed.
+
+### Fix round 1 (review cycle 1, 8.5; F-001..F-004)
+
+**F-001 (gating): the cut is now held where it is painted.** `test_wraps` gets a module constant, `_BANNER_TEXT`, that returns the text span's measurements. The test now also asserts:
+- `scrollHeight > clientHeight`, so the name runs past the two lines;
+- a third line is laid out: the first client rect of a Range over `[data-player-solved-name]` whose centre lies below the span's box;
+- no element of `#puzzle-player-solved` is in `document.elementsFromPoint` at the middle of that line.
+
+It reads the whole hit stack on purpose. Under the no-overflow mutant, the third line paints beneath the Show grid button there, so `elementFromPoint` returns the button either way, and only the stack lists `STRONG.player-solved-name`. Measured at 1440x900 with a 120-character name:
+- mutant stack: `SPAN.player-btn-label`, `BUTTON...player-show-grid`, `DIV.player-probe`, `STRONG.player-solved-name`, ...
+- with the rule: `SPAN.player-btn-label`, `BUTTON...player-show-grid`, `DIV.player-probe`, `DIV.player-toolbar is-solved`, `MAIN.main`.
+
+My first version took the first line whose top was below the box, which skipped line 3: its content area starts above the box edge. It switched to the line's centre.
+
+**F-002: the size is held.** `test_wraps` asserts the span's computed font-size equals `--text-xs` as the page resolves it: a temporary element is given `font-size: var(--text-xs)` and its computed size is read. No px value is written in the test.
+
+**F-003 (owner-visible): fixed with one CSS-local rule.** I tried three candidates by injecting a style tag, and listed each line's characters at 1440x900, 1100x700, 390x844 and 844x390 for names of 10, 24, 60 and 120 characters with spaces, and 26, 60 and 120 without:
+- `word-break: break-all` on the name: starts a name with no spaces on line 1, but also breaks names with spaces mid-word at every view.
+- `line-break: anywhere` on the name: the same.
+- `.player-solved-label { white-space: nowrap; }`: starts a name with no spaces beside "Solved!" and fills both lines at 1440 and 1100 (for example `Solved! The_lighthouse_k` / `eepers_cottage_on_the_n`, where it was `Solved! ` / `The_lighthouse_keepers_`). Names with spaces have identical line content, name rectangle and shift at all four views, and every name is identical at 390x844 and 844x390.
+
+The third was adopted. The compact block's visually-hidden rule already gives that label `white-space: nowrap`, so nothing new applies on the phone. Screenshots of the toolbar at 1440 with a 60-character no-space name: /private/tmp/claude-501/card507/f003/none-t60-1440.png (before) and /private/tmp/claude-501/card507/f003/label-nowrap-t60-1440.png (after). `test_wraps` holds it: where the label is visible, the name's first line starts on the label's line; at 390 the check is null.
+
+**F-004:** the 600x900 note above now gives dx +12.656 too. Re-measured, not pasted: base2 and after2 both give dy +27.203 and dx +12.656 for all eight names.
+
+**Re-measurement with the F-003 rule** (base2 = fc3f33e2's admin.css swapped into the worktree; after2 = this round):
+- AC-1: board shift 0 (dx and dy) for all eight names at 1440x900 and 1100x700, on both boards.
+- AC-2: at most 2 lines everywhere; the height-900 sweep from 700 to 1920 px gives 0 for every name.
+- AC-3: 390x844 and 844x390, 2 boards x 8 names x 9 snapshots each: 288 compared, 0 differences, shift 0.
+- G-2: the short-name figures are unchanged from the first round.
+
+**Controls (mutants of admin.css; after each one admin.css was copied back and `cmp`-checked against the branch copy).**
+1. No-overflow mutant (` overflow: hidden;` removed from `.player-solved > span`): `test_wraps` fails 6 of 6 on the `inBanner` assert with `assert True is False`.
+2. `--text-sm` mutant: 6 of 6 fail on the font-size assert with `assert '14.4px' == '12.48px'`.
+3. Label-nowrap rule removed: 2 of 6 fail, the one-token name at 1440 and at 1100, on the beside-label assert with `assert False is True`. The words cases and 390 stay green, as designed.
+
+**Gate, fix round 1 (unarmed, `-o addopts= -rfs`, same files as the first round).** 414 passed, 0 failed, 0 skipped. tests/test_kanban_review_record.py: 71 passed.
+
+**Net test count.** 10689 tests collected in 3.84s; that equals the 10689 before this card, so net 0. No test was added: the new asserts are folded into `test_wraps`.

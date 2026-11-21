@@ -1053,9 +1053,12 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
     controls, the counters or the board; the whole name stays in the DOM and
     the check icon keeps its 1em square. CARD-507 (owner 2026-11-20, IDEA-218
     option 2): at every width the banner's text is clamped to two --text-xs
-    lines, so the name is cut, not wrapped further, the board's box is the
-    same before and after the solving click, and the text keeps the whole
-    name (the clamp is visual only)."""
+    lines, so the name is cut, not wrapped further (a third line is laid out
+    but hits nothing of the banner where it would paint), the board's box is
+    the same before and after the solving click, and the text keeps the whole
+    name (the clamp is visual only). Where "Solved!" shows, the name starts
+    on its line rather than below it (review F-003: a name with no spaces
+    used to leave the label alone on line 1)."""
 
     @pytest.mark.parametrize("long_name", _LONG_NAMES, ids=["words", "one-token"])
     @pytest.mark.parametrize("width,height", [(1440, 900), (1100, 700), (390, 844)])
@@ -1068,8 +1071,7 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
             before, after, boxes = _solve_and_measure(page)
             name = page.locator("[data-player-solved-name]").inner_text()
             words = page.locator("#puzzle-player-solved").text_content()
-            text = page.locator("#puzzle-player-solved > span").evaluate(
-                "(el) => [el.getBoundingClientRect().height, parseFloat(getComputedStyle(el).lineHeight)]")
+            text = page.evaluate(_BANNER_TEXT)
             icon = page.locator("#puzzle-player-solved .icon").bounding_box()
             text_px = page.locator("#puzzle-player-solved").evaluate("(el) => parseFloat(getComputedStyle(el).fontSize)")
         finally:
@@ -1077,7 +1079,17 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
         assert name == long_name and long_name in words
         # CARD-507: two lines at most (the name is cut, not wrapped further),
         # and the board does not move on solve.
-        assert text[0] <= 2 * text[1] + 0.5, text
+        assert text["height"] <= 2 * text["lineHeight"] + 0.5, text
+        # ... and what lies past them is cut where it is painted: the name
+        # runs on (a third line is laid out below the box), and no element of
+        # the banner is in the hit stack at the middle of that line.
+        assert text["scrollHeight"] > text["clientHeight"] and text["below"] is not None, text
+        assert text["below"]["inBanner"] is False, text
+        # The size is the compact rule's --text-xs, resolved by the page.
+        assert text["fontSize"] == text["textXs"], text
+        # Where "Solved!" shows (not on the phone, where it is visually
+        # hidden), the name starts on its line, a name with no spaces too.
+        assert text["besideLabel"] is (None if width <= 600 else True), text
         assert (after["x"], after["y"]) == (before["x"], before["y"]), (after["x"] - before["x"], after["y"] - before["y"])
         assert icon["width"] == icon["height"] == text_px  # the check icon is not squeezed (1em square)
         # The banner does not widen the tools' box (its height may grow).
@@ -1086,6 +1098,38 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
         bl, _, br, _ = boxes["banner"]
         assert tl - 0.5 <= bl and br <= tr + 0.5, boxes
         assert not any(_overlaps(boxes["banner"], other) for other in boxes["others"]), boxes
+
+
+#: CARD-507: the banner text's box, its clamp, its size against the page's
+#: own --text-xs, whether anything of the banner is hit at the middle of the
+#: name's first laid-out line centred below the box (a third line), and whether the name starts on the label's
+#: line (null where the label is visually hidden).
+_BANNER_TEXT = """() => {
+  const span = document.querySelector('#puzzle-player-solved > span');
+  const box = span.getBoundingClientRect();
+  const cs = getComputedStyle(span);
+  const probe = document.createElement('span');
+  probe.style.fontSize = 'var(--text-xs)';
+  span.parentElement.appendChild(probe);
+  const textXs = getComputedStyle(probe).fontSize;
+  probe.remove();
+  const range = document.createRange();
+  range.selectNodeContents(document.querySelector('[data-player-solved-name]'));
+  const line = [...range.getClientRects()].find((r) => r.top + r.height / 2 > box.bottom && r.width > 0);
+  let below = null;
+  if (line) {
+    const x = line.left + line.width / 2, y = line.top + line.height / 2;
+    // The whole hit stack, not only the top element: a line painted past
+    // the box would lie under the Show grid button there.
+    const stack = document.elementsFromPoint(x, y);
+    below = { x, y, inBanner: stack.some((el) => el.closest('#puzzle-player-solved') !== null) };
+  }
+  const label = document.querySelector('#puzzle-player-solved .player-solved-label');
+  const labelTop = label.getBoundingClientRect().width > 1 ? label.getClientRects()[0].top : null;
+  const besideLabel = labelTop === null ? null : Math.abs(range.getClientRects()[0].top - labelTop) < 1;
+  return { height: box.height, lineHeight: parseFloat(cs.lineHeight), fontSize: cs.fontSize, textXs,
+           scrollHeight: span.scrollHeight, clientHeight: span.clientHeight, below, besideLabel };
+}"""
 
 
 _TOOLBAR_ROWS = """() => {
