@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/db/session.py, tests/conftest.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T20:01Z
 **Closed:** —
 **Actual:** —
@@ -100,3 +100,5 @@ Re-verify the premise on main first (a URL ending in a space and one ending in a
 - Armed with that URL padded (`" <url> \n"`) over the four changed files: 160 passed, 0 skipped. The suite resolved, prepared and used the padded URL as its own database.
 
 **Net test count:** 10690 before, 10691 after (+1, within AC-4).
+
+[Review 1/3] Score: 9.5, nothing gating, certified. An independent `ast` search found exactly the readers listed under AC-2. Padded spellings of a non-test database (`' …/nonogram_poc \n'`, `'\t…\r\n'`, `'…\xa0'`) are all still refused by `_refusal_reason`, `database_guard.verdict` and `_armed_database_plan`. Armed with the worktree's own URL padded `" <url> \n"`: 60 passed, no skips. Re-run controls red as the notes say; `report_line`'s trim, unlisted, reds `test_no_database_at_all_is_the_ordinary_case`. F-001 (low): the trim in `nonogram.db.__getattr__` has no control either (reverted, 175 passed); nothing reads that attribute. F-002 (low): `_refusal_reason` parses TEST_DATABASE_URL verbatim while the engine now trims it, so `_refuse_unless_test_database`'s "reads the URL the way the connection will" no longer holds for a padded TEST_DATABASE_URL; it fails closed (a padded `*_test` is refused with a message naming the padded name). Out of scope here. F-003 (info, owner decision): a whitespace-only DATABASE_URL now boots the panel quietly in in-memory mode, as an empty one already did; on main it failed on every request.
