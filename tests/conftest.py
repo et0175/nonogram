@@ -287,9 +287,7 @@ def pytest_runtest_setup(item):
     if 'db_required' in markers:
         # Trimmed by the app's own rule (CARD-515), so the resolution and the
         # refusal below judge the URL the app would connect to.
-        from nonogram.db.session import trimmed_url
-
-        database_url = trimmed_url(os.getenv("DATABASE_URL"))
+        database_url = _database_guard._trimmed(os.getenv("DATABASE_URL"))
         if not database_url:
             pytest.skip("Database not reachable: DATABASE_URL is not set")
         # [CARD-244] When DATABASE_URL is the very database the destructive
@@ -942,11 +940,11 @@ def _armed_database_plan(environ):
     :data:`_ARM_PREPARE` creates nothing, and a URL this cannot classify
     cannot reach the one that does.
     """
-    from nonogram.db.session import trimmed_url
-
     # Trimmed by the app's own rule (CARD-515): a padded URL naming the
-    # resolved database is that database, as it is to the engine.
-    database_url = trimmed_url(environ.get("DATABASE_URL"))
+    # resolved database is that database, as it is to the engine. Through the
+    # guard's copy of the rule, not nonogram's: this runs in every session,
+    # child sessions whose ``nonogram`` is another checkout's included.
+    database_url = _database_guard._trimmed(environ.get("DATABASE_URL"))
     if not database_url:
         return None, None, _ARM_NOT_SET
     resolved = db_name.resolve_test_database_url(environ, db_name.REPO_ROOT)

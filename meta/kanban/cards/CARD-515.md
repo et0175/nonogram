@@ -102,3 +102,28 @@ Re-verify the premise on main first (a URL ending in a space and one ending in a
 **Net test count:** 10690 before, 10691 after (+1, within AC-4).
 
 [Review 1/3] Score: 9.5, nothing gating, certified. An independent `ast` search found exactly the readers listed under AC-2. Padded spellings of a non-test database (`' …/nonogram_poc \n'`, `'\t…\r\n'`, `'…\xa0'`) are all still refused by `_refusal_reason`, `database_guard.verdict` and `_armed_database_plan`. Armed with the worktree's own URL padded `" <url> \n"`: 60 passed, no skips. Re-run controls red as the notes say; `report_line`'s trim, unlisted, reds `test_no_database_at_all_is_the_ordinary_case`. F-001 (low): the trim in `nonogram.db.__getattr__` has no control either (reverted, 175 passed); nothing reads that attribute. F-002 (low): `_refusal_reason` parses TEST_DATABASE_URL verbatim while the engine now trims it, so `_refuse_unless_test_database`'s "reads the URL the way the connection will" no longer holds for a padded TEST_DATABASE_URL; it fails closed (a padded `*_test` is refused with a message naming the padded name). Out of scope here. F-003 (info, owner decision): a whitespace-only DATABASE_URL now boots the panel quietly in in-memory mode, as an empty one already did; on main it failed on every request.
+
+**2026-11-21: merge-gate red fixed (`test_suite_profile`).**
+
+*Cause* (the coordinator's measurement): `test_the_outcomes_are_identical_with_and_without_the_log` runs a child pytest in a sandbox. The sandbox copies tests/ but not src/, so `nonogram` resolves to the main checkout, which has no `trimmed_url`. `database_guard.current_verdict` imported it in `pytest_configure`, and the child died with INTERNALERROR.
+
+*Fix:* the test infrastructure no longer imports `nonogram` for the trim. `tests/database_guard.py` has a new `_trimmed(value)`, `(value or "").strip() or None`, which is the same rule as `session.trimmed_url`. `current_verdict` and `report_line` use it. In conftest, `pytest_runtest_setup` and `_armed_database_plan` now call `_database_guard._trimmed` instead of importing `trimmed_url`. `trimmed_url`'s docstring now names the three readers that write the rule out instead of importing it.
+
+*Measured* by inlining the guard first, then putting each conftest import back one at a time:
+- Guard inlined, both conftest imports still in place: the class is still red (1 failed, 126 passed).
+- Only `_armed_database_plan`'s import put back: red (1 failed, 126 passed). This import runs in the sandbox, because it is called from the autouse session fixture `_armed_database_is_ready` in every session.
+- Only `pytest_runtest_setup`'s import put back: green (127 passed). It runs only for `db_required` items, and the sandbox has none. It was inlined anyway, since any child tree that runs a `db_required` test would hit it.
+
+*Controls* re-run against the inlined code (file restored after each; `git diff --stat` afterwards showed only the fix):
+- C1 through C7 are all red again, with the same tests and assertion lines as before.
+- C4 (guard trim off): `test_no_database_at_all_is_the_ordinary_case` red, `(False, 'Refu…') == (True, 'DATAB…')`.
+- C8 now reduces the guard's `_trimmed` to identity: 5 red (the C2, C3 and C4 tests plus the two subprocess guard tests).
+- `session.trimmed_url` now has callers only in `_init_engine`, `nonogram.db.__getattr__` and `migrations/env.py`. No control covers those calls, as noted before.
+
+*Figures:*
+- `tests/test_suite_profile.py` whole, unarmed: 450 passed.
+- Gate set (the previous 18 files plus test_suite_profile), unarmed: 1118 passed, 25 skipped, 0 failed. All 25 skips are "Database not reachable: DATABASE_URL is not set".
+- Same gate set, armed at this worktree's `*_test` database on localhost: 1143 passed, 0 skipped, 0 failed.
+- Armed with that URL padded, over the four changed test files: 160 passed.
+- Each run's one warning is SQLAlchemy's `MovedIn20Warning` from `db/models.py`, which this card does not touch.
+- Net collected count: 10691, unchanged by this fix (+1 over main's 10690).

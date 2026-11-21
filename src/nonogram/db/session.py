@@ -86,10 +86,14 @@ def trimmed_url(database_url: str | None) -> str | None:
     database ``'db '`` that does not exist, and nothing said why. Whitespace
     *inside* the URL is left alone; only the ends are trimmed.
 
-    Every reader of the variable passes what it read through this, so the
-    engine built here, both modes of ``migrations/env.py`` and the test
-    suite's ``*_test`` resolution and database guard all see the same value. A
-    value that is only whitespace is ``None``: the same as unset.
+    The engine built here, ``nonogram.db.DATABASE_URL`` and both modes of
+    ``migrations/env.py`` read the variable through this. Three readers apply
+    the same rule written out instead, so they do not import it: ``create_app``
+    and ``book_membership._services`` (no SQLAlchemy in in-memory mode), and
+    the test suite's ``tests/database_guard._trimmed``, which its ``*_test``
+    resolution also uses (a guard must not depend on which ``nonogram`` a
+    child session finds). A value that is only whitespace is ``None``: the
+    same as unset.
     """
     if database_url is None:
         return None
