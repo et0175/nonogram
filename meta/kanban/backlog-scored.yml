@@ -5415,7 +5415,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   needs_owner_decision: true
   scored_at: '2026-11-21'
 - id: IDEA-225

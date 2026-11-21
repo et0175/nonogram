@@ -1,6 +1,6 @@
 # CARD-515: A DATABASE_URL with surrounding whitespace connects to the database it names
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/515-database-url-whitespace
-**Worktree:** ../PythonProject4-card-515
+**Worktree:** —
 **Source:** roadmap wave 9, cut 2026-11-21 on the owner's "yes, start wave 9", which accepted the recommendation to trim rather than refuse. IDEA-224 (CARD-509 review F-001).
 **Idea:** IDEA-224
 **Wave:** 88
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-21T20:01Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-21T22:00Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** b79db921a56c53fb77538013ec582d56a071aa51
 **Blocked by:** —
 
 ## Why this card exists
