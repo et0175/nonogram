@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** none in src/ or tests/ (a measurement; results go on this card)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T00:19Z
 **Blocked by:** —
 
@@ -125,3 +125,5 @@ A copy has no `.git`, so its `full_suite_lock.default_lock_path` resolves to the
 * Nothing changed under `src/` or `tests/`, and no mutant ran in the worktree or in main.
 * `git diff --stat main...HEAD` shows this card only.
 * Collected count before and after is the same, `10689`, so the net change is 0.
+
+[Review 1/3] Score: 9.5, nothing gating, certified. The reviewer re-fired on its own `git archive` copies with its own mutants: on `ac479658` whole-file N12b = 6 and N18 = 6, the same nodes; on `f794d5a8` N8h = 5, the same mutated sha. Narrowed to the five tests that hold CARD-276's named nodes, it gives N8 = 1, N12b = 5, N18 = 1, exactly CARD-276's table, so the selection explanation in F-1 is now measured, not inferred. F-001 (low): F-1 was stated as an inference; the narrow run settles it. F-002 (low): the HEAD-table N14 and N16 were matched to `ced5e648` lines by assertion text, not re-fired on those bytes (the mapping checked correct). F-003 (info): `1ba56d75` is the branch's merge-base, not main's tip; the target file is identical in both.
