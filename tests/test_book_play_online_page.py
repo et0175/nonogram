@@ -145,11 +145,22 @@ class TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees:
 
 
 class TestPlayPage_TocAndFoliosFollowTheInsertedPages:
-    def test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers(self) -> None:
+    def test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers(
+        self, tmp_path, monkeypatch
+    ) -> None:
         _poppler()
         label, puzzles, play, blank, solutions, total = CASES[0]
         data = interior_generator(_book()).export_interior(puzzles).getvalue()
+        # CARD-509: the one caller in the tree that gives a pdf_vector reader
+        # no out_dir, run from an empty directory, which must still be empty
+        # afterwards (the default used to be the cwd, and left text.pdf in the
+        # checkout). The two sibling readers share that default and have no
+        # such caller, so they are run here once each, results unused.
+        monkeypatch.chdir(tmp_path)
         pages = pdf_vector.extracted_text(data).split("\f")
+        pdf_vector.word_boxes(data)
+        pdf_vector.rendered_page(data, 9)
+        assert sorted(tmp_path.iterdir()) == []
 
         assert re.search(rf"Solutions\s*\.+\s*{solutions}\b", pages[3]), pages[3]
         assert pages[play - 1].split()[-1] == str(play)

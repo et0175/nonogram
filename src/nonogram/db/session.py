@@ -149,6 +149,17 @@ def _scheme_of(database_url: object) -> str:
     Anything else becomes ``"<malformed scheme>"``; a string with no ``://``
     is ``"<no scheme>"`` and a non-string is ``"<not a string>"``.
 
+    Whitespace around the whole value is named, not stripped (CARD-509): the
+    answer for the stripped text gets ``", with leading whitespace"`` (or
+    ``trailing``, or ``leading and trailing``) appended, so
+    ``' postgresql://…'`` reports ``"postgresql, with leading whitespace"``
+    rather than the bare ``"<malformed scheme>"`` it got before. Only this
+    message changes; :func:`normalized_url` still parses the value exactly as
+    given. Stripping there would change a *successful* parse for every caller
+    of it (the engine builder here, both modes of ``migrations/env.py``, and
+    the test suite's database probe): ``'postgresql://u:p@h/db '`` parses
+    today, with the space carried into the database name.
+
     So nothing after ``://`` is ever returned, and of the text before it only
     a leading, scheme-shaped token is: a secret glued on with a ``:``
     (``postgresql:hunter2://…``) is cut off, and one behind an ``@``
@@ -166,6 +177,16 @@ def _scheme_of(database_url: object) -> str:
     """
     if not isinstance(database_url, str):
         return "<not a string>"
+    stripped = database_url.strip()
+    if stripped != database_url:
+        leading = database_url[0].isspace()
+        trailing = database_url[-1].isspace()
+        where = (
+            "leading and trailing" if leading and trailing
+            else "leading" if leading
+            else "trailing"
+        )
+        return f"{_scheme_of(stripped)}, with {where} whitespace"
     before, separator, _ = database_url.partition("://")
     if not separator:
         return "<no scheme>"

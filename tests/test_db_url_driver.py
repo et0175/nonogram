@@ -967,8 +967,21 @@ class TestDbUrl_SchemeOfEchoesOnlyARealScheme:
     ) -> None:
         """The function directly, including the grammar's edges: a leading
         digit, a space and a non-ASCII letter are all outside RFC 3986's
-        ``ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )``."""
+        ``ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )``.
+
+        CARD-509: every string row, padded with whitespace, gets the same
+        answer with the padding named (``' postgresql://…'`` was
+        ``<malformed scheme>``)."""
         assert db_session._scheme_of(raw) == expected
+        if isinstance(raw, str):
+            for padded, where in (
+                (" " + raw, "leading"),
+                (raw + "\n", "trailing"),
+                ("\t" + raw + " ", "leading and trailing"),
+            ):
+                assert db_session._scheme_of(padded) == (
+                    f"{expected}, with {where} whitespace"
+                ), padded
 
 
 #: Fixed, so a failure names a reproducible case.
@@ -1056,6 +1069,15 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
     raised: list[tuple[str, bool]] = []
     for position, secret, raw, plain, scheme in _secret_corpus():
         assert raw.index(secret) > 0, f"secret at position 0: {raw!r}"
+        # CARD-509: a leading space makes every URL unparseable, so the padded
+        # copy always raises; it must name the space and still hide the secret.
+        expected = (
+            "<malformed scheme>" if position in _ECHOES_A_PLACEHOLDER else scheme
+        )
+        with pytest.raises(RuntimeError) as padded:
+            db_session.normalized_url(" " + raw)
+        assert secret not in "".join(traceback.format_exception(padded.value)), raw
+        assert _echoed_scheme(padded.value) == f"{expected}, with leading whitespace"
         try:
             db_session.normalized_url(raw)
         except RuntimeError as error:
@@ -1065,9 +1087,6 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
             # The case's own scheme, not any corpus scheme (CARD-176 F-002):
             # where the secret is glued to the scheme or no scheme leads the
             # text, the placeholder; everywhere else, the scheme drawn.
-            expected = (
-                "<malformed scheme>" if position in _ECHOES_A_PLACEHOLDER else scheme
-            )
             assert _echoed_scheme(error) == expected, (position, raw, str(error))
             raised.append((position, plain))
 
@@ -1079,6 +1098,15 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
     # there is rejected only by the grammar's ban on `@`.
     assert ("before-separator-behind-at", True) in raised
     assert ("before-separator-behind-at", False) in raised
+
+    # CARD-509 AC-2, its own example: a URL that parses once unpadded. The
+    # secret is spliced in so the traceback's echo of this source line cannot
+    # be what a match finds.
+    password = "QXSECRET" + "hunter2"
+    with pytest.raises(RuntimeError) as failure:
+        db_session.normalized_url(f" postgresql://u:{password}@h/db")
+    assert _echoed_scheme(failure.value) == "postgresql, with leading whitespace"
+    assert password not in "".join(traceback.format_exception(failure.value))
 
 
 # --------------------------------------------------------------------------
