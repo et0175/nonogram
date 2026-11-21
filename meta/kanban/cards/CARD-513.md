@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/books.html or book_detail.html, src/nonogram/admin/app.py, tests of the books list and Finalise
 **UI surface:** books list, book detail (interior download button)
-**Review score:** —
+**Review score:** 8.0 (cycle 1/3)
 **Started:** 2026-11-21T05:47Z
 **Blocked by:** —
 
@@ -52,3 +52,5 @@ Re-verify each against main first; drop anything already closed, with one line i
 - [AC-3 test, +1] `TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter::test_the_finalise_download_is_laid_out_once_on_its_stored_gutter` (tests/test_book_finalise_gutter.py). Control: deleting the `book_interior_vector` setattr reds it, `assert [] == ['0.70']`; the class's other 7 stay green.
 - [AC-4] Net collected `tests/`: 10689 before, 10690 after (+1).
 - [Gate] tests/test_book_detail_page.py tests/test_book_finalise_gutter.py tests/test_book_export_interior_cover.py tests/test_books_list_plan_stats.py tests/test_books_list_mobile.py tests/test_admin_error_text.py tests/test_book_finalise_guide_preview.py tests/test_kanban_review_record.py, `-o addopts= -rfs`: unarmed 497 passed, 0 failed, 0 skipped; armed (DATABASE_URL at this worktree's `nonogram_pythonproject4_card_513_f3c6003747aa_test` on localhost) 497 passed, 0 failed, 0 skipped. None of these files holds a database-backed test (their fixtures unset DATABASE_URL), so the armed run shows only that arming changes nothing here, not that the database was reached.
+
+[Review 1/3] Score: 8.0, one gating finding, not certified. F-001 (gating) the Finalise page still offers the interior download for a no-puzzle book (`book_finalize.html`'s interior form has no guard; GET 200 with the button enabled, POST `download_pdf part=interior` 200 PDF), so "no page offers it now" is false and the "disable on both" decision reaches 2 of 3 places; F-002 (low) nothing pins the guard's edge: `> 1` in the list left the offering tests green (they build 3-puzzle books); F-003 (low) the list's disabled button gives its reason only in `aria-label`, against CARD-158's visible-muted-text rule and unlike `/book`'s "Add puzzles first."; F-004 (info) a direct POST still returns the 3-page PDF, out of scope. Confirmed by run: the same guard as book detail, the double log already closed by CARD-171, the second layout path and the widened spy, net +1.
