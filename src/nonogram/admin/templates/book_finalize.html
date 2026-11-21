@@ -306,11 +306,20 @@
                     {% endif %}
                 </div>
                 {% endif %}
+                {#- CARD-513: a book with no puzzles has no interior to offer
+                    -- the download would be the title and guide pages alone,
+                    the file generate-pdf refuses -- so it is disabled by the
+                    book page's own guard, with the book page's reason. -#}
+                {% if book.puzzle_ids|length > 0 %}
                 <form method="POST" class="mb-2">
                     <input type="hidden" name="action" value="download_pdf">
                     <input type="hidden" name="part" value="interior">
                     <button type="submit" class="btn btn-primary w-100" data-export-part="interior">{{ icons.icon('download') }} Download interior PDF</button>
                 </form>
+                {% else %}
+                <button type="button" class="btn btn-primary w-100" data-export-part="interior" disabled>{{ icons.icon('download') }} Download interior PDF</button>
+                <p class="text-muted small mt-1 mb-2">Add puzzles first.</p>
+                {% endif %}
                 <form method="POST">
                     <input type="hidden" name="action" value="download_pdf">
                     <input type="hidden" name="part" value="cover">

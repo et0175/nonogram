@@ -127,11 +127,20 @@ aria-sort="{{ 'descending' if sort == column else 'none' }}"
                                     uploaded cover whose file is gone — is a disabled
                                     button, not a request that bounces, with the reason
                                     as visible muted text beside it: a disabled button
-                                    takes no pointer events, so its title never shows. -#}
+                                    takes no pointer events, so its title never shows.
+                                    CARD-513: a book with no puzzles has no interior to
+                                    offer -- the download would be the title and guide
+                                    pages alone, the file generate-pdf refuses -- so the
+                                    row disables it by the book page's own guard. -#}
+                                {% if book.puzzle_ids|length > 0 %}
                                 <form method="POST" action="/book/{{ book.book_id }}/download-pdf">
                                     <input type="hidden" name="part" value="interior">
                                     <button type="submit" class="btn btn-sm btn-outline-secondary" data-export-part="interior" title="Download interior PDF" aria-label="Download interior PDF of {{ book.metadata.title }}">{{ icons.icon('download') }} Interior</button>
                                 </form>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-export-part="interior" aria-label="Interior of {{ book.metadata.title }} unavailable: the book holds no puzzles yet" disabled>{{ icons.icon('download') }} Interior</button>
+                                <span class="text-muted small">Add puzzles first.</span>
+                                {% endif %}
                                 {% if book.book_id in lost_covers %}
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-export-part="cover" title="Uploaded cover is no longer on disk — upload it again on Finalise" aria-label="Cover of {{ book.metadata.title }} unavailable: the uploaded cover is no longer on disk; upload it again on Finalise" disabled>{{ icons.icon('download') }} Cover</button>
                                 <span class="text-muted small" id="cover-lost-{{ book.book_id }}">Cover file is no longer on disk — <a href="{{ url_for('finalize_book', book_id=book.book_id) }}">upload it again on Finalise</a></span>

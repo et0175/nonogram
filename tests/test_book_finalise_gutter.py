@@ -1545,8 +1545,11 @@ GUTTER_070 = "0.70"
 class _LayoutSpy:
     """Every interior layout Finalise asks for, and the gutter it was asked on.
 
-    Replaces ``BookPDFGenerator`` **where the panel looks it up**
-    (``nonogram.admin.app``) with a subclass that records, before the real
+    Replaces ``BookPDFGenerator`` **at both places Finalise's layouts look
+    it up** -- ``nonogram.admin.app`` (the counts behind the screen and
+    Save-and-finish) and ``nonogram.admin.book_interior_vector`` (whose
+    ``interior_generator`` builds the generator the download action lays out
+    through, CARD-322's assembly point) -- with a subclass that records, before the real
     code runs, the gutter column of the book each generator is built on and
     the one each :meth:`interior_stream` lays out — read off the generator's
     own ``book`` at that moment, so a copy of the book carrying another
@@ -1555,10 +1558,19 @@ class _LayoutSpy:
     asked per count rather than per request: a refused Save-and-finish counts
     in the action and again in the re-render beneath it, both on the stored
     gutter, and that is two counts, not a second layout of one.
+
+    Scope (CARD-513, found by an ``ast`` census of every call to
+    ``BookPDFGenerator``, ``interior_generator`` and ``interior_stream``
+    under ``src/nonogram`` and a walk of ``finalize_book``'s calls inside
+    ``app.py``): those two lookups are the only ones Finalise's call graph
+    reaches. ``book_proof`` looks the generator up in its own module and is
+    not patched -- Finalise does not call it -- and a layout that reached
+    ``BookPDFGenerator`` through a third lookup would go unseen.
     """
 
     def __init__(self, monkeypatch):
         import nonogram.admin.app as app_module
+        import nonogram.admin.book_interior_vector as interior_module
 
         self.built: list = []
         self.laid_out: list = []
@@ -1566,9 +1578,9 @@ class _LayoutSpy:
         spy = self
 
         class Spied(app_module.BookPDFGenerator):
-            def __init__(self, book=None):
+            def __init__(self, book=None, **writers):
                 spy.built.append(getattr(book, "gutter_margin_cm", None))
-                super().__init__(book)
+                super().__init__(book, **writers)
 
             def interior_stream(self, puzzles):
                 spy.laid_out.append(getattr(self.book, "gutter_margin_cm", None))
@@ -1581,6 +1593,7 @@ class _LayoutSpy:
             return original_counts(book, puzzles)
 
         monkeypatch.setattr(app_module, "BookPDFGenerator", Spied)
+        monkeypatch.setattr(interior_module, "BookPDFGenerator", Spied)
         monkeypatch.setattr(app_module, "_interior_counts", counted)
 
 
@@ -1647,6 +1660,29 @@ class TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter:
         self._assert_only_the_stored_gutter(spy, gutter, sheet)
         assert panel.gutter(book_id) == gutter
         assert panel.status(book_id) == DRAFT
+
+    def test_the_finalise_download_is_laid_out_once_on_its_stored_gutter(
+        self, panel, monkeypatch
+    ) -> None:
+        """CARD-513: Finalise's third action, the interior download, lays out
+        through ``interior_generator`` -- the generator ``book_interior_vector``
+        looks up, not the one ``nonogram.admin.app`` does -- and is seen too.
+        A refused gutter does not stop the download (it is the stored book,
+        as it is), so this is the refused-exact case on the refused value."""
+        book_id = panel.book(SMALL_CORPUS, gutter=GUTTER_070)
+        spy = _LayoutSpy(monkeypatch)
+
+        response = panel.client.post(
+            f"/book/{book_id}/finalize",
+            data={"action": "download_pdf", "part": "interior"},
+        )
+
+        assert response.status_code == 200
+        assert response.mimetype == "application/pdf"
+        assert spy.counts == 0  # the download counts nothing; it lays out
+        assert spy.built == [GUTTER_070], spy.built
+        assert spy.laid_out == [GUTTER_070], spy.laid_out
+        assert panel.gutter(book_id) == GUTTER_070
 
     def test_an_uncountable_book_is_not_laid_out_at_another_gutter(
         self, panel, monkeypatch
