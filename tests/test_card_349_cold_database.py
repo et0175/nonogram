@@ -1081,7 +1081,13 @@ class TestColdDatabase_TheTwoDatabaseGatesStayAttributable:
         )
         with pytest.raises(pytest.skip.Exception) as resolved:
             suite_conftest.pytest_runtest_setup(self._marked_item())
+        # CARD-515: a value that is only whitespace trims to unset, as it does
+        # for the app, and takes the bare gate rather than the resolution.
+        monkeypatch.setenv(VAR, " \n")
+        with pytest.raises(pytest.skip.Exception) as blank:
+            suite_conftest.pytest_runtest_setup(self._marked_item())
 
+        assert str(blank.value) == str(bare.value)
         assert f"{VAR} is not set" in str(bare.value)
         assert "the per-worktree database said so" in str(resolved.value)
         assert str(bare.value) != str(resolved.value)
@@ -1265,6 +1271,12 @@ class TestColdDatabase_TheRefusalIsNeitherWidenedNorBypassed:
             {"DATABASE_URL": ours, "TEST_DATABASE_URL": ours}
         )
         assert action == suite_conftest._ARM_PREPARE
+        # CARD-515: padded as a paste leaves it, it is still this database,
+        # as it is to the engine, and the plan carries the trimmed text.
+        url, _resolved, action = suite_conftest._armed_database_plan(
+            {"DATABASE_URL": " " + ours + " \n", "TEST_DATABASE_URL": ours}
+        )
+        assert (url, action) == (ours, suite_conftest._ARM_PREPARE)
 
         source = (REPO / "tests" / "conftest.py").read_text(encoding="utf-8")
         plan = next(

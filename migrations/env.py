@@ -17,7 +17,7 @@ from src.nonogram.db.models import Base
 # in render.yaml's build command against the same bare `postgresql://` that
 # stopped the panel booting on 2026-09-25, so leaving it out would fix the
 # runtime and leave the migration step to fail on the next default change.
-from src.nonogram.db.session import normalized_url
+from src.nonogram.db.session import normalized_url, trimmed_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -49,7 +49,9 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = os.getenv('DATABASE_URL') or config.get_main_option("sqlalchemy.url")
+    url = trimmed_url(os.getenv('DATABASE_URL')) or config.get_main_option(
+        "sqlalchemy.url"
+    )
     if url:
         url = normalized_url(url).render_as_string(hide_password=False)
     context.configure(
@@ -71,7 +73,7 @@ def run_migrations_online() -> None:
 
     """
     # Get DATABASE_URL from environment or config
-    url = os.getenv('DATABASE_URL')
+    url = trimmed_url(os.getenv('DATABASE_URL'))
 
     if url:
         connectable = engine_from_config(

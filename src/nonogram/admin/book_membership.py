@@ -208,7 +208,9 @@ def _services():
     from nonogram.admin.book_manager import BookManager
     from nonogram.admin.puzzle_review import PuzzleReviewService
 
-    if not os.getenv("DATABASE_URL"):
+    # Trimmed as nonogram.db.session.trimmed_url trims it (CARD-515); not
+    # imported from there because this check runs before SQLAlchemy is needed.
+    if not (os.getenv("DATABASE_URL") or "").strip():
         raise SystemExit(
             "DATABASE_URL is not set. There is no stored database to repair: "
             "in-memory books live only as long as the admin process."

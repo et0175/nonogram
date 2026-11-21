@@ -1501,7 +1501,10 @@ def create_app(debug=None):
     # monkeypatch), and a module-level check would freeze whatever value was
     # in the environment the first time this module happened to be imported.
     session_scope = None
-    if os.getenv('DATABASE_URL'):
+    # Trimmed as nonogram.db.session.trimmed_url trims it (CARD-515), written
+    # out here because importing that module needs SQLAlchemy, which an
+    # in-memory install does not have: a whitespace-only value is unset.
+    if (os.getenv('DATABASE_URL') or '').strip():
         try:
             from nonogram.db import session_scope as db_session_scope
             session_scope = db_session_scope

@@ -98,8 +98,10 @@ def verdict(database_url: str | None, *, opted_out: bool) -> tuple[bool, str]:
 
 def current_verdict() -> tuple[bool, str]:
     """:func:`verdict` for the environment this process is actually in."""
+    from nonogram.db.session import trimmed_url
+
     return verdict(
-        os.getenv("DATABASE_URL"),
+        trimmed_url(os.getenv("DATABASE_URL")),
         opted_out=bool(os.getenv(OPT_OUT)),
     )
 
@@ -110,7 +112,9 @@ def report_line() -> str | None:
     Silent in the ordinary case — `DATABASE_URL` unset — because a line on
     every run is a line nobody reads by the third one.
     """
-    if not os.getenv("DATABASE_URL"):
+    from nonogram.db.session import trimmed_url
+
+    if not trimmed_url(os.getenv("DATABASE_URL")):
         return None
     _allowed, reason = current_verdict()
     return f"database guard: {reason.splitlines()[0]}"

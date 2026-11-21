@@ -197,7 +197,7 @@ class TestDbUrl_DriverIsNamedNotInherited:
         can send are checked, since the legacy alias is the one a scheme-by-
         string check is most likely to miss.
         """
-        for scheme in ("postgresql", "postgres", "POSTGRESQL"):
+        for scheme in ("postgresql", "postgres", "POSTGRESQL", " postgresql"):
             options = db_session._engine_options(f"{scheme}://u:p@h/db")
             assert options["connect_args"]["connect_timeout"] == (
                 db_session.CONNECT_TIMEOUT_SECONDS
@@ -407,7 +407,8 @@ _DRIVER_MODULES = (
 _IN_MEMORY_PROBE = """
 import os, sys
 
-assert "DATABASE_URL" not in os.environ, "the probe was handed a DATABASE_URL"
+# Blank is allowed: since CARD-515 a value that is only whitespace is unset.
+assert not os.environ.get("DATABASE_URL", "").strip(), "the probe was handed a DATABASE_URL"
 
 from nonogram.admin.app import create_app
 
@@ -440,9 +441,13 @@ class TestDbUrl_InMemoryModeImportsNoDriver:
     same-process test cannot see once any earlier test has imported the driver.
     """
 
-    def test_no_database_driver_is_in_sys_modules(self) -> None:
+    # CARD-515: absent, and blank, which create_app now reads as unset.
+    @pytest.mark.parametrize("blank", [None, " \n"], ids=["absent", "blank"])
+    def test_no_database_driver_is_in_sys_modules(self, blank: str | None) -> None:
         environment = dict(os.environ)
         environment.pop("DATABASE_URL", None)
+        if blank is not None:
+            environment["DATABASE_URL"] = blank
         environment["PYTHONPATH"] = (
             str(REPO_ROOT / "src") + os.pathsep + str(REPO_ROOT)
         )
@@ -647,17 +652,22 @@ class TestDbUrl_NormalisationChangesNothingElse:
         string comparison would fail on URLs that are in fact identical, and
         the natural fix for that noise is to loosen the assertion until it
         stops saying anything.
+
+        CARD-515: each URL is also given padded as a paste leaves it (a
+        trailing space, a newline, both, a leading space) and must name the
+        same database; ``make_url`` alone keeps the padding in the name.
         """
         for source in _CORPUS:
-            raw = source.render_as_string(hide_password=False)
-            result = db_session.normalized_url(raw)
+            clean = source.render_as_string(hide_password=False)
+            for raw in (clean, clean + " ", clean + "\n", clean + " \n", " " + clean):
+                result = db_session.normalized_url(raw)
 
-            assert result.username == source.username, raw
-            assert result.password == source.password, "password altered"
-            assert result.host == source.host, raw
-            assert result.port == source.port, raw
-            assert result.database == source.database, raw
-            assert dict(result.query) == dict(source.query), raw
+                assert result.username == source.username, raw
+                assert result.password == source.password, "password altered"
+                assert result.host == source.host, raw
+                assert result.port == source.port, raw
+                assert result.database == source.database, raw
+                assert dict(result.query) == dict(source.query), raw
 
     def test_every_postgres_url_in_the_corpus_comes_out_naming_a_driver(self) -> None:
         for source in _CORPUS:
@@ -698,6 +708,9 @@ class TestDbUrl_NormalisationChangesNothingElse:
         change this function did not make — it would be a test of SQLAlchemy's
         renderer wearing this card's name, and the obvious way to "fix" it
         would be to start doing string surgery in production.
+
+        CARD-515: padding around the whole URL is trimmed and the space
+        *inside* ``with space.db`` is not.
         """
         for database in (
             f"{tmp_path / 'admin.db'}",
@@ -705,9 +718,10 @@ class TestDbUrl_NormalisationChangesNothingElse:
             ":memory:",
         ):
             for raw in (f"sqlite:///{database}", f"sqlite+pysqlite:///{database}"):
-                result = db_session.normalized_url(raw)
-                assert result == make_url(raw), raw
-                assert result.database == make_url(raw).database, raw
+                for given in (raw, " " + raw + " \n"):
+                    result = db_session.normalized_url(given)
+                    assert result == make_url(raw), given
+                    assert result.database == make_url(raw).database, given
 
     def test_the_text_round_trip_that_alembic_forces_is_lossless(self) -> None:
         """The one caller that must go through text, pinned over the corpus.
@@ -969,19 +983,10 @@ class TestDbUrl_SchemeOfEchoesOnlyARealScheme:
         digit, a space and a non-ASCII letter are all outside RFC 3986's
         ``ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )``.
 
-        CARD-509: every string row, padded with whitespace, gets the same
-        answer with the padding named (``' postgresql://…'`` was
-        ``<malformed scheme>``)."""
+        CARD-509's padded rows moved to the property test below with
+        CARD-515: ``normalized_url`` trims before it asks, so padding never
+        reaches this function from there."""
         assert db_session._scheme_of(raw) == expected
-        if isinstance(raw, str):
-            for padded, where in (
-                (" " + raw, "leading"),
-                (raw + "\n", "trailing"),
-                ("\t" + raw + " ", "leading and trailing"),
-            ):
-                assert db_session._scheme_of(padded) == (
-                    f"{expected}, with {where} whitespace"
-                ), padded
 
 
 #: Fixed, so a failure names a reproducible case.
@@ -1069,15 +1074,23 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
     raised: list[tuple[str, bool]] = []
     for position, secret, raw, plain, scheme in _secret_corpus():
         assert raw.index(secret) > 0, f"secret at position 0: {raw!r}"
-        # CARD-509: a leading space makes every URL unparseable, so the padded
-        # copy always raises; it must name the space and still hide the secret.
         expected = (
             "<malformed scheme>" if position in _ECHOES_A_PLACEHOLDER else scheme
         )
-        with pytest.raises(RuntimeError) as padded:
-            db_session.normalized_url(" " + raw)
-        assert secret not in "".join(traceback.format_exception(padded.value)), raw
-        assert _echoed_scheme(padded.value) == f"{expected}, with leading whitespace"
+        # CARD-515 (was CARD-509's named padding): a padded copy is trimmed,
+        # so it fails exactly as the bare URL does, and hides the secret too.
+        padded = "\t " + raw + " \n"
+        try:
+            db_session.normalized_url(raw)
+        except RuntimeError as bare:
+            with pytest.raises(RuntimeError) as trimmed:
+                db_session.normalized_url(padded)
+            assert str(trimmed.value) == str(bare), raw
+            assert secret not in "".join(
+                traceback.format_exception(trimmed.value)
+            ), raw
+        else:
+            assert db_session.normalized_url(padded) == db_session.normalized_url(raw)
         try:
             db_session.normalized_url(raw)
         except RuntimeError as error:
@@ -1099,14 +1112,11 @@ def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
     assert ("before-separator-behind-at", True) in raised
     assert ("before-separator-behind-at", False) in raised
 
-    # CARD-509 AC-2, its own example: a URL that parses once unpadded. The
-    # secret is spliced in so the traceback's echo of this source line cannot
-    # be what a match finds.
+    # CARD-509 AC-2's own example, which raised then: since CARD-515 it is
+    # trimmed and connects to the database it names, password intact.
     password = "QXSECRET" + "hunter2"
-    with pytest.raises(RuntimeError) as failure:
-        db_session.normalized_url(f" postgresql://u:{password}@h/db")
-    assert _echoed_scheme(failure.value) == "postgresql, with leading whitespace"
-    assert password not in "".join(traceback.format_exception(failure.value))
+    url = db_session.normalized_url(f" postgresql://u:{password}@h/db")
+    assert (url.database, url.password) == ("db", password)
 
 
 # --------------------------------------------------------------------------
@@ -1178,8 +1188,9 @@ class TestMigrations_TheDeployPathNamesTheDriver:
         environment = dict(os.environ)
         # A bare `postgresql://`, which is the only shape Render's managed
         # Postgres hands out and the shape that failed.
+        # Padded as a paste leaves it: CARD-515 trims it to the same database.
         environment["DATABASE_URL"] = (
-            "postgresql://panel:s3cr3t-p%40ss@db.example.com:5432/nono"
+            " postgresql://panel:s3cr3t-p%40ss@db.example.com:5432/nono \n"
         )
         environment["PYTHONPATH"] = (
             str(REPO_ROOT / "src") + os.pathsep + str(REPO_ROOT)
@@ -1210,7 +1221,7 @@ class TestMigrations_TheDeployPathNamesTheDriver:
         logged = "\n".join(
             line for line in output.splitlines() if not line.startswith("CONFIG:")
         )
-        for leaked in (environment["DATABASE_URL"], secret, "s3cr3t-p%40ss"):
+        for leaked in (environment["DATABASE_URL"].strip(), secret, "s3cr3t-p%40ss"):
             assert leaked not in logged, (
                 f"the migration step's output carries {leaked!r}:\n{logged}"
             )
