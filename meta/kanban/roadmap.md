@@ -92,7 +92,9 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 8 — IN PROGRESS (board wave 87)
+## Wave 8 — DONE 2026-11-21 (board wave 87)
+
+Four cards merged: CARD-513 (`2fdbf14d`, 9.5 cycle 2), CARD-511 (`ee9b949f`, 9.5 cycle 1), CARD-514 (`187d765f`, 9.5 cycle 1), CARD-512 (`26ca4e7e`, 9.5 cycle 1). Wave close: CARD-512's merge gate answered FULL on `599ccf16` (main with the other three cards merged), 10659 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 10690 collected, nothing deselected, 44 min; `src/`, `tests/`, `player/` and `scripts/` on `main` after the merge are identical to that tree (`git diff --stat` empty), so no second full run was made. Net tests +1 over the wave (CARD-513's Finalise-download spy test). PUBLISHED 2026-11-21 on the owner's second "please publish player": CARD-511's `admin.css` (production `nonogram-studio-og58mwtjc`); a real solve at 600 x 900 moved the public board by 0 before and after, because the public toolbar has no Show grid. Findings: CARD-514 closed IDEA-148 as not reachable as reported (the solver-page test reads SQLite whatever DATABASE_URL holds); CARD-512's stricter lock refuses a child pytest started through a forking shell or a grandchild (none today). Recorded: **IDEA-225** (327-339 and 421-451 px still move the board on solve; owner decision). Recorded, not carded: a direct POST still downloads a no-puzzle interior (CARD-513 F-004); a no-puzzle row is 234 px tall at 390 px (CARD-513 cycle 2 F-001); `_held_by_parent`'s database clause has no committed control (CARD-512 F-002); one unexplained 1-in-49 failure of the banner class in review (CARD-512 F-001, not seen at the gate).
 
 ### As cut
 
