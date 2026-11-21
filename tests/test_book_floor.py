@@ -923,18 +923,47 @@ def _interleave(shelf, change) -> None:
     interleaving here is the finding's own scenario rather than a proxy for it:
     no thread is needed to show that a decision is made on state that is gone
     by the time it is committed.
+
+    The floor reads the submission in one bulk ``get_puzzles`` call since
+    CARD-514, so that call is the first store read; ``get_puzzle`` is wrapped
+    too, so the change still lands first whichever the add reads through.
     """
-    original = shelf.store.get_puzzle
     fired: list[bool] = []
 
-    def once(puzzle_id):
-        record = original(puzzle_id)
-        if not fired:
-            fired.append(True)
-            change()
-        return record
+    def wrap(original):
+        def once(ids):
+            record = original(ids)
+            if not fired:
+                fired.append(True)
+                change()
+            return record
 
-    shelf.store.get_puzzle = once
+        return once
+
+    shelf.store.get_puzzle = wrap(shelf.store.get_puzzle)
+    shelf.store.get_puzzles = wrap(shelf.store.get_puzzles)
+
+
+def _record_reads(store, read: list) -> None:
+    """Append every id ``store`` is asked for to ``read``, one entry per id.
+
+    Both reads are counted — ``get_puzzle`` one id at a time and
+    ``get_puzzles`` in bulk (CARD-514) — so an id read twice, by either, shows
+    twice.
+    """
+    one, many = store.get_puzzle, store.get_puzzles
+
+    def counted(puzzle_id):
+        read.append(puzzle_id)
+        return one(puzzle_id)
+
+    def counted_bulk(puzzle_ids):
+        puzzle_ids = list(puzzle_ids)
+        read.extend(puzzle_ids)
+        return many(puzzle_ids)
+
+    store.get_puzzle = counted
+    store.get_puzzles = counted_bulk
 
 
 class TestBookAddPuzzles_VerdictAndWriteAreOneDecision:
@@ -1049,13 +1078,7 @@ class TestBookAddPuzzles_ReportsTheMeasurementItEnforced:
         big = shelf.puzzle(*ABOVE_FLOOR[:4])
         book_id = shelf.book()
         read: list[str] = []
-        original = shelf.store.get_puzzle
-
-        def counted(puzzle_id):
-            read.append(puzzle_id)
-            return original(puzzle_id)
-
-        shelf.store.get_puzzle = counted
+        _record_reads(shelf.store, read)
         shelf.books.add_puzzles_reporting_refusals(book_id, [small, big, small])
 
         assert sorted(read) == sorted({small, big}), (
@@ -1070,14 +1093,18 @@ class TestBookAddPuzzles_ReportsTheMeasurementItEnforced:
         big = panel.puzzle(*ABOVE_FLOOR[:4])
         book_id = panel.book()
         read: list[str] = []
-        original = panel.store.get_puzzle
-
-        def counted(puzzle_id):
-            read.append(puzzle_id)
-            return original(puzzle_id)
-
-        panel.store.get_puzzle = counted
-        shown = body(panel.paste(book_id, [small, big]))
+        unspied = panel.store.get_puzzle, panel.store.get_puzzles
+        _record_reads(panel.store, read)
+        # The POST alone is the route under test: the detail page the redirect
+        # lands on reads the book's members for its own list (one bulk read),
+        # which is that page's read, not a second measurement.
+        posted = panel.client.post(
+            f"/book/{book_id}/add-puzzles",
+            data={"puzzle_ids": ",".join([small, big])},
+        )
+        assert posted.status_code == 302, posted.status_code
+        panel.store.get_puzzle, panel.store.get_puzzles = unspied
+        shown = body(panel.client.get(posted.headers["Location"]))
 
         assert sorted(read) == sorted([small, big]), (
             f"the paste-IDs route measured the submission more than once: {read}"

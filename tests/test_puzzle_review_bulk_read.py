@@ -426,16 +426,40 @@ def measure_paths(panel, size) -> dict:
     assert panel.books.get_book(book_id).status == BookStatus.DRAFT.value
     assert panel.ids_of(book_id)[:2] == [order[1], order[0]]
 
+    # CARD-514: the books list reads every member of every book for its
+    # planned-vs-actual row (``_book_member_records``). This book is the only
+    # one listed — the previous measurement deletes its own — so a per-member
+    # read shows here as a count that grows with ``size``.
+    counter.opened = 0
+    response = panel.client.get("/books")
+    assert response.status_code == 200
+    assert f"Book of {size}" in response.get_data(as_text=True)
+    counts["books"] = counter.opened
+
+    # CARD-514: the floor check over a submission of ``size`` puzzles — the
+    # add's first pass, which also reads each submitted id's tier.
+    submission = panel.puzzles(_tiers(size))
+    counter.opened = 0
+    tiers = {}
+    book = panel.books.get_book(book_id)
+    assert panel.books._below_floor_for(book, submission, tiers=tiers) == []
+    assert set(tiers) == set(submission) and None not in tiers.values()
+    counts["floor"] = counter.opened
+
     # Put the real factory back for the next measurement.
     panel.store._session_factory = counter.inner
     panel.books._session_factory = counter.inner
+    assert panel.books.delete_book(book_id)
     return counts
 
 
 class TestBookPaths_SessionCountDoesNotScaleWithBookSize:
-    """AC-2: a ten-times-larger book costs each path the same sessions."""
+    """AC-2: a ten-times-larger book costs each path the same sessions.
 
-    def test_the_three_paths_cost_the_same_at_both_sizes(self, db_panel) -> None:
+    CARD-514 added the books list and the floor check to CARD-157's three.
+    """
+
+    def test_the_book_paths_cost_the_same_at_both_sizes(self, db_panel) -> None:
         small = measure_paths(db_panel, SMALL)
         large = measure_paths(db_panel, LARGE)
         print(f"\nsessions per path: {SMALL}-puzzle book {small}, {LARGE}-puzzle book {large}")
