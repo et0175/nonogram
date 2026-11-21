@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_*.py
 **UI surface:** puzzle player (admin, and the public player built from the same files): the solved banner at desktop widths
-**Review score:** —
+**Review score:** 9.5 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-20T21:24Z
 **Blocked by:** —
 
@@ -144,3 +144,4 @@ The third was adopted in this round and reverted in fix round 2. The compact blo
 
 **Gate (unarmed, `-o addopts= -rfs`, same files as before).** 414 passed, 0 failed, 0 skipped. Net test count: 10689 collected, unchanged, so net 0.
 
+[Review 3/3] Score: 9.5, nothing gating, certified. F-005 closed: admin.css byte-identical to d3f4615b; "Northumberlandshire lighthouse at dawn" breaks at the space again. Controls re-fired: no-overflow 6/6 red, `--text-sm` 6/6 red; unmutated `test_wraps` 6 passed in 3 runs; player set 414 passed, 0 skipped. F-003 (IDEA-221) and F-006 (IDEA-222) recorded, not gating.
