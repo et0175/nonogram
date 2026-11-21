@@ -4439,7 +4439,7 @@ ideas:
   source_line: 335
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -4501,7 +4501,7 @@ ideas:
   source_line: 337
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -4534,7 +4534,7 @@ ideas:
   source_line: 338
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -4587,7 +4587,7 @@ ideas:
   source_line: 341
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -4619,7 +4619,7 @@ ideas:
   source_line: 343
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1

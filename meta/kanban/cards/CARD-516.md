@@ -1,6 +1,6 @@
 # CARD-516: The kill matrix's own anchors and controls hold what they claim
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/516-kill-matrix-anchors
-**Worktree:** ../PythonProject4-card-516
+**Worktree:** —
 **Source:** roadmap wave 9, cut 2026-11-21 on the owner's "yes, start wave 9". IDEA-185, IDEA-187, IDEA-188 (one job: the AC-7 anchors) and IDEA-182, IDEA-184 (weak controls in the same instrument). Full texts: meta/kanban/backlog.md, the five CARD-260 items.
 **Idea:** IDEA-182, IDEA-184, IDEA-185, IDEA-187, IDEA-188
 **Wave:** 88
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T20:01Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-21T21:18Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** fe41d449426fa738dcfe7c710fbf23494c910c97
 **Blocked by:** —
 
 ## Why this card exists
