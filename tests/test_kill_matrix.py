@@ -97,12 +97,56 @@ ENV_NAME_SHAPE = re.compile(r"KILL_MATRIX[A-Z_]*")
 
 
 def _aliased_spawn_imports(tree: ast.AST) -> list[str]:
-    """Every ``from <spawn module> import ...`` in `tree`, as module names."""
-    return [
-        node.module
+    """Every route to a spawn the argv census would not see as spawn-shaped.
+
+    Four routes, each reported as the text that names it:
+
+    * ``from <spawn module> import ...`` -- the module name;
+    * ``import <spawn module> as <alias>`` -- ``"<module> as <alias>"``, since
+      ``sp.run(...)`` does not match ``_SPAWN``;
+    * a spawn-shaped name **used as a value** rather than called --
+      ``run = subprocess.run`` (``"subprocess.run in Assign"``) and
+      ``functools.partial(subprocess.run, ...)`` (``"subprocess.run in
+      Call"``) -- because whatever calls it later does so under a name
+      ``_SPAWN`` cannot see.
+
+    The value rule is default-deny and over-marks: any spawn-shaped name read
+    outside a call's callee counts, except as an ``except`` clause's type,
+    which is where the instrument itself names ``subprocess.CalledProcessError``.
+    The last three routes are CARD-516's; CARD-260 refused the first only.
+    """
+    callees = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+    inside = {
+        id(child)
         for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module in SPAWN_IMPORT_MODULES
-    ]
+        for child in ast.iter_child_nodes(node)
+        if isinstance(node, ast.Attribute)
+    }
+    excepted = {
+        id(child)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ExceptHandler) and node.type is not None
+        for child in ast.walk(node.type)
+    }
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module in SPAWN_IMPORT_MODULES:
+            found.append(node.module)
+        elif isinstance(node, ast.Import):
+            found.extend(
+                f"{alias.name} as {alias.asname}"
+                for alias in node.names
+                if alias.asname and alias.name.split(".")[0] in SPAWN_IMPORT_MODULES
+            )
+        for child in ast.iter_child_nodes(node):
+            if (
+                isinstance(child, (ast.Attribute, ast.Name))
+                and isinstance(child.ctx, ast.Load)
+                and id(child) not in callees | inside | excepted
+                and km._SPAWN.search(ast.unparse(child))
+            ):
+                found.append(f"{ast.unparse(child)} in {type(node).__name__}")
+    return found
 
 
 def _spawn_argv_heads(tree: ast.AST) -> list[str]:
@@ -381,13 +425,15 @@ def test_ac1_the_edge_of_the_claim_is_the_line_count_and_nothing_else(
             km.apply_edit(source, edit)
 
 
-def test_g1_the_two_construction_refusals_each_have_a_control(tmp_path):
+def test_g1_the_two_construction_refusals_each_have_a_control(tmp_path, simple_target):
     """ADR-0039/R1 for the two refusals nothing exercised.
 
     Both are construction-time and cheap, and the empty-edit-set one is
     measurement-relevant: without it ``_apply`` is a no-op and the mutant's
-    column publishes as a survivor, which is trap 5's own shape. Re-derive the
-    refusals rather than the expectations if either reds.
+    column publishes as a survivor, which is trap 5's own shape. That clause is
+    planted at the end rather than derived from reading ``run()`` (F-402,
+    CARD-516). Re-derive the refusals rather than the expectations if either
+    reds.
     """
     with pytest.raises(MutantRefused, match="edits nothing"):
         km.Mutant("EDITS-NOTHING", ())
@@ -399,6 +445,17 @@ def test_g1_the_two_construction_refusals_each_have_a_control(tmp_path):
     # by refusing always.
     ok = km.Edit(path=tmp_path / "x.py", old="a", new="b", occurrence=1)
     assert km.Mutant("ORDINARY", (ok,)).edits == (ok,)
+
+    # Past the refusal, an edit-less mutant is measured, and its column is
+    # SHIPPED's cell for cell: an all-PASS survivor, because nothing after
+    # construction checks that a mutant changed a file.
+    hollow = km.Mutant(
+        "HOLLOW",
+        (Edit(path=simple_target, old='MARK = "shipped"', new='MARK = "rotted!"'),),
+    )
+    object.__setattr__(hollow, "edits", ())
+    result = _runner(simple_target).run(Pass.RECORDING, [hollow])
+    assert result.mutants["HOLLOW"].cells == result.shipped.cells, result.table()
 
 
 def test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing(
@@ -673,14 +730,17 @@ def test_ac3_one_transformer_and_the_recording_pass_is_its_failing_state():
     """
     source = "def f():\n    assert 1 == 2\n"
     bodies = {}
-    for reraise in (False, True):
-        tree = km._Recorder(reraise).visit(ast.parse(source))
+    # Through ``Pass.reraise``, the route the runner takes, not literal
+    # booleans: a mutation of that property reds here too (CARD-516).
+    for pass_ in Pass:
+        tree = km._Recorder(pass_.reraise).visit(ast.parse(source))
         ast.fix_missing_locations(tree)
-        bodies[reraise] = ast.unparse(tree)
+        bodies[pass_] = ast.unparse(tree)
 
-    assert "raise" not in bodies[False], bodies[False]
-    assert "raise" in bodies[True], bodies[True]
-    assert bodies[False] == bodies[True].replace("\n        raise", ""), (
+    recording, reraising = bodies[Pass.RECORDING], bodies[Pass.RERAISING]
+    assert "raise" not in recording, recording
+    assert "raise" in reraising, reraising
+    assert recording == reraising.replace("\n        raise", ""), (
         "the two passes are not one transformer apart; the control is only free "
         "while the recording pass *is* the handler that forgot the raise"
     )
@@ -954,6 +1014,12 @@ def test_ac4_two_sequential_mutants_each_see_a_clean_shipped(simple_target, tmp_
     for name, matrix in result.shipped_between.items():
         assert matrix.failed == (), f"{name}: {matrix.table()}"
         assert matrix.cells == result.shipped.cells, name
+        # The arm that tells a re-run from a copy (CARD-516): the initial
+        # SHIPPED stored under each mutant's name satisfies both arms above.
+        assert matrix.label == f"SHIPPED after {name}", (
+            f"{name}'s between-mutants reading is labelled {matrix.label!r}, so "
+            "it was not the reading taken after that mutant"
+        )
     assert second.read_text(encoding="utf-8") == 'SIDE = "shipped"\n'
 
 
@@ -1011,8 +1077,10 @@ def test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere():
     ``git`` among those heads is the finding. Default-deny: a spawn whose
     argument list this cannot enumerate fails the test rather than being
     skipped. A spawn imported under a bare name (``from subprocess import run``)
-    would not be spawn-shaped at its call site, so that import is refused
-    separately, below.
+    would not be spawn-shaped at its call site, and neither would one reached
+    through ``import subprocess as sp``, ``run = subprocess.run`` or
+    ``functools.partial(subprocess.run, ...)``; all four routes are refused
+    separately, below (the last three since CARD-516).
 
     **Strings.** Every string constant, matched command-shaped and anchored —
     ``GIT_COMMAND``, the one spelling of ``(\\S*/)?git(\\s|$)`` in this file —
@@ -1047,9 +1115,9 @@ def test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere():
     tree = ast.parse(INSTRUMENT.read_text(encoding="utf-8"), filename=str(INSTRUMENT))
     aliased = _aliased_spawn_imports(tree)
     assert aliased == [], (
-        f"{aliased} is imported from, so a spawn could be called under a bare "
-        "name that is not spawn-shaped and the enumeration below would not see "
-        "it"
+        f"{aliased}: a spawn reachable under a name that is not spawn-shaped "
+        "(imported from, imported as an alias, or bound as a value), so the "
+        "enumeration below would not see it"
     )
 
     commands = _spawn_argv_heads(tree)
@@ -1062,6 +1130,17 @@ def test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere():
 
     invoked = _git_command_strings(tree)
     assert invoked == [], invoked
+    # F-502 (CARD-516): the pattern is restated in prose twice, in this
+    # docstring and in the README's G-5 paragraph, and a restatement nothing
+    # compares drifts silently when GIT_COMMAND changes.
+    for prose in (
+        test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere.__doc__ or "",
+        (REPO / "tests" / "README.md").read_text(encoding="utf-8"),
+    ):
+        assert GIT_COMMAND.pattern in prose, (
+            f"GIT_COMMAND is {GIT_COMMAND.pattern!r} and a prose restatement of "
+            "it no longer says so: update the prose with the pattern"
+        )
     assert GIT_COMMAND.match("/usr/bin/git status"), (
         "the widened pattern no longer reaches an absolute path, which is the "
         "shape it was widened for"
@@ -1121,7 +1200,9 @@ PROSE = "legit grievance"
 #: A source that imports a spawn under a bare name from every member of
 #: ``SPAWN_IMPORT_MODULES``. Written out rather than generated from the set: a
 #: plant derived from the set shrinks with it, and the equality it feeds would
-#: then hold however many members were deleted.
+#: then hold however many members were deleted. Below the imports, the three
+#: alias routes (CARD-516), and the ``except`` type the value rule must not
+#: count, because the instrument itself names one.
 SPAWN_IMPORT_TARGET = '''\
 from subprocess import run
 from os import system
@@ -1129,6 +1210,14 @@ from multiprocessing import Process
 from posix import execv
 from pty import spawn
 from pathlib import Path
+import functools, subprocess
+import subprocess as sp
+call = subprocess.run
+later = functools.partial(subprocess.run, ["cp"])
+try:
+    pass
+except (OSError, subprocess.CalledProcessError):
+    pass
 '''
 
 
@@ -1196,17 +1285,22 @@ def test_g5_the_bare_name_spawn_import_census_catches_a_planted_import():
     # that set, so a finding compared against the set agrees with it however
     # many members are deleted -- the self-certifying shape this section exists
     # to remove. Written out, a member deleted or replaced stops being found in
-    # a source that still imports it and this reds.
+    # a source that still imports it and this reds -- and so does a route
+    # (alias import, value in an assignment, value as an argument) whose rule
+    # is lost, since each has its own entry.
     assert sorted(found) == [
         "multiprocessing",
         "os",
         "posix",
         "pty",
         "subprocess",
+        "subprocess as sp",
+        "subprocess.run in Assign",
+        "subprocess.run in Call",
     ], (
-        "a module was dropped from or replaced in SPAWN_IMPORT_MODULES, so a "
-        "spawn imported under a bare name from it is now invisible to both "
-        f"halves of G-5: found {found}"
+        "a module was dropped from or replaced in SPAWN_IMPORT_MODULES, or an "
+        "alias route stopped being refused, so a spawn reachable under that "
+        f"name is now invisible to both halves of G-5: found {found}"
     )
     # And the set against the same literal, so a member ADDED cannot slip in
     # without a plant: the two asserts together make any change to the set red.
@@ -1471,6 +1565,13 @@ def test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure(tmp_path, monkey
     that could not run. Asserted together with the *absence* of a ``diff -q``
     finding, which is what holds this test to its own arm instead of
     re-measuring the mismatch above.
+
+    The branch catches two classes, and each has its own plant (CARD-516): an
+    **absent** binary raises ``FileNotFoundError`` (an ``OSError``), and a
+    ``shasum`` that exists and **exits non-zero** raises
+    ``CalledProcessError``. Each is told apart by the text its exception puts
+    in the finding, so dropping either class from the ``except`` reds this
+    test on that plant alone.
     """
     target = _write(tmp_path, "km_no_shasum.py", "VALUE = 1\n")
     runner = Runner(selection=[str(target)], repo_root=tmp_path)
@@ -1488,20 +1589,34 @@ def test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure(tmp_path, monkey
     monkeypatch.setenv("PATH", str(narrow))
     assert shutil.which("shasum") is None, "the plant did not remove shasum"
 
-    with pytest.raises(LeakedPatch) as caught:
-        runner._restore(registry)
+    failing = narrow.parent / "km-path-with-failing-shasum"
+    failing.mkdir()
+    for tool in ("cp", "diff"):
+        (failing / tool).symlink_to((narrow / tool).resolve())
+    (failing / "shasum").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (failing / "shasum").chmod(0o755)
 
-    said = str(caught.value)
-    assert "shasum -a 256 could not verify" in said, said
-    assert "a verification that did not run is not a verification" in said, said
-    assert "diff -q says" not in said, (
-        "the restore must succeed here, or this is the wrong-bytes control "
-        "again rather than the unrunnable-verification one"
-    )
-    assert target.read_text(encoding="utf-8") == "VALUE = 1\n", (
-        "cp -p must still have restored the file: the failure under test is "
-        "the verification, not the restore"
-    )
+    for plant, path_dir, cause in (
+        ("absent", narrow, "No such file or directory"),
+        ("exits 1", failing, "returned non-zero exit status 1"),
+    ):
+        target.write_text("VALUE = mutated\n", encoding="utf-8")
+        monkeypatch.setenv("PATH", str(path_dir))
+        with pytest.raises(LeakedPatch) as caught:
+            runner._restore(registry)
+
+        said = str(caught.value)
+        assert "shasum -a 256 could not verify" in said, (plant, said)
+        assert cause in said, (plant, said)
+        assert "a verification that did not run is not a verification" in said, said
+        assert "diff -q says" not in said, (
+            "the restore must succeed here, or this is the wrong-bytes control "
+            "again rather than the unrunnable-verification one"
+        )
+        assert target.read_text(encoding="utf-8") == "VALUE = 1\n", (
+            "cp -p must still have restored the file: the failure under test is "
+            "the verification, not the restore"
+        )
 
 
 def test_g5_a_finished_run_discards_its_temp_tree_and_a_failed_restore_keeps_it(
@@ -1541,6 +1656,53 @@ def test_g5_a_finished_run_discards_its_temp_tree_and_a_failed_restore_keeps_it(
         "verify, and it did not"
     )
 
+    # The declared bound's other half (F-403, CARD-516): a Runner whose helpers
+    # are driven without ``run`` keeps its tree, so every test here that does
+    # so must point ``_workdir`` at a directory pytest owns. The helpers are
+    # derived from Runner: the methods that reach ``workdir``, directly or
+    # through another such method.
+    runner_class = next(
+        node
+        for node in ast.parse(INSTRUMENT.read_text(encoding="utf-8")).body
+        if isinstance(node, ast.ClassDef) and node.name == "Runner"
+    )
+    methods = {
+        node.name: {
+            sub.attr for sub in ast.walk(node) if isinstance(sub, ast.Attribute)
+        }
+        for node in runner_class.body
+        if isinstance(node, ast.FunctionDef)
+    }
+    helpers = {"workdir"}
+    while True:
+        grown = helpers | {name for name, uses in methods.items() if uses & helpers}
+        if grown == helpers:
+            break
+        helpers = grown
+    helpers -= {"workdir", "run", "_discard_workdir"}
+    assert {"_pytest", "_measure", "_backup_registry"} <= helpers, sorted(helpers)
+    unowned = []
+    for node in ast.parse(Path(__file__).read_text(encoding="utf-8")).body:
+        if not (isinstance(node, ast.FunctionDef) and node.name.startswith("test_")):
+            continue
+        called = {
+            call.func.attr
+            for call in ast.walk(node)
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+        }
+        owned = any(
+            isinstance(target, ast.Attribute) and target.attr == "_workdir"
+            for assign in ast.walk(node)
+            if isinstance(assign, ast.Assign)
+            for target in assign.targets
+        )
+        if called & helpers and "run" not in called and not owned:
+            unowned.append(node.name)
+    assert unowned == [], (
+        f"{unowned} drive Runner helpers without a run and leave _workdir at a "
+        "machine-wide temp directory nothing removes"
+    )
+
 
 # ==========================================================================
 # AC-5 (trap 5) — a no-op mutant, and an occurrence the caller did not mean
@@ -1562,25 +1724,45 @@ def test_ac5_a_no_op_mutant_is_refused(simple_target):
 #: The five-occurrence case from the wild, named in CARD-257's cycle-3 record.
 #: A correction that is itself trap 5's shape: what occurs **five** times in
 #: ``tests/test_db_engine_lifecycle.py`` is the assert's *message*; the whole
-#: source line occurs four times, because ``:1047`` asserts ``built`` where the
-#: other four assert ``names``. Measured here rather than carried over, and
-#: both numbers are asserted below so neither can drift.
+#: source line occurs four times, because the first occurrence asserts
+#: ``built`` where the other four assert ``names``. Measured here rather than
+#: carried over, and both numbers are asserted below so neither can drift.
 #:
-#: The **line numbers** are a position in a live file and they have moved. The two
-#: *counts* (5 and 4) and the arm's *occurrence* (2) did not move, which is the
-#: reason they, and not the positions, are what the anchor is about. Re-derive
-#: these from the file rather than trusting them.
+#: The **line numbers** are a position in a live file, and they moved with every
+#: card that edited it (CARD-259 re-committed all five). The two *counts* (5 and
+#: 4) and the arm's *occurrence* (2) are what the anchor is about, so since
+#: CARD-516 no position is stored here: :func:`_names_blind_occurrences` reads
+#: them off the file's AST at test time.
 NAMES_BLIND_MESSAGE = "no module-level globals found in _init_engine (guard is blind)"
 NAMES_BLIND_LINE = (
     '        assert names, "no module-level globals found in _init_engine '
     '(guard is blind)"'
 )
-NAMES_BLIND_OCCURRENCES = (1047, 1194, 1356, 1402, 1529)
-#: ``:1194`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
-#: is the whole point: a caller who did not name it would have mutated
-#: ``:1047``, in a different test, and read the answer off the wrong arm.
+#: CARD-257's ``NAMES-BLIND`` arm is the **second** occurrence, which is the
+#: whole point: a caller who did not name it would have mutated the first, in a
+#: different test, and read the answer off the wrong arm.
 NAMES_BLIND_ARM_OCCURRENCE = 2
 LIFECYCLE = REPO / "tests" / "test_db_engine_lifecycle.py"
+
+
+def _names_blind_occurrences() -> list[int]:
+    """The line of each string constant in ``LIFECYCLE`` carrying the message.
+
+    In file order, read off the AST rather than found by text search, so the
+    expectation is not computed by the route :func:`kill_matrix.apply_edit`
+    counts occurrences with.
+    """
+    tree = ast.parse(LIFECYCLE.read_text(encoding="utf-8"), filename=str(LIFECYCLE))
+    return [
+        lineno
+        for lineno, _col in sorted(
+            (node.lineno, node.col_offset)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and NAMES_BLIND_MESSAGE in node.value
+        )
+    ]
 
 
 def test_ac5_the_five_occurrence_case_from_the_wild_must_be_targeted_explicitly():
@@ -1590,7 +1772,7 @@ def test_ac5_the_five_occurrence_case_from_the_wild_must_be_targeted_explicitly(
     the message occurs **5** times, the whole source line **4**.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
-    assert source.count(NAMES_BLIND_MESSAGE) == len(NAMES_BLIND_OCCURRENCES) == 5, (
+    assert source.count(NAMES_BLIND_MESSAGE) == len(_names_blind_occurrences()) == 5, (
         "the fixture moved: this card's AC-5 is the five-occurrence case"
     )
     assert source.count(NAMES_BLIND_LINE) == 4, (
@@ -1608,17 +1790,18 @@ def test_ac5_the_five_occurrence_case_from_the_wild_must_be_targeted_explicitly(
     assert "occurrence=" in said, said
 
 
-@pytest.mark.parametrize(
-    ("occurrence", "lineno"),
-    list(enumerate(NAMES_BLIND_OCCURRENCES, start=1)),
-)
-def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno):
+#: One node per occurrence. The count is asserted against the file in the test
+#: above, so a sixth occurrence reds there rather than going unvisited here.
+@pytest.mark.parametrize("occurrence", range(1, 6))
+def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence):
     """Each of the five is reachable, and each hits its own line and no other.
 
     This is trap 5's second half in the wild: ``occurrence=2`` is CARD-257's
-    ``NAMES-BLIND`` arm at ``:1194``, and a caller who did not name it would
-    have silently mutated ``:1047``, which belongs to a different test.
+    ``NAMES-BLIND`` arm -- the AC-7 anchor's preamble, found there by what it
+    says -- and a caller who did not name it would have silently mutated the
+    first occurrence, which belongs to a different test.
     """
+    lineno = _names_blind_occurrences()[occurrence - 1]
     source = LIFECYCLE.read_text(encoding="utf-8")
     mutated = km.apply_edit(
         source,
@@ -1636,8 +1819,13 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
         )
         if before != after
     ]
-    assert moved == [lineno], moved
-    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1194
+    assert moved == [lineno], (moved, lineno)
+    preamble = _four_arms()["preamble"]
+    assert (lineno == preamble) == (occurrence == NAMES_BLIND_ARM_OCCURRENCE), (
+        f"occurrence {occurrence} is at :{lineno} and the NAMES-BLIND arm at "
+        f":{preamble}: the arm must be occurrence {NAMES_BLIND_ARM_OCCURRENCE} "
+        "and no other"
+    )
 
 
 def test_ac5_an_occurrence_past_the_end_is_refused():
@@ -2870,10 +3058,77 @@ FOUR_ARM = (
     "::TestEngineLifecycle_TheResetIsAPublishedSeam"
     "::test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters"
 )
-#: CARD-257's four arms, restated from its cycle-3 record and re-derived from
-#: the unmodified parse below rather than trusted.
-PREAMBLE, NAMES, HEADS, POINTER = 1194, 1270, 1277, 1283
+#: CARD-257's four arms, held by what each one **is** rather than where it sits
+#: (CARD-516): a regular expression its predicate's source must match whole, and
+#: a phrase from its own failure message. Both must pick out the same single
+#: assert of the anchored method, and the four must stand in this order.
+FOUR_ARM_LABELS = (
+    ("preamble", r"names", "guard is blind"),
+    ("names", r"_names_shown_in\(.*", "does not name every global"),
+    ("heads", r"\{head for head in .*_head_shown_in\(.*", "does not show every spelling"),
+    ("pointer", r"re\.search\(.*", "no longer carries"),
+)
 WORD = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
+
+
+def _message_text(node: ast.expr) -> str:
+    """The literal parts of an assert's message, f-string pieces included."""
+    return " ".join(
+        part.value
+        for part in ast.walk(node)
+        if isinstance(part, ast.Constant) and isinstance(part.value, str)
+    )
+
+
+def _four_arms() -> dict[str, int]:
+    """Each arm's lineno in ``LIFECYCLE`` today, found by its predicate and label.
+
+    Nothing positional is stored, so an edit elsewhere in that file moves these
+    without an edit here. What still reds is the misattribution this
+    instrument refuses for a mutant: an arm whose predicate and message name
+    different asserts (two arms' labels swapped), an arm matched twice or not
+    at all, and a reorder of the four -- the grid was recorded with the preamble
+    ahead of the three arms it guards, which is what makes ``NAMES-BLIND``'s
+    three cells NOT-REACHED rather than PASS, and with names, heads and pointer
+    in that order.
+    """
+    _path, class_name, method_name = FOUR_ARM.split("::")
+    tree = ast.parse(LIFECYCLE.read_text(encoding="utf-8"), filename=str(LIFECYCLE))
+    methods = [
+        member
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == class_name
+        for member in node.body
+        if isinstance(member, ast.FunctionDef) and member.name == method_name
+    ]
+    assert len(methods) == 1, f"{FOUR_ARM} is not one method in {LIFECYCLE}"
+    asserts = [node for node in ast.walk(methods[0]) if isinstance(node, ast.Assert)]
+    arms: dict[str, int] = {}
+    for arm, predicate, phrase in FOUR_ARM_LABELS:
+        by_predicate = sorted(
+            node.lineno
+            for node in asserts
+            if re.fullmatch(predicate, ast.unparse(node.test), re.DOTALL)
+        )
+        by_message = sorted(
+            node.lineno
+            for node in asserts
+            if node.msg is not None and phrase in _message_text(node.msg)
+        )
+        assert len(by_predicate) == 1 and by_message == by_predicate, (
+            f"the {arm} arm is not one assert that both checks {predicate!r} and "
+            f"says {phrase!r}: the predicate is at {by_predicate}, the message "
+            f"at {by_message}. An arm whose check and whose label name different "
+            "asserts is the misattribution this anchor exists to refuse"
+        )
+        arms[arm] = by_predicate[0]
+    declared = [arm for arm, _predicate, _phrase in FOUR_ARM_LABELS]
+    assert sorted(arms, key=arms.__getitem__) == declared, (
+        f"the four arms stand in the order {sorted(arms, key=arms.__getitem__)} "
+        f"({arms}), not {declared}: CARD-257's grid was recorded on that order, "
+        "so re-measure the grid rather than reorder this list"
+    )
+    return arms
 
 
 def _docstring_span(path: Path, kind, name: str) -> tuple[int, int]:
@@ -2944,13 +3199,62 @@ def _init_engine_globals() -> tuple[str, ...]:
     raise AssertionError("session.py has no _init_engine")
 
 
-def _four_arm_grid() -> tuple[list[Mutant], dict[str, frozenset[int]]]:
+#: What the ``NAMES-BLIND`` mutant rewrites: ``_init_engine``'s own ``global``
+#: statement, whose names must begin with these three, in this order.
+INIT_ENGINE_DECLARED = ("engine", "SessionLocal", "_engine_url")
+
+
+def _init_engine_declaration() -> str:
+    """The text the ``NAMES-BLIND`` mutant replaces, held structurally.
+
+    It used to be pinned as ``count(declaration) == 2`` over all of
+    ``session.py``, a substring count that also read ``reset_engine``'s own
+    declaration: that one reds on a reorder of the other function's statement
+    and stays green on an append to it (CARD-258 appended ``_reset_count``).
+    Held now on the one statement the mutant edits (CARD-516): ``_init_engine``
+    has exactly one ``global``, its names begin with ``INIT_ENGINE_DECLARED`` in
+    that order, and its source starts with the text the edit replaces -- so a
+    reorder there reds here by name, and a name appended to either statement
+    leaves the edit's text in place and does not red.
+    """
+    source = SESSION_PY.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(SESSION_PY))
+    builders = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_init_engine"
+    ]
+    assert len(builders) == 1, "session.py has no single top-level _init_engine"
+    globals_ = [node for node in ast.walk(builders[0]) if isinstance(node, ast.Global)]
+    declaration = "global " + ", ".join(INIT_ENGINE_DECLARED)
+    assert (
+        len(globals_) == 1
+        and tuple(globals_[0].names[: len(INIT_ENGINE_DECLARED)]) == INIT_ENGINE_DECLARED
+        and (ast.get_source_segment(source, globals_[0]) or "").startswith(declaration)
+    ), (
+        "_init_engine's global statement is "
+        f"{[ast.get_source_segment(source, node) for node in globals_]}, not one "
+        f"statement starting {declaration!r}: the NAMES-BLIND mutant edits that "
+        "text, so re-derive the mutant rather than this expectation"
+    )
+    return declaration
+
+
+def _four_arm_grid(
+    arms: dict[str, int],
+) -> tuple[list[Mutant], dict[str, frozenset[int]]]:
     """CARD-257's AC-2 columns, derived from the two texts rather than quoted.
 
     Returns the mutants and, per mutant, the arms CARD-257 recorded as RED. The
     three names and the two spelling heads come from the same authority the arms
     themselves read, so this set cannot drift away from them (ADR-0039/R2).
     """
+    preamble, names_arm, heads_arm, pointer_arm = (
+        arms["preamble"],
+        arms["names"],
+        arms["heads"],
+        arms["pointer"],
+    )
     names = _init_engine_globals()
     assert len(names) == 3, names
     head_name = names[0]
@@ -2973,7 +3277,7 @@ def _four_arm_grid() -> tuple[list[Mutant], dict[str, frozenset[int]]]:
                     _scoped_edits(path, span, name, "Z" * len(name), whole_word=True),
                 )
             )
-            reds[key] = frozenset({NAMES})
+            reds[key] = frozenset({names_arm})
 
     # Four DOC-HEAD-DEL cells: two spelling heads x two texts. The heads are
     # read off the scan's own patterns; the texts write the second one with the
@@ -2993,13 +3297,12 @@ def _four_arm_grid() -> tuple[list[Mutant], dict[str, frozenset[int]]]:
                     ),
                 )
             )
-            reds[key] = frozenset({HEADS})
+            reds[key] = frozenset({heads_arm})
 
     # NAMES-BLIND: the derived set goes empty, so the preamble reds and the
     # three arms below it are never reached. ``global`` appears twice in
     # session.py, which is why this one names its occurrence too.
-    declaration = f"global {', '.join(('engine', 'SessionLocal', '_engine_url'))}"
-    assert SESSION_PY.read_text(encoding="utf-8").count(declaration) == 2
+    declaration = _init_engine_declaration()
     init_span = _function_span(SESSION_PY, "_init_engine")
     mutants.append(
         Mutant(
@@ -3013,7 +3316,7 @@ def _four_arm_grid() -> tuple[list[Mutant], dict[str, frozenset[int]]]:
             ),
         )
     )
-    reds["NAMES-BLIND"] = frozenset({PREAMBLE})
+    reds["NAMES-BLIND"] = frozenset({preamble})
 
     # The pointer arm's three readings, which is where CARD-257's cycle 2 found
     # its defect: two kills and one deliberate PASS.
@@ -3024,14 +3327,14 @@ def _four_arm_grid() -> tuple[list[Mutant], dict[str, frozenset[int]]]:
             _scoped_edits(LIFECYCLE, guard, dotted, dotted[:-12] + "gone_engine", whole_word=False),
         )
     )
-    reds["POINTER-ROT"] = frozenset({POINTER})
+    reds["POINTER-ROT"] = frozenset({pointer_arm})
     mutants.append(
         Mutant(
             "POINTER-DEL-WORD",
             _scoped_edits(LIFECYCLE, guard, "reset_engine", "ZZZZZZZZZZZZ", whole_word=True),
         )
     )
-    reds["POINTER-DEL-WORD"] = frozenset({POINTER})
+    reds["POINTER-DEL-WORD"] = frozenset({pointer_arm})
     mutants.append(
         Mutant(
             "CONTROLS-RENAME-ONLY",
@@ -3066,19 +3369,17 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     """``tests/test_db_engine_lifecycle.py``: the second anchor, CARD-257's grid.
 
     The **grid** is CARD-257's, measured at ``b441ba00``. The **positions** are
-    not: they are ``:1194`` (preamble), ``:1270`` (names), ``:1277`` (heads)
-    and ``:1283`` (pointer) at HEAD. That is the anchor's own distinction: what reproduces is
-    the grid cell for cell, not an address. Re-derived from the unmodified
-    parse here, never reused from a previous reading.
+    not, and none is stored: :func:`_four_arms` finds each arm by its predicate
+    and its own message in the unmodified parse, so a card that moves the
+    file's lines does not have to edit this one (CARD-259 had to, before
+    CARD-516). What reproduces is the grid cell for cell, not an address.
 
-    **The shift still overlaps, measured rather than assumed.** Of the four
-    previous addresses, none (``:1140``, ``:1216``, ``:1223``, ``:1229``) is an
-    assert lineno at HEAD, so a stale constant reads loudly here. That is the
-    seventh shape this
-    instrument refuses for a *mutant* standing inside its own anchor, whose
-    precondition (``set(arms) <= linenos``) is a membership test and cannot
-    tell the two apart. Recorded, not routed around: the constants above are
-    updated in the same commit as the file they index.
+    The precondition used to be ``set(arms) <= linenos``, a membership test that
+    any four assert linenos satisfied -- the seventh shape this instrument
+    refuses for a *mutant*, standing inside its own anchor. It is now an
+    identity: an arm whose check and whose label name different asserts, or
+    four arms out of their recorded order, red before any child runs. The
+    membership test against the instrument's own topology is kept beside it.
 
     What must come back: six ``DOC-NAME-DEL`` cells RED at the names arm, four
     ``DOC-HEAD-DEL`` cells RED at the heads arm, ``NAMES-BLIND`` RED at the
@@ -3100,10 +3401,11 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     linenos = set(km.assert_linenos(source, str(LIFECYCLE)))
-    arms = (PREAMBLE, NAMES, HEADS, POINTER)
-    assert set(arms) <= linenos, arms
+    labelled = _four_arms()
+    arms = tuple(labelled.values())
+    assert set(arms) <= linenos, labelled
 
-    mutants, reds = _four_arm_grid()
+    mutants, reds = _four_arm_grid(labelled)
     assert len(mutants) == 14, [m.name for m in mutants]
 
     result = Runner(
@@ -3118,7 +3420,7 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
             got = result.cell(name, arm)
             if arm in red_arms:
                 assert got == FAIL, f"{name} at :{arm} is {got}, expected FAIL"
-            elif name == "NAMES-BLIND" and arm != PREAMBLE:
+            elif name == "NAMES-BLIND" and arm != labelled["preamble"]:
                 assert got == NOT_REACHED, f"{name} at :{arm} is {got}, expected n/r"
             else:
                 assert got == PASS, f"{name} at :{arm} is {got}, expected PASS"
