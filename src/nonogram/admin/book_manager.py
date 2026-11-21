@@ -1294,21 +1294,16 @@ class BookManager:
             raise ValueError(unreadable_print_setup_refusal(str(unreadable))) from unreadable
 
         refusals: List[FloorRefusal] = []
-        # The submission's own clue sets, read once each, in submission order.
-        # They are both what the floor judges and half of the membership the
-        # shared cell is fitted over (below).
+        # The submission's own clue sets, in submission order, from one bulk
+        # read by id (CARD-514, as CARD-157 did for the other book paths). They
+        # are both what the floor judges and half of the membership the shared
+        # cell is fitted over (below). ``get_puzzles`` leaves out an id no row
+        # matches and one that cannot name a row at all (not a UUID); both get
+        # the warning below.
+        submitted_records = self.puzzle_store.get_puzzles(puzzle_ids)
         clue_sets: Dict[str, Any] = {}
         for puzzle_id in puzzle_ids:
-            try:
-                record = self.puzzle_store.get_puzzle(puzzle_id)
-            except (ValueError, TypeError) as error:
-                logger.warning(
-                    "Puzzle id %r that no row can match (%s); the floor has no "
-                    "cell to measure for it.",
-                    puzzle_id,
-                    error,
-                )
-                continue
+            record = submitted_records.get(puzzle_id)
             if record is None:
                 logger.warning(
                     "Puzzle id %r matches no stored puzzle; the floor has no cell "

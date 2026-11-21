@@ -3239,16 +3239,14 @@ def create_app(debug=None):
         ``book_plan.selection_cells`` makes on a record with no recognisable
         tier or with a side outside the supported range, and the same one
         ``BookManager._selection_records`` makes for the gate.
+
+        One bulk read by id over the book's own list (CARD-514, as CARD-157
+        did for the other book paths): the list reads one session per book,
+        not one per member. Order and repeats are the book's own.
         """
-        records = []
-        for puzzle_id in book.puzzle_ids:
-            try:
-                record = puzzle_review.get_puzzle(str(puzzle_id))
-            except (ValueError, TypeError):
-                continue
-            if record:
-                records.append(record)
-        return records
+        keys = [str(puzzle_id) for puzzle_id in book.puzzle_ids]
+        found = puzzle_review.get_puzzles(keys)
+        return [found[key] for key in keys if found.get(key)]
 
     def _book_plan_stats(book):
         """One books-list row's planned-vs-actual figures (FR-039).
