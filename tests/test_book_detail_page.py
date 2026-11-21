@@ -324,17 +324,25 @@ class TestBookPages_OfferBothExportFiles:
         assert response.data.startswith(b"%PDF")
 
     def test_a_book_with_no_puzzles_still_offers_its_cover(self, admin_app, client):
-        """The cover is a title cover without puzzles; only the interior waits."""
-        book_id, _ = _make_book(admin_app, names=(), tiers=())
-        page = _read(client, f"/book/{book_id}")
+        """The cover is a title cover without puzzles; only the interior waits.
 
-        assert _book_forms(page, book_id, "interior") == []
-        assert [b for b in page.loose_buttons if b["part"] == "interior"] == [
-            {"part": "interior", "disabled": True}
-        ]
-        ((form, button),) = _book_forms(page, book_id, "cover")
-        assert not button["disabled"]
-        assert form["hidden"] == {"part": "cover"}
+        CARD-513 (IDEA-052): on both pages. The list used to offer the
+        interior of a no-puzzle book while the book page disabled it; that
+        download is a title page and the two guide pages with no puzzle in
+        them, the file ``generate-pdf`` refuses to make. The pages are read in
+        one test rather than parametrized, so the two are judged together.
+        """
+        book_id, _ = _make_book(admin_app, names=(), tiers=())
+        for which in PAGES:
+            page = _page_for(client, which, book_id)
+
+            assert _book_forms(page, book_id, "interior") == [], which
+            assert [b for b in page.loose_buttons if b["part"] == "interior"] == [
+                {"part": "interior", "disabled": True}
+            ], which
+            ((form, button),) = _book_forms(page, book_id, "cover")
+            assert not button["disabled"], which
+            assert form["hidden"] == {"part": "cover"}, which
 
     @pytest.mark.parametrize("which", PAGES)
     def test_a_lost_cover_upload_disables_the_cover_button(
