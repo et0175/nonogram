@@ -1057,7 +1057,7 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
     the check icon keeps its 1em square. CARD-507 (owner 2026-11-20, IDEA-218
     option 2): at every width the banner's text is clamped to two --text-xs
     lines, so the name is cut, not wrapped further (a third line is laid out
-    but hits nothing of the banner where it would paint), the board's box is
+    but, CARD-512, paints no pixel below the box), the board's box is
     the same before and after the solving click, and the text keeps the whole
     name (the clamp is visual only). CARD-511: the third viewport is the
     600 x 900 portrait tablet (it was 1440 x 900, the same desktop rule as
@@ -1075,7 +1075,11 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
             before, after, boxes = _solve_and_measure(page)
             name = page.locator("[data-player-solved-name]").inner_text()
             words = page.locator("#puzzle-player-solved").text_content()
+            # CARD-512: the banner in the viewport, so its lines can be
+            # screenshotted (the board's boxes above were taken already).
+            page.locator("#puzzle-player-solved").scroll_into_view_if_needed()
             text = page.evaluate(_BANNER_TEXT)
+            painted = _name_paints(page, text)
             icon = page.locator("#puzzle-player-solved .icon").bounding_box()
             text_px = page.locator("#puzzle-player-solved").evaluate("(el) => parseFloat(getComputedStyle(el).fontSize)")
         finally:
@@ -1085,10 +1089,15 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
         # and the board does not move on solve.
         assert text["height"] <= 2 * text["lineHeight"] + 0.5, text
         # ... and what lies past them is cut where it is painted: the name
-        # runs on (a third line is laid out below the box), and no element of
-        # the banner is in the hit stack at the middle of that line.
+        # runs on (a third line is laid out below the box), and hiding the
+        # name changes no pixel of that line below the box, while it does
+        # change its first line (so the screenshots can see the name at all).
+        # CARD-512: pixels, not the hit stack -- `pointer-events: none` in
+        # place of `overflow: hidden` passed a hit-stack check while the
+        # third line was painted.
         assert text["scrollHeight"] > text["clientHeight"] and text["below"] is not None, text
-        assert text["below"]["inBanner"] is False, text
+        assert painted["first"] is True, (text, painted)
+        assert painted["below"] is False, (text, painted)
         # The size is the compact rule's --text-xs, resolved by the page.
         assert text["fontSize"] == text["textXs"], text
         assert (after["x"], after["y"]) == (before["x"], before["y"]), (after["x"] - before["x"], after["y"] - before["y"])
@@ -1102,8 +1111,9 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
 
 
 #: CARD-507: the banner text's box, its clamp, its size against the page's
-#: own --text-xs, whether anything of the banner is hit at the middle of the
-#: name's first laid-out line centred below the box (a third line).
+#: own --text-xs, and (CARD-512) two viewport rects for :func:`_name_paints`:
+#: the name's first line, and its first line laid out below the box (a third
+#: line), cut to the part below the box.
 _BANNER_TEXT = """() => {
   const span = document.querySelector('#puzzle-player-solved > span');
   const box = span.getBoundingClientRect();
@@ -1115,18 +1125,39 @@ _BANNER_TEXT = """() => {
   probe.remove();
   const range = document.createRange();
   range.selectNodeContents(document.querySelector('[data-player-solved-name]'));
-  const line = [...range.getClientRects()].find((r) => r.top + r.height / 2 > box.bottom && r.width > 0);
-  let below = null;
-  if (line) {
-    const x = line.left + line.width / 2, y = line.top + line.height / 2;
-    // The whole hit stack, not only the top element: a line painted past
-    // the box would lie under the Show grid button there.
-    const stack = document.elementsFromPoint(x, y);
-    below = { x, y, inBanner: stack.some((el) => el.closest('#puzzle-player-solved') !== null) };
-  }
+  const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+  const cut = (r, top) => ({ x: r.left, y: Math.max(r.top, top), right: r.right, bottom: r.bottom });
+  const line = rects.find((r) => r.top + r.height / 2 > box.bottom);
   return { height: box.height, lineHeight: parseFloat(cs.lineHeight), fontSize: cs.fontSize, textXs,
-           scrollHeight: span.scrollHeight, clientHeight: span.clientHeight, below };
+           scrollHeight: span.scrollHeight, clientHeight: span.clientHeight,
+           first: rects.length ? cut(rects[0], -Infinity) : null,
+           below: line ? cut(line, box.bottom) : null };
 }"""
+
+
+def _name_paints(page, text) -> dict:
+    """CARD-512: whether the solved name paints anything in each of
+    ``text``'s two rects, judged by pixels: a screenshot of the rect with the
+    name visible, against one with the name ``visibility: hidden`` (which
+    changes no layout). Rects are shrunk to whole pixels, so an edge pixel
+    the box's own clip shares with the rect cannot count."""
+    import math
+
+    def shot(rect):
+        x, y = math.ceil(rect["x"]), math.ceil(rect["y"])
+        w, h = math.floor(rect["right"]) - x, math.floor(rect["bottom"]) - y
+        assert w > 0 and h > 0, rect
+        return page.screenshot(clip={"x": x, "y": y, "width": w, "height": h}, animations="disabled")
+
+    rects = {key: text[key] for key in ("first", "below") if text[key] is not None}
+    shown = {key: shot(rect) for key, rect in rects.items()}
+    name = page.locator("[data-player-solved-name]")
+    name.evaluate("(el) => { el.style.visibility = 'hidden'; }")
+    try:
+        hidden = {key: shot(rect) for key, rect in rects.items()}
+    finally:
+        name.evaluate("(el) => { el.style.visibility = ''; }")
+    return {key: shown[key] != hidden[key] for key in rects}
 
 
 _TOOLBAR_ROWS = """() => {
