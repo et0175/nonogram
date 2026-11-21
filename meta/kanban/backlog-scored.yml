@@ -5427,3 +5427,12 @@ ideas:
   status: backlog
   needs_owner_decision: true
   scored_at: '2026-11-21'
+- id: IDEA-226
+  title: A blank or whitespace-only DATABASE_URL boots the admin panel quietly in in-memory mode
+  raw: '- [ ] CARD-515 review 1 F-003: after CARD-515 a whitespace-only DATABASE_URL counts as unset, as an empty one already did, so the panel starts in in-memory mode and logs "DATABASE_URL not set"; writes are lost on restart. On main before CARD-515 the whitespace case failed on every request. `_configured_hostname` already refuses a blank REMOTE_HOST. Whether the deployed panel (REMOTE_HOST set) should refuse to start without a database is an owner decision.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  needs_owner_decision: true
+  scored_at: '2026-11-22'

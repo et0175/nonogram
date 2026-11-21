@@ -92,7 +92,10 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 9 — IN PROGRESS (board wave 88)
+## Wave 9 — DONE 2026-11-22 (board wave 88)
+
+Two cards merged: CARD-516 (`fe41d449`, 9.0 cycle 1), CARD-515 (`b79db921`, 9.5 cycle 2). Wave close: CARD-515's second merge gate answered FULL on `92353558` (main with CARD-516 merged), 10660 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, all 13 marked tests run and nothing deselected, 31 min; `src/`, `tests/`, `player/` and `scripts/` on `main` after the merge are identical to that tree (`git diff --stat` empty), so no second full run was made. Net tests +1 (CARD-515's absent/blank parametrisation). Nothing reaches the public player, so no publish: a build from `9496e8f5` on 2026-11-21 matched production byte for byte (176 files). CARD-515's first FULL gate was red: `tests/database_guard.py` imported `trimmed_url` from `nonogram`, and `test_suite_profile`'s sandbox, which copies tests/ but not src/, reached another checkout's `nonogram`; fixed by trimming inline in the test tree. Recorded: **IDEA-226** (a blank DATABASE_URL boots the panel in in-memory mode; owner decision). Recorded, not carded: no test holds `database_guard._trimmed` equal to `session.trimmed_url` (CARD-515 F-202); the kill matrix's value rule over-marks non-spawning uses such as `subprocess.DEVNULL` (CARD-516 F-001); its AC-7 arms are now held by their wording (CARD-516 F-002).
+
 
 ### As cut
 
