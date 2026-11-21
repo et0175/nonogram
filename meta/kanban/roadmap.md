@@ -92,6 +92,20 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 8 — IN PROGRESS (board wave 87)
+
+### As cut
+
+Cut against main on 2026-11-21 on the owner's "yes, start wave 8". The feature bucket's top items still wait on the owner (IDEA-105, 125, 126, 178; IDEA-221 and IDEA-224 asked at the wave-7 close), so the wave takes the one player defect wave 7 measured (IDEA-223), its two test-instrument follow-ups, and the next tech-debt band (WSJF 2.31 and 1.92), bundled by area. Not carded: IDEA-028 (the image-mode difficulty sweep, its own wave), IDEA-111, 106, 112, 010 (as at wave 7), and the process items.
+
+### feature
+- **CARD-511** (IDEA-223) At 600x900 the board no longer moves when a puzzle is solved — 1c
+
+### tech-debt
+- **CARD-512** (IDEA-220, IDEA-222) The session lock's escape hatch; test_wraps' paint check — 1c
+- **CARD-513** (IDEA-052, IDEA-043) A no-puzzle book's download; the plan tripwire logged twice — 1c
+- **CARD-514** (IDEA-045, IDEA-148) The last one-session-per-puzzle loops; the largest-board flake — 2c
+
 ## Wave 7 — DONE 2026-11-21 (board wave 86)
 
 Four cards merged: CARD-507 (`837cb27f`, 9.5 cycle 3), CARD-508 (`f2f4a420`, 9.5 cycle 1), CARD-509 (`965e5cda`, 9.5 cycle 1), CARD-510 (`67b434d3`, 9.5 cycle 1). Wave close: `make test-wave-close` on `main` at `1fa32b72`, 10658 passed, 30 skipped (29 DATABASE_URL unset, 1 setrlimit), 1 xfailed, 0 failed, 43 min; net tests 0 over the wave (10689 both closes). PUBLISHED 2026-11-21 on the owner's "please publish player": CARD-507 and CARD-506 reach the public player (production `nonogram-studio-6p2wxvv2l`, rollback `nonogram-studio-48qnaa31w`; docs/deploy/player.md). CARD-510 found three of CARD-276's published kill counts too low (N12b 5 → 6, N18 1 → 6 on `ac479658`; N8h 1 → 5 on `f794d5a8`): its selection was narrower than the file and unrecorded; every node it named still reds. CARD-510's gate caught a page wording of mine (a backticked `--text-xs` in docs/deploy/player.md reads as an assembly-helper flag), fixed on main in `98f79a43`. Recorded, not carded: **IDEA-220** (a stale `NONOGRAM_TEST_DB_SESSION_LOCK` disables the session lock), **IDEA-221** (a no-space or long-first-word solved name starts on line 2; owner decision), **IDEA-222** (test_wraps' elementsFromPoint check is defeated by `pointer-events: none`), **IDEA-223** (the 600x900 board shift on solve, pre-existing), **IDEA-224** (trailing whitespace in DATABASE_URL passes into the db name; owner decision).

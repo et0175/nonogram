@@ -1178,7 +1178,7 @@ ideas:
     path today, per ADR-0036/R2)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -1235,7 +1235,7 @@ ideas:
     /books list, app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -1404,7 +1404,7 @@ ideas:
     a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -3647,7 +3647,7 @@ ideas:
   source_line: 221
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -5382,7 +5382,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   scored_at: '2026-11-21'
 - id: IDEA-221
   title: On desktop a solved name with no spaces (or a first word too long to sit beside the label) starts on line 2, under Solved!
@@ -5399,7 +5399,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   scored_at: '2026-11-21'
 - id: IDEA-223
   title: At 600x900 the board moves on solve for every name length (dx +12.7, dy +27.2 px)
@@ -5407,7 +5407,7 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: backlog
+  status: in_kanban
   scored_at: '2026-11-21'
 - id: IDEA-224
   title: A trailing space or newline in DATABASE_URL passes silently into the database name
