@@ -1,6 +1,6 @@
 # CARD-510: Independently re-fire CARD-276's six mutant cells, or declare each one unfired with its reason
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/510-refire-276-mutants
-**Worktree:** ../PythonProject4-card-510
+**Worktree:** —
 **Source:** roadmap wave 7, added 2026-11-20 on the owner's "add IDEA-215 to this wave too". IDEA-215 (WSJF 3.08), split out of CARD-300 (skipped) on 2026-10-28, where it was AC-5.
 **Idea:** IDEA-215
 **Wave:** 86
@@ -20,6 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T00:19Z
+**Closed:** 2026-11-21T03:59Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 67b434d30b3de2a9017b167b226ad2610d491ba1
 **Blocked by:** —
 
 ## Why this card exists
