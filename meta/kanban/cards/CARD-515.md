@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/db/session.py, tests/conftest.py
 **UI surface:** —
-**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-21T20:01Z
 **Closed:** —
 **Actual:** —
@@ -127,3 +127,7 @@ Re-verify the premise on main first (a URL ending in a space and one ending in a
 - Armed with that URL padded, over the four changed test files: 160 passed.
 - Each run's one warning is SQLAlchemy's `MovedIn20Warning` from `db/models.py`, which this card does not touch.
 - Net collected count: 10691, unchanged by this fix (+1 over main's 10690).
+
+**Orchestrator, between cycles.** Cycle 1 certified, but the FULL merge gate on `83cf7868` was red on `tests/test_suite_profile.py::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog::test_the_outcomes_are_identical_with_and_without_the_log` (1 failed, 10659 passed, 30 skipped). Its sandbox copies tests/ but not src/, so the child pytest's `nonogram` was the main checkout's, which has no `trimmed_url`, and it died with INTERNALERROR in `pytest_configure`. Sent back; fixed in `790f25fb`.
+
+[Review 2/3] Score: 9.5, nothing gating, certified. No module under tests/ imports `nonogram` for the trim. Restoring the old import in `_armed_database_plan` reds `test_the_outcomes_are_identical_with_and_without_the_log` again. `trimmed_url`, `database_guard._trimmed` and the inline `(v or '').strip()` agree on 16 inputs (None, empty, space, tab, CRLF, NBSP, NEL, mixed whitespace-only, padded and inner-space URLs), with 0 mismatches. C8 (`_trimmed` reduced to identity) gives 5 failed, as the notes say. tests/test_suite_profile.py: 450 passed. F-201 (low): the AC-2 reader list above still says conftest and `database_guard` read through an imported `trimmed_url`; since `790f25fb` both go through `database_guard._trimmed`, as the later note says. F-202 (low): no test asserts that `database_guard._trimmed` equals `session.trimmed_url`. F-203 (info): the profile sandbox catches a session-time `nonogram` import only while main lacks the symbol.
