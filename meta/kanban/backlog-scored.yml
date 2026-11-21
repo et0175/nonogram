@@ -5407,7 +5407,7 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: in_kanban
+  status: done
   scored_at: '2026-11-21'
 - id: IDEA-224
   title: A trailing space or newline in DATABASE_URL passes silently into the database name
@@ -5415,6 +5415,15 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
+  status: backlog
+  needs_owner_decision: true
+  scored_at: '2026-11-21'
+- id: IDEA-225
+  title: Two narrow-phone bands still move the board on solve (327-339 px dy +24.8; 421-451 px dy +27.2)
+  raw: '- [ ] CARD-511 notes and review F-001: after CARD-511, portrait 327-339 px (base dy +52.0) and 421-451 px (base dy +46.4) still move the board on solve by about +25/+27 px, because once Line hides, Probe plus Show grid need 96 px and the probe bar''s share of the row is narrower, so the counters wrap to a row of their own. Closing it needs a visible choice, e.g. Show grid taking Line''s place once solved: owner decision.   @feature'
+  source_line: null
+  intent: null
+  category: feature
   status: backlog
   needs_owner_decision: true
   scored_at: '2026-11-21'

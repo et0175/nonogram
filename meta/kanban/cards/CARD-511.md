@@ -1,6 +1,6 @@
 # CARD-511: At 600x900 the board no longer moves when a puzzle is solved
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/511-solve-shift-600
-**Worktree:** ../PythonProject4-card-511
+**Worktree:** —
 **Source:** roadmap wave 8, cut 2026-11-21 on the owner's "yes, start wave 8". IDEA-223, recorded by CARD-507's implementer and review.
 **Idea:** IDEA-223
 **Wave:** 87
@@ -20,6 +20,9 @@
 **UI surface:** puzzle player (compact layout, solved banner)
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T05:47Z
+**Closed:** 2026-11-21T11:04Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** ee9b949f1d8137946841c4255a85bd7bb263a181
 **Blocked by:** —
 
 ## Why this card exists
