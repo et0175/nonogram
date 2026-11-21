@@ -2425,6 +2425,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-counters { order: 1; align-self: center; }
   .player-counters-pair, .player-counters p { min-height: 0; }
   .player-probe { flex: 1 1 0; margin-top: 0; margin-bottom: 0; }
+  /* CARD-511 (IDEA-223): solving hides Line (syncLine) and shows Show grid
+     in the probe bar. At 600 x 900 the row Line leaves has 51 px left, which
+     a wrapping probe bar (flex-basis 0, min-content one 44 px button) took:
+     Show grid then stacked under Probe (a 96 px row) and the counters went
+     to a row of their own, so the toolbar grew 27.2 px and the board moved
+     by dx +12.656, dy +27.203. Solved, the bar does not wrap: Probe and Show
+     grid (96 px) do not fit that gap, so the bar keeps its row beside the
+     counters, as before the solve. Only the solved state is touched. */
+  .player-toolbar.is-solved .player-probe { flex-wrap: nowrap; }
   /* CARD-454 (UX review H3, owner 2026-11-16): on an upright phone the
      leaving note gets the ~30 px between Wrong guess and the counters and
      painted as "Le t.." — two clamped lines of a sentence nobody could read.

@@ -959,8 +959,10 @@ class TestSolverMaybe_NoRequestPerMark:
 # Review F-001 (cycle 1) — the solved banner never moves the board
 # ==========================================================================
 
-#: Viewport widths swept (height 900): 960..1480 step 20, plus the phone.
-_SWEEP = [(w, 900) for w in range(960, 1481, 20)] + [(390, 844)]
+#: Viewport widths swept (height 900): 960..1480 step 20, plus the phone and
+#: CARD-511's portrait tablet (600 x 900, the compact layout's widest upright
+#: size, where solving used to move the board by dx +12.656, dy +27.203).
+_SWEEP = [(w, 900) for w in range(960, 1481, 20)] + [(390, 844), (600, 900)]
 
 _TOOLBAR_BOXES = """() => {
   const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
@@ -1003,7 +1005,8 @@ class TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth:
     """With four tools the toolbar wraps differently across widths; the
     solved banner takes the tools' box (the tools stay in layout, hidden), so
     the board's box is the same before and after the solving click at every
-    swept width (960..1480 step 20 at height 900, and 390 x 844), on both
+    swept width (960..1480 step 20 at height 900, 390 x 844 and, since
+    CARD-511, 600 x 900), on both
     axes. The banner (here "Lighthouse") lies inside the tools' box,
     centred down it (within 1 px), and overlaps none of the other controls
     or the board."""
@@ -1029,7 +1032,7 @@ class TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth:
             inside = inside and abs((bt + bb) / 2 - (tt + tb) / 2) <= 1  # centred down the tools' box
             if not (tools_hidden and inside) or any(_overlaps(boxes["banner"], o) for o in boxes["others"]):
                 misplaced.append((width, boxes))
-        assert checked == len(_SWEEP) == 28
+        assert checked == len(_SWEEP) == 29
         assert moved == [], " ".join(f"{w}:{dx:+g},{dy:+g}" for w, dx, dy in moved)
         assert misplaced == []
 
@@ -1056,10 +1059,13 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
     lines, so the name is cut, not wrapped further (a third line is laid out
     but hits nothing of the banner where it would paint), the board's box is
     the same before and after the solving click, and the text keeps the whole
-    name (the clamp is visual only)."""
+    name (the clamp is visual only). CARD-511: the third viewport is the
+    600 x 900 portrait tablet (it was 1440 x 900, the same desktop rule as
+    1100 x 700, whose short name test_sweep still solves at 1440), where the
+    board used to move on solve."""
 
     @pytest.mark.parametrize("long_name", _LONG_NAMES, ids=["words", "one-token"])
-    @pytest.mark.parametrize("width,height", [(1440, 900), (1100, 700), (390, 844)])
+    @pytest.mark.parametrize("width,height", [(600, 900), (1100, 700), (390, 844)])
     def test_wraps(self, browser, live, width, height, long_name) -> None:
         assert len(long_name) == 120
         context = browser.new_context(viewport={"width": width, "height": height})

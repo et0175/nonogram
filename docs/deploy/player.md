@@ -1104,3 +1104,15 @@ Not observed: a real phone, or a Back restored from the back/forward cache (this
 | Rollback target | The scroll-return deployment (`nonogram-studio-48qnaa31w`). |
 
 Not observed: a real phone or a real solve on the live site (the banner was unhidden by script, not reached by solving).
+
+**The CARD-511 publish, 2026-11-21 (the day's second).** The owner's "please publish player" after CARD-511 merged. Built from **`cdaf1ffd`** with `git archive cdaf1ffd player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-21-wave8a/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. One card reaches a served file: **CARD-511** (the solved probe bar keeps to its row in the portrait compact layout). CARD-513 changed admin templates only.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing. Against production before the publish exactly one file differed: `admin.css` `9bf419ae3a0b` → `4ea0cf45210f` (identical to its source). Every other page, script, stylesheet and payload byte-identical. |
+| Preview | **`nonogram-studio-pnz5cxbfg`**, Ready in 4 s; `admin.css` at the built hash. |
+| Behaviour (headless Chromium, a real solve: the solution computed locally by `nonogram.solver.solve` from the served clues, every filled cell clicked, the solved banner shown) | Puzzle `22f1a32460` (10 x 10) and `914fa7acf6` (15 x 15, Line offered) at 600 x 900, 390 x 844 and 1100 x 700: the board moved dx 0, dy 0 on solve, on the preview AND on production before the switch; no page errors. So the shift CARD-511 fixes was not observed on the public page at 600 x 900 at all: the admin's solved state adds a Show grid button whose wrap caused it, and the public toolbar (Black, Undo, Redo, Reset, Line, Hint, zoom, Probe) shows none. The publish keeps the served copy byte-identical to its source; it changes nothing a public player was measured to see. |
+| Production | `vercel promote` created **`nonogram-studio-og58mwtjc`**; new `admin.css` on poll 2; doors 200, `/nope` 404. |
+| Rollback target | The wave-7 deployment (`nonogram-studio-6p2wxvv2l`). |
+
+Not observed: a real phone, and the 327-339 / 421-451 px bands (IDEA-225) on the public page.
