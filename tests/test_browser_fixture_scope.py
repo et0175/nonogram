@@ -2388,6 +2388,21 @@ RENAMED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
         "test_wraps[chromium-1100-700-words]",
         "the desktop viewport moved from 1200x900 to 1100x700, the size "
         "CARD-507's AC-1 measures the board shift at; same test, same names",
+    ),    f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+    "test_wraps[chromium-1440-900-one-token]": (
+        "CARD-511",
+        f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+        "test_wraps[chromium-600-900-one-token]",
+        "the 1440x900 viewport moved to 600x900, the portrait tablet where "
+        "CARD-511 measured the board moving on solve; same test, same names",
+    ),
+    f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+    "test_wraps[chromium-1440-900-words]": (
+        "CARD-511",
+        f"{_MAYBE}TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::"
+        "test_wraps[chromium-600-900-words]",
+        "the 1440x900 viewport moved to 600x900, the portrait tablet where "
+        "CARD-511 measured the board moving on solve; same test, same names",
     ),
 }
 
