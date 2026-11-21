@@ -1,6 +1,6 @@
 # CARD-516: The kill matrix's own anchors and controls hold what they claim
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/516-kill-matrix-anchors
-**Worktree:** ../PythonProject4-card-516
+**Worktree:** —
 **Source:** roadmap wave 9, cut 2026-11-21 on the owner's "yes, start wave 9". IDEA-185, IDEA-187, IDEA-188 (one job: the AC-7 anchors) and IDEA-182, IDEA-184 (weak controls in the same instrument). Full texts: meta/kanban/backlog.md, the five CARD-260 items.
 **Idea:** IDEA-182, IDEA-184, IDEA-185, IDEA-187, IDEA-188
 **Wave:** 88
@@ -18,11 +18,11 @@
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T20:01Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-21T21:18Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** fe41d449426fa738dcfe7c710fbf23494c910c97
 **Blocked by:** —
 
 ## Why this card exists
@@ -50,3 +50,68 @@ These items are from October; re-verify each against main before changing anythi
 * **G-3**: CARD-315's window item is out of scope.
 
 ## Worktree notes
+
+### [Implementation] 2026-11-21: anchors held by identity, IDEA-182 (a)-(e) closed, alias routes refused
+
+**Premises re-verified before changing anything.** On a HEAD copy of the tree (`git archive HEAD`, under `/private/tmp/claude-501/card516/tree-head`, so the real files were never touched), with each mutation applied to the scratch copy only:
+- Anchors: HEAD's `test_ac7_the_four_arm_grid_of_card_257_reproduces` **passes** with the names and heads arms' messages swapped (9 passed for `-k "ac5 or four_arm"`). That is the misattribution IDEA-188 described. Three blank lines above the preamble arm red HEAD's AC-7 test and AC-5 nodes `[2-1194]`..`[5-1529]` (5 failed). That is the IDEA-187 coupling.
+- (a) F-502: with `GIT_COMMAND` respelled `(?:\S*/)?git(\s|$)`, HEAD's whole file passes except the lock-guard anchor (see the scratch-tree caveat below).
+- (d) With `between[mutant.name] = shipped` in `Runner.run`, HEAD's `test_ac4_two_sequential_mutants_each_see_a_clean_shipped` stays green.
+- (e) With `Pass.reraise` inverted, HEAD's `test_ac3_one_transformer_and_the_recording_pass_is_its_failing_state` stays green (1 passed).
+- IDEA-184 shasum: with `CalledProcessError` dropped from `_verification_failures`' except, HEAD's file stays green except the lock-guard anchor.
+- (b) F-402: with an added downstream empty-edit refusal in `run()`, HEAD's `test_g1_the_two_construction_refusals_each_have_a_control` stays green. The clause was true but nothing measured it.
+- Scratch-tree caveat: `test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached` was red in all three full-file runs on the HEAD scratch tree, under three unrelated mutations. I read that as an effect of the scratch tree (no `.git`), not of any mutation. I did not attribute it further. In the worktree it passes.
+- (c) F-403 still held in a new form. `Runner.workdir`'s docstring said "the two tests". An `ast` census counts **three** tests that drive helpers without `run` (`test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing`, `test_g5_a_restore_failure_still_restores_every_registered_path`, `test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure`), and all three set `_workdir`.
+- No item was already closed, so nothing was dropped.
+
+**What changed, by name** (`tests/test_kill_matrix.py` unless stated):
+- AC-1: `PREAMBLE, NAMES, HEADS, POINTER = 1194, ...` is replaced by `FOUR_ARM_LABELS` and `_four_arms()`. Each arm is the single assert of the anchored method whose predicate source matches the arm's regex **and** whose own message carries its phrase. The two must name the same node, and the four must stand in the recorded order. `_four_arm_grid(arms)` takes the derived arms. The membership check against `km.assert_linenos` is kept beside it. Today's derivation equals the old literals exactly: `{'preamble': 1194, 'names': 1270, 'heads': 1277, 'pointer': 1283}`.
+- AC-5's positions: `NAMES_BLIND_OCCURRENCES` is replaced by `_names_blind_occurrences()`, which reads the string constants off the AST. `test_ac5_an_explicit_occurrence_hits_exactly_that_lineno` is parametrized on the occurrence alone (node IDs `[1]`..`[5]`, still 5 nodes). It now asserts that the NAMES-BLIND arm (`_four_arms()["preamble"]`) is occurrence 2 and no other. Consequence: an AC-7 identity failure also reds these five nodes, with the same message.
+- AC-2: `_init_engine_declaration()` replaces `count("global engine, SessionLocal, _engine_url") == 2`. It requires that `_init_engine` has exactly one `global`, that its names begin with `INIT_ENGINE_DECLARED` in that order, and that its source starts with the text the NAMES-BLIND mutant replaces.
+- (a) `test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere` asserts `GIT_COMMAND.pattern` in its own docstring and in `tests/README.md`.
+- (b) `test_g1_the_two_construction_refusals_each_have_a_control` plants an edit-less mutant past the refusal (`object.__setattr__`) and asserts that its column equals SHIPPED's cell for cell.
+- (c) `Runner.workdir`'s docstring (`tests/kill_matrix.py`) no longer gives a count. It states the rule and the lock-refusal bypass. `test_g5_a_finished_run_discards_its_temp_tree_and_a_failed_restore_keeps_it` enumerates the helper-driving tests from this file's AST. The helpers are derived from `Runner`: the methods that reach `workdir`, closed transitively. Each such test must assign `_workdir` itself.
+- (d) `test_ac4_two_sequential_mutants_each_see_a_clean_shipped` asserts `matrix.label == f"SHIPPED after {name}"`.
+- (e) `test_ac3_one_transformer_and_the_recording_pass_is_its_failing_state` builds both bodies through `Pass.reraise`.
+- AC-4: `_aliased_spawn_imports` also refuses `import <spawn module> as <alias>` and a spawn-shaped name used as a value (Assign / call argument). The value rule is default-deny, except an `except` clause's type. `SPAWN_IMPORT_TARGET` plants all three routes plus an `except subprocess.CalledProcessError`. The literal in `test_g5_the_bare_name_spawn_import_census_catches_a_planted_import` gains three entries. `test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure` adds a `shasum` that exits 1, and tells the two plants apart by the exception text in the finding. `_verification_failures`' docstring says so.
+- `tests/README.md`: the AC-7 paragraph no longer recites addresses, and the G-5 paragraph names the four refused routes.
+
+**AC-1 (scratch copies of `tests/test_db_engine_lifecycle.py` in `/private/tmp/claude-501/card516/tree-new`, a copy of this worktree; `-k "ac5 or four_arm"`):**
+- Blank lines: three blank lines inserted above the preamble arm give **9 passed in 30.61s**, with the full 14-mutant grid run. The same edit reds HEAD (5 failed, above).
+- Swap by labels: the names and heads messages exchanged give **6 failed**. The AC-7 red: `the names arm is not one assert that both checks '_names_shown_in\\(.*' and says 'does not name every global': the predicate is at [1270], the message at [1277]`. HEAD passed this same copy (9 passed).
+- Swap by position: the heads block (with its `shown =` line) moved above the names assert gives **6 failed**: `the four arms stand in the order ['preamble', 'heads', 'names', 'pointer'] ... not ['preamble', 'names', 'heads', 'pointer']`. HEAD reds this one too (1 failed, membership): that shift did not overlap.
+
+**AC-2 (`/private/tmp/claude-501/card516/ac2_demo.py`: `_init_engine_declaration()` with `SESSION_PY` pointed at scratch copies; the old pin evaluated beside it):**
+
+| `session.py` copy | new pin | old pin |
+|---|---|---|
+| pristine | green | green |
+| reorder in `_init_engine` | **RED** `_init_engine's global statement is ['global SessionLocal, engine, _engine_url'], not one statement starting 'global engine, SessionLocal, _engine_url'` | RED |
+| append `_extra` in `_init_engine` | green | green |
+| reorder in `reset_engine` | green | **RED** (spurious: not the statement the mutant edits) |
+| append `_extra` in `reset_engine` | green | green |
+
+**Controls.** Each one mutates the real file through `/private/tmp/claude-501/card516/control.py`, which restores from a `cp -p` backup and checks the sha256. `git diff --stat` afterwards showed only this card's three files.
+- (a) `GIT_COMMAND` → `(?:\S*/)?git(\s|$)`: `test_ac4_restoring_...` RED, `GIT_COMMAND is '(?:\\S*/)?git(\\s|$)' and a prose restatement of it no longer says so`. The string-census test stays green.
+- (b) A downstream `if not mutant.edits: raise MutantRefused("downstream: edits nothing")` in `run()`: `test_g1_the_two_construction_refusals_each_have_a_control` RED, `MutantRefused: downstream: edits nothing`.
+- (c) The shasum test's two `_workdir` lines deleted: `test_g5_a_finished_run_...` RED, `['test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure'] drive Runner helpers without a run and leave _workdir at a machine-wide temp directory nothing removes`.
+- (d) `between[mutant.name] = shipped`: `test_ac4_two_sequential_...` RED, `MARK-ROT's between-mutants reading is labelled 'SHIPPED', so it was not the reading taken after that mutant`.
+- (e) `Pass.reraise` → `self is Pass.RECORDING`: `test_ac3_one_transformer_...` RED, `assert 'raise' not in 'def f():...'`.
+- Alias import branch off (`if False and alias.name`): the planted-import test RED, `found [... 'subprocess.run in Assign', 'subprocess.run in Call']` with `'subprocess as sp'` missing.
+- Value rule off (`and False` in place of the `_SPAWN` search): the planted-import test RED, with `'subprocess.run in Assign'` and `'subprocess.run in Call'` missing.
+- `except` exclusion removed: RED in both the planted-import test (an extra `'subprocess.CalledProcessError in Tuple'`) and the instrument's own WITHOUT half in `test_ac4_restoring_...` (`['subprocess.CalledProcessError in Tuple', 'subprocess.CalledProcessError in Tuple']`).
+- `CalledProcessError` dropped from `_verification_failures`' except: `test_g5_a_shasum_...` RED, `subprocess.CalledProcessError: Command '['shasum', '-a', '256', ...` escapes.
+- `OSError` dropped from it: the same test RED, `FileNotFoundError: [Errno 2] No such file or directory: 'shasum'`.
+
+**G-1:** `tests/test_db_engine_lifecycle.py` and `src/nonogram/db/session.py` are not in the diff. **G-2:** the derived arms equal the old literals, and the 14-mutant grid and the 165-assert lock-guard anchor both pass unchanged. **G-3:** the mkdtemp / plant-window item is untouched.
+
+**Timing:** `tests/test_kill_matrix.py` alone took **84.67 s** at HEAD (84 passed). The four-arm grid accounts for 26.83 s and the lock-guard anchor for 13.26 s.
+After the change, the same file standing alone: **84 passed in 72.20 s**, with no lock held. The earlier post-change run took 91.20 s. Wall clock here measures machine load as much as the work: a second worktree's full suite started during this card.
+
+**Gate** (unarmed, `-rfs`): `tests/test_kill_matrix.py` plus its neighbours. Those are `tests/test_wave_close_marker.py` (marker globs over these node IDs), `tests/test_db_engine_lifecycle.py` (the anchor's subject) and the four other files that read `tests/README.md`: `tests/test_db_url_driver.py`, `tests/test_cli.py`, `tests/test_guard_integrity.py`, `tests/test_full_suite_lock.py`, `tests/test_suite_profile.py`. Result: **991 passed, 1 failed, 2 skipped**. The two skips are `tests/conftest.py:290: Database not reachable: DATABASE_URL is not set`, the expected unarmed reason. The 1 failure, `test_suite_profile.py::TestSuiteCeiling_TheCliffEdgeListIsDerived::test_both_cliff_edge_rows_are_tests_the_suite_still_collects`, was its child pytest being refused by CARD-515's full-suite lock, as its own message said. Re-run alone after the lock cleared: **1 passed**. No armed run: the card asks for none, and the change touches no DB path. `tests/test_kanban_review_record.py` after the card edit: **71 passed**.
+
+**Net test count (AC-5):** 10690 collected before and 10690 after, so **net 0**. No test was added. The five AC-5 nodes were re-keyed from `[N-lineno]` to `[N]`.
+
+[Review 1/3] Score: 9.0, nothing gating, certified. `_four_arms()` called on scratch copies of HEAD's lifecycle file: pristine gives the old literals (1194, 1270, 1277, 1283); three blank lines above the preamble arm stay green with every arm moved by 3; swapped messages, swapped predicates, a moved pointer assert and a duplicated preamble assert each red. The `_init_engine` pin reds on a reorder, a split `global` and a respacing, and stays green on an appended name and on a reorder in `reset_engine` (which the old substring count wrongly redded). Re-run controls: `CalledProcessError` dropped reds `test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure`; `between[mutant.name] = shipped` reds `test_ac4_two_sequential_mutants_each_see_a_clean_shipped`. G-2: tests/test_kill_matrix.py 84 passed in 74.71s, no skips; net count 0. F-001 (low): the value rule over-marks code that cannot spawn (`subprocess.DEVNULL`, `subprocess.TimeoutExpired` in `isinstance`, `subprocess.CompletedProcess` annotations, `import os.path as osp`); none is in the instrument today, and the docstring says it over-marks. F-002 (low): the arms are now held by wording, so rewording an arm's message in the lifecycle file still reds this file, and nothing says so. F-003 (low): the workdir census exempts any test with a `.run(` call by name, and cannot see helpers driven through module functions or fixtures; nothing is missed today. F-004 (info): AC-2 is read as `_init_engine`'s declaration only, the one the NAMES-BLIND mutant edits.
+
+**Merge gate (orchestrator).** `make test-gate BASE=main` on `5e9ba508` (main had not moved) answered SELECTION: 4842 passed / 20 skipped (unarmed) / 8 deselected / 1 xfailed / 0 failed in 14 min 10 s, then the marked run (tests/test_book_export_interior_cover.py, tests/test_kill_matrix.py) 6 passed. 7 marked tests are owed at the wave close.

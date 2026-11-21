@@ -1218,7 +1218,9 @@ class Runner:
         :meth:`Runner.run`'s own ``finally``, and
         ``test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure`` narrows
         ``PATH`` until the binary is gone, with the restore succeeding, so the
-        branch below is reached on its own terms.
+        branch below is reached on its own terms -- and plants a ``shasum``
+        that exits non-zero, so each of the branch's two exception classes has
+        a plant of its own.
         """
         said: list[str] = []
         diff = subprocess.run(
@@ -1254,9 +1256,12 @@ class Runner:
         does not accumulate one tree per :class:`Runner` and one ``records-*``
         per reading in the machine-wide temp directory. **Declared bound:**
         only :meth:`run` ends a run, so a :class:`Runner` whose helpers are
-        driven directly keeps its tree — the two tests that drive
-        :meth:`_pytest` and :meth:`_backup_registry` without a run point
-        ``_workdir`` at a directory pytest owns instead.
+        driven directly keeps its tree — every test that drives one without a
+        run points ``_workdir`` at a directory pytest owns instead, which
+        ``test_kill_matrix.py`` enumerates from its own AST rather than lists
+        here (CARD-516). Driving :meth:`_pytest` directly also bypasses
+        :meth:`run`'s foreign-lock refusal: that child pytest starts at
+        ``repo_root`` with no :meth:`_refuse_if_lock_held` before it.
         """
         if self._workdir is None:
             self._workdir = Path(tempfile.mkdtemp(prefix="kill-matrix-"))
