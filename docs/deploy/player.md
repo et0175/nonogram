@@ -1092,3 +1092,15 @@ Not observed: a real phone, and a screen reader's queueing of the two announceme
 | Rollback target | The wave-3 deployment (`nonogram-studio-i0n5nyn31`). |
 
 Not observed: a real phone, or a Back restored from the back/forward cache (this run defeats the cache on purpose).
+
+**The wave-7 publish, 2026-11-21.** The owner's "please publish player" after CARD-507 merged. Built from **`b842be49`** with `git archive b842be49 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-21-wave7/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. Cards reaching served files since the scroll-return publish: **CARD-507** (the solved banner's text takes the two-line `--text-xs` clamp at every width), **CARD-506** (player/admin-CSS minors: four values to tokens, stale comments), and admin-only rules in `admin.css` from CARD-494 and CARD-495.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing. Against production before the publish exactly four files differed: `admin.css` `f18d7ee06888` → `9bf419ae3a0b`, `player.css` `5b0a003bf340` → `e0bb90158004`, `solver.js` `c4701e65c401` → `766ad7b2a699`, `tokens.css` `41cd8c918f84` → `114cd27ba877`, each identical to its source. `pages.js`, `solver_state.js`, `how-to-solve.js`, `base.css`, `decor.*`, `index.json` and the play/library pages byte-identical. |
+| Preview | **`nonogram-studio-4rak5i2cc`**, Ready in 3 s; doors 200, `/nope` 404, the four files at the built hashes. |
+| Behaviour (headless Chromium, `/play/00d5d88065?book=0a958d036e`, banner unhidden) | Preview at 1100 x 700: banner text 12.48 px, `-webkit-line-clamp: 2`, overflow hidden; production before: 16 px, no clamp, overflow visible. 390 x 844: 12.48 px / clamp 2 on both (the compact rule was already there). 260 cells drawn, no page errors. The public page serves no puzzle title, so its banner reads "Solved!"; the long-name case CARD-507 fixes shows only in the admin. |
+| Production | `vercel promote` created **`nonogram-studio-6p2wxvv2l`**; new `player.css` on poll 2; the four hashes matched, doors 200, `/nope` 404, the same browser run gave the preview's figures. |
+| Rollback target | The scroll-return deployment (`nonogram-studio-48qnaa31w`). |
+
+Not observed: a real phone or a real solve on the live site (the banner was unhidden by script, not reached by solving).
