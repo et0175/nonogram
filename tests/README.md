@@ -584,8 +584,10 @@ names the directory it kept. **Declared bound:** only `run()` ends a run, so a
 
 **No git command anywhere** — `test_kill_matrix.py` enumerates that from this
 module's own AST rather than by reading it: every *spawn-shaped* call (the
-module's own `_SPAWN` pattern, so `os.system` and `Popen` are inside it, and an
-import that would let a spawn be called under a bare name is refused) must pass
+module's own `_SPAWN` pattern, so `os.system` and `Popen` are inside it, and a
+route that would let a spawn be called under a name that is not spawn-shaped is
+refused: `from subprocess import run`, `import subprocess as sp`,
+`run = subprocess.run` and `functools.partial(subprocess.run, ...)`) must pass
 an enumerable literal argv, and every string constant is matched
 command-shaped and anchored, `(\S*/)?git(\s|$)`, so `/usr/bin/git status` is
 inside it while prose about git is not. The argv heads are additionally held to
@@ -655,16 +657,18 @@ itself:
   **preamble** with the three arms below it `NOT-REACHED`, `POINTER-ROT` and
   `POINTER-DEL-WORD` RED at the **pointer** arm, `CONTROLS-RENAME-ONLY` `PASS`,
   SHIPPED all-PASS. What the anchor reproduces is that **grid**, not an
-  address: the four addresses are `:1194` / `:1270` / `:1277` / `:1283` at
-  HEAD. They live as literals in
-  `test_kill_matrix.py` and are **re-derived by hand and re-committed** at
-  each card that moves that file — nothing in the suite re-derives them,
-  because the anchor's only check on them is `set(arms) <= linenos`, which
-  says the four literals *are* assert linenos and not that they are *those
-  four arms*. That matters because a shift can **overlap**: measured at the
-  second of the moves, `:897` had become the names arm where it used to be
-  the pointer arm. A membership test
-  cannot tell a misattribution from a reading.
+  address, and since CARD-516 no address is stored: each arm is found at test
+  time by its predicate and its own failure message, which must name the same
+  single assert, and the four must stand in their recorded order. A card that
+  moves that file's lines no longer has to edit `test_kill_matrix.py` (CARD-259
+  had to re-commit four literals). The check it replaced was
+  `set(arms) <= linenos`, a membership test any four asserts satisfied — and a
+  shift can **overlap**: at the second of the moves, `:897` had become the
+  names arm where it used to be the pointer arm. Two arms whose labels are
+  swapped now red before any child runs. The five occurrences of the
+  `NAMES-BLIND` message (AC-5) are read off the AST the same way, and the
+  `session.py` pin is on `_init_engine`'s own `global` statement rather than a
+  substring count over the file.
 
 ### Declared bounds
 
