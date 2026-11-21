@@ -2424,7 +2424,7 @@ ideas:
   raw: '- [ ] CARD-176 F-003: a URL with leading whitespace (`'' postgresql://…''`) now gets `<malformed
     scheme>` — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -5374,7 +5374,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   scored_at: '2026-11-20'
 - id: IDEA-220
   title: A stale exported NONOGRAM_TEST_DB_SESSION_LOCK turns the test-database session lock off

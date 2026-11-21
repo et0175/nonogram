@@ -1,6 +1,6 @@
 # CARD-509: Two small leftovers: the PDF text helper writes text.pdf into the working directory; a DATABASE_URL with leading whitespace gets "<malformed scheme>"
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/509-text-pdf-and-url-strip
-**Worktree:** ../PythonProject4-card-509
+**Worktree:** —
 **Source:** roadmap wave 7 (cut 2026-11-20 on the owner's "go with option 2, start wave 7"). IDEA-219 (found at the wave-6 closes), IDEA-094 (CARD-176 F-003, WSJF 2.31).
 **Idea:** IDEA-219, IDEA-094
 **Wave:** 86
@@ -20,6 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-20T23:31Z
+**Closed:** 2026-11-21T00:19Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 965e5cdafa1bde5342d294858e507637664d5109
 **Blocked by:** —
 
 ## Why this card exists
