@@ -324,17 +324,58 @@ class TestBookPages_OfferBothExportFiles:
         assert response.data.startswith(b"%PDF")
 
     def test_a_book_with_no_puzzles_still_offers_its_cover(self, admin_app, client):
-        """The cover is a title cover without puzzles; only the interior waits."""
-        book_id, _ = _make_book(admin_app, names=(), tiers=())
-        page = _read(client, f"/book/{book_id}")
+        """The cover is a title cover without puzzles; only the interior waits.
 
-        assert _book_forms(page, book_id, "interior") == []
-        assert [b for b in page.loose_buttons if b["part"] == "interior"] == [
-            {"part": "interior", "disabled": True}
-        ]
-        ((form, button),) = _book_forms(page, book_id, "cover")
-        assert not button["disabled"]
-        assert form["hidden"] == {"part": "cover"}
+        CARD-513 (IDEA-052): on all three pages that offer the interior --
+        the book page, the list and Finalise. The list and Finalise used to
+        offer the interior of a no-puzzle book while the book page disabled
+        it; that download is a title page and the two guide pages with no
+        puzzle in them, the file ``generate-pdf`` refuses to make. Each page
+        says why in visible text, and each still offers the interior of a
+        ONE-puzzle book, the guard's edge. The pages are read in one test
+        rather than parametrized, so the three are judged together.
+        """
+        empty, _ = _make_book(admin_app, title="Empty", names=(), tiers=())
+        one, _ = _make_book(admin_app, title="One", names=NAMES[:1], tiers=TIERS[:1])
+        reason = re.compile(r">\s*Add puzzles first\.\s*<")
+
+        def read(which, book_id):
+            path = {
+                "detail": f"/book/{book_id}",
+                "list": "/books",
+                "finalize": f"/book/{book_id}/finalize",
+            }[which]
+            response = client.get(path)
+            assert response.status_code == 200, path
+            body = response.get_data(as_text=True)
+            page = _Page()
+            page.feed(body)
+            return page, body
+
+        def forms(which, page, book_id, part):
+            if which == "finalize":  # its forms post back to the page itself
+                return [(f, b) for f, b in page.export_forms(part) if f["action"] is None]
+            return _book_forms(page, book_id, part)
+
+        for which in ("detail", "list", "finalize"):
+            page, body = read(which, empty)
+
+            assert forms(which, page, empty, "interior") == [], which
+            assert [b for b in page.loose_buttons if b["part"] == "interior"] == [
+                {"part": "interior", "disabled": True}
+            ], which
+            assert len(reason.findall(body)) == 1, which
+            ((form, button),) = forms(which, page, empty, "cover")
+            assert not button["disabled"], which
+            assert form["hidden"]["part"] == "cover", which
+
+            page, body = read(which, one)
+            ((form, button),) = forms(which, page, one, "interior")
+            assert not button["disabled"], which
+            assert form["hidden"]["part"] == "interior", which
+            if which != "list":  # the list also shows the empty book's row
+                assert [b for b in page.loose_buttons if b["part"] == "interior"] == [], which
+                assert reason.findall(body) == [], which
 
     @pytest.mark.parametrize("which", PAGES)
     def test_a_lost_cover_upload_disables_the_cover_button(

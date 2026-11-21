@@ -1178,7 +1178,7 @@ ideas:
     path today, per ADR-0036/R2)   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -1404,7 +1404,7 @@ ideas:
     a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2

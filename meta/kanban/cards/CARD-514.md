@@ -1,6 +1,6 @@
 # CARD-514: The last one-session-per-puzzle loops, and the largest-board flake with the database armed
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/514-session-loops-flake
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-514
 **Source:** roadmap wave 8, cut 2026-11-21 on the owner's "yes, start wave 8". IDEA-045 (CARD-157 F-004) and IDEA-148 (CARD-183 merge-gate flake watch).
 **Idea:** IDEA-045, IDEA-148
 **Wave:** 87
@@ -19,6 +19,7 @@
 **Touches:** src/nonogram/admin/app.py, src/nonogram/books/book_manager.py, tests/test_puzzle_solver_page.py
 **UI surface:** books list (load time only)
 **Review score:** —
+**Started:** 2026-11-21T10:25Z
 **Blocked by:** —
 
 ## Why this card exists
