@@ -5362,7 +5362,7 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: in_kanban
+  status: done
   needs_owner_decision: false
   owner_decision: 'option 2, the compact two-line --text-xs clamp at every width (owner, 2026-11-20)'
   scored_at: '2026-11-20'
