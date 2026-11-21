@@ -76,8 +76,37 @@ POSTGRES_DRIVER = "psycopg2"
 _POSTGRES_BACKEND = "postgresql"
 
 
+def trimmed_url(database_url: str | None) -> str | None:
+    """``database_url`` without surrounding whitespace, or ``None`` if nothing is left.
+
+    The one trimming rule for ``DATABASE_URL`` (CARD-515, owner's ruling
+    2026-11-21: trim, do not refuse). A value pasted with a trailing space or
+    newline used to reach :func:`~sqlalchemy.engine.make_url` as it was, and
+    ``make_url`` keeps that whitespace in the database name: ``…/db `` named a
+    database ``'db '`` that does not exist, and nothing said why. Whitespace
+    *inside* the URL is left alone; only the ends are trimmed.
+
+    The engine built here, ``nonogram.db.DATABASE_URL`` and both modes of
+    ``migrations/env.py`` read the variable through this. Three readers apply
+    the same rule written out instead, so they do not import it: ``create_app``
+    and ``book_membership._services`` (no SQLAlchemy in in-memory mode), and
+    the test suite's ``tests/database_guard._trimmed``, which its ``*_test``
+    resolution also uses (a guard must not depend on which ``nonogram`` a
+    child session finds). A value that is only whitespace is ``None``: the
+    same as unset.
+    """
+    if database_url is None:
+        return None
+    return database_url.strip() or None
+
+
 def normalized_url(database_url: str) -> URL:
     """``database_url`` as a :class:`~sqlalchemy.engine.URL` that names its driver.
+
+    Surrounding whitespace is trimmed first (CARD-515), by the same rule as
+    :func:`trimmed_url`: callers that pass raw text (``migrations/env.py``,
+    the test suite's probe) get the database the URL names, not one whose
+    name ends in a space or newline.
 
     For a PostgreSQL URL the backend is canonicalised to ``postgresql`` and,
     when the URL does not already name a DBAPI, :data:`POSTGRES_DRIVER` is
@@ -121,6 +150,8 @@ def normalized_url(database_url: str) -> URL:
     # ``from None`` exists to block. The handler is therefore kept incapable of
     # raising rather than merely unlikely to, and :func:`_scheme_of` is total
     # for the same reason.
+    if isinstance(database_url, str):
+        database_url = database_url.strip()
     scheme = _scheme_of(database_url)
     try:
         url = make_url(database_url)
@@ -149,16 +180,10 @@ def _scheme_of(database_url: object) -> str:
     Anything else becomes ``"<malformed scheme>"``; a string with no ``://``
     is ``"<no scheme>"`` and a non-string is ``"<not a string>"``.
 
-    Whitespace around the whole value is named, not stripped (CARD-509): the
-    answer for the stripped text gets ``", with leading whitespace"`` (or
-    ``trailing``, or ``leading and trailing``) appended, so
-    ``' postgresql://…'`` reports ``"postgresql, with leading whitespace"``
-    rather than the bare ``"<malformed scheme>"`` it got before. Only this
-    message changes; :func:`normalized_url` still parses the value exactly as
-    given. Stripping there would change a *successful* parse for every caller
-    of it (the engine builder here, both modes of ``migrations/env.py``, and
-    the test suite's database probe): ``'postgresql://u:p@h/db '`` parses
-    today, with the space carried into the database name.
+    :func:`normalized_url` hands this text already trimmed (CARD-515), so a
+    padded URL is answered for what it says, not for its padding. CARD-509's
+    "with leading whitespace" wording, which named the padding instead of
+    removing it, went with that change.
 
     So nothing after ``://`` is ever returned, and of the text before it only
     a leading, scheme-shaped token is: a secret glued on with a ``:``
@@ -177,16 +202,6 @@ def _scheme_of(database_url: object) -> str:
     """
     if not isinstance(database_url, str):
         return "<not a string>"
-    stripped = database_url.strip()
-    if stripped != database_url:
-        leading = database_url[0].isspace()
-        trailing = database_url[-1].isspace()
-        where = (
-            "leading and trailing" if leading and trailing
-            else "leading" if leading
-            else "trailing"
-        )
-        return f"{_scheme_of(stripped)}, with {where} whitespace"
     before, separator, _ = database_url.partition("://")
     if not separator:
         return "<no scheme>"
@@ -212,16 +227,16 @@ def _init_engine():
     by a value captured once at import time.
     """
     global engine, SessionLocal, _engine_url
-    database_url = os.getenv('DATABASE_URL', None)
+    database_url = trimmed_url(os.getenv('DATABASE_URL', None))
     if not database_url:
         raise RuntimeError(
             "DATABASE_URL not set. Database persistence disabled. "
             "Set DATABASE_URL to enable it (e.g. postgresql://user:pass@localhost/dbname)"
         )
     if engine is None or database_url != _engine_url:
-        # The normalised URL goes to create_engine (CARD-148); the raw value
-        # stays the cache key, because it is what the environment will be
-        # compared against on the next call.
+        # The normalised URL goes to create_engine (CARD-148); the trimmed
+        # text (CARD-515) stays the cache key, because it is what the
+        # environment, trimmed the same way, is compared against next call.
         engine = create_engine(
             normalized_url(database_url), **_engine_options(database_url)
         )
@@ -463,7 +478,7 @@ def _engine_options(database_url: str) -> dict:
     with, which is why ``test_the_connect_deadline_still_reaches_a_normalised_url``
     pins that CARD-097's deadline survived CARD-148's rewrite.
     """
-    scheme = database_url.split(":", 1)[0].split("+", 1)[0].lower()
+    scheme = database_url.strip().split(":", 1)[0].split("+", 1)[0].lower()
     if scheme in _TIMEOUT_SCHEMES:
         return {"connect_args": {"connect_timeout": CONNECT_TIMEOUT_SECONDS}}
     return {}

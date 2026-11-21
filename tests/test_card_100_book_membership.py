@@ -514,7 +514,10 @@ def test_a_book_manager_with_no_store_says_so_rather_than_pretending(panel, capl
 
 
 def test_the_command_refuses_when_there_is_no_database(monkeypatch):
-    """An in-memory panel has nothing durable to repair, and says so."""
+    """An in-memory panel has nothing durable to repair, and says so.
+
+    CARD-515: a value that is only whitespace trims to unset, and is refused
+    the same way."""
     from nonogram.admin import book_membership
 
     monkeypatch.delenv("DATABASE_URL", raising=False)
@@ -523,6 +526,10 @@ def test_the_command_refuses_when_there_is_no_database(monkeypatch):
         book_membership.main([])
 
     assert "DATABASE_URL" in str(exit_info.value)
+    monkeypatch.setenv("DATABASE_URL", " \n")
+    with pytest.raises(SystemExit) as blank:
+        book_membership.main([])
+    assert str(blank.value) == str(exit_info.value)
 
 
 def test_the_command_reports_without_writing_by_default(panel, monkeypatch, capsys):

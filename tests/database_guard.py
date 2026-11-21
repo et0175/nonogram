@@ -96,10 +96,21 @@ def verdict(database_url: str | None, *, opted_out: bool) -> tuple[bool, str]:
     )
 
 
+def _trimmed(database_url: str | None) -> str | None:
+    """``DATABASE_URL`` trimmed as ``nonogram.db.session.trimmed_url`` trims it.
+
+    Blank means unset (CARD-515). Written out rather than imported: this guard
+    runs in every pytest session's configure step, including child sessions
+    whose ``nonogram`` resolves to another checkout, and the safety guard must
+    not depend on which product tree it finds.
+    """
+    return (database_url or "").strip() or None
+
+
 def current_verdict() -> tuple[bool, str]:
     """:func:`verdict` for the environment this process is actually in."""
     return verdict(
-        os.getenv("DATABASE_URL"),
+        _trimmed(os.getenv("DATABASE_URL")),
         opted_out=bool(os.getenv(OPT_OUT)),
     )
 
@@ -110,7 +121,7 @@ def report_line() -> str | None:
     Silent in the ordinary case — `DATABASE_URL` unset — because a line on
     every run is a line nobody reads by the third one.
     """
-    if not os.getenv("DATABASE_URL"):
+    if not _trimmed(os.getenv("DATABASE_URL")):
         return None
     _allowed, reason = current_verdict()
     return f"database guard: {reason.splitlines()[0]}"

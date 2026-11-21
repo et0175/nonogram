@@ -34,5 +34,5 @@ def __getattr__(name):
         _session._init_engine()
         return getattr(_session, name)
     if name == 'DATABASE_URL':
-        return os.getenv('DATABASE_URL', None)
+        return _session.trimmed_url(os.getenv('DATABASE_URL', None))
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

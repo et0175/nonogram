@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.database_guard import OPT_OUT, verdict
+from tests.database_guard import OPT_OUT, current_verdict, report_line, verdict
 
 REPO = Path(__file__).parent.parent
 
@@ -69,12 +69,19 @@ def test_a_test_database_is_allowed(url):
     assert allowed is True
 
 
-def test_no_database_at_all_is_the_ordinary_case():
-    """AC-2: unset is how the suite normally runs, and must stay silent."""
+def test_no_database_at_all_is_the_ordinary_case(monkeypatch):
+    """AC-2: unset is how the suite normally runs, and must stay silent.
+
+    CARD-515: a value that is only whitespace is trimmed to unset, as the
+    app trims it, so the guard reads it the same way."""
     allowed, reason = verdict(None, opted_out=False)
 
     assert allowed is True
     assert "not set" in reason.lower()
+    monkeypatch.setenv("DATABASE_URL", " \n")
+    monkeypatch.delenv(OPT_OUT, raising=False)
+    assert current_verdict() == (allowed, reason)
+    assert report_line() is None
 
 
 def test_the_opt_out_allows_a_foreign_database_and_says_so():
