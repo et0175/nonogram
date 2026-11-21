@@ -1,6 +1,6 @@
 # CARD-512: Two test-instrument holes from wave 7: the session lock's escape hatch and test_wraps' paint check
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/512-lock-escape-paint-check
-**Worktree:** ../PythonProject4-card-512
+**Worktree:** —
 **Source:** roadmap wave 8, cut 2026-11-21 on the owner's "yes, start wave 8". IDEA-220 (CARD-508 review F-001) and IDEA-222 (CARD-507 review F-006), bundled: each alone is below `sizing.min_estimate`.
 **Idea:** IDEA-220, IDEA-222
 **Wave:** 87
@@ -20,6 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-21T11:04Z
+**Closed:** 2026-11-21T13:13Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 26ca4e7e320153bc6c99984bad58d920a68cfbf3
 **Blocked by:** —
 
 ## Why this card exists

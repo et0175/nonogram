@@ -5382,7 +5382,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   scored_at: '2026-11-21'
 - id: IDEA-221
   title: On desktop a solved name with no spaces (or a first word too long to sit beside the label) starts on line 2, under Solved!
@@ -5399,7 +5399,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   scored_at: '2026-11-21'
 - id: IDEA-223
   title: At 600x900 the board moves on solve for every name length (dx +12.7, dy +27.2 px)
