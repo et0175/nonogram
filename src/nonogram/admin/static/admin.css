@@ -1366,11 +1366,6 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    the phone's values are unchanged. Held by tests/test_puzzle_solver_maybe.py
    TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth. */
 .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-/* Review F-003: no break after "Solved! ", so a name with no spaces (a file
-   name) starts beside the label and fills both lines instead of leaving the
-   label alone on line 1. Names with spaces lay out as before; the compact
-   block's visually-hidden label already had white-space: nowrap. */
-.player-solved-label { white-space: nowrap; }
 /* The success frame is drawn just inside the table's edge: .player-stage
    scrolls (overflow-x: auto) and would clip a frame drawn outside it on the
    top and left. */

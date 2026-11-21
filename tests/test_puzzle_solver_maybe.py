@@ -1056,9 +1056,7 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
     lines, so the name is cut, not wrapped further (a third line is laid out
     but hits nothing of the banner where it would paint), the board's box is
     the same before and after the solving click, and the text keeps the whole
-    name (the clamp is visual only). Where "Solved!" shows, the name starts
-    on its line rather than below it (review F-003: a name with no spaces
-    used to leave the label alone on line 1)."""
+    name (the clamp is visual only)."""
 
     @pytest.mark.parametrize("long_name", _LONG_NAMES, ids=["words", "one-token"])
     @pytest.mark.parametrize("width,height", [(1440, 900), (1100, 700), (390, 844)])
@@ -1087,9 +1085,6 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
         assert text["below"]["inBanner"] is False, text
         # The size is the compact rule's --text-xs, resolved by the page.
         assert text["fontSize"] == text["textXs"], text
-        # Where "Solved!" shows (not on the phone, where it is visually
-        # hidden), the name starts on its line, a name with no spaces too.
-        assert text["besideLabel"] is (None if width <= 600 else True), text
         assert (after["x"], after["y"]) == (before["x"], before["y"]), (after["x"] - before["x"], after["y"] - before["y"])
         assert icon["width"] == icon["height"] == text_px  # the check icon is not squeezed (1em square)
         # The banner does not widen the tools' box (its height may grow).
@@ -1102,8 +1097,7 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
 
 #: CARD-507: the banner text's box, its clamp, its size against the page's
 #: own --text-xs, whether anything of the banner is hit at the middle of the
-#: name's first laid-out line centred below the box (a third line), and whether the name starts on the label's
-#: line (null where the label is visually hidden).
+#: name's first laid-out line centred below the box (a third line).
 _BANNER_TEXT = """() => {
   const span = document.querySelector('#puzzle-player-solved > span');
   const box = span.getBoundingClientRect();
@@ -1124,11 +1118,8 @@ _BANNER_TEXT = """() => {
     const stack = document.elementsFromPoint(x, y);
     below = { x, y, inBanner: stack.some((el) => el.closest('#puzzle-player-solved') !== null) };
   }
-  const label = document.querySelector('#puzzle-player-solved .player-solved-label');
-  const labelTop = label.getBoundingClientRect().width > 1 ? label.getClientRects()[0].top : null;
-  const besideLabel = labelTop === null ? null : Math.abs(range.getClientRects()[0].top - labelTop) < 1;
   return { height: box.height, lineHeight: parseFloat(cs.lineHeight), fontSize: cs.fontSize, textXs,
-           scrollHeight: span.scrollHeight, clientHeight: span.clientHeight, below, besideLabel };
+           scrollHeight: span.scrollHeight, clientHeight: span.clientHeight, below };
 }"""
 
 

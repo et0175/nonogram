@@ -107,16 +107,16 @@ My first version took the first line whose top was below the box, which skipped 
 
 **F-002: the size is held.** `test_wraps` asserts the span's computed font-size equals `--text-xs` as the page resolves it: a temporary element is given `font-size: var(--text-xs)` and its computed size is read. No px value is written in the test.
 
-**F-003 (owner-visible): fixed with one CSS-local rule.** I tried three candidates by injecting a style tag, and listed each line's characters at 1440x900, 1100x700, 390x844 and 844x390 for names of 10, 24, 60 and 120 characters with spaces, and 26, 60 and 120 without:
+**F-003 (owner-visible): a rule was tried in this round and REVERTED in fix round 2 (see below); F-003 is an owner-visible leftover.** I tried three candidates by injecting a style tag, and listed each line's characters at 1440x900, 1100x700, 390x844 and 844x390 for names of 10, 24, 60 and 120 characters with spaces, and 26, 60 and 120 without:
 - `word-break: break-all` on the name: starts a name with no spaces on line 1, but also breaks names with spaces mid-word at every view.
 - `line-break: anywhere` on the name: the same.
-- `.player-solved-label { white-space: nowrap; }`: starts a name with no spaces beside "Solved!" and fills both lines at 1440 and 1100 (for example `Solved! The_lighthouse_k` / `eepers_cottage_on_the_n`, where it was `Solved! ` / `The_lighthouse_keepers_`). Names with spaces have identical line content, name rectangle and shift at all four views, and every name is identical at 390x844 and 844x390.
+- `.player-solved-label { white-space: nowrap; }`: starts a name with no spaces beside "Solved!" and fills both lines at 1440 and 1100 (for example `Solved! The_lighthouse_k` / `eepers_cottage_on_the_n`, where it was `Solved! ` / `The_lighthouse_keepers_`). Names with spaces had identical line content, name rectangle and shift at all four views, but only for the names measured, whose first word fits beside the label. That claim is false for a name whose first word does not fit: review F-005 showed "Solved! Northumberlands" / "hire lighthouse at dawn", where it was "Solved!" / "Northumberlandshire…". Every name was identical at 390x844 and 844x390.
 
-The third was adopted. The compact block's visually-hidden rule already gives that label `white-space: nowrap`, so nothing new applies on the phone. Screenshots of the toolbar at 1440 with a 60-character no-space name: /private/tmp/claude-501/card507/f003/none-t60-1440.png (before) and /private/tmp/claude-501/card507/f003/label-nowrap-t60-1440.png (after). `test_wraps` holds it: where the label is visible, the name's first line starts on the label's line; at 390 the check is null.
+The third was adopted in this round and reverted in fix round 2. The compact block's visually-hidden rule already gives that label `white-space: nowrap`, so nothing new applies on the phone. Screenshots of the toolbar at 1440 with a 60-character no-space name: /private/tmp/claude-501/card507/f003/none-t60-1440.png (before) and /private/tmp/claude-501/card507/f003/label-nowrap-t60-1440.png (after). `test_wraps` held it with a beside-label assert, which was removed in fix round 2 together with the rule.
 
 **F-004:** the 600x900 note above now gives dx +12.656 too. Re-measured, not pasted: base2 and after2 both give dy +27.203 and dx +12.656 for all eight names.
 
-**Re-measurement with the F-003 rule** (base2 = fc3f33e2's admin.css swapped into the worktree; after2 = this round):
+**Re-measurement with the F-003 rule (since reverted)** (base2 = fc3f33e2's admin.css swapped into the worktree; after2 = this round):
 - AC-1: board shift 0 (dx and dy) for all eight names at 1440x900 and 1100x700, on both boards.
 - AC-2: at most 2 lines everywhere; the height-900 sweep from 700 to 1920 px gives 0 for every name.
 - AC-3: 390x844 and 844x390, 2 boards x 8 names x 9 snapshots each: 288 compared, 0 differences, shift 0.
@@ -125,10 +125,22 @@ The third was adopted. The compact block's visually-hidden rule already gives th
 **Controls (mutants of admin.css; after each one admin.css was copied back and `cmp`-checked against the branch copy).**
 1. No-overflow mutant (` overflow: hidden;` removed from `.player-solved > span`): `test_wraps` fails 6 of 6 on the `inBanner` assert with `assert True is False`.
 2. `--text-sm` mutant: 6 of 6 fail on the font-size assert with `assert '14.4px' == '12.48px'`.
-3. Label-nowrap rule removed: 2 of 6 fail, the one-token name at 1440 and at 1100, on the beside-label assert with `assert False is True`. The words cases and 390 stay green, as designed.
+3. (Rule and assert both removed in fix round 2.) Label-nowrap rule removed: 2 of 6 fail, the one-token name at 1440 and at 1100, on the beside-label assert with `assert False is True`. The words cases and 390 stay green, as designed.
 
 **Gate, fix round 1 (unarmed, `-o addopts= -rfs`, same files as the first round).** 414 passed, 0 failed, 0 skipped. tests/test_kanban_review_record.py: 71 passed.
 
 **Net test count.** 10689 tests collected in 3.84s; that equals the 10689 before this card, so net 0. No test was added: the new asserts are folded into `test_wraps`.
 
 [Review 2/3] Score: 9.0, one gating finding, not certified. F-001..F-004 closed, each re-fired (no-overflow 6/6 red on the elementsFromPoint assert; `--text-sm` 6/6 red; label rule removed 2/6 red; F-004 note carries dx). F-005 (high, G-2) the fix round's `.player-solved-label { white-space: nowrap; }` removes the break after "Solved! ", so a name WITH spaces whose first word does not fit beside the label now breaks mid-word ("Solved! Northumberlands" / "hire lighthouse at dawn", was "Solved!" / "Northumberlandshire…"); the CSS comment and card note claimed names with spaces were unchanged. F-006 (low) the elementsFromPoint assert follows hit-testing, so `pointer-events: none` in place of `overflow: hidden` passes 6/6; recorded as IDEA-222. Measured: AC-3 0 differences over 85,568 values at 390x844 and 844x390; names whose first word fits unchanged. Orchestrator's decision for round 2: revert the label rule (whole words over a filled first line; F-003 goes back to an owner-visible leftover, IDEA-221).
+
+### Fix round 2 (review cycle 2, 9.0; F-005)
+
+**The label rule is reverted.** Fix round 1's `.player-solved-label { white-space: nowrap; }` removed the break after "Solved! ". A name with spaces whose first word does not fit beside the label then broke mid-word (review F-005: "Solved! Northumberlands" / "hire lighthouse at dawn", where it was "Solved!" / "Northumberlandshire…"). My round-1 claim that names with spaces were unchanged held only for the names I measured, whose first word fits. The orchestrator decided to keep words whole: the rule and its comment are removed from admin.css, which is now byte-identical to d3f4615b's (`git diff d3f4615b -- src` is empty). The beside-label assert and its `_BANNER_TEXT` fields are removed from `test_wraps`. F-003 is again an owner-visible leftover: on desktop, a name with no spaces shows "Solved!" alone on line 1 and gets one cut line. The orchestrator records it in the backlog (IDEA-221). The F-001 (elementsFromPoint) and F-002 (font-size) asserts stay.
+
+**Controls, re-fired once each (admin.css copied back and `cmp`-checked after each).**
+- Unmutated: `test_wraps` 6 passed.
+- No-overflow mutant: 6 of 6 fail, `assert True is False` on the inBanner assert.
+- `--text-sm` mutant: 6 of 6 fail, `assert '14.4px' == '12.48px'`.
+
+**Gate (unarmed, `-o addopts= -rfs`, same files as before).** 414 passed, 0 failed, 0 skipped. Net test count: 10689 collected, unchanged, so net 0.
+
