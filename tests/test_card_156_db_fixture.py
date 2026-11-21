@@ -223,8 +223,18 @@ class TestDbFixture_SchemaIsBuiltOncePerSession:
       — DROP SCHEMA plus alembic before every test — passed it. The first test
       therefore records the engine the fixture yielded and the ``batches``
       table's OID, and the second asserts it got the same engine and the same
-      table. The two run as a pair, in file order; the second refuses to pass
-      on its own, since a once-per-session property cannot be seen in one test.
+      table. The two run as a pair, in file order.
+
+    [CARD-508, IDEA-032] The second test used to fail whenever it ran without
+    the first (``-k``, a node id, ``--lf``), because it demanded the first's
+    record unconditionally. It now asks the session whether the first test
+    ran before it (``request.session.items``): if it did, the record is
+    required and compared exactly as before, so a first test that stopped
+    recording still reds the pair; if it did not, there is nothing in this
+    session to compare against, and the test runs its remaining checks
+    (no DDL in its own setup, an empty ``batches``, ``alembic_version`` at
+    head). A once-per-session property cannot be seen in one test, so run
+    alone the second test does not claim it.
     """
 
     def test_per_test_setup_truncates_and_never_drops_or_creates(
@@ -248,19 +258,26 @@ class TestDbFixture_SchemaIsBuiltOncePerSession:
             session.close()
 
     def test_the_next_test_starts_empty_on_the_migrated_schema(
-        self, _test_database_tables, per_test_sql, db_session
+        self, request, _test_database_tables, per_test_sql, db_session
     ):
         setup_sql = [s.strip().upper() for s in per_test_sql]
         assert not [s for s in setup_sql if s.startswith(("DROP", "CREATE", "ALTER"))]
 
-        assert len(_SESSION_SCHEMA_SEEN) == 1, (
-            "run this class as a whole: the previous test records what the "
-            "session fixture built, and this one compares against it"
+        earlier = request.session.items[: request.session.items.index(request.node)]
+        first_ran = any(
+            item.cls is type(self)
+            and item.name == "test_per_test_setup_truncates_and_never_drops_or_creates"
+            for item in earlier
         )
-        _remember_the_session_schema(_test_database_tables, db_session)
-        (first_engine, first_oid), (engine, oid) = _SESSION_SCHEMA_SEEN
-        assert engine is first_engine, "the session fixture built a new engine for this test"
-        assert oid == first_oid, "the batches table was dropped and recreated between tests"
+        if first_ran:
+            assert len(_SESSION_SCHEMA_SEEN) == 1, (
+                "the previous test ran in this session but recorded nothing "
+                "the session fixture built, so there is nothing to compare"
+            )
+            _remember_the_session_schema(_test_database_tables, db_session)
+            (first_engine, first_oid), (engine, oid) = _SESSION_SCHEMA_SEEN
+            assert engine is first_engine, "the session fixture built a new engine for this test"
+            assert oid == first_oid, "the batches table was dropped and recreated between tests"
 
         from alembic.config import Config
         from alembic.script import ScriptDirectory

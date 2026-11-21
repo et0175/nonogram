@@ -867,7 +867,7 @@ ideas:
     databases or a session-level advisory lock would make it safe   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -895,7 +895,7 @@ ideas:
     first   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -2424,7 +2424,7 @@ ideas:
   raw: '- [ ] CARD-176 F-003: a URL with leading whitespace (`'' postgresql://…''`) now gets `<malformed
     scheme>` — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -3472,7 +3472,7 @@ ideas:
   source_line: 209
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -4220,7 +4220,7 @@ ideas:
   source_line: 316
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -5279,7 +5279,7 @@ ideas:
   source_line: 404
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -5374,5 +5374,47 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   scored_at: '2026-11-20'
+- id: IDEA-220
+  title: A stale exported NONOGRAM_TEST_DB_SESSION_LOCK turns the test-database session lock off
+  raw: '- [ ] CARD-508 review F-001 (medium): the child-inheritance escape of `_session_lock` (tests/conftest.py) trusts `NONOGRAM_TEST_DB_SESSION_LOCK` alone. Exported by hand (or left in a shell), it lets a concurrent run in, and the measured result was the wipe CARD-508 fixed (`UndefinedTable: relation "batches" does not exist`). Suggested: carry the holder pid in the value and have the child confirm the lock in `pg_locks` before skipping it.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  scored_at: '2026-11-21'
+- id: IDEA-221
+  title: On desktop a solved name with no spaces (or a first word too long to sit beside the label) starts on line 2, under Solved!
+  raw: '- [ ] CARD-507 review F-003/F-005: with the two-line clamp, a solved name whose first word does not fit beside "Solved! " starts on the second line, so one line of name shows ("Solved!" / "The_lighthouse_keepers_…"). A nowrap label fills line 1 but then breaks such words mid-word (tried in CARD-507 fix round 1, reverted). Plain CSS cannot have both; owner to say whether mid-word breaks are acceptable.   @feature'
+  source_line: null
+  intent: null
+  category: feature
+  status: backlog
+  needs_owner_decision: true
+  scored_at: '2026-11-21'
+- id: IDEA-222
+  title: test_wraps' overflow check follows hit-testing, not paint
+  raw: '- [ ] CARD-507 review F-006: the elementsFromPoint assert in tests/test_puzzle_solver_maybe.py test_wraps passes 6/6 when `overflow: hidden` is replaced by `pointer-events: none`, while lines 3+ still paint over the controls. A pixel or clip-rect check would close it.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  scored_at: '2026-11-21'
+- id: IDEA-223
+  title: At 600x900 the board moves on solve for every name length (dx +12.7, dy +27.2 px)
+  raw: '- [ ] CARD-507 (measured by the implementer and review): in the compact layout at 600x900 the board moves dx +12.656, dy +27.203 px when a puzzle is solved, for all eight names tried including 10 characters; identical before and after CARD-507, so pre-existing.   @feature'
+  source_line: null
+  intent: null
+  category: feature
+  status: backlog
+  scored_at: '2026-11-21'
+- id: IDEA-224
+  title: A trailing space or newline in DATABASE_URL passes silently into the database name
+  raw: '- [ ] CARD-509 review F-001: make_url keeps a trailing space or newline in the database name ("db "), so such a URL connects to a database that does not exist without saying why; the "with trailing whitespace" wording appears only when the URL also fails to parse. Strip or reject surrounding whitespace changes what every normalized_url caller connects to: owner decision.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  needs_owner_decision: true
+  scored_at: '2026-11-21'

@@ -29,7 +29,9 @@ What is verified here, and where the proof lives
   runner that gates. AC-6 carries its counterfactual: the same pair of
   processes is run again against a single shared database, and the test fails
   if that pair comes back green (ADR-0039/R1 — a claim whose control cannot
-  fail is narrative, not coverage).
+  fail is narrative, not coverage). Since CARD-508 the shared pair reds by
+  the second process being refused the database, with the first one's row
+  intact, rather than by the row being erased.
 """
 
 from __future__ import annotations
@@ -1017,11 +1019,16 @@ class TestDbIsolation_TwoTreesDoNotCorruptEachOther:
                 "session fixture after tree A's write.\n"
                 f"tree a:\n{shared_output[0]}\ntree b:\n{shared_output[1]}"
             )
-            # And it must red for the stated reason — a destroyed row or a
-            # destroyed schema — not because the probe failed to start.
-            blamed = "\n".join(shared_output)
-            assert ("saw []" in blamed or "saw ['b']" in blamed
-                    or "UndefinedTable" in blamed or "does not exist" in blamed), blamed
+            # And it must red for the stated reason, not because the probe
+            # failed to start. [CARD-508, IDEA-031] Since the session lock
+            # (conftest's ``_session_lock``) the reason is a refusal: tree B
+            # cannot take the database tree A holds, so it erases nothing, and
+            # tree A's row survives (A then reds only because B never reaches
+            # the rendezvous). Before the lock this arm red with A's row
+            # destroyed ("saw []"), which this now forbids.
+            assert "another pytest run is using it" in shared_output[1], shared_output[1]
+            assert "saw [" not in shared_output[0], shared_output[0]
+            assert "peer never reached" in shared_output[0], shared_output[0]
         finally:
             for name in derived:
                 _drop_database(test_db_url, name)
