@@ -56,6 +56,8 @@ from nonogram.admin.book_manager import BOOK_THEMES, BookManager, BookStatus
 from nonogram.admin.book_plan import BUCKETS, TIERS, LevelBoundary
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from tests.helpers.db import make_batch, sqlite_session_scope
+from tests.test_book_setup_print_mobile import live_book  # noqa: F401 - fixture by name
+from tests.test_puzzle_solver_page import browser_page, browser_type  # noqa: F401 - fixtures by name
 
 MODES = ("memory", "db")
 
@@ -1218,15 +1220,36 @@ class _TrimInputs(HTMLParser):
             self.checked_unit.append(attributes.get("value"))
 
 
+#: What the browser itself says of the two trim inputs and their form.
+_TRIM_VALIDITY = """() => {
+  const read = (input) => ({
+    value: input.value,
+    valid: input.validity.valid,
+    checkValidity: input.checkValidity(),
+    rangeUnderflow: input.validity.rangeUnderflow,
+    rangeOverflow: input.validity.rangeOverflow,
+    stepMismatch: input.validity.stepMismatch,
+    min: input.min,
+    max: input.max,
+    step: input.step,
+  });
+  const width = document.getElementById('width');
+  const height = document.getElementById('height');
+  return {width: read(width), height: read(height), form: width.form.checkValidity()};
+}"""
+
+
 def _browser_admits(attributes: dict, value: str) -> bool:
     """Whether a browser's constraint validation lets ``value`` through.
 
     An independent statement of the HTML number-input rules the form is
     judged by (rangeUnderflow, rangeOverflow, stepMismatch), not a reading
     of the template: a ``min`` above the value, a ``max`` below it, or a
-    value off the ``step`` grid (based on ``min``, else 0) blocks submission.
+    value off the ``step`` grid blocks submission. The grid's base is
+    ``min``, else the ``value`` content attribute when it parses as a
+    number, else 0 (the HTML step-base rule).
     """
-    from decimal import Decimal
+    from decimal import Decimal, InvalidOperation
 
     v = Decimal(value)
     if attributes.get("min") not in (None, "") and v < Decimal(attributes["min"]):
@@ -1235,7 +1258,16 @@ def _browser_admits(attributes: dict, value: str) -> bool:
         return False
     step = attributes.get("step")
     if step not in (None, "", "any"):
-        base = Decimal(attributes.get("min") or "0")
+        base = Decimal(0)
+        if attributes.get("min") not in (None, ""):
+            base = Decimal(attributes["min"])
+        elif attributes.get("value") not in (None, ""):
+            try:
+                base = Decimal(attributes["value"])
+            except InvalidOperation:
+                pass
+            if not base.is_finite():
+                base = Decimal(0)
         if (v - base) % Decimal(step) != 0:
             return False
     return True
@@ -1289,7 +1321,13 @@ class TestPrintSetup_InchesTrimIsReachable:
         assert _browser_admits(read.inputs["width"], inches[0])
         assert _browser_admits(read.inputs["height"], inches[1])
 
-    def test_the_cm_form_admits_the_same_trim_in_cm(self, panel) -> None:
+    def test_the_cm_form_admits_each_trim_in_either_unit(self, panel) -> None:
+        """A page opened in centimetres renders no bound that refuses a trim, in cm or in inches.
+
+        Judged on the server's HTML only: the bounds as rendered. What the
+        unit switch's script does afterwards is not seen here; the browser
+        test below measures the page after a real switch (CARD-520).
+        """
         app, shelf = panel
         book_id = shelf.book()
 
@@ -1298,8 +1336,43 @@ class TestPrintSetup_InchesTrimIsReachable:
             read = self._form(client, book_id)
 
         assert read.checked_unit == ["cm"]
-        assert _browser_admits(read.inputs["width"], "21.59")
-        assert _browser_admits(read.inputs["height"], "27.94")
+        for inches, cm in self.INCH_TRIMS:
+            for unit, (width, height) in (("inches", inches), ("cm", cm)):
+                assert _browser_admits(read.inputs["width"], width), (unit, width, read.inputs["width"])
+                assert _browser_admits(read.inputs["height"], height), (unit, height, read.inputs["height"])
+
+    @pytest.mark.browser
+    def test_a_browser_admits_each_inches_trim_after_switching_a_cm_page(
+        self, browser_page, live_book  # noqa: F811
+    ) -> None:
+        """CARD-159's bug, measured where it lived: in Chromium, after the switch.
+
+        The page opens in centimetres (a fresh session's unit), the owner
+        clicks "Inches" as a user does, so every handler and script the page
+        carries has run, and then each inches trim is typed in. The verdict
+        is the browser's own constraint validation (``validity`` and
+        ``checkValidity()`` of each input, and of the form), not a reading of
+        the markup or the scripts (CARD-520, review 2 F-001).
+        """
+        page = browser_page
+        errors: list[str] = []
+        page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.goto(live_book)
+
+        assert page.locator("#unit_cm").is_checked()
+        page.click("label[for=unit_inches]")
+        assert page.locator("#unit_inches").is_checked()
+        assert page.locator("#width_unit").inner_text() == "in"
+
+        for (width, height), _cm in self.INCH_TRIMS:
+            page.fill("#width", width)
+            page.fill("#height", height)
+            verdict = page.evaluate(_TRIM_VALIDITY)
+            for field in ("width", "height"):
+                flags = verdict[field]
+                assert flags["valid"] and flags["checkValidity"], (f"{width} x {height} in", field, flags)
+            assert verdict["form"], (f"{width} x {height} in", "form", verdict)
+        assert errors == [], errors
 
     def test_a_page_reopened_on_an_inches_trim_admits_its_own_values(self, panel) -> None:
         """Saved in inches, reopened in inches: the prefilled values pass too."""
@@ -1318,6 +1391,10 @@ class TestPrintSetup_InchesTrimIsReachable:
         for field in ("width", "height"):
             attributes = read.inputs[field]
             assert _browser_admits(attributes, attributes["value"]), attributes
+        # With no min, the step grid is based on the prefilled value: an
+        # off-grid prefill (a hand-written 21.005) puts 8.5 off the grid.
+        off_grid = {**read.inputs["width"], "value": "21.005"}
+        assert not _browser_admits(off_grid, "8.5"), off_grid
 
     @pytest.mark.parametrize("inches,cm", INCH_TRIMS)
     def test_the_server_stores_the_inches_trim(self, panel, inches, cm) -> None:
