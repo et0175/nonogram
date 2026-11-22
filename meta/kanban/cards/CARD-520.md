@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_book_workflow_steps.py
 **UI surface:** Print setup (test only)
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 8.5 (cycle 2/3)
 **Started:** 2026-11-22T11:03Z
 **Closed:** —
 **Actual:** —
@@ -71,3 +71,7 @@ Re-verify on main first: reproduce mutant I1 and show the class stays green. The
   - All template mutants restored by `git checkout`; `git status` afterwards shows only the test file modified.
 - [Fix round 1] F-002: `_browser_admits` takes the step base as `min`, else the `value` attribute when it parses as a finite number, else 0. The control is inside `test_a_page_reopened_on_an_inches_trim_admits_its_own_values` and needed no new test: an off-grid prefill (`value` 21.005) must put 8.5 off the grid. Control H1 (helper base reverted to min-else-0) -> '1 failed, 8 passed', `assert not _browser_admits(off_grid, "8.5")` / `where True = _browser_admits(..., '8.5')`. Test file restored from a byte copy (`cmp` equal).
 - [Fix round 1] Gate, unarmed, `-o addopts= -rfs`: tests/test_book_workflow_steps.py tests/test_book_setup_print_mobile.py tests/test_book_trim_persistence.py -> '260 passed, 1 warning', 0 skipped. Collected count `--collect-only -q -o addopts= tests/`: 10692 (re-derived); net 0 against the 10692 base.
+
+[Review 2/3] Score: 8.5, one gating finding, not certified. Holds: today's page green (130 passed); I1, I1h, I1m, I1s red; cycle-1 bypasses B1-B3, S1 and X red; a template literal, `attributes.setNamedItem` and a `<template><script>` red; F-002's step base is right per the HTML spec (control H1 reds); the exemption list is one pinned Bootstrap URL held equal to the rendered srcs; net 0. F-001 (Important, ADR-0039/R2): script outside `<script>` text and `<script src>` is never read, and each of these leaves 9 passed: an inline `onchange` handler writing `width.min` (the page already uses three inline handlers), `<script type="module">import …`, a dynamic `import()`, `createElement('script')`, and an `<iframe srcdoc>`. F-002 (low): honest edits such as a comment containing "max" or "step" red with no message saying why or what to do. F-003 (low): the docstring's declared gap has no failing control (`setAttribute` via an alias, `setAttributeNS`, `setAttributeNode` each 9 passed).
+
+**Orchestrator, before cycle 3.** Two rounds of pattern-matching have each found new carriers, so the static script check cannot be made complete. Cycle 3 replaces it with a measurement: the existing browser fixtures open the page in centimetres, switch the unit to inches as a user does, and ask the browser itself whether each trim is admitted.
