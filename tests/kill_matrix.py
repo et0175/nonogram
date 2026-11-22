@@ -139,7 +139,9 @@ Safety discipline
   inside one reading is not seen, and a run that backs a path up while
   another writer's mutant is on disk takes that mutant for pristine, and its
   restore puts the mutant back; both are why the message says to read
-  ``git diff`` after the run.
+  ``git diff`` after the run. The restore overwrites what the other writer
+  left, so an in-place run first copies those bytes into its temp tree and
+  keeps that tree, and the message names the copy.
 
   The window itself is kept, by decision. A marker file for ``git`` to honour
   would have no reader — no hook here reads one, and a file in the tree is
@@ -1127,10 +1129,23 @@ class Runner:
     #: Observation only: nothing reads it to build a result, and a test uses it
     #: to show that the finishing order and the declared order really differed.
     _completion: list[int] = field(default_factory=list, init=False, repr=False)
-    #: The bytes this runner last put on each registered path: its backup once
+    #: The bytes this runner last put on each registered file: its backup once
     #: backed up or restored, the mutant once planted. What every reading
-    #: checks the disk against (:meth:`_refuse_on_foreign_write`).
-    _expected: dict[Path, bytes] = field(default_factory=dict, init=False, repr=False)
+    #: checks the disk against (:meth:`_refuse_on_foreign_write`). Keyed on the
+    #: file's **identity** (``st_dev``, ``st_ino``), never on its spelling: a
+    #: mutant may name a registered file through ``..`` or another case, which
+    #: :meth:`_refuse_unless_topology_holds` supports, and two keys for one file
+    #: would each expect different bytes (CARD-315 review F-001). The value
+    #: keeps the spelling last written through, which is what is read back.
+    #: Cleared at the start of every :meth:`run`: an expectation belongs to one
+    #: run's registry, not to the instance (F-003).
+    _expected: dict[tuple[int, int], tuple[Path, bytes]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    #: Set by :meth:`run` for an in-place reading only: a detected foreign
+    #: write's bytes are then copied into :attr:`workdir`, which is kept. A
+    #: lane's tree is a private copy and is removed with its lane.
+    _keeps_foreign: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.workers, int) or self.workers < 1:
@@ -1229,7 +1244,7 @@ class Runner:
             backup = self.workdir / f"backup.{len(registry)}.{path.name}"
             subprocess.run(["cp", "-p", str(path), str(backup)], check=True)
             registry[path] = backup
-            self._expected[path] = backup.read_bytes()
+            self._expect(path, backup.read_bytes())
         return registry
 
     def _restore(self, registry: Mapping[Path, Path]) -> None:
@@ -1251,7 +1266,7 @@ class Runner:
             except (OSError, subprocess.CalledProcessError) as exc:
                 failures.append(f"cp -p could not restore {path}: {exc}")
                 continue
-            self._expected[path] = backup.read_bytes()
+            self._expect(path, backup.read_bytes())
             failures.extend(self._verification_failures(path, backup))
         if failures:
             raise LeakedPatch(
@@ -1335,7 +1350,9 @@ class Runner:
         """Remove this run's temp tree. Never called when a restore failed.
 
         There the backup is the only intact copy of the file on disk, so the
-        tree is kept and :meth:`run` names the directory in the exception.
+        tree is kept and :meth:`run` names the directory in the exception. Nor
+        after an in-place :class:`ConcurrentWrite`: the tree then holds the
+        copy of what the other writer left, and the exception names it.
         """
         if self._workdir is None:
             return
@@ -1352,6 +1369,8 @@ class Runner:
         """
         if not isinstance(pass_, Pass):
             raise TypeError("pass_ must be a Pass member; there is no default")
+        self._expected.clear()
+        self._keeps_foreign = False
         pristine = self.target.read_text(encoding="utf-8")
         linenos = assert_linenos(pristine, str(self.target))
         collisions = sorted({l for l in linenos if linenos.count(l) > 1})
@@ -1370,6 +1389,8 @@ class Runner:
                     paths.append(path)
         if self.workers > 1 and self._lane_paths(paths) is not None:
             return self._run_in_lanes(pass_, mutants, pristine, denominator, paths)
+        self._keeps_foreign = True
+        foreign = False
         registry = self._backup_registry(paths)
         try:
             shipped = self._measure("SHIPPED", pass_, denominator, pristine)
@@ -1391,6 +1412,9 @@ class Runner:
                 shipped_between=between,
                 child_instrumentation=self.child_instrumentation,
             )
+        except ConcurrentWrite:
+            foreign = True
+            raise
         finally:
             try:
                 self._restore(registry)
@@ -1400,7 +1424,12 @@ class Runner:
                     "rather than discarded: a restore that did not verify is "
                     "the one case where the backup is the only intact copy"
                 ) from exc
-            self._discard_workdir()
+            if foreign:
+                # The copy of what the other writer left lives here; forget the
+                # tree rather than remove it, so a later run makes its own.
+                self._workdir = None
+            else:
+                self._discard_workdir()
 
     def _measure_mutant(
         self,
@@ -1756,7 +1785,7 @@ class Runner:
             for edit in edits:
                 source = apply_edit(source, edit)
             path.write_text(source, encoding="utf-8")
-            self._expected[path] = source.encode("utf-8")
+            self._expect(path, source.encode("utf-8"))
 
     def _measure(
         self, label: str, pass_: Pass, denominator: int, pristine: str
@@ -1808,6 +1837,11 @@ class Runner:
             child_instrumentation=self.child_instrumentation,
         )
 
+    def _expect(self, path: Path, data: bytes) -> None:
+        """Record ``data`` as what ``path``'s file now holds, keyed on identity."""
+        stat = os.stat(path)
+        self._expected[(stat.st_dev, stat.st_ino)] = (path, data)
+
     def _refuse_on_foreign_write(self, label: str, when: str) -> None:
         """Raise :class:`ConcurrentWrite` if a registered path moved under us.
 
@@ -1823,18 +1857,29 @@ class Runner:
         both agree. A no-op for a runner nothing has registered a path on.
         """
         moved: list[str] = []
-        for path, want in self._expected.items():
+        kept: list[str] = []
+        for path, want in self._expected.values():
             try:
                 got = path.read_bytes()
             except OSError:
                 got = None
             if got != want:
                 moved.append(str(path))
+                if self._keeps_foreign and got is not None:
+                    copy = self.workdir / f"foreign.{len(kept)}.{path.name}"
+                    copy.write_bytes(got)
+                    kept.append(str(copy))
         if not moved:
             return
+        copies = (
+            f" A copy of what it left is kept at {kept}, in a temp tree this "
+            "run does not remove."
+            if kept
+            else ""
+        )
         raise ConcurrentWrite(
             f"{label}: {moved} no longer hold what this instrument last wrote "
-            f"there, {when}. It writes nothing during a reading, so something "
+            f"there, {when}.{copies} It writes nothing during a reading, so something "
             "else wrote to this tree while this run held it -- another "
             "kill-matrix run in the same tree, a git stash, checkout or reset, "
             "an editor's save. This is not a leaked patch, and this reading is "

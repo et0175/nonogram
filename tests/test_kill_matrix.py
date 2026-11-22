@@ -1040,7 +1040,18 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
     without the check reads exactly like the genuine leak above (``SHIPPED is
     not FAIL-free after AFTER``), and one during the mutant's reading that puts
     the pristine text back, a ``git stash`` in the plant window, which without
-    the check publishes a killing mutant as a survivor and raises nothing.
+    the check publishes a killing mutant as a survivor and raises nothing. The
+    first writes before the reading's first check; the second after it, as
+    the child is spawned, which is where a real stash lands and which only the
+    check made after the child ends can see (review F-002). The second is in
+    place, so the bytes the writer left are kept, and named (F-004).
+
+    And the check must not refuse an honest run (review F-001, F-003): one
+    runner, reused, whose first run registers ``km_leaky.py`` before the
+    caller edits it, and whose second run names the target through ``..`` and,
+    on a volume that folds case, through another case -- spellings
+    :meth:`Runner._refuse_unless_topology_holds` supports. The same spellings
+    are measured in lanes too.
     """
     leaky = tmp_path / "km_leaky.py"
 
@@ -1080,20 +1091,34 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
     after = [mutants[1]]
 
     class WrittenUnder(Runner):
-        """Writes ``text`` to the target as the reading ``label`` starts."""
+        """Writes ``text`` to the target inside the reading ``label``."""
 
         label = text = ""
+        inside = False
 
         def _measure(self, label, *args):
-            if label == self.label:
+            if label == self.label and not self.inside:
                 simple_target.write_text(self.text, encoding="utf-8")
+            self.armed = label == self.label and self.inside
             return super()._measure(label, *args)
 
-    for label, text in (
-        ("SHIPPED after AFTER", pristine.replace('"shipped"', '"rotted!"', 1)),
-        ("AFTER", pristine),
+        def _pytest(self, pass_):
+            if self.armed:
+                self.armed = False
+                simple_target.write_text(self.text, encoding="utf-8")
+            return super()._pytest(pass_)
+
+    for label, text, inside, when in (
+        (
+            "SHIPPED after AFTER",
+            pristine.replace('"shipped"', '"rotted!"', 1),
+            False,
+            "before its child pytest started",
+        ),
+        ("AFTER", pristine, True, "after its child pytest ended"),
     ):
         WrittenUnder.label, WrittenUnder.text = label, text
+        WrittenUnder.inside = inside
         writer = WrittenUnder(
             selection=[str(simple_target)], repo_root=simple_target.parent
         )
@@ -1101,9 +1126,43 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
             writer.run(Pass.RECORDING, after)
         said = str(written.value)
         assert said.startswith(f"{label}: [{str(simple_target)!r}]"), said
+        assert when in said, said
         assert "SHIPPED is not FAIL-free" not in said, said
         assert "git diff --cached" in said, said
         assert simple_target.read_text(encoding="utf-8") == pristine, label
+        kept = re.search(r"A copy of what it left is kept at (\[[^\]]*\])", said)
+        assert kept, said
+        (copy,) = (Path(name) for name in ast.literal_eval(kept.group(1)))
+        assert copy.read_text(encoding="utf-8") == text, copy
+        shutil.rmtree(copy.parent)
+
+    (tmp_path / "sub").mkdir()
+    spellings = [tmp_path / "sub" / ".." / simple_target.name]
+    folded = tmp_path / simple_target.name.upper()
+    if folded.exists():
+        spellings.append(folded)
+    aliases = [
+        Mutant(
+            f"ALIAS-{index}",
+            (Edit(path=spelling, old='MARK = "shipped"', new='MARK = "rotted!"'),),
+        )
+        for index, spelling in enumerate(spellings)
+    ]
+    mark = km.assert_linenos(pristine)[0]
+    honest = Runner(selection=[str(simple_target)], repo_root=simple_target.parent)
+    honest.run(
+        Pass.RECORDING,
+        [Mutant("LEAK-ROT", (Edit(path=leaky, old='"shipped"', new='"rotted!"'),))],
+    )
+    leaky.write_text(LEAKY + "# edited between runs\n", encoding="utf-8")
+    for runner_ in (
+        honest,
+        Runner(selection=[str(simple_target)], repo_root=simple_target.parent, workers=2),
+    ):
+        aliased = runner_.run(Pass.RECORDING, aliases)
+        for alias in aliases:
+            assert aliased.cell(alias.name, mark) == FAIL, aliased.table()
+    assert simple_target.read_text(encoding="utf-8") == pristine
 
 
 def test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere():
