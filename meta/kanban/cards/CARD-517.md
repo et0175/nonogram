@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/measure_difficulty_cutoff.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T08:36Z
 **Closed:** —
 **Actual:** —
@@ -91,3 +91,7 @@ The corpus must be reproducible: prefer images committed in the repo (test fixtu
 - [AC-4] Net collected count: 10691 before, 10692 after (+1).
 - [Gate] Unarmed, `-rfs`: `tests/test_measure_difficulty_cutoff.py`, `tests/test_card_062_abandon_retry.py` (the admin retry the script now calls), `tests/test_difficulty.py` (G-1). 46 passed, 0 failed, 0 skipped. No DB tests are involved, so no armed run.
 - [Note] `pictures/` in the main checkout is git-tracked (25 files; `f3ba7198` "restore the 25-image picture corpus to main"), not untracked as the brief says. It was still treated as private per G-2: it was not used in the reproducible corpus, and no name from it is written here.
+
+[Review 1/3] Score: 9.0, nothing gating, certified. Every table row recomputes from `img_full.json` (the 90 row 86.9/9.0/4.1, 31 medium; medium by bucket 6/66, 9/93, 9/93, 7/91; fixtures 69.7/18.9/11.5, silhouettes 96.4/3.6/0.0). An independent full rerun (341 s) gave the same 343 rows and the same failures. Random mode differs only in its wall-clock line, and the 1005 JSON rows are equal without `seconds`. The image path is the admin batch's own `_generate_image_puzzle` after `size_fits()`. Both controls red again. No private picture name in the diff. F-001 (medium): the medium/hard split rests on about 15 pictures, not 45 independent puzzles; one fixture supplies 10 of the 31 medium. Without it the split at 90 is 21/14 = 60.0%; fixtures alone give 85 → 48.6%, 90 → 62.2%, 95 → 83.8%. F-002 (low): the reason given for skipping the admin's quality filter is wrong; the upload form submits 25, not 0. Measured at 25: 2 easy rows drop, the 90 row becomes 86.8/9.1/4.1, the 31/14 split is unchanged. F-003 (low): "the hard share is a floor" does not follow; the 5 fixtures that produce nothing fail the same way in the admin and never reach a book. F-004 (low): three mutants pass the test (short sizing, the repeated-extent skip off, the elongation check off). F-005 (low): the headline is mostly synthetic silhouettes (221 of 343 rows); the real-picture readings are fixtures 69.7/18.9/11.5 and the owner's folder 81.4/12.6/6.1. F-006 (info): the 7 solver timeouts are wall-clock dependent, so the corpus replays on this machine.
+
+**Orchestrator reading of AC-3, after review 1.** The owner should read the result as: on real pictures, 90.0 gives 70-81% easy, 13-19% medium and 6-12% hard. Easy is set by the pictures, not by the cutoff. Among the non-trivial puzzles, 90 gives about 60-69% medium, the candidate nearest the plan's 2:1. That split rests on about 15 pictures, so the figure is a direction, not a precise share. The hard share is not a floor (F-003), and skipping the quality filter changes nothing measurable (F-002). No cutoff change is proposed.
