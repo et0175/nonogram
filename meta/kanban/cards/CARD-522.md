@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py
 **UI surface:** — (start-up only)
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T13:38Z
 **Closed:** —
 **Actual:** —
@@ -96,3 +96,5 @@ Re-verify on main first: how `create_app` chooses in-memory mode, how the deploy
   - Unarmed, same eleven files as the implementation note: 584 passed, 0 failed, 13 skipped (all "Database not reachable: DATABASE_URL is not set").
   - Armed against `nonogram_pythonproject4_card_522_14f2af8fd8ab_test` on localhost, the four changed test files (test_admin_auth, test_admin_serving, test_admin_binding, test_admin_regrade_hidden_when_deployed): 195 passed, 0 skipped, 0 failed.
 - **Net count**, re-derived with `--collect-only -q -o addopts= tests/ | tail -1`: merge-base b607321a (extracted by `git archive` to a scratch directory) 10693, this branch 10694, so +1.
+
+[Review 2/3] Score: 9.5, nothing gating, certified. With ADMIN_ALLOWED_HOST set, both routes into memory (DATABASE_URL unset/blank; set but `nonogram.db` fails to import) now refuse unless the test-only keyword is passed, and every recorded start path calls `create_app()` bare; no code outside tests/ passes the keyword. Messages carry only the variable name; the import-failure refusal is raised `from None`. Local log lines are truthful in both cases. `sys.modules` is patched with `monkeypatch.setitem` and restored (test_admin_auth.py 81 passed; followed by neighbours 68 passed). Controls I1, I2, I3, J red again, plus the reviewer's K (exception text in the message) and L (refusing locally). Unarmed 186 passed, 9 skipped "DATABASE_URL is not set"; armed 195 passed; net +1. F-001 (low): the import-failure refusal names no cause, and the same `except` also catches an import-time bug inside `nonogram/db`; the exception's class name would help without leaking anything.
