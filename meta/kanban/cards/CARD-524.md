@@ -18,7 +18,7 @@
 **Depends on:** CARD-523 (same stylesheet and test file)
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_maybe.py
 **UI surface:** admin solver page solved banner (desktop)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T15:36Z
 **Closed:** —
 **Actual:** —
@@ -99,3 +99,5 @@ So the premise holds: these names start on line 2.
 Result: 447 passed, 0 failed, 0 skipped.
 
 **Net test count.** `--collect-only` over tests/ gives 10694 collected before and 10694 after, so net 0.
+
+[Review 1/3] Score: 9.0, nothing gating, certified. At seven desktop views (960-1480 px) every name gives the same lines: ordinary names break only between words; a no-space name and a long first word fill both lines from "Solved! "; a long second word moves whole to line 2 and breaks there (as since CARD-507). Board dx 0 / dy 0 at all 9 views; clamp two lines at 12.48 px; compact label still visually hidden; textContent still "Solved! <name>". Control 1 red (2 failed, 4 passed), restored. Gate subset 105 passed. Renders read well. F-001 (low): `_BANNER_LINES` measures character boxes, which the visually-hidden clip does not change, so a hidden label on desktop still reads as "Solved! " (control: hiding it on desktop left the one-token case green); asserting the label is wider than 1 px would close it. F-002 (low): the test's rule "a word is broken only when it is the name's first word" is too broad; a long later word is also broken, correctly. F-003 (info, owner's call): a long second word still leaves line 1 as "Solved! The ".
