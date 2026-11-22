@@ -92,7 +92,9 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 13 — IN PROGRESS (board wave 92)
+## Wave 13 — DONE 2026-11-22 (board wave 92)
+
+One card merged: CARD-525 (`2f53bd60`), on the owner's ruling ("merge it now") after review 3 at 8.5, not certified; its AC-3 item 1 was corrected by the orchestrator to carry the `smooth_corr >= 0.96` floor (F-011). Wave close: `make test-wave-close` on `main` at `ce3835e0`, 10664 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 32 min. Net tests +1 (the experiment script's test). No product change, nothing to publish. Result: on easy puzzles only, a stricter threshold kept only above the floor takes fixtures 69.7% -> 59.0% easy and the owner's folder 80.7% -> 70.3%; the rule was chosen post hoc. Dithering is not guarded by the floor (it adds checkered or scattered cells). Owner ruling 2026-11-22: build threshold, then dithering -> CARD-526 (IDEA-228), ready, unscheduled; it needs a dithering noise check and at least 10 held-out pictures. Recorded, not carded: the line-art warning (ink share < 0.230 and enclosed > 0.031) fits 6 failing fixtures from about 2100 candidate rules and has 1 held-out failing picture.
 
 ### As cut
 
