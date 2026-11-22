@@ -1,264 +1,168 @@
-# Admin Panel Test Suite - Wave 1
+# Test suite
 
-Comprehensive tests for Wave 1 features: batch history, puzzle preview, bulk operations.
+Everything under `tests/`: the CLI and solver tests, the seeded property
+corpora, the admin panel (Flask, Postgres) and its browser tests, the book PDF
+checks, and the board's own tooling tests. How tests are written here (no
+`hypothesis`, hand-built seeded corpora with a floor asserted in the test,
+independent oracles) is in the repo's `CLAUDE.md` under **Test style**; which
+requirement each test verifies is in `meta/architecture/requirements.yml`.
 
-## Test Files
+## Layout
 
-### Feature Tests
+- `tests/test_*.py`: one file per subject.
+- `tests/property/`: the seeded-corpus property tests, among them
+  `test_solver_uniqueness.py`, the mandatory solver property (EC-001).
+- `tests/e2e/`: the admin-panel workflow test; it has its own `README.md`.
+- `tests/helpers/`: test-only helpers, never imported by production code. Among
+  them `brute_force_oracle.py` (the solver's independent oracle; its rule is in
+  `CLAUDE.md`'s **Architecture**), `db.py` (plumbing for tests that need a real
+  database), `mock_generator.py`, and the PDF and ink readers
+  (`pdf_pages.py`, `pdf_vector.py`, `page_ink.py`, `round_ink.py`,
+  `two_up_ink.py`, `qr_reader.py`). Each module's docstring says what it is for.
+- `tests/fixtures/`: the images and golden files the tests read
+  (`make_fixtures.py` rebuilds the synthetic ones).
+- Suite-wide plugins, each in its own module so its own tests can load it into
+  a subprocess: `conftest.py` (fixtures, database setup, registers the rest),
+  `hang_guard.py`, `database_guard.py`, `db_name.py` (the per-worktree database
+  name), `full_suite_lock.py` and `wave_close_marker.py`. `kill_matrix.py` is a
+  tool, described in its own section below.
 
-- **test_batch_history.py** — Batch history tracking and retrieval
-  - Batch metadata storage
-  - Batch list and filtering
-  - Batch detail pages
-  - Batch retry functionality
+## Running it
 
-- **test_puzzle_preview.py** — Puzzle preview modal data
-  - Preview data availability (grid, clues)
-  - Grid rendering for all sizes (10×10 to 30×30)
-  - Clue formatting
-  - Preview API endpoints
+The commands, the merge-gate and wave-close targets and how a card worktree
+finds a venv are in `CLAUDE.md` under **Commands**; every `Makefile` target
+carries a comment saying what it runs. One thing neither says:
 
-- **test_bulk_operations.py** — Bulk approve/reject operations
-  - Bulk approve single and multiple puzzles
-  - Bulk reject single and multiple puzzles
-  - Bulk operations with filters applied
-  - Validation and idempotency
+`pyproject.toml` sets `addopts = "-q"`, so a `-q` of your own becomes `-qq` and
+the summary line disappears. Pass `-o addopts=` when you need the counts, and
+`-rfs` so every skip prints its reason.
 
-### End-to-End Tests
+## Markers
 
-- **test_wave1_e2e.py** — Complete workflows combining all Wave 1 features
-  - Batch generation → history verification
-  - Puzzle preview before approval
-  - Bulk operations on filtered puzzles
-  - Complete workflow integration test
+Registered in `pyproject.toml`:
 
-## Running Tests
+- `browser`: drives the admin panel in Chromium through pytest-playwright. Run
+  `playwright install chromium` once per checkout; without it these tests
+  fail with that instruction rather than skip.
+- `wave_close_only`: the heaviest property sweeps and mutant grids, deselected
+  at the merge gate and run at the wave close. Applied only by the registry in
+  `wave_close_marker.py`, never by a decorator.
 
-### All Wave 1 Tests
+Registered in `conftest.py`'s `pytest_configure`:
 
-```bash
-pytest tests/test_batch_history.py tests/test_puzzle_preview.py tests/test_bulk_operations.py tests/test_wave1_e2e.py -v
-```
-
-### By Category
-
-**Unit Tests Only** (fast, no database):
-```bash
-pytest -m unit -v
-```
-
-**Integration Tests** (uses database):
-```bash
-pytest -m integration -v
-```
-
-**E2E Tests** (full workflows):
-```bash
-pytest -m e2e -v
-```
-
-**Smoke Tests** (quick sanity checks):
-```bash
-pytest -m smoke -v
-```
-
-**Performance Tests**:
-```bash
-pytest -m performance -v
-```
-
-### Specific Test File
-
-```bash
-pytest tests/test_batch_history.py -v
-pytest tests/test_puzzle_preview.py -v
-pytest tests/test_bulk_operations.py -v
-pytest tests/test_wave1_e2e.py -v
-```
-
-### Specific Test Class
-
-```bash
-pytest tests/test_batch_history.py::TestBatchHistoryStorage -v
-pytest tests/test_bulk_operations.py::TestBulkApprove -v
-```
-
-### Specific Test
-
-```bash
-pytest tests/test_batch_history.py::TestBatchHistoryStorage::test_batch_stored_with_metadata -v
-```
-
-### With Coverage
-
-```bash
-pytest --cov=src/nonogram/admin --cov-report=html tests/
-
-# Open htmlcov/index.html in browser
-```
-
-### Slow Tests (warnings)
-
-Tests marked `@pytest.mark.slow` take longer than 5 seconds:
-
-```bash
-pytest -m slow -v    # Run only slow tests
-pytest -m "not slow" -v  # Skip slow tests
-```
-
-## Test Markers
-
-Tests are marked for easy filtering:
-
-- `@pytest.mark.unit` — Unit tests (isolated, fast)
-- `@pytest.mark.integration` — Integration tests (use database)
-- `@pytest.mark.e2e` — End-to-end tests (full workflows)
-- `@pytest.mark.smoke` — Smoke tests (quick sanity checks)
-- `@pytest.mark.slow` — Slow tests (>5 seconds)
-- `@pytest.mark.performance` — Performance benchmarks
+- `db_required`: needs a live Postgres; skipped unarmed (see below).
+- `unit`, `integration`, `e2e`, `slow`: carried by a handful of files, mostly
+  the early admin-panel ones. No `Makefile` target selects on them;
+  `scripts/run_admin_tests.sh` can.
+- `smoke`, `performance`: registered, applied by no test (so the script's
+  smoke option selects nothing).
 
 ## Fixtures
 
-Available fixtures (from `conftest.py`):
+All in `conftest.py`; there is no other conftest.
 
-- `db_session` — `SessionLocal` factory bound to an empty, fully migrated test database (`TEST_DATABASE_URL`; when unset, **a name derived from this repo root** — see below). The schema is rebuilt once per session (`DROP SCHEMA public CASCADE`, then `alembic upgrade head`) and every table is truncated before each test. The database is created if it does not exist. Refuses — as a failure, before connecting — any URL whose database name does not end in `_test` or that overrides it with a `dbname`/`database` query parameter. Skips when the database is unreachable (one cached probe per run).
-- `app` — Flask test app (depends on `db_session`)
+- `db_session`: points `DATABASE_URL` at an empty, fully migrated test database
+  and yields the `SessionLocal` factory. The schema is rebuilt once per session
+  (`DROP SCHEMA public CASCADE`, then `alembic upgrade head`); every table is
+  truncated before each test.
+- `app` (Flask test app on that database) and `client` (its test client).
+- `puzzle_review_service`, `batch_generator_service`, `generator` (a seeded
+  `MockGenerator`), `sample_puzzle`, `sample_puzzles`, `cleanup_puzzles`.
+- `test_db_url` (session): which database the fixtures above act on.
+- Two autouse session fixtures: `_armed_database_is_ready` (prepares an armed
+  database before the first test) and `_assembled_default_interior_writers`.
 
-#### One test database per worktree (CARD-244)
+## The database: unarmed and armed
 
-The fixtures above **erase** the database they are given. Until CARD-244 every
-pytest process on the machine was given the same one, `nonogram_test`, so two
-cards running at once destroyed each other's data rather than merely contending
-for it — measured in wave 44 as two failures in `test_book_trim_persistence`
-that are 200 passed in isolation, and as a 48-test "regression" in a build gate
-that never existed.
+**Unarmed** (`DATABASE_URL` not set) is the normal run. Every `db_required` test
+skips; everything else runs.
 
-So with `TEST_DATABASE_URL` unset the name is derived from the resolved repo
-root:
-
-    nonogram_<tree>_<12 hex of sha256(root)>_test
-
-for example `nonogram_pythonproject4_543f9f3f05e1_test` (41 bytes) for the
-repo and `nonogram_pythonproject4_card_244_d541cdce17d1_test` (50 bytes) for a
-worktree beside it. The slug is trimmed so the name never exceeds Postgres's
-63-byte limit — which Postgres silently *truncates* rather than refuses, and a
-truncation collision would put the shared-database bug straight back. The
-digest is taken over the whole path, so two deep trees whose names truncate
-alike still differ.
-
-The database is created on first use, through the `postgres` maintenance
-database, and migrated to head by the usual session fixture. Nothing has to be
-set up by hand.
-
-An exported `TEST_DATABASE_URL` is used **verbatim** and no name is derived, so
-CI, `scripts/run_admin_tests.sh` and a hand-run with one exported all behave
-exactly as before. `run_admin_tests.sh` now sets it to the `DATABASE_URL` it
-checked, so the database it reports is the database the fixtures erase.
-
-The names end in `_test` on purpose: that is the one thing
-`_refuse_unless_test_database` requires, so deriving a name needed no change to
-the guard that keeps `DROP SCHEMA` away from the panel's `nonogram_poc`.
-
-- `client` — Flask test client
-- `puzzle_review_service` — Puzzle review service
-- `batch_generator_service` — Batch generator service
-- `generator` — Nonogram generator
-- `sample_puzzle` — Single generated puzzle
-- `sample_puzzles` — 10 generated puzzles
-- `cleanup_puzzles` — Cleanup fixture
-
-## Continuous Integration
-
-To run in CI/CD:
+**Armed** means `DATABASE_URL` names this tree's own test database on a local
+Postgres. Each checkout and worktree owns one, named from its resolved root
+(CARD-244, `db_name.py`), so two worktrees running at once cannot erase each
+other's schema. The shape is `nonogram_<tree slug>_<12 hex of sha256(root)>_test`.
+Print it from the tree's root:
 
 ```bash
-# Install test dependencies
-pip install -e '.[dev]'
-
-# Run all tests with coverage
-pytest --cov=src/nonogram/admin --cov-report=xml tests/
-
-# Exit with failure if coverage < 80%
-pytest --cov=src/nonogram/admin --cov-fail-under=80 tests/
+<main checkout>/.venv/bin/python -c "from tests import db_name; print(db_name.derive_test_database_name(db_name.REPO_ROOT))"
 ```
 
-## Writing New Tests
+Arming compares the **whole URL**, not the name: the suite prepares (creates
+and migrates) a database only when `DATABASE_URL` is, after trimming
+whitespace, character for character the URL it resolved for this tree
+(`_armed_database_plan` in `conftest.py`). With `TEST_DATABASE_URL` unset that
+URL is `db_name.py`'s built-in local server and role plus the derived name, so
+the same name under any other role or host does not count.
 
-When adding tests for new features:
+With your own role or server, export `TEST_DATABASE_URL` as your URL for the
+derived name, and `DATABASE_URL` as the same value. `TEST_DATABASE_URL` is used
+verbatim, so it becomes the resolved URL. Keep the derived name: a name of your
+own also arms, but it is no longer per-worktree.
 
-1. Create test file: `tests/test_feature_name.py`
-2. Use fixtures from `conftest.py`
-3. Mark tests with appropriate markers (`@pytest.mark.unit`, etc.)
-4. Include docstrings explaining what's being tested
-5. Follow naming convention: `test_<what_is_being_tested>`
-
-Example:
-
-```python
-"""Tests for my new feature."""
-
-import pytest
-
-
-class TestMyFeature:
-    """Test my new feature."""
-
-    @pytest.mark.unit
-    def test_feature_does_something(self, fixture_name):
-        """Test that feature does something specific."""
-        result = fixture_name.do_something()
-        assert result is True
-```
-
-## Debugging Tests
-
-### Verbose Output
+To check whether the current shell would be prepared, without printing the URL
+or connecting:
 
 ```bash
-pytest -vv tests/test_batch_history.py
+<main checkout>/.venv/bin/python -c "import os; from tests.conftest import _armed_database_plan; print(_armed_database_plan(os.environ)[2] == 'prepare')"
 ```
 
-### Print Debug Info
+`False` with `DATABASE_URL` set means the run will not prepare it, and the
+terminal summary says so ("not the database this worktree resolved ... neither
+created nor migrated"); what fails after that is the setup, not the tree. The
+plain `nonogram_test` is such a URL. Nothing has to be created by hand.
+Two guards stand in
+front of the destructive fixtures, and neither connects before deciding:
 
-```python
-def test_something(puzzle_review_service):
-    result = puzzle_review_service.get_stats()
-    print("Stats:", result)  # Will print during test
-    assert result['total'] > 0
-```
+- `_refuse_unless_test_database` in `conftest.py` fails the run unless the
+  database name ends in `_test` and no `dbname`/`database` query parameter
+  points elsewhere.
+- `database_guard.py` stops the run when `DATABASE_URL` names a database that
+  does not read as a test database. Its refusal names the way past it.
 
-Run with: `pytest -s tests/` (captures output)
+## Expected skips
 
-### Stop on First Failure
+Read them with `-rfs`; a skip is not a pass. On an unarmed macOS run:
 
-```bash
-pytest -x tests/  # Stop on first failure
-pytest -x -vv tests/  # Verbose + stop first
-```
+- `Database not reachable: DATABASE_URL is not set`: every `db_required` test
+  (raised in `conftest.py`'s `pytest_runtest_setup`).
+- `setrlimit(RLIMIT_AS) cannot bound a process on this platform ...`: one test
+  in `test_book_pdf_memory.py`, a platform limit.
 
-### Run Only Failed Tests
+Host-dependent, and silent on a host that has the tool:
 
-```bash
-pytest --lf tests/  # Run last failed
-pytest --ff tests/  # Run failed first
-```
+- `poppler (pdftotext) is not installed: ...`, `poppler (pdftoppm) is not
+  installed: ...` and `poppler (pdftoppm/pdftotext) is not installed: ...`: the
+  book PDF tests that read a page back (`tests/helpers/pdf_vector.py` looks the two tools up
+  on `PATH`). Install poppler.
+- `meta/design/ is not shipped with the package`: `test_admin_design_tokens.py`,
+  only on a checkout without `meta/design/`.
+- `Image fixtures not found in tests/fixtures/`: only if that directory is
+  missing. Armed, the database skips go away; any other reason is worth reading.
 
-## Performance Baselines
+## The full-suite lock
 
-Update performance table in `docs/ADMIN_FINDINGS.md`:
+A full-suite run takes `meta/kanban/.full-suite.lock` in the **main** checkout
+before its first test and removes it when it ends (`full_suite_lock.acquire`
+and `release`). While the lock is held, a pytest run started in any other
+worktree stops before collection with "Refusing to start", naming the holder.
+Wait for the file to go. "Full suite" is decided from what was collected, not
+from how the command was spelled: see `is_full_suite` and the module
+docstring. When something other than one bare pytest must hold the lock, see
+the profiling section below.
 
-```bash
-# Time a specific test
-time pytest tests/test_wave1_e2e.py::TestCompleteWorkflowWave1::test_complete_wave1_workflow -v
+## Troubleshooting
 
-# Run with timing
-pytest --durations=10 tests/test_wave1_e2e.py
-```
+- **`ModuleNotFoundError: No module named 'nonogram'`**: run from the repo root
+  (`pyproject.toml` puts `src` on the path), or `pip install -e '.[dev]'`.
+- **"Refusing to set up the test database"**: `TEST_DATABASE_URL` names a
+  database the fixtures must not erase. Point it at a `*_test` database whose
+  `public` schema your role owns.
+- **A `TEST_DATABASE_URL` name outside `[a-z0-9_]`**: the fixtures will not
+  create it (they would have to interpolate it into `CREATE DATABASE`) and the
+  skip reason says so. Create it yourself or pick a plainer name.
+- **"Connection refused"**: Postgres is not running; `pg_isready` says.
 
 ## Re-measuring the whole suite (profiling runs)
-
-> The rest of this file predates wave 20 and describes the admin-panel tests
-> only. This section is current and covers the **whole** suite.
 
 The suite's cost per test roughly doubled over waves 30–38 (68 ms/test →
 133–159 ms/test). CARD-217 profiled it once and committed the result so that
@@ -782,58 +686,3 @@ itself:
   place they differ) and
   `test_g1_a_shipped_that_reached_nothing_is_not_a_baseline` (the blank
   baseline planted, then refused).
-
-## Troubleshooting
-
-**"ModuleNotFoundError: No module named 'nonogram'"**
-```bash
-pip install -e .
-```
-
-**"database does not exist"**
-
-Since CARD-244 the fixtures create their own database, so this should not
-happen for a derived name. If you have pointed `TEST_DATABASE_URL` at a name
-outside `[a-z0-9_]`, the fixtures decline to create it (they would have to
-interpolate it into `CREATE DATABASE`) and say so in the skip reason — make it
-yourself, or pick a plainer name:
-```bash
-export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_mine_test"
-createdb nonogram_mine_test
-```
-
-**"Refusing to set up the test database"**
-`TEST_DATABASE_URL` names a database the `db_session` fixture must not erase. Point it at a database whose name ends in `_test`. The role in the URL must own the `public` schema of that database (the fixture drops and recreates it).
-
-**Tests fail with "Connection refused"**
-```bash
-# Verify PostgreSQL is running
-psql -U postgres -c "SELECT 1;"
-
-# Or check:
-pg_isready
-```
-
-**Import errors in tests**
-```bash
-# Reinstall in dev mode
-pip install -e '.[dev]'
-
-# Verify PYTHONPATH
-echo $PYTHONPATH
-```
-
-## Next Steps
-
-After Wave 1 tests pass:
-
-1. Document any issues found in `docs/ADMIN_FINDINGS.md`
-2. Create Wave 2 test files for async generation, error recovery, etc.
-3. Add Playwright/browser tests for UI interactions
-4. Set up CI/CD pipeline to run tests on every push
-
----
-
-**Test Status**: Wave 1 ✓ Complete  
-**Coverage Target**: 80%+  
-**Run Command**: `pytest tests/ -v`
