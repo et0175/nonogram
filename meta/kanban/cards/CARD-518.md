@@ -1,6 +1,6 @@
 # CARD-518: Two one-line follow-ups from wave 10's reviews: the kill matrix's stale inode key, and the guard's trim held equal to the app's
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/518-review-followups
-**Worktree:** ../PythonProject4-card-518
+**Worktree:** —
 **Source:** roadmap wave 11, cut 2026-11-22 on the owner's "start the no-decision wave 11". CARD-315 review 2 F-001 and F-002; CARD-515 review 2 F-202.
 **Idea:** —
 **Wave:** 90
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T10:32Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T11:03Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 715d84fe406902850789a2e9e61723e8950eee49
 **Blocked by:** —
 
 ## Why this card exists
