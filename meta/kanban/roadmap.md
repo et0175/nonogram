@@ -102,7 +102,7 @@ Cut against main on 2026-11-22 on the owner's "start the no-decision wave 11": n
 - **CARD-518** Two one-line follow-ups from wave 10's reviews (kill matrix stale inode key; the guard's trim held equal to the app's) — 1c
 - **CARD-519** (IDEA-010) Write the wave-30 book behaviours into requirements.yml as acceptance criteria — 2c
 - **CARD-520** A page opened in centimetres admits an inches trim: a test that catches CARD-159's bug coming back (owner's "yes, add a card", after CARD-519 review 1 F-002) — 1c
-- **CARD-521** (IDEA-002) tests/README.md brought up to date — queued
+- **CARD-521** (IDEA-002) tests/README.md describes the suite as it is today — 1c
 
 ## Wave 10 — DONE 2026-11-22 (board wave 89)
 
