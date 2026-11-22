@@ -92,6 +92,19 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 12 — IN PROGRESS (board wave 91)
+
+### As cut
+
+Cut against main on 2026-11-22 on the owner's "let's take your suggestions for first 4 ideas". Owner rulings: the 90.0 medium/hard cutoff stays as it is for picture puzzles (CARD-517's measurement; no card); IDEA-226, refuse to start on the deployed server without a database; IDEA-225, Show grid takes Line's place once solved; IDEA-221, a long first word may break mid-word so the solved name starts on line 1. CARD-524 waits for CARD-523 (same stylesheet and sweep file). Still the owner's: IDEA-227 (kill-matrix per-tree lock) and IDEA-105 (Finalise guide preview).
+
+### tech-debt
+- **CARD-522** (IDEA-226) The deployed panel refuses to start without a database — 1c
+
+### feature
+- **CARD-523** (IDEA-225) On narrow phones the board stays put on solve: Show grid takes Line's place — 1c
+- **CARD-524** (IDEA-221) A long first word in the solved name starts on line 1, breaking mid-word — 1c (after CARD-523)
+
 ## Wave 11 — DONE 2026-11-22 (board wave 90)
 
 Four cards merged: CARD-518 (`715d84fe`, 9.0 cycle 1), CARD-519 (`849f06d3`, 9.0 cycle 2), CARD-521 (`5815bf05`, 9.0 cycle 2), CARD-520 (`ead96b76`, 9.0 cycle 3). Wave close: `make test-wave-close` on `main` at `f8c1fd5b`, 10662 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 32 min. Net tests +1 (CARD-520's browser test). Nothing reaches the public player, so no publish. CARD-520 was added mid-wave on the owner's say, from CARD-519 review 1 F-002: nothing caught CARD-159's inches-trim bug coming back. Two review cycles showed a static "no script writes a bound" check could not be made complete, so cycle 3 measured the page in Chromium instead. Recorded, not carded: the browser test does not assert the field kept the typed value, nor wait for asynchronous work (CARD-520 cycle 3 F-001/F-002); AC-427 claims less than its test, AC-432's book-page link clause does not discriminate, AC-430's "beside" is not asserted as placement (CARD-519 cycle 2 F-101..F-103), and AC-423 can now be widened to the cm-opened page that CARD-520 covers; tests/README.md omits CARD-508's session lock among the guards and the per-worktree caveat of an exported TEST_DATABASE_URL (CARD-521 cycle 2 F-101/F-102); the kill matrix's key retirement also hides a different-bytes write between readings, and the trim corpus has no quoted value (CARD-518 F-001/F-002).

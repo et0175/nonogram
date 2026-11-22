@@ -5392,8 +5392,9 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: backlog
-  needs_owner_decision: true
+  status: in_kanban
+  owner_ruling: 'Owner 2026-11-22: a long first word may break mid-word so the name starts on line 1.'
+  needs_owner_decision: false
   scored_at: '2026-11-21'
 - id: IDEA-222
   title: test_wraps' overflow check follows hit-testing, not paint
@@ -5426,8 +5427,9 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: backlog
-  needs_owner_decision: true
+  status: in_kanban
+  owner_ruling: 'Owner 2026-11-22: once solved, Show grid takes Line''s place in the toolbar.'
+  needs_owner_decision: false
   scored_at: '2026-11-21'
 - id: IDEA-226
   title: A blank or whitespace-only DATABASE_URL boots the admin panel quietly in in-memory mode
@@ -5435,8 +5437,9 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: backlog
-  needs_owner_decision: true
+  status: in_kanban
+  owner_ruling: 'Owner 2026-11-22: refuse to start on the deployed server (REMOTE_HOST set) without a database; keep the in-memory fallback locally.'
+  needs_owner_decision: false
   scored_at: '2026-11-22'
 - id: IDEA-227
   title: Two kill-matrix runs in one tree can still leave a mutant on disk (reported, not prevented)
