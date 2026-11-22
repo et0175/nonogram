@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py
-**Review score:** 7.5 (cycle 1/3)
+**Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T08:36Z
 **Closed:** —
 **Actual:** —
@@ -244,3 +244,5 @@ and two have real costs:
 Afterwards, `git diff --stat` showed only `tests/kill_matrix.py` and `tests/test_kill_matrix.py`. I removed the temp trees the C3, C7 and C8 control runs left behind. The green runs leave none.
 
 **Gate** (unarmed, `-rfs`): the same set, `tests/test_kill_matrix.py` plus `tests/test_wave_close_marker.py`, `tests/test_db_engine_lifecycle.py`, `tests/test_db_url_driver.py`, `tests/test_cli.py`, `tests/test_guard_integrity.py`, `tests/test_full_suite_lock.py` and `tests/test_suite_profile.py`. Result: **993 passed, 2 skipped, 0 failed**. Both skips are `tests/conftest.py:292: Database not reachable: DATABASE_URL is not set`. `tests/test_kill_matrix.py` alone: 84 passed in 81.49 s. G-6: `_conditional_silences` returns `[]` for both files. G-5 and net count: 10691 collected, node-id set identical to the pre-card baseline, **net 0**.
+
+[Review 2/3] Score: 9.0, nothing gating, certified. Cycle 1's probe re-run on HEAD: `dotdot` and `case` aliases publish FAIL at cell 13 at workers 1 and 2; a reused runner's second run publishes. C5-C8 each red again, with a sha256-verified restore. tests/test_kill_matrix.py 84 passed, no temp dirs left. F-001 (medium, introduced by the fix round): `Runner._expect` never retires an old inode key, so a byte-identical rewrite that gives the file a new inode during SHIPPED (an editor's `os.replace`, git's unlink-and-recreate) gives a false `ConcurrentWrite` at the next mutant's before-check, and the kept "foreign" copy is the instrument's own mutant. It fails closed. Simulated in-process on tmp trees; b0614bc0 passed the same probe. F-002 (low): a foreign delete of a registered file keeps the temp tree but the message names no directory, so `_discard_workdir`'s "the exception names it" is false there. F-003 (info): ACs and guardrails hold; CARD-516 intact. F-004 (info, already on main): a hardlinked alias reads FAIL at workers=1 and PASS at workers=2, because lanes copy the tree without hard links.
