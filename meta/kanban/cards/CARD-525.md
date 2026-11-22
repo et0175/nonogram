@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/ (one experiment script), scripts/README.md
 **UI surface:** —
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3)
 **Started:** 2026-11-22T15:49Z
 **Closed:** —
 **Actual:** —
@@ -119,3 +119,5 @@ Read docs/GENERATION_ALGORITHM.md and the image path CARD-517 found (`admin.app.
 3. **No change:** a longer deadline (90 s rescued nothing), the resize filter (4 rescued, 4 lost), outlines (87% fail).
 
 Sample size: 17 real fixtures and your 25 pictures. The medium/hard counts rest on 8 fixtures (one gives 10 of the 23 mediums) and 11 of your pictures, so read the shares as directions, not precise figures.
+
+[Review 1/3] Score: 7.5, two gating findings, not certified. Code, variants, corpus and today-row figures hold: 69 failures recomputed (62 abandoned, 7 deadline; dove1 12, dove3 12, tree1 12, duck1 11, tiger1 11, duck2 9, zebra1 2); cut_62, dither_all, cut_37, despeckle, fill_holes and nudges_15 rows recompute; every patch target is read at run time; today reproduces CARD-517 exactly; a small rerun differs in 0 rows; both test controls red; privacy clean. F-001 (Important): AC-3 item 2 ("not worth a card") does not follow. Every variant changes all requests, so its cost lands on already-medium/hard pictures; an easy-only fallback (keep today's grid unless easy, then take cut_62 or dither_all if non-easy at IoU >= 0.85), computed post hoc from the card's own JSONs, gives fixtures 69.7% -> 55.7% easy and the owner's folder 80.7% -> 69.5%, overall IoU median 0.939, no request lost. IoU is measured against a 50%-ink reference, which favours today by construction; dolphin1 at long side 30 is HARD 93.4 under cut_62 at IoU 0.91 and looks as recognisable. "Easy is set by the picture" is contradicted by the conversion alone moving fixtures 69.7% -> 51.7%. F-002 (Important): the line-art detector is not measured: "line drawing" is an eye label; the one measured signal covers 16 of 69 failures; ink share and stroke thickness put tsaplia1, zebra1, dolphin2 and bird2 among the line-art six, so a naive detector would refuse good pictures; the timing claim is overstated (62 abandoned failures median 0.45 s, 106.8 s in all; 210 of the 317 s is dove1's six timeouts); the owner's 4 failing pictures were not measured as line art. F-003 (medium): IoU's limits are not stated in AC-3, and it weights by area (today's heron loses legs and neck at IoU 0.90). F-004 (low): four mutants leave the test green (`_despeckle` identity, `_failure_stage` constant, `ink_iou` 1.0, solve counter frozen). F-005 (low): the owner's-folder today row (249 made, 201/31/17) differs from CARD-517's 247, 201/31/15, unexplained. F-006 (info): the dove1 fixture carries a stock-photo watermark.
