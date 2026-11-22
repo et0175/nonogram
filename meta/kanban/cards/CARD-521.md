@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/README.md
 **UI surface:** —
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-22T11:26Z
 **Closed:** —
 **Actual:** —
@@ -68,3 +68,5 @@ All three readers: 3 passed before the edit and 3 passed after, by node id, unar
 **Control.** Both restatements of `(\S*/)?git(\s|$)` replaced in tests/README.md: `test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere` red with "AssertionError: GIT_COMMAND is '(\\S*/)?git(\\s|$)' and a prose restatement of it no longer says so: update the prose with the pattern", and the shown prose starts "# Test suite", so it read the new file. Restored from a copy; `cmp` identical.
 
 **Gate (unarmed, -o addopts= -rfs).** `tests/test_full_suite_lock.py tests/test_kill_matrix.py` (the readers' whole files): 144 passed, 0 skipped, 0 failed. Not run armed: the card changes no database path.
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. Every Makefile target, marker, fixture, skip text, guard and lock behaviour the new text states matches the code; the three README readers pass (3 passed) and an `ast` walk found no other; G-2 clean; the deleted "predates wave 20" blockquote was right (F-004). F-001 (Important): "Export DATABASE_URL with that name and your local role" is wrong for every role but one: `_armed_database_plan` prepares only when DATABASE_URL equals `db_name.resolve_test_database_url(...)` character for character, so the derived name with any other role gives `'elsewhere'`, and the summary then says the suite "neither created nor migrated" a database that has this tree's name. F-002 (low): "Running it" and "Layout" restate CLAUDE.md and the Makefile (targets, no .venv in a worktree, the oracle import rule). F-003 (low): "Expected skips" was derived from two files; the poppler skips and the missing-`meta/design/` skip are not named. F-005 (out of scope, pre-existing): the profiling section's lock recipe hardcodes an absolute path to the main checkout.
