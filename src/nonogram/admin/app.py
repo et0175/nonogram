@@ -1349,9 +1349,11 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
 
     ``allow_in_memory_when_deployed`` exists for the test suite only: it lets a
     test build a deployed-mode panel (:data:`REMOTE_HOST_VAR` set) on the
-    in-memory store, to exercise the deployed door without a database. The
-    production entry point (``start.sh``) calls ``create_app()`` bare, so the
-    deployed panel always refuses to start without ``DATABASE_URL`` (CARD-522).
+    in-memory store, to exercise the deployed door without a database. Every
+    recorded start path calls ``create_app()`` with no arguments: ``start.sh``'s
+    gunicorn, the ``Procfile`` and ``railway.json`` ``flask run`` (Flask finds
+    the factory and calls it bare), and :func:`main`. So the deployed panel
+    refuses to start without a usable database (CARD-522).
     """
     app = Flask(__name__, template_folder="templates")
 
@@ -1525,13 +1527,31 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
     # monkeypatch), and a module-level check would freeze whatever value was
     # in the environment the first time this module happened to be imported.
     session_scope = None
+    in_memory_reason = "DATABASE_URL not set"
     if database_url_set:
         try:
             from nonogram.db import session_scope as db_session_scope
             session_scope = db_session_scope
         except Exception:
-            # Database not configured; will use in-memory mode
+            # DATABASE_URL is set but the database code would not import (a
+            # missing SQLAlchemy or driver, say). Deployed, falling back to
+            # memory is the silent data loss CARD-522 exists to stop, so
+            # refuse. ``from None`` and no exception text: the message stays
+            # free of anything the import error might carry (G-2).
+            if remote_host and not allow_in_memory_when_deployed:
+                raise AdminConfigurationError(
+                    f"{REMOTE_HOST_VAR} is set, which makes this the deployed "
+                    f"admin panel, and DATABASE_URL is set, but the database "
+                    f"code could not be loaded. The deployed panel needs a "
+                    f"database: without one it would run in memory and lose "
+                    f"everything saved at the next restart. Check that the "
+                    f"install includes the database dependencies."
+                ) from None
+            # Locally the in-memory fallback stays, said as what it is.
             session_scope = None
+            in_memory_reason = (
+                "DATABASE_URL is set but the database code could not be loaded"
+            )
 
     # Add CORS and security headers for Chrome compatibility
     @app.after_request
@@ -1586,7 +1606,7 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
         puzzle_review = PuzzleReviewService(session_factory=None)
         batch_gen = BatchGenerator(puzzle_review_service=puzzle_review, session_factory=None)
         book_mgr = get_book_manager(puzzle_store=puzzle_review)
-        app.logger.info("Running in in-memory mode (DATABASE_URL not set)")
+        app.logger.info("Running in in-memory mode (%s)", in_memory_reason)
 
     # Exposed on the app object (rather than left as route closures only) so
     # tests and management scripts can introspect which mode was actually

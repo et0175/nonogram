@@ -322,21 +322,32 @@ class TestAdminAuth_RefusesToBootMisconfigured:
         with pytest.raises(admin_app.AdminConfigurationError):
             admin_app.create_app()
 
-    def test_no_database_is_fatal(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_no_database_is_fatal(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Deployed, the in-memory fallback would lose every save (CARD-522).
 
         Unset, empty and whitespace-only all read as unset (CARD-515), so all
-        three refuse. The message names the variable and the reason, and
-        never a host, URL or credential (G-2).
+        three refuse. So does a set DATABASE_URL whose database code cannot be
+        imported (review 1 F-001; ``sys.modules`` entry None makes the import
+        raise), and that message says so rather than "not set". No message
+        carries a host, URL or credential, or the import error (G-2).
+        Locally that last case still falls back to memory, logged truthfully.
         """
+        import logging
+        import sys
+
         monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, PASSWORD)
         monkeypatch.setenv("SECRET_KEY", REAL_KEY)
+        unreachable = "postgresql://nobody:nobody@203.0.113.1:5432/nope"
 
-        for value in (None, "", "   "):
+        for value in (None, "", "   ", unreachable):
             if value is None:
                 monkeypatch.delenv("DATABASE_URL", raising=False)
             else:
                 monkeypatch.setenv("DATABASE_URL", value)
+            if value == unreachable:
+                monkeypatch.setitem(sys.modules, "nonogram.db", None)
 
             with pytest.raises(admin_app.AdminConfigurationError) as caught:
                 admin_app.create_app()
@@ -345,8 +356,19 @@ class TestAdminAuth_RefusesToBootMisconfigured:
             assert "DATABASE_URL" in message, (value, message)
             assert "deployed admin panel" in message, (value, message)
             assert "needs a database" in message, (value, message)
-            for secret in (REMOTE, PASSWORD, REAL_KEY, "://"):
+            for secret in (REMOTE, PASSWORD, REAL_KEY, "://", "203.0.113.1", "nonogram.db"):
                 assert secret not in message, (value, secret)
+            if value == unreachable:
+                assert "could not be loaded" in message, message
+                assert "not set" not in message, message
+                assert caught.value.__suppress_context__, "raise ... from None"
+
+        monkeypatch.delenv(admin_app.REMOTE_HOST_VAR)
+        caplog.set_level(logging.INFO, logger="nonogram.admin.app")
+        application = admin_app.create_app()
+        assert application.puzzle_review_service._session_factory is None
+        assert "database code could not be loaded" in caplog.text, caplog.text
+        assert "DATABASE_URL not set" not in caplog.text, caplog.text
 
     def test_a_correct_configuration_boots(
         self, monkeypatch: pytest.MonkeyPatch
