@@ -717,6 +717,24 @@ itself:
   half is two literals that catch only an edit which *names* one of them. Its
   own reach is a copy of the guard elsewhere in a tree and any edit that
   re-introduces the live panel's database name.
+* **The plant window has two readers (CARD-315).** With `workers=1` a mutant
+  sits on the real path for the length of its child pytest. Destructive
+  database fixtures are one reader, and the path refusal above guards them. A
+  concurrent `git` in the same tree is the other, and nothing guards it:
+  `git status` lists the planted file as modified and the diff is empty once
+  the restore lands; a `git add` or `git stash` made in the window holds the
+  **mutant**, and no restore reaches the index or a stash. Commit with
+  explicit pathspecs while a run is in flight, and read `git status` and
+  `git diff --cached` after it. A **writer** is detected by what it leaves on
+  disk: every reading checks, before its child starts and after it ends, that
+  each registered path holds what the instrument last wrote there, and raises
+  `ConcurrentWrite` (a `LeakedPatch` subclass with its own message) if not, so
+  a `git stash` that takes the mutant off the disk is refused instead of
+  publishing a survivor. A write made and undone inside one reading is not
+  seen. The window is kept by decision: a marker file for `git` would have no
+  reader and would itself show up in `git status`, and `workers > 1` already
+  plants into copies but leaves out `.git`, `.env` and local databases, so
+  in-place remains the one reading of the real tree.
 * The lock refusal is **worktree identity**, and the whole verdict is the
   owner's: a *foreign* holder refuses, a lock this instrument's own tree holds
   does not, and the staleness window (`STALE_SECONDS`) and the override come

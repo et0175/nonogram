@@ -1033,6 +1033,14 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
     **outside** the restore registry, so every verification that ran was
     satisfied and the mutation stayed on disk into the next mutant. Only the
     between-mutants SHIPPED re-run can see that, and this is how we know it can.
+
+    CARD-315: the same refusal from a **concurrent writer** is told apart by
+    its own exception and message. Two plants write the target from outside
+    the instrument while a reading runs: one during the SHIPPED re-run, which
+    without the check reads exactly like the genuine leak above (``SHIPPED is
+    not FAIL-free after AFTER``), and one during the mutant's reading that puts
+    the pristine text back, a ``git stash`` in the plant window, which without
+    the check publishes a killing mutant as a survivor and raises nothing.
     """
     leaky = tmp_path / "km_leaky.py"
 
@@ -1063,6 +1071,39 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
     assert leaky.read_text(encoding="utf-8") == 'LEAK = "leaked!!"\n', (
         "the plant must actually leak, or this test certifies nothing"
     )
+    genuine = str(caught.value)
+    assert not isinstance(caught.value, km.ConcurrentWrite), genuine
+    assert genuine.startswith("SHIPPED is not FAIL-free after LEAKS"), genuine
+    leaky.write_text(LEAKY, encoding="utf-8")
+
+    pristine = simple_target.read_text(encoding="utf-8")
+    after = [mutants[1]]
+
+    class WrittenUnder(Runner):
+        """Writes ``text`` to the target as the reading ``label`` starts."""
+
+        label = text = ""
+
+        def _measure(self, label, *args):
+            if label == self.label:
+                simple_target.write_text(self.text, encoding="utf-8")
+            return super()._measure(label, *args)
+
+    for label, text in (
+        ("SHIPPED after AFTER", pristine.replace('"shipped"', '"rotted!"', 1)),
+        ("AFTER", pristine),
+    ):
+        WrittenUnder.label, WrittenUnder.text = label, text
+        writer = WrittenUnder(
+            selection=[str(simple_target)], repo_root=simple_target.parent
+        )
+        with pytest.raises(km.ConcurrentWrite) as written:
+            writer.run(Pass.RECORDING, after)
+        said = str(written.value)
+        assert said.startswith(f"{label}: [{str(simple_target)!r}]"), said
+        assert "SHIPPED is not FAIL-free" not in said, said
+        assert "git diff --cached" in said, said
+        assert simple_target.read_text(encoding="utf-8") == pristine, label
 
 
 def test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere():
