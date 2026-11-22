@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/ (one experiment script), scripts/README.md
 **UI surface:** —
-**Review score:** 8.5 (cycle 2/3)
+**Review score:** 8.5 (cycle 3/3)
 **Started:** 2026-11-22T15:49Z
 **Closed:** —
 **Actual:** —
@@ -219,3 +219,7 @@ How to read the similarity numbers: IoU is cell agreement with the picture cut a
    - Cost: none to puzzles, if it only warns. A refusal could turn away good pictures: the heron (10 medium puzzles) sits just under one cut, zebra1 just over the other.
    - Time saved: little. Abandoned failures take about half a second each; only dove1's timeouts cost real time (180 s).
 3. **No change:** a longer deadline (rescued nothing), more nudges (16 rescues at IoU 0.52), despeckling (31 of its 48 rescues are near-empty grids), outlines (87% fail), or a stricter cut or dither for every picture (11 and 4 fixture puzzles fail, 6 harder ones turn easy).
+
+[Review 3/3] Score: 8.5, one gating finding, not certified. Every AC-3 figure recomputes from the saved reports; the cut_62-only derivation matches the whole-corpus cut_62 run on 298 fixture and 201 owner's-folder rows with 0 differences; all 26 sheet labels match (13 cut_62, 13 dither_all); both selection mutants red; the line-art clause's 2048 + 80 candidates re-derive; privacy clean. F-011 (Important): the final AC-3 item 1 states the rule as "try cut_62 and keep it if it is not easy" without the `smooth_corr >= 0.96` floor its figures depend on; without the floor, fixtures would read 48.4% easy (26 replaced, 13 of them under the floor, the toucan at 13 among them) and the owner's folder 66.3% (36 replaced, 10 under the floor). F-012 (low): the cut_62-only calculation in `report_rescue` is untested (its floor check replaced by True leaves the test green); the figures were re-derived independently. F-013 (low): the final AC-3 drops the caveat that the rule was chosen after seeing these same runs, and gives no picture counts for the dither bullet (6 fixtures, 9 of the owner's pictures).
+
+**Orchestrator correction to AC-3 item 1 (F-011, F-013), after the third and last review cycle.** The recommended rule is: when today's puzzle is easy, try cut_62, and keep the cut_62 puzzle only if it is not easy AND its `smooth_corr` is at least 0.96 (today's 10th percentile); otherwise keep today's puzzle. With that floor: fixtures 69.7% -> 59.0% easy, the owner's folder 80.7% -> 70.3%. Without the floor the same rule would read 48.4% and 66.3%, replacing grids that no longer look like the picture (the toucan at 13). The rule and its floor were chosen after seeing these same runs, so neither corpus is a held-out test of it; the dither form adds replacements on 6 fixtures and 9 of the owner's pictures. A product card cut from this must carry the floor and re-measure on pictures not used here.
