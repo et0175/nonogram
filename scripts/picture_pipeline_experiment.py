@@ -892,6 +892,59 @@ def report_rescue(by_variant: dict[str, list[dict]], kinds: Sequence[str]) -> No
                       f"{statistics.median(row[measure] for row in changed):.3f}")
         if not _is_private(kind):
             print(f"    changed per picture: {dict(sorted(per_picture.items()))}")
+        for fallback in ("cut_62", "dither_all"):
+            part = [row for row in changed if row["taken_from"] == fallback]
+            if not part:
+                continue
+            was = [today[_key(row)] for row in part]
+            pictures = Counter(row["picture"] for row in part)
+            below = sum(row["smooth_corr"] < RESCUE_EASY_FLOOR for row in was)
+            sc_up_iou_down = sum(
+                row["smooth_corr"] > old["smooth_corr"] and row["iou"] < old["iou"]
+                for row, old in zip(part, was, strict=True)
+            )
+            line = (
+                f"    by {fallback}: {len(part)} replaced on {len(pictures)} pictures,"
+                f" tiers {dict(Counter(row['tier'] for row in part))};"
+                f" IoU {statistics.median(row['iou'] for row in was):.3f} -> {statistics.median(row['iou'] for row in part):.3f},"
+                f" smooth_corr {statistics.median(row['smooth_corr'] for row in was):.3f}"
+                f" -> {statistics.median(row['smooth_corr'] for row in part):.3f};"
+                f" today's grid already below the floor {below}; smooth_corr up while IoU down {sc_up_iou_down}"
+            )
+            if not _is_private(kind):
+                line += f"; per picture {dict(sorted(pictures.items()))}"
+            print(line)
+        # The cut_62-only form, from the saved whole-corpus cut_62 run: the same
+        # request at the same predicted extent converts the same way, so its
+        # row is what rescue_easy's cut_62 attempt would have produced.
+        if "cut_62" in by_variant:
+            cut = {_key(row): row for row in by_variant["cut_62"] if row["kind"] == kind}
+            form = []
+            for row in rows:
+                old = today[_key(row)]
+                other = cut.get(_key(row))
+                take = (
+                    old["outcome"] == "made" and old["tier"] == "easy" and other is not None
+                    and other["outcome"] == "made" and other["tier"] != "easy"
+                    and other["smooth_corr"] >= RESCUE_EASY_FLOOR
+                )
+                form.append((other, old) if take else (old, None))
+            made = [new for new, _ in form if new["outcome"] == "made"]
+            replaced = [(new, old) for new, old in form if old is not None]
+            easy = sum(new["tier"] == "easy" for new in made)
+            line = (
+                f"    cut_62-only form: easy {easy}/{len(made)} ({_pct(easy, len(made))}), replaced {len(replaced)}"
+                f" on {len({new['picture'] for new, _ in replaced})} pictures,"
+                f" tiers {dict(Counter(new['tier'] for new, _ in replaced))}"
+            )
+            if replaced:
+                line += (
+                    f"; IoU {statistics.median(old['iou'] for _, old in replaced):.3f}"
+                    f" -> {statistics.median(new['iou'] for new, _ in replaced):.3f},"
+                    f" smooth_corr {statistics.median(old['smooth_corr'] for _, old in replaced):.3f}"
+                    f" -> {statistics.median(new['smooth_corr'] for new, _ in replaced):.3f}"
+                )
+            print(line)
 
 
 def _report_replay(first: Sequence[dict], again: Sequence[dict]) -> None:
@@ -1007,7 +1060,10 @@ def render(
                     sheet.paste(tile, (x + (panel - tile.width) // 2, y + label_h + (panel - tile.height) // 2))
                 name = f"{kind}-{index:02d}-long{long_side}.png"
                 sheet.save(out_dir / name)
-                written.append((name, f"{kind} #{index:02d} ({path.name})", long_side))
+                note = ""
+                if changed is not None:
+                    note = f", {changed} took its grid from {lookup[(changed, kind, index, long_side)].get('taken_from')}"
+                written.append((name, f"{kind} #{index:02d} ({path.name}){note}", long_side))
     return written
 
 

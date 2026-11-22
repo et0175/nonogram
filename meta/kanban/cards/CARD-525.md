@@ -167,7 +167,7 @@ Sample size: 17 real fixtures and your 25 pictures. The medium/hard counts rest 
 - [Change] `run_picture` now calls `_attempt` for each generation (the same admin path and spies); `Variant.fallbacks`, `RESCUE_EASY_FLOOR`, `coverage_map`, `smooth_corr`, `similarity`, `backfill_similarity` (older JSON rows get `smooth_corr` from their stored grid), `picture_signals`, `report_signals`, `report_rescue`; `--signals`, `--render-variants`, `--render-changed`; `--from-json` combines files over different corpora and reports the `today` replay on shared rows. The fixture sheets in `.../CARD-525/` were re-rendered with a `rescue_easy` panel and `smooth_corr` in each caption. Nothing under `src/`.
 - [Gate] Unarmed, `-rfs`: `tests/test_picture_pipeline_experiment.py`, `tests/test_measure_difficulty_cutoff.py`, `tests/test_card_062_abandon_retry.py`, `tests/test_difficulty.py`, `tests/test_kanban_review_record.py`: 118 passed, 0 failed, 0 skipped. Net collected count: 10694 without the new test file, 10695 with it (+1, unchanged by this round).
 
-**AC-3: recommendation for the owner (fix round 1).**
+**AC-3, fix round 1 (superseded by the fix-round-2 AC-3 at the end; review 2 found the floor does not guard the dither half).**
 
 How to read the similarity numbers: IoU is cell agreement with the picture cut at 50% ink. It favours today's conversion by construction, and it weights by area, so a lost thin part barely counts (today's heron at long side 20 loses its legs and most of its neck and still scores 0.90). `smooth_corr` is tied to no cut, but it blurs over 3x3 cells, so it misses single-cell detail too. Neither measures recognisability: judge that on the sheets.
 
@@ -182,3 +182,40 @@ How to read the similarity numbers: IoU is cell agreement with the picture cut a
 3. **No change:** a longer deadline (90 s rescued nothing), more nudges (16 rescues at IoU 0.52), despeckling (31 of its 48 rescues are near-empty grids), outlines (87% fail), or swapping the whole conversion (`cut_62`/`dither_all` for every picture also makes 11 and 4 fixture puzzles fail and turns 6 harder ones easy).
 
 [Review 2/3] Score: 8.5, one gating finding, not certified. Recomputed from the saved JSONs: `rescue_easy` fixtures 69.7% -> 48.4% easy, 26 replaced (13 cut_62, 13 dither_all); owner's folder 80.7% -> 63.9%, 42 replaced (26 cut_62, 16 dither); failures unchanged; selection re-derived with 0 mismatches. The 0.96 floor recomputes as today's 10th percentile (0.9635) and results change smoothly around it (32 / 26 / 22 replaced at 0.95 / 0.96 / 0.97). Timing correction, F-005 (2 branched puzzles) and the line-art table reproduce; F-004's `ink_iou` mutant and round-0 control 1 red; privacy clean. F-007 (Important): `smooth_corr` blurs over 3x3 cells, so a dither keeps it high: `dither_all` raised it above today's grid in 15 of 18 replacements (9 of 16 in the owner's folder) while IoU fell, and six dither replacements replaced a grid that was itself below the floor. Renders: the dolphin (cut_62) is clean, but the toucan at 13 (dither) turns the beak into a checkerboard and the zebra and owl at 22 gain scattered single cells. With cut_62 alone, fixtures go 69.7% -> 59.0% and the owner's folder 80.7% -> 70.3%; half the headline effect is dither, which the floor does not guard. F-008 (low): `rescue_easy`'s selection (floor check, non-easy check) is untested; two mutants stay green. F-009 (low): the line-art rule's perfect fit is expected from a search of about 3000 rules over 17 pictures, and the one held-out failing picture is extreme enough that `ink_share` alone also catches it, so the second signal is untested. F-010 (info): that the floor was fixed before the run cannot be checked from history; the value is not tuned.
+
+**Fix round 2 (2026-11-22), after review 2.** No new generation runs: every figure below is computed by the script from the saved JSONs of runs A-E and the owner's-folder runs.
+
+- [F-007, measured] `report_rescue` now splits `rescue_easy` by the fallback that supplied each replacement, and computes the cut_62-only form from the saved whole-corpus `cut_62` run (the same request at the same predicted extent converts the same way, so that row is what `rescue_easy`'s cut_62 attempt produced).
+
+  | | fixtures (17) | owner's folder (25, aggregate) |
+  |---|---|---|
+  | today, easy of made | 85/122 (69.7%) | 201/249 (80.7%) |
+  | cut_62-only form, easy of made | 72/122 (59.0%) | 175/249 (70.3%) |
+  | cut_62 replacements | 13 on 6 pictures (dolphin1 6, tukan 3, bird1, bird2, dolphin2, dolphin3 1 each); 4 medium, 9 hard | 26 on 10 pictures; 23 medium, 3 hard |
+  | ...IoU / smooth_corr median, today -> after | 0.956 / 0.987 -> 0.863 / 0.979 | 0.965 / 0.985 -> 0.891 / 0.979 |
+  | cut_62-then-dither form (`rescue_easy`), easy of made | 59/122 (48.4%) | 159/249 (63.9%) |
+  | dither replacements on top | 13 on 6 pictures (dolphin2 5, bird2 2, dolphin1 2, owl1 2, tukan 1, zebra1 1); 6 medium, 7 hard | 16 on 9 pictures; 10 medium, 6 hard |
+  | ...IoU / smooth_corr median, today -> after | 0.938 / 0.965 -> 0.837 / 0.979 | 0.955 / 0.977 -> 0.783 / 0.978 |
+  | ...today's grid already under the 0.96 floor | 3 | 3 |
+  | ...smooth_corr up while IoU down | 11 of 13 | 9 of 16 |
+
+  Silhouettes: cut_62-only 93.2% easy (7 replaced, all medium); with dither 91.0% (5 more). The floor does not guard the dither half: `smooth_corr` blurs over 3x3 cells, so a dithered grid keeps the picture's local ink density and scores high even when it adds scattered or checkered single cells. The reviewer saw them on the renders: the toucan at 13, the zebra and the owl at 22. The cut_62 replacements are clean conversions at a stricter cut. Sheets: `~/Documents/nonogram-reviews/CARD-525/rescue_easy/index.html` now names, for each sheet, whether `rescue_easy` took its grid from `cut_62` or `dither_all`; the owner's are in `private/rescue_easy/index.html`, labelled the same way.
+- [F-008] The test now runs `rescue_easy` on bird1 at 10 and 13 and on dolphin1 at 13, and asserts: bird1 13 takes `cut_62` (medium); bird1 10 keeps today's easy puzzle (both fallbacks easy); dolphin1 13 keeps today's (cut_62 is medium but its `smooth_corr` is under the floor). Mutants in `run_picture`, each restored by copy with `cmp` matching: floor check replaced by `True` -> `AssertionError: assert ('cut_62', 'medium') == ('today', 'easy')`; non-easy check replaced by `True` -> `AssertionError: assert [('cut_62', '...2', 'medium')] == [('today', 'e...2', 'medium')]`.
+- [F-009] Stated in AC-3 item 2 below. The candidate count is re-derived from `report_signals`' search: 32 `ink_share`, 16 `stroke` and 32 `enclosed` thresholds (both directions) give 2048 two-measure rules and 80 single ones.
+- [Change] `report_rescue` (split by fallback, cut_62-only form); `render` adds the fallback to each changed sheet's index entry. Nothing under `src/`.
+- [Gate] Unarmed, `-rfs`: `tests/test_picture_pipeline_experiment.py`, `tests/test_measure_difficulty_cutoff.py`, `tests/test_card_062_abandon_retry.py`, `tests/test_difficulty.py`, `tests/test_kanban_review_record.py`: 118 passed, 0 failed, 0 skipped. Net collected count 10695 (+1 over main's 10694, unchanged).
+
+**AC-3: recommendation for the owner (fix round 2).**
+
+How to read the similarity numbers: IoU is cell agreement with the picture cut at 50% ink, so it favours today's conversion and weights by area (today's heron at long side 20 loses its legs and most of its neck and still scores 0.90). `smooth_corr` is tied to no cut, but it blurs over 3x3 cells, so it misses single-cell detail and does not penalise dither noise. Neither measures recognisability: judge that on the sheets.
+
+1. **Worth a card: when a picture puzzle comes out easy, try a stricter cut (`cut_62`) and keep it if it is not easy.**
+   - Effect: fixtures 69.7% -> 59.0% easy (13 puzzles replaced, 4 medium and 9 hard); your folder 80.7% -> 70.3% (26 replaced, 23 medium and 3 hard). No puzzle is lost.
+   - Cost: the replaced grids differ in more cells (IoU 0.956 -> 0.863 on fixtures, 0.965 -> 0.891 on yours), but they are clean conversions. Look at the dolphin, `rescue_easy/fixture-02-long30.png`.
+   - Sample size: 13 fixture replacements from 6 pictures (6 from dolphin1); 26 of yours from 10 pictures.
+   - **Your choice, after looking: also try dither when the cut fails.** That takes fixtures to 48.4% easy and your folder to 63.9% (13 and 16 more replacements). The similarity floor does not guard these: dithered grids add scattered or checkered cells (IoU 0.837 and 0.783). Look at the sheets the index marks `dither_all`, for example the toucan at 13 and the zebra and owl at 22.
+2. **Possibly worth a card, as a warning only: flag likely line drawings before generating.** Two cheap measurements together (ink under 23% of the picture's box, and some enclosed blank area) flag all 6 failing fixtures and none of the 11 good ones; on your folder they flag the 1 picture that fails most and no good picture.
+   - The perfect fit is expected: the rule was picked from 2048 two-measure candidates (plus 80 single-measure ones) on 17 pictures; the review counted about 3000. The one held-out failing picture is caught by the ink measure alone, so the second measure is not yet tested on held-out data.
+   - Cost: none to puzzles, if it only warns. A refusal could turn away good pictures: the heron (10 medium puzzles) sits just under one cut, zebra1 just over the other.
+   - Time saved: little. Abandoned failures take about half a second each; only dove1's timeouts cost real time (180 s).
+3. **No change:** a longer deadline (rescued nothing), more nudges (16 rescues at IoU 0.52), despeckling (31 of its 48 rescues are near-empty grids), outlines (87% fail), or a stricter cut or dither for every picture (11 and 4 fixture puzzles fail, 6 harder ones turn easy).

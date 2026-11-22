@@ -70,6 +70,18 @@ def test_variants_run_through_the_admin_path_and_leave_the_pipeline_unchanged(mo
     assert script._despeckle(hole) == [[True] * 3 for _ in range(3)]
     assert script._fill_holes(hole) == [[True] * 3 for _ in range(3)]
 
+    # rescue_easy keeps today's easy puzzle unless a fallback is non-easy AND at the floor.
+    # bird1 at 13: cut_62 is medium at smooth_corr 0.979 (taken). bird1 at 10: both
+    # fallbacks are easy (kept: the non-easy check). dolphin1 at 13: cut_62 is medium but
+    # at smooth_corr 0.958, under the 0.96 floor, and dither is easy (kept: the floor).
+    fixtures = script.card517.fixture_pictures()
+    rescued = script.run_picture("rescue_easy", "fixture", 0, str(fixtures[0]), (10, 13))
+    assert [(row["taken_from"], row["tier"]) for row in rescued] == [("today", "easy"), ("cut_62", "medium")]
+    (under_floor,) = script.run_picture("rescue_easy", "fixture", 2, str(fixtures[2]), (13,))
+    assert under_floor["tried"][0]["tier"] == "medium"
+    assert under_floor["tried"][0]["smooth_corr"] < script.RESCUE_EASY_FLOOR
+    assert (under_floor["taken_from"], under_floor["tier"]) == ("today", "easy")
+
     by_variant = {"today": today, "cut_37": thicker, "despeckle": cleaned}
     script.report_attribution(today, ["fixture"])
     script.report_ablation(by_variant, ["fixture"])
