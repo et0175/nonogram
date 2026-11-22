@@ -168,6 +168,25 @@ index.
 ./.venv/bin/python scripts/measure_difficulty_cutoff.py --mode image --pictures 2   # quick look
 ```
 
+### `picture_pipeline_experiment.py` — where picture puzzles turn easy or fail (CARD-525)
+
+Runs CARD-517's picture corpus through the admin's image path and records which stage
+decided each request (unique at conversion, after nudges, at a neighbour extent; or
+abandoned, or the deadline), then repeats it under one change at a time (threshold cut,
+dither, resize filter, a grid clean-up step, nudge budget, deadline; the module docstring
+and the report list exactly what each changes). A change is applied by patching one
+module attribute for the run, never by editing `src/`. Similarity to the picture is the
+ink IoU against the picture thresholded at the grid's size, and `smooth_corr`, which is
+tied to no cut. `rescue_easy` replaces only easy puzzles; `--signals` reports cheap
+line-art measurements per picture against which pictures fail. `--render DIR` writes
+side-by-side sheets and an `index.html`. The printed report and `--json` name no picture
+from `--image-dir`; its sheets' `index.html` does, so render it only to a local folder.
+
+```bash
+./.venv/bin/python scripts/picture_pipeline_experiment.py --pictures 2 --variant today   # quick look
+./.venv/bin/python scripts/picture_pipeline_experiment.py --workers 4 --json out.json    # every variant, about an hour
+```
+
 ## Typical Workflow
 
 ### Day 1: Set up and start testing
