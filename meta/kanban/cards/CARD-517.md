@@ -1,6 +1,6 @@
 # CARD-517: Measure the 90.0 medium/hard cutoff against picture-made puzzles
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/517-image-difficulty-sweep
-**Worktree:** ../PythonProject4-card-517
+**Worktree:** —
 **Source:** roadmap wave 10, cut 2026-11-22 on the owner's "yes, start wave 10". IDEA-028 (deferred by the owner after CARD-137).
 **Idea:** IDEA-028
 **Wave:** 89
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T08:36Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T09:26Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** b947235ba611b14ee3fa01493bf9a367ec85c539
 **Blocked by:** —
 
 ## Why this card exists

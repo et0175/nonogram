@@ -783,7 +783,7 @@ ideas:
     puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
