@@ -2434,6 +2434,31 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      grid (96 px) do not fit that gap, so the bar keeps its row beside the
      counters, as before the solve. Only the solved state is touched. */
   .player-toolbar.is-solved .player-probe { flex-wrap: nowrap; }
+  /* CARD-523 (IDEA-225, owner 2026-11-22: "once solved, Show grid takes
+     Line's place"): the rule above still left 325-340 px and 421-451 px
+     moving the board by dy +24.797 / +27.203, because Line's 44 px left
+     row 1 (and its 4 px gaps went back to 8) while Show grid joined Probe
+     on row 2. Solved, the probe bar's box goes (display: contents) so Show
+     grid is a toolbar item, and `order` draws it in Line's slot: everything
+     after that slot (Hint, Check, the zoom pill, the probe bar's buttons)
+     takes order 1 and the counters move from 1 to 2, so they stay last.
+     The row keeps CARD-440's 4 px gaps. Line and Show grid are the same
+     44 px button, never shown together (Line is offered only unsolved), so
+     each row is the row it was before the solve. Keyed on Check, so the
+     public page (which has no Check, CARD-385) keeps Show grid beside
+     Probe, as published. Show grid's Tab stop stays after Probe.
+     The bar's box was a flex item (flex 1 1 0, min-content Probe's 44 px)
+     sharing row 2's free space with the counters; without it the counters
+     took that share, widened and, at 600 px, fell from two lines to one
+     (the board rose 5.6 px). The toolbar's ::after stands in for the box:
+     the same flex and 44 px floor, ordered right after Probe, and pulled
+     back over Probe by Probe's width and the gap, so the row breaks and
+     shares out exactly as the unsolved bar did. */
+  .player-toolbar.is-solved:has([data-player-action="check"]):has(.player-show-grid:not([hidden])) { column-gap: var(--space-1); }
+  .player-toolbar.is-solved:has([data-player-action="check"]) .player-probe { display: contents; }
+  .player-toolbar.is-solved:has([data-player-action="check"]) :is([data-player-action="hint"], [data-player-action="check"], .player-zoom, .player-probe > :not(.player-show-grid)) { order: 1; }
+  .player-toolbar.is-solved:has([data-player-action="check"]) .player-counters { order: 2; }
+  .player-toolbar.is-solved:has([data-player-action="check"])::after { content: ""; order: 1; flex: 1 1 0; min-width: 44px; margin-inline-start: calc(-44px - var(--space-1)); }
   /* CARD-454 (UX review H3, owner 2026-11-16): on an upright phone the
      leaving note gets the ~30 px between Wrong guess and the counters and
      painted as "Le t.." — two clamped lines of a sentence nobody could read.
