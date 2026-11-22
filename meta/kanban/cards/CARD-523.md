@@ -1,6 +1,6 @@
 # CARD-523: On narrow phones the board stays put on solve: Show grid takes Line's place
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/523-show-grid-takes-line
-**Worktree:** ../PythonProject4-card-523
+**Worktree:** —
 **Source:** roadmap wave 12, cut 2026-11-22 on the owner's "let's take your suggestions for first 4 ideas". IDEA-225 (CARD-511 notes and review F-001).
 **Idea:** IDEA-225
 **Wave:** 91
@@ -20,9 +20,9 @@
 **UI surface:** admin solver page toolbar (solved state, portrait phones)
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T13:38Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T15:36Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** a875c54e558c72f73600e8d786d7be41cf099cfd
 **Blocked by:** —
 
 ## Why this card exists

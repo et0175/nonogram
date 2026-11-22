@@ -5427,7 +5427,7 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: in_kanban
+  status: done
   owner_ruling: 'Owner 2026-11-22: once solved, Show grid takes Line''s place in the toolbar.'
   needs_owner_decision: false
   scored_at: '2026-11-21'
