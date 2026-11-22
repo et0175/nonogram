@@ -56,6 +56,8 @@ from nonogram.admin.book_manager import BOOK_THEMES, BookManager, BookStatus
 from nonogram.admin.book_plan import BUCKETS, TIERS, LevelBoundary
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from tests.helpers.db import make_batch, sqlite_session_scope
+from tests.test_book_setup_print_mobile import live_book  # noqa: F401 - fixture by name
+from tests.test_puzzle_solver_page import browser_page, browser_type  # noqa: F401 - fixtures by name
 
 MODES = ("memory", "db")
 
@@ -1201,32 +1203,14 @@ class TestBookStepPages_ProseAgreesWithTheStepper:
 
 
 class _TrimInputs(HTMLParser):
-    """Print setup's two trim inputs, its unit radios and its scripts, as the browser reads them."""
+    """Print setup's two trim inputs and its unit radios, as the browser reads them."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.inputs: dict = {}
         self.checked_unit = []
-        self.scripts: list[str] = []
-        self.script_srcs: list[str] = []
-        self._in_script = False
-
-    def handle_endtag(self, tag) -> None:
-        if tag == "script":
-            self._in_script = False
-
-    def handle_data(self, data) -> None:
-        if self._in_script:
-            self.scripts[-1] += data
 
     def handle_starttag(self, tag, attrs) -> None:
-        if tag == "script":
-            src = dict(attrs).get("src")
-            if src is not None:
-                self.script_srcs.append(src)
-            self._in_script = True
-            self.scripts.append("")
-            return
         if tag != "input":
             return
         attributes = dict(attrs)
@@ -1234,6 +1218,25 @@ class _TrimInputs(HTMLParser):
             self.inputs[attributes["id"]] = attributes
         elif attributes.get("name") == "unit" and "checked" in attributes:
             self.checked_unit.append(attributes.get("value"))
+
+
+#: What the browser itself says of the two trim inputs and their form.
+_TRIM_VALIDITY = """() => {
+  const read = (input) => ({
+    value: input.value,
+    valid: input.validity.valid,
+    checkValidity: input.checkValidity(),
+    rangeUnderflow: input.validity.rangeUnderflow,
+    rangeOverflow: input.validity.rangeOverflow,
+    stepMismatch: input.validity.stepMismatch,
+    min: input.min,
+    max: input.max,
+    step: input.step,
+  });
+  const width = document.getElementById('width');
+  const height = document.getElementById('height');
+  return {width: read(width), height: read(height), form: width.form.checkValidity()};
+}"""
 
 
 def _browser_admits(attributes: dict, value: str) -> bool:
@@ -1284,15 +1287,6 @@ class TestPrintSetup_InchesTrimIsReachable:
     be after a radio change.
     """
 
-    #: The external scripts the page may load. The check below reads only
-    #: inline script text, so every ``<script src>`` must be named here; the
-    #: list is held EQUAL to what the page renders, so it can grow no wider
-    #: than today's page. Bootstrap's bundle is exempted unread: a pinned
-    #: third-party UI bundle, not a script of this panel.
-    EXEMPT_SCRIPT_SRCS = frozenset(
-        {"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"}
-    )
-
     #: KDP trims in inches, and their centimetres worked out by hand
     #: (x 2.54), not by the converter under test.
     INCH_TRIMS = (
@@ -1328,27 +1322,11 @@ class TestPrintSetup_InchesTrimIsReachable:
         assert _browser_admits(read.inputs["height"], inches[1])
 
     def test_the_cm_form_admits_each_trim_in_either_unit(self, panel) -> None:
-        """A page opened in centimetres admits each trim in cm, and in inches after the switch.
+        """A page opened in centimetres renders no bound that refuses a trim, in cm or in inches.
 
-        CARD-159's bug was exactly this page: bounds rendered for
-        centimetres stayed on the inputs when the owner switched to inches,
-        so 8.5 in was refused. The unit switch is client script; the inch
-        figures are judged against the bounds rendered here, with no browser
-        (CARD-520), and that rests on the page's scripts writing no bound.
-        What is checked of that, refusing by default:
-
-        * every ``<script src>`` is one of ``EXEMPT_SCRIPT_SRCS``, and that
-          list equals the srcs rendered (exempt scripts are not read);
-        * no inline script names ``min``, ``max`` or ``step`` as a word
-          (``Math.min``/``Math.max`` aside), in code, strings or comments;
-        * no inline script uses a dynamic write that could carry a name
-          built at run time: ``set/remove/toggleAttribute``, ``attributes``,
-          ``Object.assign``, ``Reflect``, ``defineProperty``, ``eval``,
-          ``Function(`` or a bracket assignment ``...] =``;
-        * the switch's own ``updateUnits`` script is among those read.
-
-        Not covered: a name assembled at run time and written through a
-        path the list above does not name.
+        Judged on the server's HTML only: the bounds as rendered. What the
+        unit switch's script does afterwards is not seen here; the browser
+        test below measures the page after a real switch (CARD-520).
         """
         app, shelf = panel
         book_id = shelf.book()
@@ -1358,21 +1336,43 @@ class TestPrintSetup_InchesTrimIsReachable:
             read = self._form(client, book_id)
 
         assert read.checked_unit == ["cm"]
-        assert set(read.script_srcs) == self.EXEMPT_SCRIPT_SRCS, read.script_srcs
-        names_a_bound = re.compile(r"\b(?:min|max|step)\b")
-        writes_dynamically = re.compile(
-            r"\b(?:set|remove|toggle)Attribute\b|\battributes\b|\bObject\.assign\b"
-            r"|\bReflect\b|\bdefineProperty\b|\beval\b|\bFunction\s*\(|\]\s*=(?!=)"
-        )
-        # The switch's own script must be among those read, or the check is vacuous.
-        assert any("function updateUnits" in script for script in read.scripts)
-        for script in read.scripts:
-            assert not names_a_bound.search(re.sub(r"\bMath\.(?:min|max)\b", "", script)), script
-            assert not writes_dynamically.search(script), script
         for inches, cm in self.INCH_TRIMS:
             for unit, (width, height) in (("inches", inches), ("cm", cm)):
                 assert _browser_admits(read.inputs["width"], width), (unit, width, read.inputs["width"])
                 assert _browser_admits(read.inputs["height"], height), (unit, height, read.inputs["height"])
+
+    @pytest.mark.browser
+    def test_a_browser_admits_each_inches_trim_after_switching_a_cm_page(
+        self, browser_page, live_book  # noqa: F811
+    ) -> None:
+        """CARD-159's bug, measured where it lived: in Chromium, after the switch.
+
+        The page opens in centimetres (a fresh session's unit), the owner
+        clicks "Inches" as a user does, so every handler and script the page
+        carries has run, and then each inches trim is typed in. The verdict
+        is the browser's own constraint validation (``validity`` and
+        ``checkValidity()`` of each input, and of the form), not a reading of
+        the markup or the scripts (CARD-520, review 2 F-001).
+        """
+        page = browser_page
+        errors: list[str] = []
+        page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.goto(live_book)
+
+        assert page.locator("#unit_cm").is_checked()
+        page.click("label[for=unit_inches]")
+        assert page.locator("#unit_inches").is_checked()
+        assert page.locator("#width_unit").inner_text() == "in"
+
+        for (width, height), _cm in self.INCH_TRIMS:
+            page.fill("#width", width)
+            page.fill("#height", height)
+            verdict = page.evaluate(_TRIM_VALIDITY)
+            for field in ("width", "height"):
+                flags = verdict[field]
+                assert flags["valid"] and flags["checkValidity"], (f"{width} x {height} in", field, flags)
+            assert verdict["form"], (f"{width} x {height} in", "form", verdict)
+        assert errors == [], errors
 
     def test_a_page_reopened_on_an_inches_trim_admits_its_own_values(self, panel) -> None:
         """Saved in inches, reopened in inches: the prefilled values pass too."""
