@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates (solver page), tests/test_puzzle_solver_maybe.py
 **UI surface:** admin solver page toolbar (solved state, portrait phones)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T13:38Z
 **Closed:** —
 **Actual:** —
@@ -79,3 +79,7 @@ After each, admin.css copied back and `cmp`-checked; `git diff --stat` shows onl
 **Gate (unarmed, `-o addopts= -rfs`).** tests/test_puzzle_solver_maybe.py (touched) and neighbours tests/test_puzzle_solver_phone.py, test_puzzle_solver_solved_reveal.py, test_player_base_css.py, test_admin_design_tokens.py, test_player_public_mode.py, test_player_shared_ui_site.py, test_public_player.py, test_browser_fixture_scope.py, test_puzzle_solver_probe.py, test_puzzle_solver_line.py, test_player_viewport_matrix.py: 322 passed, 0 failed, 0 skipped. No DB-armed run: the card names none and nothing touched reaches the database.
 
 **Not established.** Real phones (Chromium headless only). Portrait heights other than 900 and 844 were not swept; the rules do not read the height.
+
+[Review 1/3] Score: 9.0, nothing gating, certified. `test_sweep` 1 passed (80.6 s, 27% of the 300 s guard); control 1 (main's admin.css) red with the five band widths; 12 extra solves at heights 780, 640 and 932 inside both bands all dx 0, dy 0. Public site with HEAD's admin.css: 12 of 12 cases identical to the base build, board 0/0; every solved public toolbar ends "Probe", "Show grid", so the card's premise that the public player has no Show grid was wrong. Chromium's accessibility tree keeps group "Probe" under `display: contents`. Renders: row 1 reads Brush, Region, Undo, Redo, Reset, Show grid, nothing clipped. F-001 (low): Show grid sits in Line's slot but is tabbed last (after Probe); acceptable under WCAG 2.4.3 here, recorded. F-002 (low): admin-only scoping relies on public mode removing Check at runtime (`PUBLIC_ABSENT`); if Check were ever hidden instead of removed, the rules would reach the public toolbar. F-003 (low): the AC-3 note's "site-after's admin.css is byte-identical to src" was taken before the `pointer-events: none` line was dropped; the reviewer's re-run with HEAD's admin.css gives the same result.
+
+**Orchestrator correction (F-003).** AC-3's evidence is the reviewer's re-run with HEAD's admin.css (12 of 12 identical to the base build), not the implementer's site-after copy, which predates the last CSS edit.
