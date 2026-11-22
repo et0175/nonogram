@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/README.md
 **UI surface:** —
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T11:26Z
 **Closed:** —
 **Actual:** —
@@ -78,3 +78,5 @@ All three readers: 3 passed before the edit and 3 passed after, by node id, unar
 - **F-003.** "Expected skips" now names the host-dependent skips, read from the skip marks: the poppler reasons from `NO_POPPLER`/`NO_POPPLER_PPM` in test_book_guide_page_vector.py, test_book_grid_rules.py, test_book_pdf_vector_primitives.py, test_book_puzzle_page_vector.py and test_book_solved_answer_key.py (tools looked up by `tests/helpers/pdf_vector.py`'s `PDFTOPPM`/`PDFTOTEXT`), and "meta/design/ is not shipped with the package" from test_admin_design_tokens.py.
 - **F-005.** Not changed: the hardcoded main-checkout path in the profiling lock recipe is pre-existing and inside the G-1 span.
 - Re-run after the fix (unarmed, `-o addopts= -rfs`): the 3 reader node ids, 3 passed; `tests/test_full_suite_lock.py tests/test_kill_matrix.py`, 144 passed, 0 skipped. Net collected count 10692 (unchanged).
+
+[Review 2/3] Score: 9.0, nothing gating, certified. The README's arming one-liner and `_armed_database_plan` agree in all 11 environments tried (unset, default, padded, other role in DATABASE_URL only, both equal, custom `*_test` in both, custom non-`_test` in both (refused), TEST_DATABASE_URL only, padded TEST_DATABASE_URL, plain `nonogram_test`, blank); the own-role advice keeps the production guard and the `*_test` refusal. F-002 and F-003 resolved; every quoted skip reason matches the code; README readers 3 passed; G-2 clean. F-101 (low): "Two guards stand in front of the destructive fixtures" leaves out CARD-508's session lock, and Troubleshooting explains its "Refusing to set up the test database" prefix only as a non-`_test` URL. F-102 (low): "keep the derived name … per-worktree" holds only if TEST_DATABASE_URL is set per worktree (a value exported in a shell that moves trees prepares the other tree's database); "Nothing has to be created by hand." sits after the elsewhere case. F-103 (info): a prose mutant reddens nothing, by design (AC-4).
