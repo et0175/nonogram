@@ -1,6 +1,6 @@
 # CARD-524: A long first word in the solved name starts on line 1, breaking mid-word
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/524-long-first-word
+**Worktree:** ../PythonProject4-card-524
 **Source:** roadmap wave 12, cut 2026-11-22 on the owner's "let's take your suggestions for first 4 ideas". IDEA-221 (CARD-507 review F-003/F-005).
 **Idea:** IDEA-221
 **Wave:** 91
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_maybe.py
 **UI surface:** admin solver page solved banner (desktop)
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-22T15:36Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
