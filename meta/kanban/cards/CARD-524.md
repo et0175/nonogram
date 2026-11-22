@@ -46,3 +46,56 @@ Read CARD-507's card and notes first (the reverted attempt and why). Re-verify o
 * **G-2**: renders go to ~/Documents/nonogram-reviews/CARD-524/, never into the repo.
 
 ## Worktree notes
+
+### Implementation (2026-11-22)
+
+**Change.** admin.css: one rule after CARD-507's clamp rule (`.player-solved > span`): `.player-solved-label { white-space: nowrap; }`, with a comment. It removes the line break after "Solved! ", so the name starts on line 1. A first word that does not fit there breaks mid-word through `.player-solved-box .player-solved`'s existing `overflow-wrap: anywhere`. This is the rule CARD-507 fix round 1 tried and reverted. Its review F-005 case ("Solved! Northumberlands" / "hire lighthouse at dawn") is the behaviour the owner ruled for on 2026-11-22.
+
+**Test (AC-4, net 0).** `TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::test_wraps` is extended. No test was added and no node id changed. A new module constant `_BANNER_LINES` returns the text of each line inside the clamped box, read from each character's rect. A line counts as inside when its centre is above the box's bottom. With an argument it first replaces the name's text, so the same element and rules lay it out. Another new constant, `_LONG_FIRST_WORD`, is "Northumberlandshire lighthouse at dawn over the harbour wall". These checks run at 1100x700 only, the one viewport in `test_wraps` that shows the label. They cover the stored name, plus `_LONG_FIRST_WORD` swapped in for the words case:
+- exactly 2 visible lines, and line 1 starts with "Solved! ";
+- both lines carry name text, and together they are the name's prefix;
+- each line ends at a space or inside the name's first word;
+- `_LONG_FIRST_WORD`'s line 1 does not end at a space, so it breaks mid-word;
+- the ordinary words name's line 1 ends at a space.
+
+**Premise re-verified (main's admin.css, Playwright probe under /private/tmp/claude-501/card524/).** The probe asserted that `nonogram` and `tests` import from this worktree. At 1440x900, 1100x700 and 1280x720 the visible lines were:
+- no-space names (26, 60 and 120 characters): `Solved! ` / `lighthouse_keepers_cotta`;
+- long-first-word names: `Solved! ` / `Northumberlandshire `, and `Solved! ` / `Northumberlandshire_lig`.
+
+So the premise holds: these names start on line 2.
+
+**After (AC-1, AC-2).** Same probe, same three desktop views:
+- nospace26: `Solved! lighthouse_keeper` / `s_cottage`.
+- nospace60 and nospace120: `Solved! lighthouse_keeper` / `s_cottage_on_the_norther`.
+- longfirst38: `Solved! Northumberlands` / `hire lighthouse at dawn`.
+- longfirst60: `Solved! Northumberlands` / `hire_lighthouse at dawn `.
+- Unchanged from before: short10 (`Solved! Lighthouse`, 1 line), ordinary24 (`Solved! The lighthouse at ` / `dawn x`), and ordinary60 and words120 (`Solved! The lighthouse ` / `keeper's cottage on the `).
+
+**AC-3.**
+- The board's dx and dy on solve are 0 for all 9 names at the 3 desktop views, before and after.
+- At 390x844 and 600x900, the probe's output (board dx/dy, line contents, line count, label position) is identical before and after. On the compact layout the label is visually hidden and already nowrap.
+- `test_sweep` (CARD-511/523's 57 viewports) passes in the gate below.
+- The clamp rule and its text size are untouched. `test_wraps` still asserts at most 2 lines and font-size equal to `--text-xs` at all 3 viewports.
+
+**G-1 (public player, not published).** A scratch site was assembled with `scripts/assemble_player_site.py --bundle .../build/player-bundle --out /private/tmp/claude-501/card524/site`, without `--analytics`. Its admin.css is byte-identical to this branch's. It was served locally, and the smallest puzzle was solved with `solve_to_the_end` at 1440x900, 1100x700 and 390x844, once with main's admin.css swapped in and once with this branch's. The label's white-space is `normal` before and `nowrap` after at desktop, so the rule does apply. Every other measured value is identical: banner text "Solved!", banner and span rects, label position, board position, and 0 name elements. The banner screenshots are byte-identical at all 3 views.
+
+**Renders (G-2).** In ~/Documents/nonogram-reviews/CARD-524/:
+- `before-*` and `after-*`: toolbar shots at 1440x900, 1280x720 and 1100x700 for 9 names (short, ordinary, no-space, long-first-word);
+- `compare-1440x900.png` and `compare-1100x700.png`: side-by-side sheets;
+- `public-{before,after}-*.png`: the public banner.
+
+**Controls (admin.css restored after each; `cmp` against the saved branch copy matched).**
+1. With main's admin.css (the rule absent), `test_wraps` fails 2 of 6, the two 1100-700 cases:
+   - words: `AssertionError: ['Solved! ', 'Northumberlandshire ']` on the name-on-line-1 assert;
+   - one-token: `AssertionError: ['Solved! ', 'lighthouse_keepers_cotta']`.
+2. With `.player-solved-name { word-break: break-all; }` added (every word breaks), 1 of 6 fails: 1100-700-words, `AssertionError: (17, ['Solved! The lighthouse ke', "eper's cottage on the nort"])`, `assert ('e' == ' '`. This means an ordinary name broken mid-word reds.
+
+**Gate (unarmed, `-o addopts= -rfs`).** Files run:
+- touched: tests/test_puzzle_solver_maybe.py;
+- neighbours: test_puzzle_solver_progress.py, test_puzzle_solver_phone.py, test_puzzle_solver_solved_reveal.py;
+- the public player set: test_player_base_css.py, test_player_bundle.py, test_player_public_mode.py, test_player_shared_ui_site.py, test_player_viewport_matrix.py, test_public_player.py, test_public_player_pages.py;
+- tests/test_browser_fixture_scope.py, because `test_wraps` node ids are recorded there and none changed.
+
+Result: 447 passed, 0 failed, 0 skipped.
+
+**Net test count.** `--collect-only` over tests/ gives 10694 collected before and 10694 after, so net 0.
