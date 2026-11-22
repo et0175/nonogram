@@ -5437,7 +5437,7 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: in_kanban
+  status: done
   owner_ruling: 'Owner 2026-11-22: refuse to start on the deployed server (REMOTE_HOST set) without a database; keep the in-memory fallback locally.'
   needs_owner_decision: false
   scored_at: '2026-11-22'

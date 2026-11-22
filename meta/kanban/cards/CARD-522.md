@@ -1,6 +1,6 @@
 # CARD-522: The deployed panel refuses to start without a database
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/522-refuse-memory-mode-deployed
-**Worktree:** ../PythonProject4-card-522
+**Worktree:** —
 **Source:** roadmap wave 12, cut 2026-11-22 on the owner's "let's take your suggestions for first 4 ideas". IDEA-226 (CARD-515 review 1 F-003).
 **Idea:** IDEA-226
 **Wave:** 91
@@ -20,9 +20,9 @@
 **UI surface:** — (start-up only)
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T13:38Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T14:36Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 7110c1bcaf14a39f3aa74f9c751db3201f2cab35
 **Blocked by:** —
 
 ## Why this card exists
