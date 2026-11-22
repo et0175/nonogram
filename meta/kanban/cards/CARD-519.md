@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml
 **UI surface:** —
-**Review score:** 7.0 (cycle 1/3)
+**Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T10:32Z
 **Closed:** —
 **Actual:** —
@@ -82,3 +82,5 @@ Re-verify each behaviour on main first (it may have changed or been removed sinc
   The five classes by node id: "55 passed in 2.74s", 0 skipped. tests/test_check_ref_resolution.py: "26 passed, 2 warnings in 4.68s"; the 2 warnings are the same ones as on main, and no pin moved because no `test:` value changed. tests/test_kanban_review_record.py: "71 passed in 4.95s".
   forge_1 validator after the last AC-432 edit: "0 error(s), 104 warning(s), 0 info", sorted output identical to main's.
   Net tests: "10692 tests collected", the same as before the card, net 0.
+
+[Review 2/3] Score: 9.0, nothing gating, certified. Cycle 1's F-001 to F-006 all resolved: every assert in the five classes read AC by AC, and AC-423, 424, 425, 426, 428, 429, 431 and 433 say what their class asserts. Five classes by node id: 55 passed, 0 skipped; registry checks 97 passed; forge_1 validator 0 errors / 104 warnings, identical to main; AC-423..433 unused on main. F-101 (low): AC-427 claims less than its test, which requires each page to print exactly one "Step N of M" (mutant M-c, Finalise's lede without it, reds `test_the_printed_step_is_the_current_one[4]`). F-102 (low): AC-432's book-page link clause holds whether or not the cover is lost, since the stepper links Finalise on every book page (mutant M-a, the note's own link removed: 13 passed); the "no longer on disk" clause does discriminate (`test_an_intact_book_page_carries_no_lost_cover_note`). F-103 (low, by reading): AC-430's "beside" is not asserted as placement; it holds as "on the same page".
