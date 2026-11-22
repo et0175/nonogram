@@ -1,6 +1,6 @@
 # CARD-524: A long first word in the solved name starts on line 1, breaking mid-word
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/524-long-first-word
-**Worktree:** ../PythonProject4-card-524
+**Worktree:** —
 **Source:** roadmap wave 12, cut 2026-11-22 on the owner's "let's take your suggestions for first 4 ideas". IDEA-221 (CARD-507 review F-003/F-005).
 **Idea:** IDEA-221
 **Wave:** 91
@@ -20,9 +20,9 @@
 **UI surface:** admin solver page solved banner (desktop)
 **Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T15:36Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T16:46Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 9ad3fd2c399db70e736fd2971ce76df8c2b66f3b
 **Blocked by:** —
 
 ## Why this card exists

@@ -5392,7 +5392,7 @@ ideas:
   source_line: null
   intent: null
   category: feature
-  status: in_kanban
+  status: done
   owner_ruling: 'Owner 2026-11-22: a long first word may break mid-word so the name starts on line 1.'
   needs_owner_decision: false
   scored_at: '2026-11-21'
