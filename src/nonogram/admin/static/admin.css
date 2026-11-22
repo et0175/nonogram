@@ -1366,6 +1366,18 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    the phone's values are unchanged. Held by tests/test_puzzle_solver_maybe.py
    TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth. */
 .player-solved > span { font-size: var(--text-xs); line-height: var(--leading-tight); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* CARD-524 (IDEA-221, owner 2026-11-22: a long first word may break
+   mid-word): no line break after "Solved! ", so the name always starts on
+   line 1 beside the label. A first word that does not fit there breaks
+   mid-word (.player-solved-box's overflow-wrap: anywhere) instead of moving
+   to line 2 and leaving one line for the name; a name whose first word fits
+   still breaks only between words. CARD-507's fix round 1 tried this rule
+   and reverted it while mid-word breaks were the owner's call. On the phone
+   the label is visually hidden (compact block), and a banner with no name
+   (the public page's "Solved!") has no break to remove. Held by
+   tests/test_puzzle_solver_maybe.py
+   TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth. */
+.player-solved-label { white-space: nowrap; }
 /* The success frame is drawn just inside the table's edge: .player-stage
    scrolls (overflow-x: auto) and would clip a frame drawn outside it on the
    top and left. */

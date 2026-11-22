@@ -1088,7 +1088,13 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
     name (the clamp is visual only). CARD-511: the third viewport is the
     600 x 900 portrait tablet (it was 1440 x 900, the same desktop rule as
     1100 x 700, whose short name test_sweep still solves at 1440), where the
-    board used to move on solve."""
+    board used to move on solve. CARD-524 (IDEA-221, owner 2026-11-22: a long
+    first word may break mid-word): at 1100 x 700, where "Solved! " is shown,
+    the name starts on line 1 beside it and both clamped lines carry name
+    text, and a word is broken only when it is the name's first word; the
+    words case also lays out a name whose first word does not fit beside the
+    label (swapped into the same banner, so the layout is the page's own),
+    which must break inside that word."""
 
     @pytest.mark.parametrize("long_name", _LONG_NAMES, ids=["words", "one-token"])
     @pytest.mark.parametrize("width,height", [(600, 900), (1100, 700), (390, 844)])
@@ -1108,6 +1114,11 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
             painted = _name_paints(page, text)
             icon = page.locator("#puzzle-player-solved .icon").bounding_box()
             text_px = page.locator("#puzzle-player-solved").evaluate("(el) => parseFloat(getComputedStyle(el).fontSize)")
+            # CARD-524: the visible lines, for the stored name and (words
+            # case) for a name whose first word does not fit beside the label.
+            lines = {long_name: page.evaluate(_BANNER_LINES)}
+            if " " in long_name:
+                lines[_LONG_FIRST_WORD] = page.evaluate(_BANNER_LINES, _LONG_FIRST_WORD)
         finally:
             context.close()
         assert name == long_name and long_name in words
@@ -1134,6 +1145,50 @@ class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
         bl, _, br, _ = boxes["banner"]
         assert tl - 0.5 <= bl and br <= tr + 0.5, boxes
         assert not any(_overlaps(boxes["banner"], other) for other in boxes["others"]), boxes
+        if (width, height) != (1100, 700):
+            return  # on the compact layout "Solved! " is visually hidden
+        for shown, visible in lines.items():
+            first_word = shown.split(" ")[0]
+            # The name starts on line 1 beside the label, and both lines carry it.
+            assert len(visible) == 2 and visible[0].startswith("Solved! "), visible
+            assert len(visible[0]) > len("Solved! ") and visible[1].strip(), visible
+            assert (visible[0] + visible[1]).removeprefix("Solved! ") == shown[: len(visible[0] + visible[1]) - 8], visible
+            # Each line ends at a space, or inside the name's first word.
+            for end in (len(visible[0]) - 8, len(visible[0] + visible[1]) - 8):
+                assert shown[end - 1] == " " or end < len(first_word), (end, visible)
+        if " " in long_name:
+            # The first word does not fit beside the label, so it breaks.
+            assert not lines[_LONG_FIRST_WORD][0].endswith(" "), lines
+            # An ordinary name breaks between words, as before.
+            assert lines[long_name][0].endswith(" "), lines
+
+
+#: CARD-524: a name with spaces whose first word does not fit beside
+#: "Solved! " at 1100 x 700 (on main before CARD-524 it began on line 2).
+_LONG_FIRST_WORD = "Northumberlandshire lighthouse at dawn over the harbour wall"
+
+#: CARD-524: the text of each line of the banner's text span that lies inside
+#: its (clamped) box (by the line's centre: a third line's top lies above the
+#: box's bottom edge), read from each character's own rect. With an argument,
+#: the name's text is replaced by it first (the same element and rules).
+_BANNER_LINES = """(swap) => {
+  const span = document.querySelector('#puzzle-player-solved > span');
+  if (typeof swap === 'string') document.querySelector('[data-player-solved-name]').textContent = swap;
+  const bottom = span.getBoundingClientRect().bottom;
+  const lines = [];
+  let top = null;
+  const walk = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    for (let i = 0; i < n.data.length; i++) {
+      const range = document.createRange();
+      range.setStart(n, i); range.setEnd(n, i + 1);
+      const r = [...range.getClientRects()].find((x) => x.width > 0);
+      if (r && (top === null || Math.abs(r.top - top) > 3)) { top = r.top; lines.push({ top, mid: r.top + r.height / 2, text: '' }); }
+      if (lines.length) lines[lines.length - 1].text += n.data[i];
+    }
+  }
+  return lines.filter((l) => l.mid < bottom).map((l) => l.text);
+}"""
 
 
 #: CARD-507: the banner text's box, its clamp, its size against the page's
