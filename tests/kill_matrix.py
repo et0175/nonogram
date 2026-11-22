@@ -112,6 +112,44 @@ Safety discipline
   plugin and every ``records-*`` directory — is removed when :meth:`Runner.run`
   returns, and **kept** when a restore did not verify: there the backup is the
   only intact copy, and the exception names the directory.
+* **The plant window, and its two readers (CARD-315).** With ``workers=1``
+  every edit is made **in place**: a mutant sits on the real path from
+  :meth:`Runner._apply` until :meth:`Runner._restore`, which is the length of
+  that mutant's child pytest. Two kinds of reader can look through it, and
+  only the first is guarded:
+
+  - **destructive database fixtures** — guarded: an edit landing on either
+    half of the database guard is refused (``_refuse_forbidden_path``);
+  - **a concurrent ``git`` in the same tree** — **not** guarded, and nothing
+    here can guard it. ``git status`` lists the planted path as modified and
+    the diff is empty once the restore lands: a reading caught mid-plant, not
+    a corrupt index. ``git add`` (or ``commit -a``) in the window stages the
+    **mutant**, and ``git stash`` in the window stashes it: the restore puts
+    back the working tree and reaches neither the index nor a stash, so after
+    such a run ``git status`` reads ``MM`` and ``git diff --cached`` shows the
+    mutant. Commit with explicit pathspecs while a run is in flight, and read
+    ``git status`` and ``git diff --cached`` after it.
+
+  A reader cannot be detected; a **writer** can, by what it leaves on disk.
+  Every reading checks, before its child starts and after it ends, that each
+  registered path still holds the bytes this instrument last put there (its
+  backup, or the planted mutant), and raises :class:`ConcurrentWrite` if not —
+  a message of its own, so "something else wrote to this tree" is not read as
+  "SHIPPED is not FAIL-free". **Declared bound:** a write made and undone
+  inside one reading is not seen, and a run that backs a path up while
+  another writer's mutant is on disk takes that mutant for pristine, and its
+  restore puts the mutant back; both are why the message says to read
+  ``git diff`` after the run. The restore overwrites what the other writer
+  left, so an in-place run first copies those bytes into its temp tree and
+  keeps that tree, and the message names the copy.
+
+  The window itself is kept, by decision. A marker file for ``git`` to honour
+  would have no reader — no hook here reads one, and a file in the tree is
+  itself what ``git status`` and ``git add -A`` pick up — and it would make
+  the lock sentence above false. Planting into a copy is what ``workers > 1``
+  already does (below), and making it the only mode would remove the one
+  reading of the real tree: a lane leaves out ``.git``, ``.env`` and local
+  databases, and a target that needs them is measured in place.
 * Refuses an edit whose text names ``_refuse_unless_test_database`` or
   ``nonogram_poc``, and an edit that lands on ``tests/conftest.py`` or
   ``tests/database_guard.py`` **by identity** — after ``realpath``, compared
@@ -179,6 +217,7 @@ except ImportError:  # pragma: no cover - ... and as bare ``kill_matrix`` by the
 
 __all__ = [
     "BLIND",
+    "ConcurrentWrite",
     "FAIL",
     "NOT_REACHED",
     "PASS",
@@ -248,8 +287,14 @@ def _refuse_forbidden_path(path: Path) -> None:
     raw tuple compare opened is not hypothetical: the mutant sits on disk for
     the length of that mutant's pytest subprocess, which is exactly when the
     destructive fixtures would run. (The ``cp -p`` backup names the same inode,
-    so the file *is* restored afterwards — the hazard is the window, not a
-    persistent clobber.)
+    so the file *is* restored afterwards — for this run's own edits the hazard
+    is the window, not a persistent clobber.) That window has a second reader
+    this refusal does not reach: a concurrent ``git`` in the same tree sees the
+    mutant too, and a ``git add`` or ``git stash`` made inside it keeps a copy
+    no restore puts back. A second *writer* can make the clobber persistent: a
+    run that backs a path up while another run's mutant is planted restores
+    that mutant. Both are in the module docstring's plant-window entry
+    (CARD-315).
 
     * ``..`` and symlinks — compared after ``os.path.realpath``, which resolves
       both even when the tail does not exist.
@@ -311,7 +356,22 @@ class LeakedPatch(Exception):
     first reading (a leak that *removes* coverage), and a SHIPPED that reached
     **no** arm at all (nothing to be a baseline of — see
     :meth:`Runner._refuse_unless_clean`). Also raised by :meth:`Runner._restore`
-    when a restore did not verify, which is the same claim about the disk.
+    when a restore did not verify, which is the same claim about the disk, and
+    as its subclass :class:`ConcurrentWrite` when something else wrote a
+    registered path while this run held it.
+    """
+
+
+class ConcurrentWrite(LeakedPatch):
+    """Something other than this instrument wrote a registered path mid-run.
+
+    Raised by :meth:`Runner._measure` when a registered path does not hold the
+    bytes this instrument last put there (its backup, or the planted mutant),
+    before the reading's child pytest starts or after it ends. A subclass of
+    :class:`LeakedPatch` because it makes the same claim — no reading from
+    this run is trustworthy — but with a cause of its own: a genuine leaked
+    patch leaves a path holding what *this* instrument wrote, so it is never
+    raised for one, and the two messages are told apart by that evidence.
     """
 
 
@@ -1069,6 +1129,23 @@ class Runner:
     #: Observation only: nothing reads it to build a result, and a test uses it
     #: to show that the finishing order and the declared order really differed.
     _completion: list[int] = field(default_factory=list, init=False, repr=False)
+    #: The bytes this runner last put on each registered file: its backup once
+    #: backed up or restored, the mutant once planted. What every reading
+    #: checks the disk against (:meth:`_refuse_on_foreign_write`). Keyed on the
+    #: file's **identity** (``st_dev``, ``st_ino``), never on its spelling: a
+    #: mutant may name a registered file through ``..`` or another case, which
+    #: :meth:`_refuse_unless_topology_holds` supports, and two keys for one file
+    #: would each expect different bytes (CARD-315 review F-001). The value
+    #: keeps the spelling last written through, which is what is read back.
+    #: Cleared at the start of every :meth:`run`: an expectation belongs to one
+    #: run's registry, not to the instance (F-003).
+    _expected: dict[tuple[int, int], tuple[Path, bytes]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    #: Set by :meth:`run` for an in-place reading only: a detected foreign
+    #: write's bytes are then copied into :attr:`workdir`, which is kept. A
+    #: lane's tree is a private copy and is removed with its lane.
+    _keeps_foreign: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.workers, int) or self.workers < 1:
@@ -1167,6 +1244,7 @@ class Runner:
             backup = self.workdir / f"backup.{len(registry)}.{path.name}"
             subprocess.run(["cp", "-p", str(path), str(backup)], check=True)
             registry[path] = backup
+            self._expect(path, backup.read_bytes())
         return registry
 
     def _restore(self, registry: Mapping[Path, Path]) -> None:
@@ -1188,6 +1266,7 @@ class Runner:
             except (OSError, subprocess.CalledProcessError) as exc:
                 failures.append(f"cp -p could not restore {path}: {exc}")
                 continue
+            self._expect(path, backup.read_bytes())
             failures.extend(self._verification_failures(path, backup))
         if failures:
             raise LeakedPatch(
@@ -1271,7 +1350,9 @@ class Runner:
         """Remove this run's temp tree. Never called when a restore failed.
 
         There the backup is the only intact copy of the file on disk, so the
-        tree is kept and :meth:`run` names the directory in the exception.
+        tree is kept and :meth:`run` names the directory in the exception. Nor
+        after an in-place :class:`ConcurrentWrite`: the tree then holds the
+        copy of what the other writer left, and the exception names it.
         """
         if self._workdir is None:
             return
@@ -1288,6 +1369,8 @@ class Runner:
         """
         if not isinstance(pass_, Pass):
             raise TypeError("pass_ must be a Pass member; there is no default")
+        self._expected.clear()
+        self._keeps_foreign = False
         pristine = self.target.read_text(encoding="utf-8")
         linenos = assert_linenos(pristine, str(self.target))
         collisions = sorted({l for l in linenos if linenos.count(l) > 1})
@@ -1306,6 +1389,8 @@ class Runner:
                     paths.append(path)
         if self.workers > 1 and self._lane_paths(paths) is not None:
             return self._run_in_lanes(pass_, mutants, pristine, denominator, paths)
+        self._keeps_foreign = True
+        foreign = False
         registry = self._backup_registry(paths)
         try:
             shipped = self._measure("SHIPPED", pass_, denominator, pristine)
@@ -1327,6 +1412,9 @@ class Runner:
                 shipped_between=between,
                 child_instrumentation=self.child_instrumentation,
             )
+        except ConcurrentWrite:
+            foreign = True
+            raise
         finally:
             try:
                 self._restore(registry)
@@ -1336,7 +1424,12 @@ class Runner:
                     "rather than discarded: a restore that did not verify is "
                     "the one case where the backup is the only intact copy"
                 ) from exc
-            self._discard_workdir()
+            if foreign:
+                # The copy of what the other writer left lives here; forget the
+                # tree rather than remove it, so a later run makes its own.
+                self._workdir = None
+            else:
+                self._discard_workdir()
 
     def _measure_mutant(
         self,
@@ -1692,11 +1785,14 @@ class Runner:
             for edit in edits:
                 source = apply_edit(source, edit)
             path.write_text(source, encoding="utf-8")
+            self._expect(path, source.encode("utf-8"))
 
     def _measure(
         self, label: str, pass_: Pass, denominator: int, pristine: str
     ) -> Matrix:
+        self._refuse_on_foreign_write(label, "before its child pytest started")
         records, exit_code, output = self._pytest(pass_)
+        self._refuse_on_foreign_write(label, "after its child pytest ended")
         if exit_code not in _RAN_EXIT_CODES:
             raise UnmeasuredRun(
                 f"{label}: pytest exited {exit_code}, which is not a reading. "
@@ -1739,6 +1835,63 @@ class Runner:
             collected_tests=collected_tests(output),
             exit_code=exit_code,
             child_instrumentation=self.child_instrumentation,
+        )
+
+    def _expect(self, path: Path, data: bytes) -> None:
+        """Record ``data`` as what ``path``'s file now holds, keyed on identity."""
+        stat = os.stat(path)
+        self._expected[(stat.st_dev, stat.st_ino)] = (path, data)
+
+    def _refuse_on_foreign_write(self, label: str, when: str) -> None:
+        """Raise :class:`ConcurrentWrite` if a registered path moved under us.
+
+        This instrument writes nothing while a reading runs, and before one
+        starts it knows what each registered path holds (:attr:`_expected`),
+        so any difference was written by something else: another kill-matrix
+        run in the same tree, a ``git stash``/``checkout``/``reset``, an
+        editor's save. Without this check such a write is either read as
+        ``SHIPPED is not FAIL-free`` — the message that says nothing about a
+        concurrent writer — or, during a mutant's reading, not seen at all: a
+        ``git stash`` that takes the mutant off the disk publishes the mutant
+        as a survivor, and the verified restore and a clean SHIPPED after it
+        both agree. A no-op for a runner nothing has registered a path on.
+        """
+        moved: list[str] = []
+        kept: list[str] = []
+        for path, want in self._expected.values():
+            try:
+                got = path.read_bytes()
+            except OSError:
+                got = None
+            if got != want:
+                moved.append(str(path))
+                if self._keeps_foreign and got is not None:
+                    copy = self.workdir / f"foreign.{len(kept)}.{path.name}"
+                    copy.write_bytes(got)
+                    kept.append(str(copy))
+        if not moved:
+            return
+        copies = (
+            f" A copy of what it left is kept at {kept}, in a temp tree this "
+            "run does not remove."
+            if kept
+            else ""
+        )
+        raise ConcurrentWrite(
+            f"{label}: {moved} no longer hold what this instrument last wrote "
+            f"there, {when}.{copies} It writes nothing during a reading, so something "
+            "else wrote to this tree while this run held it -- another "
+            "kill-matrix run in the same tree, a git stash, checkout or reset, "
+            "an editor's save. This is not a leaked patch, and this reading is "
+            "not of the file it names, so nothing from this run is published. "
+            "The restore that follows puts back the cp -p backup and verifies "
+            "it with diff -q and shasum -a 256, overwriting whatever that "
+            "writer left -- and if that writer was another kill-matrix run, "
+            "the backup this run took may itself be its mutant. After the "
+            "run, check git status, git diff, git "
+            "diff --cached and git stash list: a git add or a git stash made "
+            "while a mutant was planted holds that mutant, and no restore "
+            "reaches the index or a stash"
         )
 
     def _pytest(self, pass_: Pass):
