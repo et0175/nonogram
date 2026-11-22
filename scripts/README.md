@@ -176,7 +176,9 @@ abandoned, or the deadline), then repeats it under one change at a time (thresho
 dither, resize filter, a grid clean-up step, nudge budget, deadline; the module docstring
 and the report list exactly what each changes). A change is applied by patching one
 module attribute for the run, never by editing `src/`. Similarity to the picture is the
-ink IoU against the picture thresholded at the grid's size. `--render DIR` writes
+ink IoU against the picture thresholded at the grid's size, and `smooth_corr`, which is
+tied to no cut. `rescue_easy` replaces only easy puzzles; `--signals` reports cheap
+line-art measurements per picture against which pictures fail. `--render DIR` writes
 side-by-side sheets and an `index.html`. The printed report and `--json` name no picture
 from `--image-dir`; its sheets' `index.html` does, so render it only to a local folder.
 

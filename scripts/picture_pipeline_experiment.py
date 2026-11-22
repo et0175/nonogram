@@ -28,7 +28,13 @@ deadline per extent, and finally the grade (``difficulty.classify``, cutoff
    module attribute for the duration of the run (``unittest.mock.patch``), or
    by wrapping ``sourcing.image.convert`` with one extra step on the grid it
    returns. The source files are never written.
-3. **Similarity** to the picture, one stated measure: the ink IoU (filled cells
+   ``rescue_easy`` (added in review round 1) is per request instead: today's
+   puzzle stands unless it is easy, then ``cut_62`` and ``dither_all`` are tried
+   and the first non-easy one at or above :data:`RESCUE_EASY_FLOOR` is kept.
+   ``--signals`` reports three cheap line-art measurements of each picture
+   (:func:`picture_signals`) against which pictures fail.
+3. **Similarity** to the picture, two measures. ``smooth_corr`` (added in
+   review round 1) is tied to no cut: :func:`smooth_corr`. The first: the ink IoU (filled cells
    in both / filled cells in either) between the puzzle's grid and a
    *reference* grid — the picture's ink box, cropped to the grid's ratio by
    the pipeline's own ``fit_crop_box``, area-averaged (``BOX``) to the grid's
@@ -85,6 +91,13 @@ from nonogram.errors import NonogramError, SolverTimeout  # noqa: E402
 from nonogram.sourcing import image as image_source  # noqa: E402
 
 Grid = list[list[bool]]
+
+#: rescue_easy's similarity floor on :func:`smooth_corr`, fixed before the
+#: variant was first run: the 10th percentile of today's made puzzles on the
+#: reproducible corpus (fixtures and silhouettes, 343 puzzles), rounded down to
+#: two places. An alternative must be at least as close to the picture as the
+#: bottom tenth of what the pipeline already ships.
+RESCUE_EASY_FLOOR = 0.96  # p10 measured 0.963 (343 puzzles); min 0.628, median 0.989
 
 #: CARD-517's (picture, long side) count for its default corpus (37 pictures
 #: x 12 sizes), repeats included. Asserted on a full run so a shrunken corpus
@@ -173,6 +186,8 @@ class Variant:
     changes: str
     #: ``(module, attribute, value)`` swapped for the run.
     patches: tuple[tuple[object, str, object], ...] = field(default=())
+    #: rescue_easy only: variants tried, in order, when today's puzzle is easy.
+    fallbacks: tuple[str, ...] = ()
 
 
 VARIANTS: tuple[Variant, ...] = (
@@ -227,6 +242,13 @@ VARIANTS: tuple[Variant, ...] = (
         "deadline_90",
         "deadline: 90 s per extent instead of 30 s (orchestrator.GENERATION_BUDGET_SECONDS)",
         ((orchestrator, "GENERATION_BUDGET_SECONDS", 90.0),),
+    ),
+    Variant(
+        "rescue_easy",
+        "per request, designed after reading runs A-C: today's puzzle stands unless it is easy; "
+        "then cut_62, then dither_all, are tried at the same predicted extent and the first that "
+        "is not easy and has smooth_corr >= RESCUE_EASY_FLOOR replaces it",
+        fallbacks=("cut_62", "dither_all"),
     ),
 )
 VARIANT_BY_NAME = {variant.name: variant for variant in VARIANTS}
@@ -289,6 +311,52 @@ def reference_grid(path: Path, width: int, height: int) -> Grid:
     return [[bool(values[r, c] <= 127) for c in range(width)] for r in range(height)]
 
 
+def coverage_map(path: Path, width: int, height: int) -> numpy.ndarray:
+    """Each cell's ink coverage, 0..1, from the same crop as :func:`reference_grid`."""
+    from PIL import Image
+
+    greyscale = image_source.load_greyscale(path)
+    trimmed = greyscale.crop(image_source.ink_bounding_box(greyscale))
+    scaled = trimmed.resize(
+        (width, height),
+        resample=Image.Resampling.BOX,
+        box=image_source.fit_crop_box(*trimmed.size, width, height),
+    )
+    return 1.0 - numpy.asarray(scaled, dtype=float) / 255.0
+
+
+def _smoothed(values: numpy.ndarray) -> numpy.ndarray:
+    """3x3 mean, edges padded by repetition."""
+    padded = numpy.pad(values, 1, mode="edge")
+    height, width = values.shape
+    return sum(
+        padded[dr : dr + height, dc : dc + width] for dr in range(3) for dc in range(3)
+    ) / 9.0
+
+
+def smooth_corr(grid: Grid, coverage: numpy.ndarray) -> float:
+    """The second similarity measure, tied to no cut: the Pearson correlation
+    of the grid and the picture's ink coverage, both blurred over 3x3 cells.
+
+    A uniformly thicker or thinner conversion, or a dither whose local ink
+    density follows the picture, keeps it high; cells moved to the wrong
+    place lower it. 0.0 when either side is constant."""
+    left = _smoothed(numpy.asarray(grid, dtype=float)).ravel()
+    right = _smoothed(coverage).ravel()
+    if left.std() == 0 or right.std() == 0:
+        return 0.0
+    return float(numpy.corrcoef(left, right)[0, 1])
+
+
+def similarity(path: Path, grid: Grid) -> dict[str, float]:
+    """Both measures for a made grid, at the grid's own extent."""
+    height, width = len(grid), len(grid[0])
+    return {
+        "iou": ink_iou(grid, reference_grid(path, width, height)),
+        "smooth_corr": smooth_corr(grid, coverage_map(path, width, height)),
+    }
+
+
 def ink_iou(grid: Grid, reference: Grid) -> float:
     both = either = 0
     for row, ref_row in zip(grid, reference, strict=True):
@@ -307,7 +375,6 @@ def run_picture(variant_name: str, kind: str, index: int, path_text: str, sizes:
     Returns one dict per request (a repeated extent is skipped, as CARD-517
     does). Top-level so a process pool can call it.
     """
-    from nonogram.admin.app import _generate_image_puzzle
     from nonogram.admin.image_manager import CANNOT_FIT
 
     variant = VARIANT_BY_NAME[variant_name]
@@ -315,8 +382,6 @@ def run_picture(variant_name: str, kind: str, index: int, path_text: str, sizes:
     label = f"{kind}-{index:02d}"
     results: list[dict] = []
     made: set[tuple[int, int]] = set()
-    real_generate = orchestrator.generate
-    real_solve = solver.solve
     for long_side in sizes:
         image = card517._admin_image(path, label, long_side)
         fit = image.size_fits()[0].fit
@@ -337,65 +402,95 @@ def run_picture(variant_name: str, kind: str, index: int, path_text: str, sizes:
             results.append({**base, "outcome": "repeat", "stage": "repeat of a smaller size's extent"})
             continue
         made.add(fit.extent)
-        calls: list[dict] = []
-        solves = [0]
-
-        def counting_solve(*args, **kwargs):
-            solves[0] += 1
-            return real_solve(*args, **kwargs)
-
-        def spying_generate(request):
-            solves[0] = 0
-            started = time.perf_counter()
-            entry = {"extent": [request.width, request.height]}
-            calls.append(entry)
-            try:
-                puzzle = real_generate(request)
-            except NonogramError as exc:
-                entry.update(result=type(exc).__name__, solves=solves[0])
-                raise
-            finally:
-                entry["seconds"] = round(time.perf_counter() - started, 3)
-            entry.update(result="made", solves=solves[0])
-            return puzzle
-
-        started = time.perf_counter()
-        with applied(variant), mock.patch.object(orchestrator, "generate", spying_generate), \
-                mock.patch.object(solver, "solve", counting_solve):
-            try:
-                puzzle, used = _generate_image_puzzle(image, *fit.extent)
-            except NonogramError as exc:
-                puzzle, used, error = None, None, exc
-            else:
-                error = None
-        row = {**base, "calls": calls, "seconds": round(time.perf_counter() - started, 3)}
-        if puzzle is None:
-            row.update(outcome="failed", error=type(error).__name__, stage=_failure_stage(error, calls))
-        else:
-            nudges = puzzle.nudge.attempts
-            grid = [list(map(bool, line)) for line in puzzle.grid]
-            if list(used) != list(fit.extent):
-                stage = "made at a neighbour extent"
-            elif nudges:
-                stage = "made after nudges"
-            else:
-                stage = "unique at conversion"
-            row.update(
-                outcome="made",
-                stage=stage,
-                used=list(used),
-                nudges=nudges,
-                binarisation=puzzle.binarisation,
-                score=puzzle.difficulty_score,
-                tier=classify(puzzle.difficulty_score).value,
-                branch_nodes=puzzle.branch_nodes,
-                rungs=list(puzzle.strategies),
-                shape=grid_shape(grid),
-                iou=ink_iou(grid, reference_grid(path, *used)),
-                grid=["".join("#" if cell else "." for cell in line) for line in grid],
-            )
+        row = _attempt(image, fit.extent, variant, path, base)
+        if variant.fallbacks and row["outcome"] == "made" and row["tier"] == "easy":
+            # rescue_easy: today's puzzle stands unless it is easy; then each
+            # fallback is tried in order at the same predicted extent, and the
+            # first non-easy one at or above the similarity floor replaces it.
+            row["taken_from"] = "today"
+            tried = []
+            for name in variant.fallbacks:
+                other = _attempt(image, fit.extent, VARIANT_BY_NAME[name], path, base)
+                tried.append({"variant": name, "outcome": other["outcome"], "tier": other.get("tier"),
+                              "smooth_corr": other.get("smooth_corr")})
+                if (
+                    other["outcome"] == "made"
+                    and other["tier"] != "easy"
+                    and other["smooth_corr"] >= RESCUE_EASY_FLOOR
+                ):
+                    other["taken_from"] = name
+                    row = other
+                    break
+            row["tried"] = tried
         results.append(row)
     return results
+
+
+def _attempt(image, extent, variant: Variant, path: Path, base: dict) -> dict:
+    """One admin-path generation of ``image`` at ``extent`` under ``variant``'s
+    patches, with spies on the extents tried and the solves made."""
+    from nonogram.admin.app import _generate_image_puzzle
+
+    real_generate = orchestrator.generate
+    real_solve = solver.solve
+    calls: list[dict] = []
+    solves = [0]
+
+    def counting_solve(*args, **kwargs):
+        solves[0] += 1
+        return real_solve(*args, **kwargs)
+
+    def spying_generate(request):
+        solves[0] = 0
+        started = time.perf_counter()
+        entry = {"extent": [request.width, request.height]}
+        calls.append(entry)
+        try:
+            puzzle = real_generate(request)
+        except NonogramError as exc:
+            entry.update(result=type(exc).__name__, solves=solves[0])
+            raise
+        finally:
+            entry["seconds"] = round(time.perf_counter() - started, 3)
+        entry.update(result="made", solves=solves[0])
+        return puzzle
+
+    started = time.perf_counter()
+    with applied(variant), mock.patch.object(orchestrator, "generate", spying_generate), \
+            mock.patch.object(solver, "solve", counting_solve):
+        try:
+            puzzle, used = _generate_image_puzzle(image, *extent)
+        except NonogramError as exc:
+            puzzle, used, error = None, None, exc
+        else:
+            error = None
+    row = {**base, "calls": calls, "seconds": round(time.perf_counter() - started, 3)}
+    if puzzle is None:
+        row.update(outcome="failed", error=type(error).__name__, stage=_failure_stage(error, calls))
+        return row
+    nudges = puzzle.nudge.attempts
+    grid = [list(map(bool, line)) for line in puzzle.grid]
+    if list(used) != list(extent):
+        stage = "made at a neighbour extent"
+    elif nudges:
+        stage = "made after nudges"
+    else:
+        stage = "unique at conversion"
+    row.update(
+        outcome="made",
+        stage=stage,
+        used=list(used),
+        nudges=nudges,
+        binarisation=puzzle.binarisation,
+        score=puzzle.difficulty_score,
+        tier=classify(puzzle.difficulty_score).value,
+        branch_nodes=puzzle.branch_nodes,
+        rungs=list(puzzle.strategies),
+        shape=grid_shape(grid),
+        grid=["".join("#" if cell else "." for cell in line) for line in grid],
+        **similarity(path, grid),
+    )
+    return row
 
 
 def _failure_stage(error: NonogramError, calls: list[dict]) -> str:
@@ -462,6 +557,179 @@ def run_variant(
     return rows, time.perf_counter() - started
 
 
+# --- line-art signals (F-002) ------------------------------------------------
+
+#: Pictures are measured at this long side, so the signals do not depend on
+#: the file's resolution.
+SIGNAL_LONG_SIDE = 400
+
+
+def picture_signals(path: Path) -> dict[str, float]:
+    """Three cheap measurements of the picture itself, before any grid.
+
+    * ``ink_share``: ink pixels (grey < 128, the pipeline's own ink test) over
+      the ink box's area.
+    * ``stroke``: twice the median erosion depth of the ink pixels (how many
+      3x3 erosions a pixel survives), as a share of the ink box's long side:
+      the typical stroke width. Thin outlines score low, solid shapes high.
+    * ``enclosed``: blank pixels inside the ink box that are not 4-connected to
+      its border, over all its blank pixels. An outline drawing encloses its
+      interior; a silhouette encloses little.
+    """
+    from PIL import Image, ImageDraw, ImageFilter
+
+    greyscale = image_source.load_greyscale(path)
+    trimmed = greyscale.crop(image_source.ink_bounding_box(greyscale))
+    scale = SIGNAL_LONG_SIDE / max(trimmed.size)
+    size = (max(1, round(trimmed.width * scale)), max(1, round(trimmed.height * scale)))
+    small = trimmed.resize(size, resample=Image.Resampling.BOX)
+    mask = small.point(lambda value: 255 if value < image_source.INK_THRESHOLD else 0)
+    ink = numpy.asarray(mask) > 0
+    depth = numpy.zeros(ink.shape, dtype=int)
+    eroded = mask
+    for _ in range(SIGNAL_LONG_SIDE):
+        current = numpy.asarray(eroded) > 0
+        if not current.any():
+            break
+        depth += current
+        eroded = eroded.filter(ImageFilter.MinFilter(3))
+    padded = Image.new("L", (size[0] + 2, size[1] + 2), 0)
+    padded.paste(mask, (1, 1))
+    ImageDraw.floodfill(padded, (0, 0), 128)
+    outside = numpy.asarray(padded)[1:-1, 1:-1] == 128
+    blank = ~ink
+    return {
+        "ink_share": float(ink.mean()),
+        "stroke": float(2 * numpy.median(depth[ink]) / SIGNAL_LONG_SIDE) if ink.any() else 0.0,
+        "enclosed": float((blank & ~outside).sum() / blank.sum()) if blank.any() else 0.0,
+    }
+
+
+def report_signals(today: Sequence[dict], sources: Sequence[tuple[str, Sequence[Path]]]) -> None:
+    """Could a cheap signal refuse the failing pictures without refusing good ones?
+
+    A picture is *failing* when more than half of its requests fail today.
+    For each signal, every threshold between observed values is tried on the
+    fixtures, in the direction that catches failing pictures; the best (most
+    caught minus wrongly refused) is reported, then applied unchanged to any
+    ``--image-dir`` folder as a held-out check (aggregates only).
+    """
+    outcome: dict[tuple[str, int], list[dict]] = defaultdict(list)
+    for row in today:
+        outcome[(row["kind"], row["picture"])].append(row)
+    pictures = []
+    for kind, paths in sources:
+        if kind == "seeded":
+            continue
+        for index, path in enumerate(paths):
+            rows = outcome[(kind, index)]
+            failed = sum(row["outcome"] == "failed" for row in rows)
+            tiers = _tiers(rows)
+            pictures.append({
+                "kind": kind,
+                "index": index,
+                "name": path.name,
+                "failing": failed * 2 > len(rows),
+                "failed": failed,
+                "requests": len(rows),
+                "nontrivial": tiers["medium"] + tiers["hard"],
+                **picture_signals(path),
+            })
+    print("\n== F-002: line-art signals per fixture (failing = more than half its requests fail) ==")
+    print(f"  {'fixture':<20} {'failed':>7} {'med+hard':>8} {'ink_share':>9} {'stroke':>7} {'enclosed':>8}")
+    for item in pictures:
+        if item["kind"] == "fixture":
+            print(
+                f"  {item['index']:02d} {item['name']:<17} {item['failed']:>3}/{item['requests']:<3}"
+                f" {item['nontrivial']:>8} {item['ink_share']:9.3f} {item['stroke']:7.4f} {item['enclosed']:8.3f}"
+                f"{'   FAILING' if item['failing'] else ''}"
+            )
+    fixtures = [item for item in pictures if item["kind"] == "fixture"]
+    held_out = [item for item in pictures if item["kind"] != "fixture"]
+    if not fixtures:
+        print("  the thresholds are fitted on the fixtures; run without --only-image-dir")
+        return
+    if held_out:
+        per = sorted((item["failed"] for item in held_out if item["failed"]), reverse=True)
+        print(f"  --image-dir: {len(held_out)} pictures; failures per picture with any: {per};"
+              f" failing (more than half): {sum(item['failing'] for item in held_out)}")
+    print("\n  best single threshold per signal, chosen on the fixtures; then the same rule on --image-dir")
+    for signal in ("ink_share", "stroke", "enclosed"):
+        best = None
+        values = sorted({item[signal] for item in fixtures})
+        cuts = [(a + b) / 2 for a, b in zip(values, values[1:], strict=False)]
+        for cut in cuts:
+            for below in (True, False):
+                refused = [item for item in fixtures if (item[signal] < cut) == below]
+                caught = sum(item["failing"] for item in refused)
+                wrong = len(refused) - caught
+                key = (caught - wrong, -wrong)
+                if best is None or key > best[0]:
+                    best = (key, cut, below, caught, wrong, sum(item["nontrivial"] for item in refused if not item["failing"]))
+        _, cut, below, caught, wrong, lost = best
+        failing = sum(item["failing"] for item in fixtures)
+        rule = f"{signal} {'<' if below else '>'} {cut:.4f}"
+        line = (
+            f"  {rule:<22} fixtures: caught {caught}/{failing} failing, wrongly refused {wrong}/{len(fixtures) - failing}"
+            f" good (which gave {lost} medium/hard puzzles)"
+        )
+        if held_out:
+            refused = [item for item in held_out if (item[signal] < cut) == below]
+            h_caught = sum(item["failing"] for item in refused)
+            h_failing = sum(item["failing"] for item in held_out)
+            line += (
+                f"; --image-dir: caught {h_caught}/{h_failing}, wrongly refused {len(refused) - h_caught}"
+                f"/{len(held_out) - h_failing}"
+            )
+        print(line)
+    # Two signals together (both must fire), same search, same held-out check.
+    def candidates(signal: str) -> list[tuple[float, bool]]:
+        values = sorted({item[signal] for item in fixtures})
+        return [((a + b) / 2, below) for a, b in zip(values, values[1:], strict=False) for below in (True, False)]
+
+    def fires(item: dict, signal: str, cut: float, below: bool) -> bool:
+        return (item[signal] < cut) == below
+
+    signals = ("ink_share", "stroke", "enclosed")
+    best_pair = None
+    for first_index, first in enumerate(signals):
+        for second in signals[first_index + 1 :]:
+            for cut_a, below_a in candidates(first):
+                for cut_b, below_b in candidates(second):
+                    refused = [
+                        item for item in fixtures
+                        if fires(item, first, cut_a, below_a) and fires(item, second, cut_b, below_b)
+                    ]
+                    caught = sum(item["failing"] for item in refused)
+                    wrong = len(refused) - caught
+                    key = (caught - wrong, -wrong)
+                    if best_pair is None or key > best_pair[0]:
+                        best_pair = (key, (first, cut_a, below_a), (second, cut_b, below_b), caught, wrong)
+    _, rule_a, rule_b, caught, wrong = best_pair
+    failing = sum(item["failing"] for item in fixtures)
+    text = " and ".join(f"{name} {'<' if below else '>'} {cut:.4f}" for name, cut, below in (rule_a, rule_b))
+    line = f"  {text}: fixtures caught {caught}/{failing}, wrongly refused {wrong}/{len(fixtures) - failing}"
+    if held_out:
+        refused = [item for item in held_out if fires(item, *rule_a) and fires(item, *rule_b)]
+        h_caught = sum(item["failing"] for item in refused)
+        h_failing = sum(item["failing"] for item in held_out)
+        any_failure = [item for item in held_out if item["failed"]]
+        line += (
+            f"; --image-dir: caught {h_caught}/{h_failing}, wrongly refused {len(refused) - h_caught}"
+            f"/{len(held_out) - h_failing}; of its {len(any_failure)} pictures with any failure it refuses"
+            f" {sum(item in refused for item in any_failure)}"
+        )
+    print(line)
+    print("  (thresholds fitted on 17 fixtures with 6 failing; the --image-dir columns are the held-out check)")
+    if held_out:
+        print("  --image-dir failing pictures' signals (aggregate): " + ", ".join(
+            f"{signal} median {statistics.median(item[signal] for item in held_out if item['failing']):.4f}"
+            f" (n={sum(item['failing'] for item in held_out)})"
+            f" vs good {statistics.median(item[signal] for item in held_out if not item['failing']):.4f}"
+            for signal in ("ink_share", "stroke", "enclosed")
+        ) if any(item["failing"] for item in held_out) else "  --image-dir: no failing picture")
+
+
 # --- report ------------------------------------------------------------------
 
 
@@ -502,6 +770,10 @@ def report_attribution(rows: Sequence[dict], kinds: Sequence[str]) -> None:
             for outcome in ("made", "failed")
         }
         print(f"  generation seconds: made {spent['made']:.0f}, failed {spent['failed']:.0f}")
+        for stage in sorted({row["stage"] for row in subset if row["outcome"] == "failed"}):
+            times = [row.get("seconds", 0.0) for row in subset if row["stage"] == stage]
+            print(f"    {stage:<50} n={len(times):<3} seconds: total {sum(times):6.1f},"
+                  f" median {statistics.median(times):6.2f}, max {max(times):6.2f}")
         failing = {(row["kind"], row["picture"]) for row in subset if row["outcome"] == "failed"}
         print(f"  pictures with at least one failure: {len(failing)}")
         failed_paths = Counter(row.get("binarisation") for row in subset if row["outcome"] == "failed")
@@ -545,7 +817,7 @@ def report_ablation(by_variant: dict[str, list[dict]], kinds: Sequence[str]) -> 
             continue
         print(f"\n== AC-2: ablation [{kind}] (shares of requests; IoU over made puzzles) ==")
         print(f"  {'variant':<12} {'req':>4} {'made':>5} {'fail':>6} {'easy':>6} {'medium':>6} {'hard':>6} {'easy/made':>9}"
-              f" {'pics m/h':>8} {'IoU med':>7} {'IoU mean':>8} {'degen':>5}"
+              f" {'pics m/h':>8} {'IoU med':>7} {'IoU mean':>8} {'SC med':>6} {'degen':>5}"
               f"   vs today: fail->made (IoU med) made->fail easy->harder harder->easy")
         for name, rows in by_variant.items():
             subset = [row for row in rows if keep(row)]
@@ -579,13 +851,16 @@ def report_ablation(by_variant: dict[str, list[dict]], kinds: Sequence[str]) -> 
                 f" {_pct(tiers['easy'], n):>6} {_pct(tiers['medium'], n):>6} {_pct(tiers['hard'], n):>6}"
                 f" {_pct(tiers['easy'], len(made)):>9}"
                 f" {len(pictures):>8} {statistics.median(ious) if ious else float('nan'):7.3f}"
-                f" {statistics.fmean(ious) if ious else float('nan'):8.3f} {degenerate:>5}"
+                f" {statistics.fmean(ious) if ious else float('nan'):8.3f}"
+                f" {statistics.median(row['smooth_corr'] for row in made) if made else float('nan'):6.3f}"
+                f" {degenerate:>5}"
                 f"   {moves['fail->made']:>10} ({statistics.median(rescued) if rescued else float('nan'):5.2f})"
                 f" {moves['made->fail']:>10} {moves['easy->harder']:>12}"
                 f" {moves['harder->easy']:>12}"
                 f"   [pictures: {len(movers['fail->made'])} rescued, {len(movers['easy->harder'])} made harder]"
             )
     print("\n  pics m/h = distinct pictures with at least one medium or hard puzzle (the honest sample size)")
+    print("  SC = smooth_corr, the cut-free measure (grid vs ink coverage, both blurred 3x3, correlated)")
     print("  degen = made puzzles whose grid is under 5% or over 95% ink (sourcing.image.is_degenerate):")
     print("          'made', but not a picture any more")
     print("  variants:")
@@ -594,12 +869,37 @@ def report_ablation(by_variant: dict[str, list[dict]], kinds: Sequence[str]) -> 
             print(f"    {variant.name:<12} {variant.changes}")
 
 
+def report_rescue(by_variant: dict[str, list[dict]], kinds: Sequence[str]) -> None:
+    """What rescue_easy did, request by request, against today."""
+    if "rescue_easy" not in by_variant:
+        return
+    today = {_key(row): row for row in by_variant["today"]}
+    print("\n== rescue_easy: the requests it changed ==")
+    for kind in kinds:
+        rows = [row for row in by_variant["rescue_easy"] if row["kind"] == kind]
+        changed = [row for row in rows if row.get("taken_from") not in (None, "today")]
+        easy_today = [row for row in rows if row.get("taken_from") is not None]
+        sources = Counter(row["taken_from"] for row in changed)
+        per_picture = Counter(row["picture"] for row in changed)
+        before = [today[_key(row)] for row in changed]
+        print(f"  [{kind}] easy today {len(easy_today)}, replaced {len(changed)} ({dict(sources)}),"
+              f" tiers now {dict(Counter(row['tier'] for row in changed))}, on {len(per_picture)} pictures,"
+              f" most from one picture {max(per_picture.values(), default=0)}")
+        if changed:
+            for measure in ("iou", "smooth_corr"):
+                print(f"    {measure:<11} of the replaced requests: today median"
+                      f" {statistics.median(row[measure] for row in before):.3f} -> "
+                      f"{statistics.median(row[measure] for row in changed):.3f}")
+        if not _is_private(kind):
+            print(f"    changed per picture: {dict(sorted(per_picture.items()))}")
+
+
 def _report_replay(first: Sequence[dict], again: Sequence[dict]) -> None:
     """Each saved run re-ran 'today': say how many requests came out differently."""
     before = {_key(row): (_state(row), row.get("score")) for row in first}
-    changed = [key for key in (_key(row) for row in again) if key not in before]
-    changed += [_key(row) for row in again if before.get(_key(row)) != (_state(row), row.get("score"))]
-    print(f"replay of 'today': {len(again)} rows, {len(set(changed))} differ from the first run's",
+    shared = [row for row in again if _key(row) in before]
+    changed = {_key(row) for row in shared if before[_key(row)] != (_state(row), row.get("score"))}
+    print(f"replay of 'today': {len(shared)} rows shared with the first run, {len(changed)} differ",
           file=sys.stderr)
 
 
@@ -622,6 +922,15 @@ def annotate_failures(by_variant: dict[str, list[dict]], sources: Sequence[tuple
                 row["classifier"] = image_source.classify_binarisation(image_source.load_greyscale(path))
 
 
+def backfill_similarity(by_variant: dict[str, list[dict]], sources: Sequence[tuple[str, Sequence[Path]]]) -> None:
+    """Rows saved before ``smooth_corr`` existed get it now, from their stored grid."""
+    paths = {(kind, index): path for kind, items in sources for index, path in enumerate(items)}
+    for rows in by_variant.values():
+        for row in rows:
+            if row["outcome"] == "made" and "smooth_corr" not in row:
+                row.update(similarity(paths[(row["kind"], row["picture"])], _cells(row)))
+
+
 def _key(row: dict) -> tuple:
     return (row["kind"], row["picture"], row["requested"])
 
@@ -639,13 +948,21 @@ def render(
     out_dir: Path,
     long_sides: Sequence[int],
     kinds: Sequence[str],
+    variants: Sequence[str] = (),
+    changed: str | None = None,
 ) -> list[tuple[str, str]]:
-    """Picture | today | each variant, one PNG per (picture, long side)."""
+    """Picture | today | each variant, one PNG per (picture, long side).
+
+    ``variants`` limits the panels; ``changed`` renders only the requests where
+    that variant's outcome or tier differs from today's, at every size."""
     from PIL import Image, ImageDraw, ImageFont
 
     out_dir.mkdir(parents=True, exist_ok=True)
     panel, label_h, pad = 420, 54, 16
-    names = [variant.name for variant in VARIANTS if variant.name in by_variant]
+    names = [
+        variant.name for variant in VARIANTS
+        if variant.name in by_variant and (not variants or variant.name in variants or variant.name == "today")
+    ]
     columns = 4
     rows_n = -(-(len(names) + 1) // columns)
     try:
@@ -662,8 +979,15 @@ def render(
         if kind not in kinds:
             continue
         for index, path in enumerate(paths):
-            for long_side in long_sides:
+            sides = long_sides
+            if changed is not None:
+                sides = sorted({side for (name, k, i, side) in lookup if name == changed and k == kind and i == index})
+            for long_side in sides:
                 if (names[0], kind, index, long_side) not in lookup:
+                    continue
+                if changed is not None and _state(lookup[(changed, kind, index, long_side)]) == _state(
+                    lookup[("today", kind, index, long_side)]
+                ):
                     continue
                 sheet = Image.new("RGB", (columns * (panel + pad) + pad, rows_n * (panel + label_h + pad) + pad), "white")
                 draw = ImageDraw.Draw(sheet)
@@ -716,7 +1040,11 @@ def write_index(out_dir: Path, written: Sequence[tuple[str, str, int]], names: S
 def _caption(name: str, row: dict) -> str:
     if row["outcome"] == "made":
         w, h = row["used"]
-        return f"{name}: {row['tier'].upper()} {row['score']:.1f}\n{w}x{h}, {row['stage']}, IoU {row['iou']:.2f}"
+        source = f" (from {row['taken_from']})" if row.get("taken_from") not in (None, "today") else ""
+        return (
+            f"{name}{source}: {row['tier'].upper()} {row['score']:.1f}\n"
+            f"{w}x{h}, {row['stage']}, IoU {row['iou']:.2f}, SC {row['smooth_corr']:.2f}"
+        )
     return f"{name}: FAILED\n{row['stage']}"
 
 
@@ -767,6 +1095,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--render", type=Path, default=None, help="write side-by-side sheets here")
     parser.add_argument("--render-sizes", type=int, nargs="+", default=[20, 30])
     parser.add_argument("--render-kinds", nargs="+", default=["fixture"])
+    parser.add_argument("--render-variants", nargs="+", default=[], help="panels to show (default all)")
+    parser.add_argument("--render-changed", default=None, help="only requests this variant changed")
+    parser.add_argument("--signals", action="store_true", help="also report the line-art signals")
     args = parser.parse_args(argv)
 
     names = args.variant or [variant.name for variant in VARIANTS]
@@ -787,7 +1118,11 @@ def main(argv: list[str] | None = None) -> int:
                     _report_replay(by_variant["today"], saved["today"])
                 for name, rows in saved.items():
                     if name in names:
-                        by_variant.setdefault(name, rows)
+                        # A file adds only the picture kinds not already
+                        # loaded: the first file's rows win, and files over
+                        # different corpora (public, --image-dir) combine.
+                        have = {row["kind"] for row in by_variant.get(name, [])}
+                        by_variant.setdefault(name, []).extend(row for row in rows if row["kind"] not in have)
         else:
             by_variant = {}
             for name in names:
@@ -813,11 +1148,18 @@ def main(argv: list[str] | None = None) -> int:
         for kind, paths in sources:
             print(f"pictures ({kind}) {len(paths)}")
         print(f"requests per variant {counts['today']} (plus {repeats} repeats of an extent already made, not counted)")
+        backfill_similarity(by_variant, sources)
         annotate_failures(by_variant, sources)
         report_attribution(by_variant["today"], kinds)
         report_ablation(by_variant, kinds)
+        report_rescue(by_variant, kinds)
+        if args.signals:
+            report_signals(by_variant["today"], sources)
         if args.render is not None:
-            written = render(by_variant, sources, args.render, args.render_sizes, args.render_kinds)
+            written = render(
+                by_variant, sources, args.render, args.render_sizes, args.render_kinds,
+                args.render_variants, args.render_changed,
+            )
             print(f"\nrendered {len(written)} sheets to {args.render}", file=sys.stderr)
             write_index(args.render, written, [name for name in by_variant])
     return 0

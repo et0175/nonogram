@@ -12,6 +12,7 @@ from pathlib import Path
 
 import nonogram.admin.app as admin_app
 from nonogram import orchestrator
+from nonogram.errors import GenerationAbandoned, SolverTimeout
 from nonogram.sourcing import image as image_source
 
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "picture_pipeline_experiment.py"
@@ -53,6 +54,21 @@ def test_variants_run_through_the_admin_path_and_leave_the_pipeline_unchanged(mo
     assert thicker[0]["shape"]["fill"] > row["shape"]["fill"]
     reference = script.reference_grid(picture, *row["used"])
     assert script.ink_iou(reference, reference) == 1.0
+    complement = [[not cell for cell in line] for line in reference]
+    assert script.ink_iou(reference, complement) == 0.0
+    coverage = script.coverage_map(picture, *row["used"])
+    assert script.smooth_corr(reference, coverage) > 0.9 > script.smooth_corr(complement, coverage)
+    # The solve spy counted the solves (AC-1 tells a first-solve deadline from a nudge one by it).
+    assert row["calls"][0]["solves"] >= 1
+    assert script._failure_stage(SolverTimeout("t"), [{"solves": 1}]) == "deadline on the conversion's first solve"
+    assert script._failure_stage(SolverTimeout("t"), [{"solves": 3}]) == "deadline during the nudges"
+    assert script._failure_stage(GenerationAbandoned("a"), [{"solves": 6}]).startswith("abandoned: not unique")
+    # The script-only grid steps do what the variants say.
+    speck = [[False] * 3, [False, True, False], [False] * 3]
+    assert script._despeckle(speck) == [[False] * 3 for _ in range(3)]
+    hole = [[True] * 3, [True, False, True], [True] * 3]
+    assert script._despeckle(hole) == [[True] * 3 for _ in range(3)]
+    assert script._fill_holes(hole) == [[True] * 3 for _ in range(3)]
 
     by_variant = {"today": today, "cut_37": thicker, "despeckle": cleaned}
     script.report_attribution(today, ["fixture"])
