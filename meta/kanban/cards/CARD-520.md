@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_book_workflow_steps.py
 **UI surface:** Print setup (test only)
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-22T11:03Z
 **Closed:** —
 **Actual:** —
@@ -55,3 +55,5 @@ Re-verify on main first: reproduce mutant I1 and show the class stays green. The
 - [Controls for the premise asserts] S1 (`updateUnits` sets `width.min`) and S2 (`updateUnits` calls `setAttribute('max', '30')` on height) -> each '1 failed, 8 passed' on the same test, the assert printing the `updateUnits` script. Renaming `updateUnits` to `relabelUnits` in the template -> '1 failed, 8 passed', `where False = any(...)` (the non-vacuity assert). Every mutant restored; `git diff --stat` afterwards shows only the test file.
 - [AC-4] Collected count `--collect-only -q -o addopts= tests/`: 10692 before, 10692 after; net 0.
 - [Gate] unarmed, `-o addopts= -rfs`: tests/test_book_workflow_steps.py tests/test_book_setup_print_mobile.py tests/test_book_trim_persistence.py -> '260 passed, 1 warning', 0 skipped. Not run armed (the card names no armed run; the changed test uses the in-memory `panel`).
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. All four ACs and both guardrails hold: I1 reds with `('inches', '8.5', ... width ...)`, I1h and I1m with `('inches', '11', ... height ...)`, I1s with `('inches', '6', ... width ...)`, S1 and S2 red, unmutated 9 passed; judging from the HTML is sound for today's page; net count 0. F-001 (Important, violates ADR-0039/R2): the "no script writes a bound" check matches two hand-picked spellings in inline scripts only, so `Object.assign(width, {min: …})`, `width['min'] = …` and `setAttribute(k, v)` with the name in a variable (B1-B3) each leave the class green, and an external `<script src>` is never read; the test docstring claims more than that. F-002 (low, pre-existing): `_browser_admits` takes the step base as `min` else 0, where the HTML rule is `min`, else the `value` attribute, else 0; no verdict differs today because stored trims sit on the 0.01 grid.
