@@ -14,8 +14,8 @@ requirement each test verifies is in `meta/architecture/requirements.yml`.
   `test_solver_uniqueness.py`, the mandatory solver property (EC-001).
 - `tests/e2e/`: the admin-panel workflow test; it has its own `README.md`.
 - `tests/helpers/`: test-only helpers, never imported by production code. Among
-  them `brute_force_oracle.py` (the solver's independent oracle; it must never
-  import `nonogram.solver`), `db.py` (plumbing for tests that need a real
+  them `brute_force_oracle.py` (the solver's independent oracle; its rule is in
+  `CLAUDE.md`'s **Architecture**), `db.py` (plumbing for tests that need a real
   database), `mock_generator.py`, and the PDF and ink readers
   (`pdf_pages.py`, `pdf_vector.py`, `page_ink.py`, `round_ink.py`,
   `two_up_ink.py`, `qr_reader.py`). Each module's docstring says what it is for.
@@ -29,20 +29,9 @@ requirement each test verifies is in `meta/architecture/requirements.yml`.
 
 ## Running it
 
-The commands are in `CLAUDE.md` under **Commands**, and the targets in the
-`Makefile` say what each one is for:
-
-| Target | What it runs |
-|---|---|
-| `make test` | the full suite, bare |
-| `make test-gate` | the merge gate: the diff's selection (`scripts/impact_set.py --gate`), minus the `wave_close_only` tests unless a changed path reaches their subject |
-| `make test-marked` | only the `wave_close_only` tests |
-| `make test-wave-close` | the full suite, bare; refuses a `PYTEST_ADDOPTS` that deselects anything |
-| `make test-impact` / `make impact-set` | the changed paths' selection, run / printed |
-
-A card worktree has no `.venv`; the `Makefile` finds the main checkout's. Run
-pytest by hand as `<main checkout>/.venv/bin/python -m pytest ...` from inside
-the worktree.
+The commands, the merge-gate and wave-close targets and how a card worktree
+finds a venv are in `CLAUDE.md` under **Commands**; every `Makefile` target
+carries a comment saying what it runs. One thing neither says:
 
 `pyproject.toml` sets `addopts = "-q"`, so a `-q` of your own becomes `-qq` and
 the summary line disappears. Pass `-o addopts=` when you need the counts, and
@@ -98,14 +87,30 @@ Print it from the tree's root:
 <main checkout>/.venv/bin/python -c "from tests import db_name; print(db_name.derive_test_database_name(db_name.REPO_ROOT))"
 ```
 
-Export `DATABASE_URL` with that name and your local role. The suite creates and
-migrates the database itself; nothing is set up by hand. An exported
-`TEST_DATABASE_URL` is used verbatim instead of the derived name
-(`scripts/run_admin_tests.sh` sets it).
+Arming compares the **whole URL**, not the name: the suite prepares (creates
+and migrates) a database only when `DATABASE_URL` is, after trimming
+whitespace, character for character the URL it resolved for this tree
+(`_armed_database_plan` in `conftest.py`). With `TEST_DATABASE_URL` unset that
+URL is `db_name.py`'s built-in local server and role plus the derived name, so
+the same name under any other role or host does not count.
 
-Never arm with the plain `nonogram_test`, or with any database that is not this
-tree's: the terminal summary says the database was neither created nor
-migrated, and the failures that follow are not the tree's. Two guards stand in
+With your own role or server, export `TEST_DATABASE_URL` as your URL for the
+derived name, and `DATABASE_URL` as the same value. `TEST_DATABASE_URL` is used
+verbatim, so it becomes the resolved URL. Keep the derived name: a name of your
+own also arms, but it is no longer per-worktree.
+
+To check whether the current shell would be prepared, without printing the URL
+or connecting:
+
+```bash
+<main checkout>/.venv/bin/python -c "import os; from tests.conftest import _armed_database_plan; print(_armed_database_plan(os.environ)[2] == 'prepare')"
+```
+
+`False` with `DATABASE_URL` set means the run will not prepare it, and the
+terminal summary says so ("not the database this worktree resolved ... neither
+created nor migrated"); what fails after that is the setup, not the tree. The
+plain `nonogram_test` is such a URL. Nothing has to be created by hand.
+Two guards stand in
 front of the destructive fixtures, and neither connects before deciding:
 
 - `_refuse_unless_test_database` in `conftest.py` fails the run unless the
@@ -123,8 +128,16 @@ Read them with `-rfs`; a skip is not a pass. On an unarmed macOS run:
 - `setrlimit(RLIMIT_AS) cannot bound a process on this platform ...`: one test
   in `test_book_pdf_memory.py`, a platform limit.
 
-`Image fixtures not found in tests/fixtures/` appears only if that directory is
-missing. Armed, the database skips go away; any other reason is worth reading.
+Host-dependent, and silent on a host that has the tool:
+
+- `poppler (pdftotext) is not installed: ...`, `poppler (pdftoppm) is not
+  installed: ...` and `poppler (pdftoppm/pdftotext) is not installed: ...`: the
+  book PDF tests that read a page back (`tests/helpers/pdf_vector.py` looks the two tools up
+  on `PATH`). Install poppler.
+- `meta/design/ is not shipped with the package`: `test_admin_design_tokens.py`,
+  only on a checkout without `meta/design/`.
+- `Image fixtures not found in tests/fixtures/`: only if that directory is
+  missing. Armed, the database skips go away; any other reason is worth reading.
 
 ## The full-suite lock
 
