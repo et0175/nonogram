@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py
 **UI surface:** — (start-up only)
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-22T13:38Z
 **Closed:** —
 **Actual:** —
@@ -76,3 +76,5 @@ Re-verify on main first: how `create_app` chooses in-memory mode, how the deploy
 - Net collected: 10693 -> 10694 (+1, AC-4).
 
 **Not covered (outside this card).** With DATABASE_URL set but `from nonogram.db import session_scope` failing (for example, SQLAlchemy missing), `create_app` still catches the exception and falls back to in-memory mode silently, including on the deployed panel. The card scoped the refusal to unset/blank. This path is unchanged, and no test covers it.
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. AC-1 to AC-4 met; G-1 and G-2 hold; no existing test weakened; controls H and I red again (four edited files 186 passed, 9 skipped "DATABASE_URL is not set"). F-001 (Important): with DATABASE_URL set but `from nonogram.db import session_scope` failing, `create_app`'s `except Exception: session_scope = None` still boots the deployed panel in memory (probe with `sys.modules['nonogram.db'] = None`: `booted; session_factory: None`), logging "DATABASE_URL not set"; the new ADMIN_SETUP.md sentence "the deployed panel never falls back to the in-memory store" is therefore false. Unlikely on today's build (SQLAlchemy is a requirement), but it is the harm the card exists to stop. F-002 (low): `allow_in_memory_when_deployed` is acceptable; start.sh, the Procfile/railway.json `flask run` path and `main()` all call `create_app()` bare; its docstring names only start.sh. F-003 (low): the "deployed admin panel" message assert has no control; the net-count figure names no command (re-derived +1 over the four edited files). F-004 (info): message claims true; local mode unchanged.
