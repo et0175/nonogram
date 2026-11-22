@@ -2406,6 +2406,37 @@ functional:
         then: it spans 12.700 mm to 203.200 mm from the page's left trim edge — the gutter margin on the right, the same span as the odd page because this profile's gutter and outside margins are equal
         kind: boundary
         test: TestBookPageSpec_EvenPageGutterOnRight
+      # New 2026-11-22 (CARD-519, IDEA-010): two behaviours CARD-159 and
+      # CARD-158 shipped in wave 30 that lived only as card ACs. Both concern
+      # the stored trim this FR reads (trim_width_cm / trim_height_cm): how
+      # Print setup lets an inches trim reach it, and how the book page shows
+      # it. The statement is unchanged. Each test below is the class this
+      # FR's trace.yml row already lists; re-verified on main by mutants
+      # (CARD-519 notes).
+      - id: AC-423
+        given: Print setup opened with inches as the unit, opened in centimetres, and reopened on a book that stores an inches trim
+        when: the 8.5 x 11 in trim (and 8 x 10 in, 6 x 9 in) is entered and submitted in inches
+        then: neither rendered trim input carries a bound that refuses it, and the server stores it as 21.59 x 27.94 cm (20.32 x 25.40, 15.24 x 22.86)
+        kind: happy
+        test: TestPrintSetup_InchesTrimIsReachable
+      - id: AC-424
+        given: Print setup in inches, with the browser bounds gone
+        when: a 12 in (30.48 cm) width is submitted
+        then: the server refuses it with nothing stored, the entries carried back in inches
+        kind: boundary
+        test: TestPrintSetup_InchesTrimIsReachable
+      - id: AC-425
+        given: a book whose Print setup stored a 15.24 x 22.86 cm trim, and a newly created book
+        when: its book page (/book/<id>) is opened
+        then: 'the "Trim size" row reads "15.24 × 22.86 cm" — the stored trim, never metadata.size — while a new book''s row reads "21.59 × 27.94 cm", the Book 1 profile (CON-018) it was created on'
+        kind: happy
+        test: TestBookDetail_ShowsTheStoredTrim
+      - id: AC-426
+        given: a book with both trim columns empty, and a book whose stored trim cannot be read
+        when: each book page is opened
+        then: 'the "Trim size" row reads "Not set" for the first and "Cannot be read" for the second, each linking to that book''s Print setup'
+        kind: negative
+        test: TestBookDetail_ShowsTheStoredTrim
     engineering_constraints:
       # VERIFICATION RE-EXPRESSED 2026-10-25 (raw-requirements.md
       # "## Delta 2026-10-25", bullet 4; ADR-0042/R6). The statement below is
@@ -3636,6 +3667,31 @@ functional:
         kind: boundary
         invariant: INV-012
         test: TestBookAddPuzzlesByIds_NonDraftReturnsToDraft
+      # New 2026-11-22 (CARD-519, IDEA-010): two behaviours CARD-159 shipped
+      # in wave 30 that lived only as card ACs — the step pages' own prose
+      # agreeing with the stepper, and the New-book form (general info, the
+      # workflow's first step) keeping what was typed when it is refused. The
+      # statement is unchanged. Each test below is the class this FR's
+      # trace.yml row already lists; re-verified on main by mutants (CARD-519
+      # notes).
+      - id: AC-427
+        given: a book and each of its five step pages (New book, Print setup, Puzzle selection, Arrangement, Finalise)
+        when: each page is rendered
+        then: 'every "Step N of M" the page prints names the step its own stepper marks current, out of the stepper''s step count, and the page''s breadcrumb names that same step'
+        kind: guard
+        test: TestBookStepPages_ProseAgreesWithTheStepper
+      - id: AC-428
+        given: a POST /book/create that is refused for one field (a blank title, a blank description, an unknown theme or no target audience), and one refused with an error that names no field
+        when: the refusal is shown
+        then: the form comes back with every submitted value filled in (HTML-special characters escaped, not injected) while no book is stored
+        kind: negative
+        test: TestBookCreate_RefusalKeepsTypedInput
+      - id: AC-429
+        given: the refused submissions of AC-428
+        when: the refusal is shown
+        then: only the refused field is marked invalid — none, for the error that names no field
+        kind: boundary
+        test: TestBookCreate_RefusalKeepsTypedInput
     engineering_constraints:
       - id: EC-026
         statement: >-
@@ -4938,6 +4994,37 @@ functional:
         kind: negative
         invariant: INV-013
         test: TestBookExport_EveryRouteSeparatesInteriorAndCover
+      # New 2026-11-22 (CARD-519, IDEA-010): "both are offered for download"
+      # as CARD-158 shipped it in wave 30 on the book page and the books
+      # list, and what those pages do when the session claims an uploaded
+      # cover whose file is gone (the rule the download route applies,
+      # app.py's _cover_upload_lost). All four criteria name the one class
+      # CARD-158 wrote, which this FR's trace.yml row already lists;
+      # re-verified on main by mutants (CARD-519 notes).
+      - id: AC-430
+        given: a book holding puzzles
+        when: its book page (/book/<id>) and the books list (/books) are rendered
+        then: each offers an interior download (part=interior) beside a cover download that posts part=cover to /book/<id>/download-pdf; that cover form, submitted as rendered, returns the cover PDF
+        kind: happy
+        test: TestBookPages_OfferBothExportFiles
+      - id: AC-431
+        given: a book holding no puzzles
+        when: its book page and the books list are rendered
+        then: its cover download is still offered while its interior button is disabled
+        kind: boundary
+        test: TestBookPages_OfferBothExportFiles
+      - id: AC-432
+        given: a book whose session claims an uploaded cover image whose file is no longer on disk
+        when: its book page and the books list are rendered
+        then: the cover button is disabled and sits in no form, with visible text saying the file is no longer on disk beside a link to Finalise; the interior stays offered
+        kind: negative
+        test: TestBookPages_OfferBothExportFiles
+      - id: AC-433
+        given: the book of AC-432, listed beside a book whose cover is intact
+        when: the cover is requested from the download route, and the books list is rendered
+        then: 'the route refuses that cover request, while the other book''s cover on the same list is still offered'
+        kind: boundary
+        test: TestBookPages_OfferBothExportFiles
     engineering_constraints:
       # AMENDED 2026-10-17 (CARD-206 + CARD-229): "its page 1 is the guide
       # page" becomes the title page with the guide on pages 2-3. Every other
