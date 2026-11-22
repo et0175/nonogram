@@ -1208,6 +1208,7 @@ class _TrimInputs(HTMLParser):
         self.inputs: dict = {}
         self.checked_unit = []
         self.scripts: list[str] = []
+        self.script_srcs: list[str] = []
         self._in_script = False
 
     def handle_endtag(self, tag) -> None:
@@ -1220,6 +1221,9 @@ class _TrimInputs(HTMLParser):
 
     def handle_starttag(self, tag, attrs) -> None:
         if tag == "script":
+            src = dict(attrs).get("src")
+            if src is not None:
+                self.script_srcs.append(src)
             self._in_script = True
             self.scripts.append("")
             return
@@ -1238,9 +1242,11 @@ def _browser_admits(attributes: dict, value: str) -> bool:
     An independent statement of the HTML number-input rules the form is
     judged by (rangeUnderflow, rangeOverflow, stepMismatch), not a reading
     of the template: a ``min`` above the value, a ``max`` below it, or a
-    value off the ``step`` grid (based on ``min``, else 0) blocks submission.
+    value off the ``step`` grid blocks submission. The grid's base is
+    ``min``, else the ``value`` content attribute when it parses as a
+    number, else 0 (the HTML step-base rule).
     """
-    from decimal import Decimal
+    from decimal import Decimal, InvalidOperation
 
     v = Decimal(value)
     if attributes.get("min") not in (None, "") and v < Decimal(attributes["min"]):
@@ -1249,7 +1255,16 @@ def _browser_admits(attributes: dict, value: str) -> bool:
         return False
     step = attributes.get("step")
     if step not in (None, "", "any"):
-        base = Decimal(attributes.get("min") or "0")
+        base = Decimal(0)
+        if attributes.get("min") not in (None, ""):
+            base = Decimal(attributes["min"])
+        elif attributes.get("value") not in (None, ""):
+            try:
+                base = Decimal(attributes["value"])
+            except InvalidOperation:
+                pass
+            if not base.is_finite():
+                base = Decimal(0)
         if (v - base) % Decimal(step) != 0:
             return False
     return True
@@ -1268,6 +1283,15 @@ class TestPrintSetup_InchesTrimIsReachable:
     browser applies are the ones on the page as rendered, not as they would
     be after a radio change.
     """
+
+    #: The external scripts the page may load. The check below reads only
+    #: inline script text, so every ``<script src>`` must be named here; the
+    #: list is held EQUAL to what the page renders, so it can grow no wider
+    #: than today's page. Bootstrap's bundle is exempted unread: a pinned
+    #: third-party UI bundle, not a script of this panel.
+    EXEMPT_SCRIPT_SRCS = frozenset(
+        {"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"}
+    )
 
     #: KDP trims in inches, and their centimetres worked out by hand
     #: (x 2.54), not by the converter under test.
@@ -1308,11 +1332,23 @@ class TestPrintSetup_InchesTrimIsReachable:
 
         CARD-159's bug was exactly this page: bounds rendered for
         centimetres stayed on the inputs when the owner switched to inches,
-        so 8.5 in was refused. The unit switch is client script, but it
-        writes no bound (asserted first: no script on the page sets or
-        removes ``min``/``max``/``step``), so the bounds a browser applies
-        after switching are the ones rendered here, and judging the inch
-        figures against them needs no browser (CARD-520).
+        so 8.5 in was refused. The unit switch is client script; the inch
+        figures are judged against the bounds rendered here, with no browser
+        (CARD-520), and that rests on the page's scripts writing no bound.
+        What is checked of that, refusing by default:
+
+        * every ``<script src>`` is one of ``EXEMPT_SCRIPT_SRCS``, and that
+          list equals the srcs rendered (exempt scripts are not read);
+        * no inline script names ``min``, ``max`` or ``step`` as a word
+          (``Math.min``/``Math.max`` aside), in code, strings or comments;
+        * no inline script uses a dynamic write that could carry a name
+          built at run time: ``set/remove/toggleAttribute``, ``attributes``,
+          ``Object.assign``, ``Reflect``, ``defineProperty``, ``eval``,
+          ``Function(`` or a bracket assignment ``...] =``;
+        * the switch's own ``updateUnits`` script is among those read.
+
+        Not covered: a name assembled at run time and written through a
+        path the list above does not name.
         """
         app, shelf = panel
         book_id = shelf.book()
@@ -1322,14 +1358,17 @@ class TestPrintSetup_InchesTrimIsReachable:
             read = self._form(client, book_id)
 
         assert read.checked_unit == ["cm"]
-        writes_a_bound = re.compile(
-            r"\.(?:min|max|step)\s*=(?!=)"
-            r"|(?:set|remove|toggle)Attribute\(\s*['\"](?:min|max|step)['\"]"
+        assert set(read.script_srcs) == self.EXEMPT_SCRIPT_SRCS, read.script_srcs
+        names_a_bound = re.compile(r"\b(?:min|max|step)\b")
+        writes_dynamically = re.compile(
+            r"\b(?:set|remove|toggle)Attribute\b|\battributes\b|\bObject\.assign\b"
+            r"|\bReflect\b|\bdefineProperty\b|\beval\b|\bFunction\s*\(|\]\s*=(?!=)"
         )
         # The switch's own script must be among those read, or the check is vacuous.
         assert any("function updateUnits" in script for script in read.scripts)
         for script in read.scripts:
-            assert not writes_a_bound.search(script), script
+            assert not names_a_bound.search(re.sub(r"\bMath\.(?:min|max)\b", "", script)), script
+            assert not writes_dynamically.search(script), script
         for inches, cm in self.INCH_TRIMS:
             for unit, (width, height) in (("inches", inches), ("cm", cm)):
                 assert _browser_admits(read.inputs["width"], width), (unit, width, read.inputs["width"])
@@ -1352,6 +1391,10 @@ class TestPrintSetup_InchesTrimIsReachable:
         for field in ("width", "height"):
             attributes = read.inputs[field]
             assert _browser_admits(attributes, attributes["value"]), attributes
+        # With no min, the step grid is based on the prefilled value: an
+        # off-grid prefill (a hand-written 21.005) puts 8.5 off the grid.
+        off_grid = {**read.inputs["width"], "value": "21.005"}
+        assert not _browser_admits(off_grid, "8.5"), off_grid
 
     @pytest.mark.parametrize("inches,cm", INCH_TRIMS)
     def test_the_server_stores_the_inches_trim(self, panel, inches, cm) -> None:
