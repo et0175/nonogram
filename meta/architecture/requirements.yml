@@ -2414,15 +2414,15 @@ functional:
       # FR's trace.yml row already lists; re-verified on main by mutants
       # (CARD-519 notes).
       - id: AC-423
-        given: Print setup opened with inches as the unit, opened in centimetres, and reopened on a book that stores an inches trim
-        when: the 8.5 x 11 in trim (and 8 x 10 in, 6 x 9 in) is entered and submitted in inches
-        then: neither rendered trim input carries a bound that refuses it, and the server stores it as 21.59 x 27.94 cm (20.32 x 25.40, 15.24 x 22.86)
+        given: Print setup opened with inches as the unit
+        when: each of the 8 x 10 in, 6 x 9 in and 8.5 x 11 in trims is entered, then submitted in inches
+        then: neither rendered trim input carries a bound that refuses it, and the server stores each at its centimetres (8.5 x 11 in as 21.59 x 27.94 cm, 8 x 10 in as 20.32 x 25.40 cm, 6 x 9 in as 15.24 x 22.86 cm); a page reopened on the stored 8.5 x 11 in trim admits its own prefilled values
         kind: happy
         test: TestPrintSetup_InchesTrimIsReachable
       - id: AC-424
         given: Print setup in inches, with the browser bounds gone
-        when: a 12 in (30.48 cm) width is submitted
-        then: the server refuses it with nothing stored, the entries carried back in inches
+        when: a 12 x 11 in trim is submitted (12 in is 30.48 cm, past KDP's width)
+        then: the server refuses it with nothing stored, the unit and the refused 12 in width carried back in inches
         kind: boundary
         test: TestPrintSetup_InchesTrimIsReachable
       - id: AC-425
@@ -3675,21 +3675,21 @@ functional:
       # trace.yml row already lists; re-verified on main by mutants (CARD-519
       # notes).
       - id: AC-427
-        given: a book and each of its five step pages (New book, Print setup, Puzzle selection, Arrangement, Finalise)
+        given: a book and each of the five step pages its stepper names (General info at /book/<id>/edit, Print setup, Puzzle selection, Arrangement, Finalise & export)
         when: each page is rendered
         then: 'every "Step N of M" the page prints names the step its own stepper marks current, out of the stepper''s step count, and the page''s breadcrumb names that same step'
         kind: guard
         test: TestBookStepPages_ProseAgreesWithTheStepper
       - id: AC-428
-        given: a POST /book/create that is refused for one field (a blank title, a blank description, an unknown theme or no target audience), and one refused with an error that names no field
+        given: a POST /book/create that is refused for one field (a blank title, a blank description, an unknown theme or no target audience)
         when: the refusal is shown
-        then: the form comes back with every submitted value filled in (HTML-special characters escaped, not injected) while no book is stored
+        then: no book is stored; the form comes back with each submitted value filled in, except an unknown theme, which leaves the theme select with no choice made; HTML-special characters in the values come back escaped, not injected
         kind: negative
         test: TestBookCreate_RefusalKeepsTypedInput
       - id: AC-429
-        given: the refused submissions of AC-428
+        given: the field refusals of AC-428, and a refusal whose error names no field
         when: the refusal is shown
-        then: only the refused field is marked invalid — none, for the error that names no field
+        then: only the refused field is marked invalid; the error naming no field marks none yet still carries every submitted value back
         kind: boundary
         test: TestBookCreate_RefusalKeepsTypedInput
     engineering_constraints:
@@ -5016,7 +5016,7 @@ functional:
       - id: AC-432
         given: a book whose session claims an uploaded cover image whose file is no longer on disk
         when: its book page and the books list are rendered
-        then: the cover button is disabled and sits in no form, with visible text saying the file is no longer on disk beside a link to Finalise; the interior stays offered
+        then: 'the cover button is disabled, in no form, while the interior stays offered; the book page''s markup carries the words "no longer on disk" plus a link to its Finalise somewhere on the page, while the list row carries them in its own text span (id cover-lost-<book id>) holding that book''s Finalise link'
         kind: negative
         test: TestBookPages_OfferBothExportFiles
       - id: AC-433
