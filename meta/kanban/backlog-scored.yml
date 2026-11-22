@@ -3145,7 +3145,8 @@ ideas:
   source_line: 68
   intent: null
   category: feature
-  status: backlog
+  status: screened
+  owner_ruling: 'Owner 2026-11-22: not for now. A reader''s own picture would too often come back not solvable or not recognisable (CARD-517: about 1 in 6 requests on curated pictures abandoned or timed out). Revisit only if generation from arbitrary pictures becomes reliable.'
   method: wsjf
   scores:
     user_business_value: 5
@@ -3173,7 +3174,8 @@ ideas:
   source_line: 69
   intent: null
   category: feature
-  status: backlog
+  status: screened
+  owner_ruling: 'Owner 2026-11-22: not for now. A reader''s own picture would too often come back not solvable or not recognisable (CARD-517: about 1 in 6 requests on curated pictures abandoned or timed out). Revisit only if generation from arbitrary pictures becomes reliable.'
   method: wsjf
   scores:
     user_business_value: 3
@@ -5430,6 +5432,15 @@ ideas:
 - id: IDEA-226
   title: A blank or whitespace-only DATABASE_URL boots the admin panel quietly in in-memory mode
   raw: '- [ ] CARD-515 review 1 F-003: after CARD-515 a whitespace-only DATABASE_URL counts as unset, as an empty one already did, so the panel starts in in-memory mode and logs "DATABASE_URL not set"; writes are lost on restart. On main before CARD-515 the whitespace case failed on every request. `_configured_hostname` already refuses a blank REMOTE_HOST. Whether the deployed panel (REMOTE_HOST set) should refuse to start without a database is an owner decision.   @tech-debt'
+  source_line: null
+  intent: null
+  category: tech-debt
+  status: backlog
+  needs_owner_decision: true
+  scored_at: '2026-11-22'
+- id: IDEA-227
+  title: Two kill-matrix runs in one tree can still leave a mutant on disk (reported, not prevented)
+  raw: '- [ ] CARD-315 case (D): a second kill-matrix run in the same tree backs up the first run''s mutant as pristine; since CARD-315 it raises ConcurrentWrite, but the mutant can stay on disk. Preventing it needs a per-tree lock (one run per tree). Nothing runs two in one tree today. Owner decision: add the lock, or leave it reported.   @tech-debt'
   source_line: null
   intent: null
   category: tech-debt
