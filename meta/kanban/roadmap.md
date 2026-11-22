@@ -92,7 +92,10 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 11 — IN PROGRESS (board wave 90)
+## Wave 11 — DONE 2026-11-22 (board wave 90)
+
+Four cards merged: CARD-518 (`715d84fe`, 9.0 cycle 1), CARD-519 (`849f06d3`, 9.0 cycle 2), CARD-521 (`5815bf05`, 9.0 cycle 2), CARD-520 (`ead96b76`, 9.0 cycle 3). Wave close: `make test-wave-close` on `main` at `f8c1fd5b`, 10662 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 32 min. Net tests +1 (CARD-520's browser test). Nothing reaches the public player, so no publish. CARD-520 was added mid-wave on the owner's say, from CARD-519 review 1 F-002: nothing caught CARD-159's inches-trim bug coming back. Two review cycles showed a static "no script writes a bound" check could not be made complete, so cycle 3 measured the page in Chromium instead. Recorded, not carded: the browser test does not assert the field kept the typed value, nor wait for asynchronous work (CARD-520 cycle 3 F-001/F-002); AC-427 claims less than its test, AC-432's book-page link clause does not discriminate, AC-430's "beside" is not asserted as placement (CARD-519 cycle 2 F-101..F-103), and AC-423 can now be widened to the cm-opened page that CARD-520 covers; tests/README.md omits CARD-508's session lock among the guards and the per-worktree caveat of an exported TEST_DATABASE_URL (CARD-521 cycle 2 F-101/F-102); the kill matrix's key retirement also hides a different-bytes write between readings, and the trim corpus has no quoted value (CARD-518 F-001/F-002).
+
 
 ### As cut
 
