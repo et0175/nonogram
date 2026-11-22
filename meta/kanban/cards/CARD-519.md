@@ -1,6 +1,6 @@
 # CARD-519: Write the wave-30 book behaviours into requirements.yml as acceptance criteria
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** business-analyst
 **TDD:** —
 **Branch:** card/519-wave30-acs
-**Worktree:** ../PythonProject4-card-519
+**Worktree:** —
 **Source:** roadmap wave 11, cut 2026-11-22 on the owner's "start the no-decision wave 11". IDEA-010.
 **Idea:** IDEA-010
 **Wave:** 90
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T10:32Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T11:26Z
+**Actual:** 2c — ratio 2/2 = 1.0
+**Merge commit:** 849f06d379c31f23087e959d1bb8f5f94cd44483
 **Blocked by:** —
 
 ## Why this card exists
