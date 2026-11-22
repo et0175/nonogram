@@ -1201,14 +1201,28 @@ class TestBookStepPages_ProseAgreesWithTheStepper:
 
 
 class _TrimInputs(HTMLParser):
-    """Print setup's two trim inputs and its unit radios, as the browser reads them."""
+    """Print setup's two trim inputs, its unit radios and its scripts, as the browser reads them."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.inputs: dict = {}
         self.checked_unit = []
+        self.scripts: list[str] = []
+        self._in_script = False
+
+    def handle_endtag(self, tag) -> None:
+        if tag == "script":
+            self._in_script = False
+
+    def handle_data(self, data) -> None:
+        if self._in_script:
+            self.scripts[-1] += data
 
     def handle_starttag(self, tag, attrs) -> None:
+        if tag == "script":
+            self._in_script = True
+            self.scripts.append("")
+            return
         if tag != "input":
             return
         attributes = dict(attrs)
@@ -1289,7 +1303,17 @@ class TestPrintSetup_InchesTrimIsReachable:
         assert _browser_admits(read.inputs["width"], inches[0])
         assert _browser_admits(read.inputs["height"], inches[1])
 
-    def test_the_cm_form_admits_the_same_trim_in_cm(self, panel) -> None:
+    def test_the_cm_form_admits_each_trim_in_either_unit(self, panel) -> None:
+        """A page opened in centimetres admits each trim in cm, and in inches after the switch.
+
+        CARD-159's bug was exactly this page: bounds rendered for
+        centimetres stayed on the inputs when the owner switched to inches,
+        so 8.5 in was refused. The unit switch is client script, but it
+        writes no bound (asserted first: no script on the page sets or
+        removes ``min``/``max``/``step``), so the bounds a browser applies
+        after switching are the ones rendered here, and judging the inch
+        figures against them needs no browser (CARD-520).
+        """
         app, shelf = panel
         book_id = shelf.book()
 
@@ -1298,8 +1322,18 @@ class TestPrintSetup_InchesTrimIsReachable:
             read = self._form(client, book_id)
 
         assert read.checked_unit == ["cm"]
-        assert _browser_admits(read.inputs["width"], "21.59")
-        assert _browser_admits(read.inputs["height"], "27.94")
+        writes_a_bound = re.compile(
+            r"\.(?:min|max|step)\s*=(?!=)"
+            r"|(?:set|remove|toggle)Attribute\(\s*['\"](?:min|max|step)['\"]"
+        )
+        # The switch's own script must be among those read, or the check is vacuous.
+        assert any("function updateUnits" in script for script in read.scripts)
+        for script in read.scripts:
+            assert not writes_a_bound.search(script), script
+        for inches, cm in self.INCH_TRIMS:
+            for unit, (width, height) in (("inches", inches), ("cm", cm)):
+                assert _browser_admits(read.inputs["width"], width), (unit, width, read.inputs["width"])
+                assert _browser_admits(read.inputs["height"], height), (unit, height, read.inputs["height"])
 
     def test_a_page_reopened_on_an_inches_trim_admits_its_own_values(self, panel) -> None:
         """Saved in inches, reopened in inches: the prefilled values pass too."""
