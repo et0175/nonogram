@@ -1,6 +1,6 @@
 # CARD-525: Where picture puzzles lose their difficulty and fail to generate: a measured experiment
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/525-picture-quality-experiment
-**Worktree:** ../PythonProject4-card-525
+**Worktree:** —
 **Source:** roadmap wave 13, cut 2026-11-22 on the owner's "yes, start wave 13", after CARD-517's measurement.
 **Idea:** —
 **Wave:** 92
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 8.5 (cycle 3/3)
 **Started:** 2026-11-22T15:49Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T19:24Z
+**Actual:** 3c — ratio 3/2 = 1.5
+**Merge commit:** 2f53bd6030e387fd1fdcbe7787e8af7b648b2e3e
 **Blocked by:** —
 
 ## Why this card exists
