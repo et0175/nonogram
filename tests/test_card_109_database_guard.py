@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pytest
 
+from tests import database_guard
 from tests.database_guard import OPT_OUT, current_verdict, report_line, verdict
 
 REPO = Path(__file__).parent.parent
@@ -73,7 +74,19 @@ def test_no_database_at_all_is_the_ordinary_case(monkeypatch):
     """AC-2: unset is how the suite normally runs, and must stay silent.
 
     CARD-515: a value that is only whitespace is trimmed to unset, as the
-    app trims it, so the guard reads it the same way."""
+    app trims it, so the guard reads it the same way. CARD-518: the guard's
+    trim is a written-out copy of ``nonogram.db.session.trimmed_url`` (the
+    guard must not import ``nonogram``), so the two are held equal here, where
+    the import is legal."""
+    from nonogram.db.session import trimmed_url
+
+    for value in (
+        None, "", " ", "\t", "\r\n", " \n", "\u00a0", "\u0085", " \t\r\n\u00a0 ",
+        "postgresql://u:p@localhost/nonogram_test",
+        "  postgresql://u:p@localhost/nonogram_test\n",
+        "\tsqlite:///./a b_test.db \r\n",
+    ):
+        assert database_guard._trimmed(value) == trimmed_url(value), repr(value)
     allowed, reason = verdict(None, opted_out=False)
 
     assert allowed is True

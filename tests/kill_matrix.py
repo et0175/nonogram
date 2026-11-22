@@ -1838,9 +1838,29 @@ class Runner:
         )
 
     def _expect(self, path: Path, data: bytes) -> None:
-        """Record ``data`` as what ``path``'s file now holds, keyed on identity."""
+        """Record ``data`` as what ``path``'s file now holds, keyed on identity.
+
+        An older key whose spelling now resolves to this same file is retired
+        first (CARD-518, CARD-315 review 2 F-001): a byte-identical rewrite
+        onto a new inode during a reading (an editor's ``os.replace``, git's
+        unlink-and-recreate) is not a foreign write, and the old inode's
+        expectation would otherwise be read through the path at the next
+        check and compared with bytes this instrument has since planted. A
+        rewrite with **other** bytes is still caught, by the check made after
+        that reading, before anything here runs.
+        """
         stat = os.stat(path)
-        self._expected[(stat.st_dev, stat.st_ino)] = (path, data)
+        key = (stat.st_dev, stat.st_ino)
+        for old, (spelling, _data) in list(self._expected.items()):
+            if old == key:
+                continue
+            try:
+                now = os.stat(spelling)
+            except OSError:
+                continue
+            if (now.st_dev, now.st_ino) == key:
+                del self._expected[old]
+        self._expected[key] = (path, data)
 
     def _refuse_on_foreign_write(self, label: str, when: str) -> None:
         """Raise :class:`ConcurrentWrite` if a registered path moved under us.
@@ -1877,6 +1897,11 @@ class Runner:
             if kept
             else ""
         )
+        if self._keeps_foreign:
+            # Named even when nothing was copied (a foreign delete leaves no
+            # bytes): :meth:`run` keeps the tree after any in-place
+            # ConcurrentWrite, and a kept tree nobody names is litter.
+            copies += f" This run's temp tree, {self.workdir}, is kept."
         raise ConcurrentWrite(
             f"{label}: {moved} no longer hold what this instrument last wrote "
             f"there, {when}.{copies} It writes nothing during a reading, so something "
