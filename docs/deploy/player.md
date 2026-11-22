@@ -1116,3 +1116,17 @@ Not observed: a real phone or a real solve on the live site (the banner was unhi
 | Rollback target | The wave-7 deployment (`nonogram-studio-6p2wxvv2l`). |
 
 Not observed: a real phone, and the 327-339 / 421-451 px bands (IDEA-225) on the public page.
+
+**The CARD-523 publish, 2026-11-22.** The owner's "please publish player" after CARD-523 merged. Built from **`7344cd68`** with `git archive 7344cd68 player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-22-card523/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. One card reaches a served file: **CARD-523** (on portrait phones, once a puzzle is solved, Show grid takes Line's place in the admin toolbar, so the board does not move). Its rules apply only to a toolbar that has a Check button, which public mode removes when the page starts, so the public toolbar is unchanged.
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing. Against production before the publish exactly one file differed: `admin.css` `4ea0cf45210f` → `d7e4e98b1c3e` (identical to its source). The other 175 served files byte-identical. |
+| Preview | **`nonogram-studio-foc6oqrpi`**, Ready in 3 s; doors 200, `/nope` 404, `admin.css` at the built hash. |
+| Behaviour (headless Chromium, a real solve of `914fa7acf6`, 15 x 15: the solution computed locally by `nonogram.solver.solve` from the served clues, every filled cell clicked, the solved banner shown) | At 330 x 900, 430 x 900, 600 x 900, 390 x 844 and 1100 x 700 the board moved dx 0, dy 0 on solve, on production before the switch and on the preview; no page errors. |
+| Production | `vercel promote` created **`nonogram-studio-rd5i6sefk`**; new `admin.css` on poll 3; doors 200, `/nope` 404; the same solve run on production after the switch gave dx 0, dy 0 at all five sizes. |
+| Rollback target | The CARD-511 deployment (`nonogram-studio-og58mwtjc`). |
+
+Correction to the CARD-511 record above: the public toolbar does show Show grid once a puzzle is solved (CARD-523's measurement: every solved public toolbar ends Probe, Show grid). The CARD-511 record listed the unsolved toolbar only. The public board did not move on solve then or now.
+
+Not observed: a real phone.
