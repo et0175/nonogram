@@ -155,6 +155,19 @@ replays exactly. It produced the evidence the owner chose
 `difficulty.MEDIUM_MAX_SCORE = 90.0` from (CARD-137); re-run it before moving that
 constant again.
 
+`--mode image` (CARD-517) asks the same question of picture puzzles, generated the way
+the admin's image batch generates them (`ImageFile.size_fits` in "fixed" mode, then
+`admin.app._generate_image_puzzle`). The corpus is the committed picture fixtures under
+`tests/fixtures/` plus 20 silhouettes the script draws from a fixed seed; image
+conversion draws no randomness, so it replays. `--image-dir DIR` adds a folder of further
+pictures for a private comparison. Output names no picture, only a source kind and an
+index.
+
+```bash
+./.venv/bin/python scripts/measure_difficulty_cutoff.py --mode image                # ~340s, 444 requests
+./.venv/bin/python scripts/measure_difficulty_cutoff.py --mode image --pictures 2   # quick look
+```
+
 ## Typical Workflow
 
 ### Day 1: Set up and start testing

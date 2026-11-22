@@ -37,10 +37,37 @@ randomness under the request seed). The corpus size is asserted, the same way
 the seeded corpora in ``tests/property/`` assert theirs, so a plan edit that
 quietly shrinks the sample fails instead of reporting a thinner table.
 
+Image mode (CARD-517)
+--------------------
+``--mode image`` asks the same question of *picture* puzzles, which is what
+the books are made of. Each picture is generated the way the admin's image
+batch generates it: an ``admin.image_manager.ImageFile`` sizes it
+(``size_fits``, "fixed" mode, so the long side is the requested ``N`` and the
+short side follows the ink bounding box; a picture too elongated for ``N`` moves
+to Large or is skipped, exactly as the batch does), and
+``admin.app._generate_image_puzzle`` makes it — ``orchestrator.generate`` in
+image mode with the batch's long-side +-1 retry. The score and the branch count
+read are the ones the batch stores. The admin's quality filter is not applied
+(its session default is 0, which keeps everything).
+
+The corpus is reproducible from the repository alone: the committed picture
+fixtures under ``tests/fixtures/`` (those at least :data:`FIXTURE_MIN_SIDE`
+pixels on their short side; the smaller ones are synthetic shape fixtures for
+the sizing tests, not pictures), plus :data:`SEEDED_PICTURES` silhouettes this
+script draws itself from :data:`IMAGE_CORPUS_SEED`. Image conversion draws no
+randomness (``orchestrator``'s abandonment message says so: the conversion and
+the pixel nudge never touch the rng), so the fixtures need no seed.
+
+``--image-dir`` adds a folder of further pictures for a private, read-only
+comparison. Nothing the script prints or writes names a picture: every row
+carries a source kind and an index, never a file name.
+
 Usage::
 
     ./.venv/bin/python scripts/measure_difficulty_cutoff.py
     ./.venv/bin/python scripts/measure_difficulty_cutoff.py --draws 4 --json out.json
+    ./.venv/bin/python scripts/measure_difficulty_cutoff.py --mode image
+    ./.venv/bin/python scripts/measure_difficulty_cutoff.py --mode image --pictures 3
 """
 
 from __future__ import annotations
@@ -49,13 +76,23 @@ import argparse
 import json
 import random
 import sys
+import tempfile
 import time
 from collections import Counter
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 
 from nonogram import orchestrator
-from nonogram.difficulty import EASY_MAX_SCORE, MEDIUM_MAX_SCORE, SCORE_MAX, Tier, classify
+from nonogram.difficulty import (
+    EASY_MAX_SCORE,
+    LADDER,
+    MEDIUM_MAX_SCORE,
+    SCORE_MAX,
+    Tier,
+    classify,
+)
 from nonogram.errors import NonogramError
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.orchestrator import GenerationRequest
@@ -122,6 +159,35 @@ MIN_CORPUS = 400
 #: The medium/hard cutoffs the table asks about. CARD-137 names the first four;
 #: the two ends are there to show which way the curve is moving.
 CANDIDATE_CUTOFFS: tuple[float, ...] = (70.0, 75.0, 80.0, 85.0, 90.0, 95.0)
+
+# --- image mode (CARD-517) -------------------------------------------------
+
+#: The seed of the drawn silhouettes. The fixtures need none (see the module
+#: docstring), so this one number is the whole of the image corpus's seed.
+IMAGE_CORPUS_SEED = 20261122
+
+#: The committed picture fixtures, read in sorted order.
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
+
+#: A fixture shorter than this on either side is a synthetic shape fixture (a
+#: 60x20 bar, a 10x10 corrupt file) for the sizing tests, not a picture.
+FIXTURE_MIN_SIDE = 100
+
+#: The fixture count the corpus asserts, so a fixture removed from the tree
+#: fails the run instead of thinning the table.
+MIN_FIXTURES = 15
+
+#: Silhouettes drawn from :data:`IMAGE_CORPUS_SEED`.
+SEEDED_PICTURES = 20
+
+#: Long sides requested per picture ("fixed" mode): the random corpus's sizes,
+#: so the two tables sample the same buckets.
+IMAGE_SIZES: tuple[int, ...] = SIZES
+
+#: The floor the image corpus asserts on graded puzzles at full size.
+MIN_IMAGE_CORPUS = 250
+
+_PICTURE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif")
 
 
 def _densities_for(size: int) -> tuple[int, ...]:
@@ -200,6 +266,187 @@ def build_corpus(draws: int, *, verbose: bool = True) -> tuple[list[Row], Counte
     return rows, failures, time.perf_counter() - started
 
 
+@dataclass(frozen=True, slots=True)
+class ImageRow:
+    """One scored picture puzzle. ``picture`` is an index within ``kind``,
+    never a file name, so a private folder's names cannot reach the output."""
+
+    kind: str
+    picture: int
+    requested: int
+    width: int
+    height: int
+    score: float
+    branch_nodes: int
+    rungs: tuple[str, ...]
+    seconds: float
+
+    @property
+    def size(self) -> int:
+        """The longest side — FR-034's bucket key."""
+        return max(self.width, self.height)
+
+    @property
+    def bucket(self) -> str:
+        return _bucket_for(self.size)
+
+
+def fixture_pictures() -> list[Path]:
+    """The committed picture fixtures: real pictures, not shape fixtures."""
+    from PIL import Image
+
+    found = []
+    for path in sorted(FIXTURE_DIR.iterdir()):
+        if path.suffix.lower() not in _PICTURE_SUFFIXES:
+            continue
+        try:
+            with Image.open(path) as image:
+                width, height = image.size
+        except OSError:
+            continue  # the corrupt-file fixture
+        if min(width, height) >= FIXTURE_MIN_SIDE:
+            found.append(path)
+    return found
+
+
+def seeded_pictures(count: int, folder: Path, seed: int = IMAGE_CORPUS_SEED) -> list[Path]:
+    """Draw ``count`` black-on-white silhouettes into ``folder``.
+
+    A stand-in for a clip-art animal, not a claim to be one: a body ellipse, a
+    head, a few thin limbs and a tail, on a canvas whose aspect ratio is also
+    drawn. One ``random.Random(seed)`` draws all of them, so the set replays.
+    """
+    from PIL import Image, ImageDraw
+
+    rng = random.Random(seed)
+    paths = []
+    for index in range(count):
+        width = 400
+        height = int(width * rng.uniform(0.6, 1.6))
+        image = Image.new("L", (width, height), 255)
+        draw = ImageDraw.Draw(image)
+        cx, cy = width * rng.uniform(0.4, 0.6), height * rng.uniform(0.4, 0.6)
+        rx, ry = width * rng.uniform(0.18, 0.32), height * rng.uniform(0.14, 0.28)
+        draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=0)
+        hx = cx + rng.choice((-1, 1)) * rx * rng.uniform(0.8, 1.1)
+        hy = cy - ry * rng.uniform(0.5, 1.2)
+        hr = min(rx, ry) * rng.uniform(0.35, 0.6)
+        draw.ellipse((hx - hr, hy - hr, hx + hr, hy + hr), fill=0)
+        for _ in range(rng.randint(2, 4)):
+            lx = cx + rx * rng.uniform(-0.8, 0.8)
+            limb = max(3, int(width * rng.uniform(0.015, 0.04)))
+            draw.rectangle(
+                (lx - limb, cy, lx + limb, min(height - 1, cy + ry + height * rng.uniform(0.1, 0.25))),
+                fill=0,
+            )
+        tail = (cx - (hx - cx), cy)
+        draw.line(
+            (tail, (tail[0] - (hx - cx) * 0.4, tail[1] - ry * rng.uniform(0.2, 0.9))),
+            fill=0,
+            width=max(3, int(width * rng.uniform(0.01, 0.03))),
+        )
+        if rng.random() < 0.5:  # an eye: a hole the clues must carry
+            er = max(2, hr * 0.2)
+            draw.ellipse((hx - er, hy - er, hx + er, hy + er), fill=255)
+        path = folder / f"seeded-{index:02d}.png"
+        image.save(path)
+        paths.append(path)
+    return paths
+
+
+def folder_pictures(folder: Path) -> list[Path]:
+    """Every picture file directly in ``folder``, sorted (``--image-dir``)."""
+    return sorted(
+        path
+        for path in folder.iterdir()
+        if path.is_file() and path.suffix.lower() in _PICTURE_SUFFIXES
+    )
+
+
+def _admin_image(path: Path, label: str, long_side: int):  # -> ImageFile
+    """The admin's own picture record for ``path``, sized "fixed" at ``long_side``."""
+    from nonogram.admin.image_manager import ImageFile
+
+    return ImageFile(
+        file_id=label,
+        filename=label,
+        original_filename=label,
+        file_path=str(path),
+        file_size=path.stat().st_size,
+        dimensions=(0, 0),
+        format=path.suffix.lstrip(".").upper(),
+        uploaded_at=datetime(2026, 11, 22),
+        size_mode="fixed",
+        size_value=long_side,
+    )
+
+
+def build_image_corpus(
+    sources: Sequence[tuple[str, Sequence[Path]]],
+    sizes: Iterable[int] = IMAGE_SIZES,
+    *,
+    verbose: bool = True,
+) -> tuple[list[ImageRow], Counter[str], float]:
+    """Generate and score every (picture, long side) through the admin's path.
+
+    ``sources`` is ``[(kind, paths), ...]``. A requested size whose fitted
+    extent was already made for that picture (an elongated picture moved to
+    Large by several sizes) is counted, not regenerated: conversion is
+    deterministic, so it would be the same puzzle twice.
+    """
+    from nonogram.admin.app import _generate_image_puzzle
+    from nonogram.admin.image_manager import CANNOT_FIT
+
+    sizes = tuple(sizes)
+    rows: list[ImageRow] = []
+    failures: Counter[str] = Counter()
+    started = time.perf_counter()
+    for kind, paths in sources:
+        for index, path in enumerate(paths):
+            picture_started = time.perf_counter()
+            made: set[tuple[int, int]] = set()
+            kept = 0
+            for long_side in sizes:
+                label = f"{kind}-{index:02d}"
+                image = _admin_image(path, label, long_side)
+                fit = image.size_fits()[0].fit
+                if fit.status == CANNOT_FIT:
+                    failures["cannot_fit"] += 1
+                    continue
+                if fit.extent in made:
+                    failures["same_extent_as_a_smaller_size"] += 1
+                    continue
+                made.add(fit.extent)
+                one = time.perf_counter()
+                try:
+                    puzzle, used = _generate_image_puzzle(image, *fit.extent)
+                except NonogramError as exc:
+                    failures[type(exc).__name__] += 1
+                    continue
+                rows.append(
+                    ImageRow(
+                        kind=kind,
+                        picture=index,
+                        requested=long_side,
+                        width=used[0],
+                        height=used[1],
+                        score=puzzle.difficulty_score,
+                        branch_nodes=puzzle.branch_nodes,
+                        rungs=tuple(puzzle.strategies),
+                        seconds=time.perf_counter() - one,
+                    )
+                )
+                kept += 1
+            if verbose:
+                print(
+                    f"  {kind:<8} #{index:02d} {kept:>3}/{len(sizes)} kept"
+                    f"  {time.perf_counter() - picture_started:6.2f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
+    return rows, failures, time.perf_counter() - started
+
+
 def _tier_for(score: float, cutoff: float) -> Tier:
     """What ``score`` would classify as if the medium/hard cutoff were ``cutoff``.
 
@@ -214,7 +461,7 @@ def _tier_for(score: float, cutoff: float) -> Tier:
     return Tier.HARD
 
 
-def _shares(rows: list[Row], cutoff: float) -> tuple[Counter[Tier], int]:
+def _shares(rows: Sequence[Row | ImageRow], cutoff: float) -> tuple[Counter[Tier], int]:
     counts: Counter[Tier] = Counter(_tier_for(row.score, cutoff) for row in rows)
     return counts, len(rows)
 
@@ -223,7 +470,7 @@ def _pct(part: int, whole: int) -> str:
     return f"{100.0 * part / whole:5.1f}%" if whole else "    - "
 
 
-def _self_check(rows: list[Row]) -> None:
+def _self_check(rows: Sequence[Row | ImageRow]) -> None:
     """The row for the cutoff in force must agree with ``classify`` exactly."""
     for row in rows:
         expected = classify(row.score)
@@ -235,22 +482,16 @@ def _self_check(rows: list[Row]) -> None:
             )
 
 
-def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) -> None:
-    requested = sum(len(_densities_for(size)) for size in SIZES) * draws
-    guessers = [row for row in rows if row.branch_nodes > 0]
-    graded = [row for row in rows if row.branch_nodes == 0]
+def _bucket_groups(graded: Sequence[Row | ImageRow]) -> list[tuple[str, list[Row | ImageRow]]]:
+    """``overall`` plus FR-034's four longest-side buckets."""
+    groups: list[tuple[str, list[Row | ImageRow]]] = [("overall", list(graded))]
+    groups += [
+        (label, [row for row in graded if row.bucket == label]) for label, _, _ in BUCKETS
+    ]
+    return groups
 
-    print("\n== corpus ==")
-    print(f"seed                 {CORPUS_SEED}")
-    print(f"sizes                {', '.join(str(size) for size in SIZES)}")
-    print(f"draws per cell       {draws}")
-    print(f"requests issued      {requested}")
-    print(f"puzzles generated    {len(rows)}")
-    print(f"generation failures  {sum(failures.values())}  {dict(failures)}")
-    print(f"branched (excluded)  {len(guessers)}")
-    print(f"scored (graded)      {len(graded)}")
-    print(f"wall clock           {seconds:.1f}s")
 
+def _print_raw_histogram(graded: Sequence[Row | ImageRow]) -> None:
     print("\n== raw score histogram (width 5) ==")
     bins: Counter[int] = Counter(int(row.score // 5) * 5 for row in graded)
     widest = max(bins.values(), default=1)
@@ -264,11 +505,9 @@ def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) 
     print("  most common exact scores: ", end="")
     print(", ".join(f"{score}x{count}" for score, count in exact.most_common(5)))
 
-    print("\n== cutoff sweep: easy / medium / hard shares ==")
-    groups: list[tuple[str, list[Row]]] = [("overall", graded)]
-    groups += [
-        (label, [row for row in graded if row.bucket == label]) for label, _, _ in BUCKETS
-    ]
+
+def _print_sweep(title: str, groups: Sequence[tuple[str, Sequence[Row | ImageRow]]]) -> None:
+    print(f"\n== {title} ==")
     header = f"{'cutoff':>8} | " + " | ".join(f"{label:^22}" for label, _ in groups)
     print(header)
     print("-" * len(header))
@@ -287,6 +526,8 @@ def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) 
         print(f"{cutoff:>6.0f}{marker} | " + " | ".join(f"{cell:^22}" for cell in cells))
     print("  * = the cutoff currently in force (difficulty.MEDIUM_MAX_SCORE)")
 
+
+def _print_decision_zone(graded: Sequence[Row | ImageRow]) -> list[Row | ImageRow]:
     print("\n== the decision zone: scores above the easy edge, width 2 ==")
     nontrivial = [row for row in graded if row.score > EASY_MAX_SCORE]
     fine: Counter[int] = Counter(int(row.score // 2) * 2 for row in nontrivial)
@@ -298,7 +539,10 @@ def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) 
         bar = "#" * max(1, round(40 * count / widest))
         print(f"  {low:>3}-{low + 2:<3} {count:>4}  {bar}")
     print(f"  n above {EASY_MAX_SCORE:g}: {len(nontrivial)} of {len(graded)}")
+    return nontrivial
 
+
+def _print_nontrivial_split(nontrivial: Sequence[Row | ImageRow]) -> None:
     print("\n== medium/hard split among the puzzles that needed non-trivial work ==")
     print("   (score > the easy edge; the easy share is a density question, not a cutoff one)")
     for cutoff in sorted({*CANDIDATE_CUTOFFS, MEDIUM_MAX_SCORE}):
@@ -309,6 +553,28 @@ def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) 
             f" ({_pct(counts[Tier.MEDIUM], total)})   hard {counts[Tier.HARD]:>4}"
             f" ({_pct(counts[Tier.HARD], total)})"
         )
+
+
+def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) -> None:
+    requested = sum(len(_densities_for(size)) for size in SIZES) * draws
+    guessers = [row for row in rows if row.branch_nodes > 0]
+    graded = [row for row in rows if row.branch_nodes == 0]
+
+    print("\n== corpus ==")
+    print(f"seed                 {CORPUS_SEED}")
+    print(f"sizes                {', '.join(str(size) for size in SIZES)}")
+    print(f"draws per cell       {draws}")
+    print(f"requests issued      {requested}")
+    print(f"puzzles generated    {len(rows)}")
+    print(f"generation failures  {sum(failures.values())}  {dict(failures)}")
+    print(f"branched (excluded)  {len(guessers)}")
+    print(f"scored (graded)      {len(graded)}")
+    print(f"wall clock           {seconds:.1f}s")
+
+    _print_raw_histogram(graded)
+    _print_sweep("cutoff sweep: easy / medium / hard shares", _bucket_groups(graded))
+    nontrivial = _print_decision_zone(graded)
+    _print_nontrivial_split(nontrivial)
 
     print("\n== per-density: shares under each candidate cutoff ==")
     print("   (d50 is the value orchestrator.generate_batch hardcodes)")
@@ -338,13 +604,133 @@ def report(rows: list[Row], failures: Counter[str], seconds: float, draws: int) 
         print("".join(line))
 
 
+def _hardest(row: ImageRow) -> str:
+    """The hardest rung the deciding solve used, by ``difficulty.LADDER``."""
+    used = [rung for rung in LADDER if rung in row.rungs]
+    return used[-1] if used else "-"
+
+
+def report_image(
+    rows: list[ImageRow],
+    failures: Counter[str],
+    seconds: float,
+    sources: Sequence[tuple[str, Sequence[Path]]],
+    sizes: Sequence[int],
+) -> None:
+    """The random-mode report's tables, for the picture corpus."""
+    guessers = [row for row in rows if row.branch_nodes > 0]
+    graded = [row for row in rows if row.branch_nodes == 0]
+
+    print("\n== image corpus ==")
+    print(f"silhouette seed      {IMAGE_CORPUS_SEED}")
+    for kind, paths in sources:
+        print(f"pictures ({kind:<8})  {len(paths)}")
+    print(f"long sides requested {', '.join(str(size) for size in sizes)}")
+    print(f"requests considered  {sum(len(paths) for _, paths in sources) * len(sizes)}")
+    print(f"puzzles generated    {len(rows)}")
+    print(f"not generated        {sum(failures.values())}  {dict(sorted(failures.items()))}")
+    print(f"branched (excluded)  {len(guessers)}")
+    print(f"scored (graded)      {len(graded)}")
+    print(f"wall clock           {seconds:.1f}s")
+
+    _print_raw_histogram(graded)
+    _print_sweep(
+        "cutoff sweep: easy / medium / hard shares (bucket = longest side made)",
+        _bucket_groups(graded),
+    )
+    kinds = [kind for kind, _ in sources]
+    if len(kinds) > 1:
+        _print_sweep(
+            "cutoff sweep by picture source",
+            [(kind, [row for row in graded if row.kind == kind]) for kind in kinds],
+        )
+    nontrivial = _print_decision_zone(graded)
+    _print_nontrivial_split(nontrivial)
+
+    print("\n== per-bucket: hardest rung of the deciding solve, and medium at the cutoff in force ==")
+    for label, _, _ in BUCKETS:
+        subset = [row for row in graded if row.bucket == label]
+        rungs = Counter(_hardest(row) for row in subset)
+        medium = [row for row in subset if classify(row.score) is Tier.MEDIUM]
+        span = (
+            f"{min(row.score for row in medium):.2f}..{max(row.score for row in medium):.2f}"
+            if medium
+            else "-"
+        )
+        print(
+            f"  {label:<6} n={len(subset):<4} "
+            + " ".join(f"{rung}={rungs.get(rung, 0)}" for rung in LADDER)
+            + f"   medium={len(medium)} ({_pct(len(medium), len(subset)).strip()})"
+            + f" scores {span}"
+        )
+
+
+def _image_main(args: argparse.Namespace) -> int:
+    cap = args.pictures
+    with tempfile.TemporaryDirectory(prefix="card517-silhouettes-") as scratch:
+        fixtures = fixture_pictures()
+        assert len(fixtures) >= MIN_FIXTURES, (
+            f"{len(fixtures)} picture fixtures under {FIXTURE_DIR}, below the "
+            f"asserted {MIN_FIXTURES} — the corpus lost pictures"
+        )
+        sources: list[tuple[str, Sequence[Path]]] = [
+            ("fixture", fixtures[:cap]),
+            ("seeded", seeded_pictures(SEEDED_PICTURES if cap is None else min(cap, SEEDED_PICTURES), Path(scratch))),
+        ]
+        for number, folder in enumerate(args.image_dir):
+            sources.append((f"extra{number}", folder_pictures(folder)[:cap]))
+        rows, failures, seconds = build_image_corpus(sources, verbose=not args.quiet)
+        graded = [row for row in rows if row.branch_nodes == 0]
+        if cap is None:
+            assert len(graded) >= MIN_IMAGE_CORPUS, (
+                f"image corpus shrank to {len(graded)} graded puzzles, below the "
+                f"asserted floor of {MIN_IMAGE_CORPUS}"
+            )
+        if args.self_check:
+            _self_check(rows)
+        report_image(rows, failures, seconds, sources, IMAGE_SIZES)
+    if args.json is not None:
+        args.json.write_text(
+            json.dumps(
+                {
+                    "mode": "image",
+                    "silhouette_seed": IMAGE_CORPUS_SEED,
+                    "pictures": {kind: len(paths) for kind, paths in sources},
+                    "sizes": list(IMAGE_SIZES),
+                    "seconds": seconds,
+                    "failures": dict(failures),
+                    "rows": [asdict(row) for row in rows],
+                },
+                indent=1,
+            ),
+            encoding="utf-8",
+        )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--draws", type=int, default=DRAWS_PER_CELL)
     parser.add_argument("--json", type=Path, default=None)
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--no-self-check", dest="self_check", action="store_false")
+    parser.add_argument("--mode", choices=("random", "image"), default="random")
+    parser.add_argument(
+        "--pictures",
+        type=int,
+        default=None,
+        help="image mode: at most this many pictures per source (a timing run)",
+    )
+    parser.add_argument(
+        "--image-dir",
+        type=Path,
+        action="append",
+        default=[],
+        help="image mode: a further folder of pictures (read only; never named in output)",
+    )
     args = parser.parse_args(argv)
+    if args.mode == "image":
+        return _image_main(args)
 
     rows, failures, seconds = build_corpus(args.draws, verbose=not args.quiet)
     if args.draws >= DRAWS_PER_CELL:
