@@ -1,6 +1,6 @@
 # CARD-521: tests/README.md describes the suite as it is today
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/521-tests-readme
-**Worktree:** ../PythonProject4-card-521
+**Worktree:** —
 **Source:** roadmap wave 11, cut 2026-11-22 on the owner's "start the no-decision wave 11". IDEA-002.
 **Idea:** IDEA-002
 **Wave:** 90
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.0 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-22T11:26Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T12:00Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 5815bf057abbe39d163b9bc11e715aeefcb1534b
 **Blocked by:** —
 
 ## Why this card exists
