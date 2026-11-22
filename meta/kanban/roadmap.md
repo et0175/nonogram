@@ -101,7 +101,10 @@ Cut against main on 2026-11-22 on the owner's "yes, start wave 13", while wave 1
 ### feature
 - **CARD-525** Where picture puzzles lose their difficulty and fail to generate: a measured experiment — 2c
 
-## Wave 12 — IN PROGRESS (board wave 91)
+## Wave 12 — DONE 2026-11-22 (board wave 91)
+
+Three cards merged: CARD-522 (`7110c1bc`, 9.5 cycle 2), CARD-523 (`a875c54e`, 9.0 cycle 1), CARD-524 (`9ad3fd2c`, 9.0 cycle 1). Wave close: `make test-wave-close` on `main` at `f5620362`, 10663 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 38 min (CARD-525's experiment ran on the same machine). Net tests +1 (CARD-522's no-database refusal test). PUBLISHED 2026-11-22 after CARD-523 (`nonogram-studio-rd5i6sefk`, admin.css only, public board 0/0 on solve); CARD-524's admin.css is not yet published and changes nothing a public player sees. CARD-522 reaches Render only on the owner's next deploy. Findings: the public player does show Show grid once solved (the CARD-511 record listed only the unsolved toolbar; corrected in docs/deploy/player.md). Recorded, not carded: the import-failure refusal names no cause (CARD-522 cycle 2 F-001); Show grid is tabbed last though it sits in Line's slot, and the admin-only scoping relies on public mode removing Check (CARD-523 F-001/F-002); `_BANNER_LINES` would read a hidden label as shown, and a long second word still leaves line 1 as "Solved! The " (CARD-524 F-001/F-003, the latter the owner's call).
+
 
 ### As cut
 
