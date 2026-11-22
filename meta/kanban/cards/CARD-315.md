@@ -1,24 +1,24 @@
 # CARD-315: The kill matrix's plant window is declared for one consumer and unguarded for the other — a concurrent `git` sees the mutant, and the symptom is unreadable
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
-**Estimate:** 0.5d
+**Estimate:** 2c
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/315-kill-matrix-plant-window
+**Worktree:** ../PythonProject4-card-315
 **Source:** Observed 2026-10-29 during CARD-308's implementation round, which flagged it rather than burying it; diagnosed from source by CARD-308's review cycle 1 and confirmed by the orchestrator. Cut on owner decision the same day.
 **Idea:** —
-**Wave:** —
+**Wave:** 89
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-22T08:36Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
