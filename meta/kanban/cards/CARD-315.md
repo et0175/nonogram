@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3)
 **Started:** 2026-11-22T08:36Z
 **Closed:** —
 **Actual:** —
@@ -217,3 +217,5 @@ and two have real costs:
 - Case (D), a second kill-matrix run in the same tree leaving a mutant on disk, is now loud but not prevented. Preventing it means serialising runs per tree (a lock), which is the owner's call.
 - A write made and undone inside one reading is not seen.
 - A lane copied from a real tree that another serial run has planted into would take that mutant for pristine. This was reasoned, not measured.
+
+[Review 1/3] Score: 7.5, two gating findings, not certified. Holds: CARD-516's changes intact; tests/test_kill_matrix.py 84 passed; G-3 restore on every path; no false fire on a concurrent git reader, the instrument's own restore, or `..` paths in copied lanes; C1-C4 red again. F-001 (Important): `_expected` is keyed on the path as written, so a mutant that edits a registered file through another spelling (`..`, or case on this case-insensitive volume) gets an honest run refused as `ConcurrentWrite` (measured on tmp trees at workers=1; the case spelling also at workers=2), contradicting `_refuse_unless_topology_holds`, which supports that route. F-002 (Important, ADR-0039/R1): the after-child check has no control; deleting that call leaves both tests green (2 passed), because both writer plants write before the child starts, while a real in-window `git stash` lands during the child. F-003 (medium): `_expected` is never reset per `run()`, so a reused Runner checks the previous run's paths (measured). F-004 (low, pre-existing): a detected foreign write is overwritten by the restore with no copy kept. F-005 (info): the notes' "does not fire on an honest run" is contradicted by F-001 and F-003.
