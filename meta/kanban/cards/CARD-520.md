@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_book_workflow_steps.py
 **UI surface:** Print setup (test only)
-**Review score:** 8.5 (cycle 2/3)
+**Review score:** 9.0 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-22T11:03Z
 **Closed:** —
 **Actual:** —
@@ -95,3 +95,5 @@ Re-verify on main first: reproduce mutant I1 and show the class stays green. The
 - [Fix round 2] Gate, unarmed, `-o addopts= -rfs`: tests/test_book_workflow_steps.py tests/test_book_setup_print_mobile.py tests/test_book_trim_persistence.py tests/test_impact_set.py -> '461 passed, 1 warning', 0 skipped. test_impact_set.py was added because this file now imports a test module's fixture.
 - [Fix round 2] Net count, `--collect-only -q -o addopts= tests/`: 10693 now, against 10692 at HEAD without this round (the change stashed, re-derived). tests/test_book_workflow_steps.py: 131 against 130. Net +1, the browser test, as AC-4 allows.
 - [Fix round 2] Not established: DI's red depends on the dynamic import resolving before the fills are read. It did resolve in time on this run, but the test does not wait for it.
+
+[Review 3/3] Score: 9.0, nothing gating, certified. `test_a_browser_admits_each_inches_trim_after_switching_a_cm_page` is not vacuous: a failed load times out on `#unit_cm`, the switch is proven by `#unit_inches` checked and `#width_unit` reading "in", all three trims fill both fields, and the input's own form is read. I1 reds both tests; EH, CE and DI red the browser test. Stable: the class 5 times and the browser test 5 times, all green. Fixture imports collect nothing twice; Chromium absent fails loudly per ADR-0038/R8; ADR-0039/R2 now holds. Net +1. F-001 (low): the field's final value is not asserted, so an `oninput` that rewrites 8.5 to 10 passes. F-002 (low): validity is read without waiting for asynchronous work; a `setTimeout` bound write passes, and DI/CE red by timing; today's page has none.
