@@ -63,7 +63,9 @@ def deployed_app(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, PASSWORD)
     monkeypatch.setenv("SECRET_KEY", REAL_KEY)
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    application = admin_app.create_app()
+    # In memory on purpose: these tests are about the credential, not storage,
+    # and a deployed panel without DATABASE_URL otherwise refuses (CARD-522).
+    application = admin_app.create_app(allow_in_memory_when_deployed=True)
     application.config["TESTING"] = True
     return application
 
@@ -320,14 +322,52 @@ class TestAdminAuth_RefusesToBootMisconfigured:
         with pytest.raises(admin_app.AdminConfigurationError):
             admin_app.create_app()
 
-    def test_a_correct_configuration_boots(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_no_database_is_fatal(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Deployed, the in-memory fallback would lose every save (CARD-522).
+
+        Unset, empty and whitespace-only all read as unset (CARD-515), so all
+        three refuse. The message names the variable and the reason, and
+        never a host, URL or credential (G-2).
+        """
         monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, PASSWORD)
         monkeypatch.setenv("SECRET_KEY", REAL_KEY)
 
+        for value in (None, "", "   "):
+            if value is None:
+                monkeypatch.delenv("DATABASE_URL", raising=False)
+            else:
+                monkeypatch.setenv("DATABASE_URL", value)
+
+            with pytest.raises(admin_app.AdminConfigurationError) as caught:
+                admin_app.create_app()
+
+            message = str(caught.value)
+            assert "DATABASE_URL" in message, (value, message)
+            assert "deployed admin panel" in message, (value, message)
+            assert "needs a database" in message, (value, message)
+            for secret in (REMOTE, PASSWORD, REAL_KEY, "://"):
+                assert secret not in message, (value, secret)
+
+    def test_a_correct_configuration_boots(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A correct deployed configuration includes a database (CARD-522).
+
+        The URL is black-holed (TEST-NET-3): booting must stop at the mode
+        decision and open no connection, so the database being unreachable
+        cannot matter here, and the DB-backed store is what gets built.
+        """
+        monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, PASSWORD)
+        monkeypatch.setenv("SECRET_KEY", REAL_KEY)
+        monkeypatch.setenv(
+            "DATABASE_URL", "postgresql://nobody:nobody@203.0.113.1:5432/nope"
+        )
+
         application = admin_app.create_app()
 
+        assert application.puzzle_review_service._session_factory is not None, (
+            "a deployed panel with DATABASE_URL set must be DB-backed"
+        )
         assert application.config["SESSION_COOKIE_SECURE"] is True, (
             "the deployed panel is served over HTTPS, so its session cookie "
             "must not also be offered over a plaintext downgrade"
@@ -342,6 +382,10 @@ class TestAdminAuth_RefusesToBootMisconfigured:
         monkeypatch.delenv("SECRET_KEY", raising=False)
 
         application = admin_app.create_app()
+
+        # No DATABASE_URL either (the autouse fixture unsets it): locally
+        # that is still the in-memory fallback, not a refusal (CARD-522 AC-2).
+        assert application.puzzle_review_service._session_factory is None
 
         assert application.config["SECRET_KEY"] == admin_app.DEV_SECRET_KEY
 
@@ -877,7 +921,7 @@ class TestAdminAuth_RefusesToBootWithAGuessablePassword:
             admin_app.ADMIN_PASSWORD_VAR, "x" * admin_app.MIN_ADMIN_PASSWORD_LENGTH
         )
 
-        assert admin_app.create_app() is not None
+        assert admin_app.create_app(allow_in_memory_when_deployed=True) is not None
 
     def test_local_mode_imposes_no_floor(
         self, monkeypatch: pytest.MonkeyPatch

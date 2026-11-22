@@ -46,3 +46,33 @@ Re-verify on main first: how `create_app` chooses in-memory mode, how the deploy
 * **G-2**: the refusal message carries no URL, host or credential.
 
 ## Worktree notes
+
+### 2026-11-22: implementation (agent)
+
+**Premise, re-verified on the branch base before any change** (recorded run, not a reading): with `ADMIN_ALLOWED_HOST` set (the code's `REMOTE_HOST_VAR`; there is no variable literally named REMOTE_HOST), a valid password and SECRET_KEY, `create_app()` started for DATABASE_URL unset, `""` and `"   "`, each logging "Running in in-memory mode (DATABASE_URL not set)" with `puzzle_review_service._session_factory is None`.
+
+**Where a refusal surfaces.** `start.sh` runs gunicorn on `nonogram.admin.app:create_app()`, and the existing boot refusals are `AdminConfigurationError` raised from `create_app`. So this one is too. Measured locally (127.0.0.1, no database, nothing deployed): gunicorn exits 3, "Worker failed to boot", with the message in the log.
+
+**What changed**
+- `create_app` (src/nonogram/admin/app.py): the trimmed DATABASE_URL check (CARD-515's rule, still written out, still no SQLAlchemy import in an in-memory install) is read once as `database_url_set`, before the remote-mode checks, and reused for the mode decision. Inside the `if remote_host:` block, after the SECRET_KEY check, a missing/blank DATABASE_URL raises `AdminConfigurationError` naming DATABASE_URL and `ADMIN_ALLOWED_HOST` and saying the deployed panel needs a database. The message holds no host, URL or credential (G-2). Local mode is untouched.
+- New keyword-only parameter `allow_in_memory_when_deployed=False`, for tests only. The suite builds an in-memory deployed panel at 9 call sites (counted by `ast`) to test the door, not storage; they pass it. `start.sh` calls `create_app()` bare, so production cannot reach the bypass through the environment.
+- Tests, by name: new `TestAdminAuth_RefusesToBootMisconfigured::test_no_database_is_fatal` (AC-1: loops unset/empty/whitespace in one test, so +1 collected). Extended `test_a_correct_configuration_boots` (AC-3: black-holed TEST-NET-3 DATABASE_URL, asserts the DB-backed store was built, no connection opened). Extended `test_local_mode_boots_with_neither` (AC-2: asserts the in-memory store). These fixtures/tests now pass `allow_in_memory_when_deployed=True`: test_admin_auth `deployed_app` and `TestAdminAuth_RefusesToBootWithAGuessablePassword::test_the_boundary_itself_boots`; test_admin_binding `TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit.deployed_client`; test_admin_regrade_hidden_when_deployed `deployed_client`; test_admin_serving `test_every_shape_an_operator_might_paste_works`, `test_a_host_mismatch_is_logged_with_both_values`, `test_the_response_itself_still_gives_nothing_away`, `test_the_boot_log_says_which_door_is_open` (both calls).
+- ADMIN_SETUP.md: the "refuses to start" paragraph now lists DATABASE_URL.
+
+**Controls** (src/nonogram/admin/app.py mutated, then restored from a copy; `diff -q` confirmed identical):
+- A: refusal condition replaced by `if False` -> `test_no_database_is_fatal` red: `Failed: DID NOT RAISE AdminConfigurationError`.
+- B: `{remote_host!r}` added to the message -> red: `assert 'nonogram-admin.onrender.com' not in 'ADMIN_ALLOW...run locally.'`.
+- F: "needs a database" reworded -> red: `assert 'needs a database' in '...'`.
+- G: both DATABASE_URL mentions removed from the message -> red: `assert 'DATABASE_URL' in '...'`.
+- H: `database_url_set` made `os.getenv('DATABASE_URL') is not None` (blank counts as set) -> red: `DID NOT RAISE` (unset still refuses, so a blank value is what escaped).
+- C: refusal made unconditional on the URL -> `test_a_correct_configuration_boots` red with the AdminConfigurationError.
+- D: mode decision `if database_url_set` -> `if False` -> `test_a_correct_configuration_boots` red: `a deployed panel with DATABASE_URL set must be DB-backed / assert None is not None`.
+- E: the same refusal placed in local mode -> `test_local_mode_boots_with_neither` red: `AdminConfigurationError: DATABASE_URL needed`.
+- The `"deployed admin panel"` text assert has no separate control. A and C cover the remaining asserts as a group.
+
+**Gate** (no full suite):
+- Unarmed: tests/test_admin_auth.py, test_admin_serving.py, test_admin_binding.py, test_admin_regrade_hidden_when_deployed.py, test_admin_import_consistency.py, test_batch_requested_tier.py, test_puzzle_edit_routes.py, test_puzzle_editor_ui.py, plus neighbours test_db_url_driver.py, test_admin_filter_side_range_and_name.py, test_kill_matrix.py: 584 passed, 0 failed, 13 skipped (all "Database not reachable: DATABASE_URL is not set").
+- Armed against this worktree's own `nonogram_pythonproject4_card_522_14f2af8fd8ab_test` on localhost: the five edited test files gave 205 passed, 0 skipped, 0 failed.
+- Net collected: 10693 -> 10694 (+1, AC-4).
+
+**Not covered (outside this card).** With DATABASE_URL set but `from nonogram.db import session_scope` failing (for example, SQLAlchemy missing), `create_app` still catches the exception and falls back to in-memory mode silently, including on the deployed panel. The card scoped the refusal to unset/blank. This path is unchanged, and no test covers it.

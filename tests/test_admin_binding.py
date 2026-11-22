@@ -438,7 +438,7 @@ class TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit:
         monkeypatch.setenv("ADMIN_PASSWORD", self.PASSWORD)
         monkeypatch.setenv("SECRET_KEY", "a-real-production-secret")
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        application = admin_app.create_app()
+        application = admin_app.create_app(allow_in_memory_when_deployed=True)
         with application.test_client() as client:
             yield client
 

@@ -207,8 +207,10 @@ they are unrelated secrets, and reusing one value means a leak of either is a
 leak of both.
 
 **The app refuses to start** if `ADMIN_ALLOWED_HOST` is set and either
-`ADMIN_PASSWORD` is missing or `SECRET_KEY` is still the built-in development
-value. A half-finished setup fails the build with an `AdminConfigurationError`
+`ADMIN_PASSWORD` is missing, `SECRET_KEY` is still the built-in development
+value, or `DATABASE_URL` is unset or blank (the deployed panel never falls
+back to the in-memory store, which loses everything at restart; CARD-522).
+A half-finished setup fails the build with an `AdminConfigurationError`
 naming the variable, which is deliberate: a build you can fix in a minute is
 better than a panel that came up reachable with no password.
 
