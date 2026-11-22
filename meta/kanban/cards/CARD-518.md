@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py, tests/database_guard.py, tests/test_card_109_database_guard.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-22T10:32Z
 **Closed:** —
 **Actual:** —
@@ -67,3 +67,5 @@
 **Gate (unarmed, `-o addopts= -rfs`).** tests/test_kill_matrix.py, tests/test_card_109_database_guard.py, and their neighbours tests/test_db_isolation.py and tests/test_card_349_cold_database.py (both read the guard's file): 176 passed, 6 skipped, 0 failed, in 116 s. All 6 skips are `Database not reachable: DATABASE_URL is not set`. No `kill-matrix-*` temp tree is left by these runs. Not run armed (the card asks for no armed run).
 
 **AC-4, net test count:** 10692 collected before and 10692 after. Net 0.
+
+[Review 1/3] Score: 9.0, nothing gating, certified. tests/test_kill_matrix.py and tests/test_card_109_database_guard.py: 103 passed (the kill-matrix file's 84 unchanged). C1, C2 and C4 red again with sha256-verified restores; no temp trees left. Probes on temp trees: a same-bytes rewrite onto a new inode now publishes FAIL at workers 1 and 2 (main raised in both, lanes included); a different-bytes rewrite in a lane still raises; hardlinked registered paths are still detected. F-001 (low): retiring the old key also silences a different-bytes write onto a new inode made between readings (after SHIPPED's after-check, before `_apply`), which main caught through the stale key; the window is microseconds and the same write in place was already unseen on both. The module's declared bound and tests/README.md name only "a write made and undone inside one reading". F-002 (low): the trim-equality corpus has no quoted value, so a quote-stripping drift in `trimmed_url` survives it. F-003 (info): ACs and guardrails hold; the "temp tree is kept" sentence is true wherever it prints.
