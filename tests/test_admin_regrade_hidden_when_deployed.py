@@ -38,7 +38,9 @@ def deployed_client(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(admin_app.ADMIN_PASSWORD_VAR, PASSWORD)
     monkeypatch.setenv("SECRET_KEY", REAL_KEY)
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    application = admin_app.create_app()
+    # In memory on purpose: this exercises the deployed door, not storage,
+    # and a deployed panel without DATABASE_URL otherwise refuses (CARD-522).
+    application = admin_app.create_app(allow_in_memory_when_deployed=True)
     application.config["TESTING"] = True
     with application.test_client() as client:
         yield client

@@ -415,7 +415,7 @@ class TestAdminServing_TheConfiguredHostIsWhatTheOperatorPasted:
         from nonogram.admin import app as admin_app
 
         monkeypatch.setenv("ADMIN_ALLOWED_HOST", pasted)
-        application = admin_app.create_app()
+        application = admin_app.create_app(allow_in_memory_when_deployed=True)
         token = base64.b64encode(f"operator:{'x' * 20}".encode()).decode()
 
         with application.test_client() as client:
@@ -477,7 +477,7 @@ class TestAdminServing_SaysWhyItRefused:
         monkeypatch.setenv("SECRET_KEY", "k" * 20)
         monkeypatch.delenv("DATABASE_URL", raising=False)
 
-        application = admin_app.create_app()
+        application = admin_app.create_app(allow_in_memory_when_deployed=True)
         records = self._captured(application)
         with application.test_client() as client:
             client.get("/", headers={"Host": "wrong.example.com"})
@@ -497,7 +497,7 @@ class TestAdminServing_SaysWhyItRefused:
         monkeypatch.setenv("SECRET_KEY", "k" * 20)
         monkeypatch.delenv("DATABASE_URL", raising=False)
 
-        application = admin_app.create_app()
+        application = admin_app.create_app(allow_in_memory_when_deployed=True)
         with application.test_client() as client:
             response = client.get("/", headers={"Host": "wrong.example.com"})
 
@@ -545,13 +545,13 @@ class TestAdminServing_SaysWhyItRefused:
         handler = Capture()
         logging.getLogger("nonogram.admin.app").addHandler(handler)
         try:
-            application = admin_app.create_app()
+            application = admin_app.create_app(allow_in_memory_when_deployed=True)
             application.logger.addHandler(handler)
             application.logger.setLevel(logging.INFO)
             # create_app logs during construction; rebuild with the handler on
             # the logger it will use.
             records.clear()
-            application = admin_app.create_app()
+            application = admin_app.create_app(allow_in_memory_when_deployed=True)
         finally:
             logging.getLogger("nonogram.admin.app").removeHandler(handler)
 
