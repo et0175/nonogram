@@ -1091,34 +1091,54 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
     after = [mutants[1]]
 
     class WrittenUnder(Runner):
-        """Writes ``text`` to the target inside the reading ``label``."""
+        """Writes ``text`` to the target inside the reading ``label``.
 
-        label = text = ""
+        In place, or onto a **new inode** (``replace``: an editor's safe-save,
+        git's unlink-and-recreate), or deletes it (``text`` is ``None``).
+        """
+
+        label = how = ""
+        text: str | None = ""
         inside = False
+
+        def _plant(self):
+            if self.text is None:
+                simple_target.unlink()
+            elif self.how == "replace":
+                inode = os.stat(simple_target).st_ino
+                fresh = simple_target.with_name(simple_target.name + ".fresh")
+                fresh.write_text(self.text, encoding="utf-8")
+                os.replace(fresh, simple_target)
+                assert os.stat(simple_target).st_ino != inode, "no new inode"
+            else:
+                simple_target.write_text(self.text, encoding="utf-8")
 
         def _measure(self, label, *args):
             if label == self.label and not self.inside:
-                simple_target.write_text(self.text, encoding="utf-8")
+                self._plant()
             self.armed = label == self.label and self.inside
             return super()._measure(label, *args)
 
         def _pytest(self, pass_):
             if self.armed:
                 self.armed = False
-                simple_target.write_text(self.text, encoding="utf-8")
+                self._plant()
             return super()._pytest(pass_)
 
-    for label, text, inside, when in (
+    for label, text, how, inside, when in (
         (
             "SHIPPED after AFTER",
             pristine.replace('"shipped"', '"rotted!"', 1),
+            "write",
             False,
             "before its child pytest started",
         ),
-        ("AFTER", pristine, True, "after its child pytest ended"),
+        ("AFTER", pristine, "write", True, "after its child pytest ended"),
+        ("AFTER", pristine, "replace", True, "after its child pytest ended"),
+        ("AFTER", None, "delete", True, "after its child pytest ended"),
     ):
         WrittenUnder.label, WrittenUnder.text = label, text
-        WrittenUnder.inside = inside
+        WrittenUnder.how, WrittenUnder.inside = how, inside
         writer = WrittenUnder(
             selection=[str(simple_target)], repo_root=simple_target.parent
         )
@@ -1130,11 +1150,27 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
         assert "SHIPPED is not FAIL-free" not in said, said
         assert "git diff --cached" in said, said
         assert simple_target.read_text(encoding="utf-8") == pristine, label
+        tree = re.search(r"This run's temp tree, (\S+), is kept", said)
+        assert tree and Path(tree.group(1)).is_dir(), (how, said)
         kept = re.search(r"A copy of what it left is kept at (\[[^\]]*\])", said)
-        assert kept, said
-        (copy,) = (Path(name) for name in ast.literal_eval(kept.group(1)))
-        assert copy.read_text(encoding="utf-8") == text, copy
-        shutil.rmtree(copy.parent)
+        if text is None:
+            assert not kept, said
+        else:
+            assert kept, said
+            (copy,) = (Path(name) for name in ast.literal_eval(kept.group(1)))
+            assert copy.read_text(encoding="utf-8") == text, copy
+            assert copy.parent == Path(tree.group(1)), said
+        shutil.rmtree(tree.group(1))
+
+    # CARD-518 (CARD-315 review 2, F-001): the same bytes onto a new inode are
+    # not a foreign write, and the mutant read after it is still measured.
+    mark = km.assert_linenos(pristine)[0]
+    WrittenUnder.label, WrittenUnder.text = "SHIPPED", pristine
+    WrittenUnder.how, WrittenUnder.inside = "replace", True
+    resaved = WrittenUnder(
+        selection=[str(simple_target)], repo_root=simple_target.parent
+    ).run(Pass.RECORDING, after)
+    assert resaved.cell("AFTER", mark) == FAIL, resaved.table()
 
     (tmp_path / "sub").mkdir()
     spellings = [tmp_path / "sub" / ".." / simple_target.name]
@@ -1148,7 +1184,6 @@ def test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants(
         )
         for index, spelling in enumerate(spellings)
     ]
-    mark = km.assert_linenos(pristine)[0]
     honest = Runner(selection=[str(simple_target)], repo_root=simple_target.parent)
     honest.run(
         Pass.RECORDING,

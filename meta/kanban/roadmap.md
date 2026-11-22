@@ -96,12 +96,13 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 
 ### As cut
 
-Cut against main on 2026-11-22 on the owner's "start the no-decision wave 11": nothing in it waits on an owner decision. Two cards now at the cap; CARD-520 (IDEA-002, tests/README.md) follows CARD-518, because both may edit the kill-matrix section of tests/README.md. Not carded: IDEA-221, 225, 226, 227 and 105 (owner decisions), IDEA-125/126 (screened by the owner).
+Cut against main on 2026-11-22 on the owner's "start the no-decision wave 11": nothing in it waits on an owner decision. Two cards now at the cap; CARD-520 (the CARD-159 regression test, added on the owner's say) took the slot CARD-518 freed; CARD-521 (IDEA-002, tests/README.md) follows. Not carded: IDEA-221, 225, 226, 227 and 105 (owner decisions), IDEA-125/126 (screened by the owner).
 
 ### tech-debt
 - **CARD-518** Two one-line follow-ups from wave 10's reviews (kill matrix stale inode key; the guard's trim held equal to the app's) — 1c
 - **CARD-519** (IDEA-010) Write the wave-30 book behaviours into requirements.yml as acceptance criteria — 2c
-- **CARD-520** (IDEA-002) tests/README.md brought up to date — queued after CARD-518
+- **CARD-520** A page opened in centimetres admits an inches trim: a test that catches CARD-159's bug coming back (owner's "yes, add a card", after CARD-519 review 1 F-002) — 1c
+- **CARD-521** (IDEA-002) tests/README.md brought up to date — queued
 
 ## Wave 10 — DONE 2026-11-22 (board wave 89)
 
