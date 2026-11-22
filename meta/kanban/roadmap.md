@@ -92,6 +92,15 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 13 — IN PROGRESS (board wave 92)
+
+### As cut
+
+Cut against main on 2026-11-22 on the owner's "yes, start wave 13", while wave 12's last card (CARD-524) is still open. One measured experiment on the picture-to-grid pipeline, following CARD-517 (70-81% of real-picture puzzles easy whatever the cutoff; about 1 request in 6 produces no puzzle). It changes no product behaviour; fix cards follow only from its numbers and the owner's eye on its renders.
+
+### feature
+- **CARD-525** Where picture puzzles lose their difficulty and fail to generate: a measured experiment — 2c
+
 ## Wave 12 — IN PROGRESS (board wave 91)
 
 ### As cut
