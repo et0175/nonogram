@@ -42,7 +42,7 @@ Re-verify each behaviour on main first (it may have changed or been removed sinc
 
 ## Guardrails
 
-* **G-1**: no planned or future test is named as a check: only tests that exist and pass today.
+* **G-1**: an AC names as its check only a verifier that exists and passes on main today, never a planned or future one.
 * **G-2**: no edits outside requirements.yml, other than this card's notes and any census pin AC-3 forces (name it).
 
 ## Worktree notes
