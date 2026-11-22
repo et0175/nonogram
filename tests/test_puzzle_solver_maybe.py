@@ -962,7 +962,14 @@ class TestSolverMaybe_NoRequestPerMark:
 #: Viewport widths swept (height 900): 960..1480 step 20, plus the phone and
 #: CARD-511's portrait tablet (600 x 900, the compact layout's widest upright
 #: size, where solving used to move the board by dx +12.656, dy +27.203).
-_SWEEP = [(w, 900) for w in range(960, 1481, 20)] + [(390, 844), (600, 900)]
+#: CARD-523: and the upright phones and tablets, 320..590 step 10 at height
+#: 900, which steps through both bands where Show grid still moved the board
+#: after CARD-511 (325-340 px, dy +24.797; 421-451 px, dy +27.203).
+_SWEEP = (
+    [(w, 900) for w in range(960, 1481, 20)]
+    + [(390, 844), (600, 900)]
+    + [(w, 900) for w in range(320, 600, 10)]
+)
 
 _TOOLBAR_BOXES = """() => {
   const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
@@ -1000,20 +1007,34 @@ def _solve_and_measure(page):
     return before, after, boxes
 
 
+def _taps_itself(button):
+    """One visible button under that name, and the point at its centre hits it."""
+    if button.count() != 1 or not button.is_visible():
+        return False
+    button.scroll_into_view_if_needed()
+    return button.evaluate(
+        "(el) => { const r = el.getBoundingClientRect();"
+        " return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); }"
+    )
+
+
 @pytest.mark.browser
 class TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth:
     """With four tools the toolbar wraps differently across widths; the
     solved banner takes the tools' box (the tools stay in layout, hidden), so
     the board's box is the same before and after the solving click at every
     swept width (960..1480 step 20 at height 900, 390 x 844 and, since
-    CARD-511, 600 x 900), on both
+    CARD-511, 600 x 900; since CARD-523, 320..590 step 10 upright), on both
     axes. The banner (here "Lighthouse") lies inside the tools' box,
     centred down it (within 1 px), and overlaps none of the other controls
-    or the board."""
+    or the board. CARD-523: on the solved board "Show grid" and "Probe" are
+    shown under their names and each takes a tap at its own centre (on an
+    upright phone Show grid sits in Line's slot and the probe bar's box is
+    gone)."""
 
     def test_sweep(self, browser, live) -> None:
         puzzle = live.store(GRID, name=NAME)
-        moved, misplaced, checked = [], [], 0
+        moved, misplaced, unreachable, checked = [], [], [], 0
         for width, height in _SWEEP:
             context = browser.new_context(viewport={"width": width, "height": height})
             page = context.new_page()
@@ -1021,6 +1042,8 @@ class TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth:
                 _open(page, live, puzzle)
                 before, after, boxes = _solve_and_measure(page)
                 tools_hidden = not page.locator(".player-tools").is_visible()
+                reachable = {name: _taps_itself(page.get_by_role("button", name=name, exact=True))
+                             for name in ("Show grid", "Probe")}
             finally:
                 context.close()
             checked += 1
@@ -1032,9 +1055,12 @@ class TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth:
             inside = inside and abs((bt + bb) / 2 - (tt + tb) / 2) <= 1  # centred down the tools' box
             if not (tools_hidden and inside) or any(_overlaps(boxes["banner"], o) for o in boxes["others"]):
                 misplaced.append((width, boxes))
-        assert checked == len(_SWEEP) == 29
+            if not all(reachable.values()):
+                unreachable.append((width, reachable))
+        assert checked == len(_SWEEP) == 57
         assert moved == [], " ".join(f"{w}:{dx:+g},{dy:+g}" for w, dx, dy in moved)
         assert misplaced == []
+        assert unreachable == []
 
 
 #: The longest name the panel accepts (MAX_PUZZLE_NAME_LENGTH, 120 characters),
