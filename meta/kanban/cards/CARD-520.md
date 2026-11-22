@@ -1,6 +1,6 @@
 # CARD-520: A page opened in centimetres admits an inches trim: a test that catches CARD-159's bug coming back
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/520-inches-trim-regression
-**Worktree:** ../PythonProject4-card-520
+**Worktree:** —
 **Source:** roadmap wave 11, cut 2026-11-22 on the owner's "yes, add a card for the CARD-159 regression test", after CARD-519 review 1 F-002.
 **Idea:** —
 **Wave:** 90
@@ -20,9 +20,9 @@
 **UI surface:** Print setup (test only)
 **Review score:** 9.0 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-22T11:03Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-22T12:15Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** ead96b767cbf00cd5228537156f829cb51f05994
 **Blocked by:** —
 
 ## Why this card exists
