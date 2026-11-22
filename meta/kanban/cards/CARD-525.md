@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/ (one experiment script), scripts/README.md
 **UI surface:** —
-**Review score:** 7.5 (cycle 1/3)
+**Review score:** 8.5 (cycle 2/3)
 **Started:** 2026-11-22T15:49Z
 **Closed:** —
 **Actual:** —
@@ -180,3 +180,5 @@ How to read the similarity numbers: IoU is cell agreement with the picture cut a
    - Time saved: little. Abandoned failures take about half a second each; only dove1's timeouts cost real time (180 s).
    - Sample size: fitted on 6 failing pictures and checked on 1.
 3. **No change:** a longer deadline (90 s rescued nothing), more nudges (16 rescues at IoU 0.52), despeckling (31 of its 48 rescues are near-empty grids), outlines (87% fail), or swapping the whole conversion (`cut_62`/`dither_all` for every picture also makes 11 and 4 fixture puzzles fail and turns 6 harder ones easy).
+
+[Review 2/3] Score: 8.5, one gating finding, not certified. Recomputed from the saved JSONs: `rescue_easy` fixtures 69.7% -> 48.4% easy, 26 replaced (13 cut_62, 13 dither_all); owner's folder 80.7% -> 63.9%, 42 replaced (26 cut_62, 16 dither); failures unchanged; selection re-derived with 0 mismatches. The 0.96 floor recomputes as today's 10th percentile (0.9635) and results change smoothly around it (32 / 26 / 22 replaced at 0.95 / 0.96 / 0.97). Timing correction, F-005 (2 branched puzzles) and the line-art table reproduce; F-004's `ink_iou` mutant and round-0 control 1 red; privacy clean. F-007 (Important): `smooth_corr` blurs over 3x3 cells, so a dither keeps it high: `dither_all` raised it above today's grid in 15 of 18 replacements (9 of 16 in the owner's folder) while IoU fell, and six dither replacements replaced a grid that was itself below the floor. Renders: the dolphin (cut_62) is clean, but the toucan at 13 (dither) turns the beak into a checkerboard and the zebra and owl at 22 gain scattered single cells. With cut_62 alone, fixtures go 69.7% -> 59.0% and the owner's folder 80.7% -> 70.3%; half the headline effect is dither, which the floor does not guard. F-008 (low): `rescue_easy`'s selection (floor check, non-easy check) is untested; two mutants stay green. F-009 (low): the line-art rule's perfect fit is expected from a search of about 3000 rules over 17 pictures, and the one held-out failing picture is extreme enough that `ink_share` alone also catches it, so the second signal is untested. F-010 (info): that the floor was fixed before the run cannot be checked from history; the value is not tuned.
