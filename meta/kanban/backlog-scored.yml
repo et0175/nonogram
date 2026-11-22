@@ -5450,3 +5450,13 @@ ideas:
   status: backlog
   needs_owner_decision: true
   scored_at: '2026-11-22'
+- id: IDEA-228
+  title: Retry an easy picture puzzle with a stricter threshold, then dithering, keeping it only if it still looks like the picture
+  raw: '- [ ] CARD-525 measured result and the owner''s choice (2026-11-22, "Threshold, then dithering"): keep today''s picture puzzle unless it is Easy; then try INK_THRESHOLD 96, then dithering, at the same size, and keep the first non-Easy grid that passes the look test (smooth_corr >= 0.96, plus a noise check for dithering). Threshold step measured: fixtures 69.7% -> 59.0% easy, owner''s folder 80.7% -> 70.3%. Dithering step not yet measured with a fair look test. Re-measure on held-out pictures.   @feature'
+  source_line: null
+  intent: null
+  category: feature
+  status: in_kanban
+  owner_ruling: 'Owner 2026-11-22: build threshold, then dithering; card CARD-526.'
+  needs_owner_decision: false
+  scored_at: '2026-11-22'
