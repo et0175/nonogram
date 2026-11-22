@@ -295,7 +295,7 @@ ideas:
     Formalise as ACs   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3

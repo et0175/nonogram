@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 11 — IN PROGRESS (board wave 90)
+
+### As cut
+
+Cut against main on 2026-11-22 on the owner's "start the no-decision wave 11": nothing in it waits on an owner decision. Two cards now at the cap; CARD-520 (IDEA-002, tests/README.md) follows CARD-518, because both may edit the kill-matrix section of tests/README.md. Not carded: IDEA-221, 225, 226, 227 and 105 (owner decisions), IDEA-125/126 (screened by the owner).
+
+### tech-debt
+- **CARD-518** Two one-line follow-ups from wave 10's reviews (kill matrix stale inode key; the guard's trim held equal to the app's) — 1c
+- **CARD-519** (IDEA-010) Write the wave-30 book behaviours into requirements.yml as acceptance criteria — 2c
+- **CARD-520** (IDEA-002) tests/README.md brought up to date — queued after CARD-518
+
 ## Wave 10 — DONE 2026-11-22 (board wave 89)
 
 Two cards merged: CARD-517 (`b947235b`, 9.0 cycle 1), CARD-315 (`32f92558`, 9.0 cycle 2). Wave close: `make test-wave-close` on `main` at `20104860`, 10661 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 35 min. Net tests +1 (CARD-517's image-mode test). Nothing reaches the public player, so no publish. Findings: on real pictures the 90.0 cutoff gives 70-81% easy, 13-19% medium, 6-12% hard; easy is set by the pictures, and among non-trivial puzzles 90 is the cutoff nearest the plan's 2:1 (the split rests on about 15 pictures); no change proposed, the cutoff stays unless the owner says otherwise. The kill matrix now refuses a run when anything else writes a file it planted. Owner ruling 2026-11-22: IDEA-125/126 (the public make-your-own-puzzle QR) screened out for now, because arbitrary pictures too often give an unsolvable or unrecognisable puzzle. Recorded: **IDEA-227** (two kill-matrix runs in one tree; per-tree lock is the owner's call). Carried to wave 11: CARD-315 review 2 F-001/F-002 and CARD-515 F-202 (CARD-518).
