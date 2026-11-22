@@ -5016,7 +5016,7 @@ functional:
       - id: AC-432
         given: a book whose session claims an uploaded cover image whose file is no longer on disk
         when: its book page and the books list are rendered
-        then: 'the cover button is disabled, in no form, while the interior stays offered; the book page''s markup carries the words "no longer on disk" plus a link to its Finalise somewhere on the page, while the list row carries them in its own text span (id cover-lost-<book id>) holding that book''s Finalise link'
+        then: 'the cover button is disabled, in no form, while the interior stays offered; the book page''s markup carries the words "no longer on disk" plus a link to its Finalise somewhere on the page, while the list''s markup carries them in a span (id cover-lost-<book id>) holding that book''s Finalise link — neither page''s text is asserted to be visible'
         kind: negative
         test: TestBookPages_OfferBothExportFiles
       - id: AC-433
