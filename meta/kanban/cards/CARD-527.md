@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_browser_fixture_scope.py; the browser-test files it newly covers, only if one needs a declaration
 **UI surface:** —
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-23T08:10Z
 **Closed:** —
 **Actual:** —
@@ -124,3 +124,5 @@ No suspect isolation found (G-2: no fixture scope changed).
 **Gate** (unarmed, `-o addopts= -rfs`): tests/test_browser_fixture_scope.py tests/test_puzzle_solver_page.py tests/test_puzzle_editor_ui.py tests/test_player_public_mode.py tests/test_how_to_solve_page.py tests/test_wave_close_marker.py tests/test_suite_profile.py tests/test_impact_set.py tests/test_shared_fixture_controls.py gave 1037 passed, 1 failed, 0 skipped, in 637 s. The one failure is F-005, which was already failing before this card (`test_the_family_collects_exactly_what_card_217_measured`, same three node ids from 9fd47469).
 
 **Net test count**: 10695 before the card, 10694 after (unchanged by this round, which only extended existing tests).
+
+[Review 2/3] Score: 9.5, certified. Re-derived: 229 passed, 1 failed (the pre-existing family-collection test), 0 skipped; census 804 records, 32 files, 0 unmarked, 10694 collected; all 20 WIDER_FIXTURES_ALLOWED entries reached, none holds a page or a server (the four conftest session fixtures are a URL string, the schema/engine builder, the armed-DB check and a session monkeypatch; no browser test reaches the truncating DB fixture); controls C7, C9, C11 red for their own reasons; the census child fails closed on a nonzero exit, a missing output, an empty census or a 90 s timeout, and never takes the full-suite lock. Cycle-1 F-001, F-002, F-003, F-004, F-006 closed; F-005 pre-existing, owner deciding. F-101 (minor): `_reached` in tests/helpers/browser_census.py reads only the closest definition of a fixture name, so a function-scoped `def srv(srv)` override hides a wider parent (mutant green); no fixture in tests/ uses that pattern today. F-102 (info): the how-to reason says "only navigates" though its tests also click and evaluate; state lives in the page and the next navigation discards it. F-103 (info): the census child costs about 10 s per process, about three times the old one.
