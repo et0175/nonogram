@@ -754,10 +754,10 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
     ),
     "test_how_to_solve_page.py": (
         "own-page",
-        "only navigates the per-test browser_page through the lesson's steps "
-        "and under chosen referers; the lesson's script keeps no localStorage "
-        "(a static test of the file asserts it), so own-page is inherited from "
-        "browser_page here rather than needed",
+        "only navigates the per-test browser_page: through the lesson's steps "
+        "by its location hash, and opened under a chosen referer, which decides "
+        "where its back links point; nothing else is installed or stored, so "
+        "own-page is inherited from browser_page here rather than needed",
     ),
     "test_player_base_css.py": (
         "own-page",
