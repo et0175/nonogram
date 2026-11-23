@@ -618,6 +618,20 @@ body {
 
 .hts-strip { display: flex; align-items: center; gap: var(--space-3); }
 
+/* Owner's test notes, 2026-11-23: the row's clue at its start, as on a board. */
+.hts-strip-clue {
+  flex: none;
+  min-width: 1.6rem;
+  text-align: right;
+  font-family: var(--font-num);
+  font-size: var(--text-sm);
+}
+
+/* Keep and Wrong guess stay on one row together (owner's test notes,
+   2026-11-23); the pair wraps as one, never between its two buttons. */
+.hts-pair { display: inline-flex; flex-wrap: nowrap; gap: var(--space-2); }
+.hts-pair:not(:has(> :not([hidden]))) { display: none; }
+
 .hts-strip-label {
   flex: none;
   width: 6.5rem;
