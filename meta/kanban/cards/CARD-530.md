@@ -85,3 +85,25 @@ The two clue tests can follow the CARD-435 precedent: strike their old `ADDED_SI
 **Net test count**: 10695 before, 10696 after (+1, `test_the_retirement_table_refuses_what_it_claims_to`). Everything else extends existing tests.
 
 [Review 1/3] Score: 8.5, one gating finding, not certified. Re-derived: tests/test_browser_fixture_scope.py 34 passed, 0 skipped, on this branch and merged with CARD-527 in a scratch clone (no conflicts); 5 of 18 controls red at their asserts; the reason lines match what each test asserts; the same-card and one-replacement rules hold; no existing claim weakened. F-001 (Important): `_retirement_problems` links the old id and the replacement only by the card name, so a card can retire a recorded test in any file by naming one of its own allowlisted tests (measured: a page.py test retired against a clue test, drift empty, every guard green); the table's comment overclaims. F-002 (medium): a comment in `test_the_baseline_goes_red_in_both_directions` still describes `before` as the record after renames and claim 4 as pinning it. F-003 (low): one clue reason says the page is checked with rule E off; only the Python rule is. F-004 (info): a recorded test that was renamed cannot be retired; fails closed.
+
+### Fix round 1 (review 1)
+
+- **F-001**: `_retirement_problems` gains a tenth refusal. The old id and its replacement must share the file part before `::` ("... lives in a different file"). The zoom entry satisfies it.
+  - `test_the_retirement_table_refuses_what_it_claims_to` gains the case "another file's replacement". It names the first id CARD-530 allowlisted in a file other than the zoom file.
+  - The `RETIRED_SINCE_BEFORE` comment is narrowed to what is enforced. It now also says what is not enforced: nothing checks that the replacement tests the same thing, and within one file a card can still name any test it allowlisted there.
+  - Before the fix, the reviewer's /private/tmp/claude-501/card530-review/abuse.py printed `problems: []`. After it, the script prints the "lives in a different file" problem. Its `drift` line stays empty, because the drift does not consult the refusals.
+- **F-002**: the comment above `before = _baseline_node_ids({})` now says `before` is the recorded family after renames and the real retirements, so artefact size minus `len(RETIRED_SINCE_BEFORE)`. It says claim 4 pins the retirement-free derivation to the artefact's size, and claim 3 pins what the retirements take out.
+- **F-003**: the reason for `test_the_repeated_value_circles_the_one_that_fits` now says that the test's independent Python rule, with rule E off, circles nothing on the same marks. It no longer makes that claim about the page.
+- **F-004**: no change. Retiring a renamed recorded test fails closed: the renamed target is refused as "not in CARD-217's record", and the raw source subtracts nothing, so the family goes red.
+
+**Controls, round 1** (pristine copies restored; `cmp` and `git diff --stat` were clean afterwards):
+- Same-file refusal deleted: `test_the_retirement_table_refuses_what_it_claims_to` is red at `assert len(hits) == 1` ("another file's replacement: 'lives in a different file' matched 0 of []").
+- Reviewer's abuse replayed against the real collection. `TestPlayerAssets::test_every_admin_asset_ships_in_the_wheel` was removed from tests/test_puzzle_solver_page.py for the run, and its retirement entry was added with the CARD-530 clue test as the replacement. `test_the_family_collects_exactly_what_card_217_measured` is red at `assert _retirement_problems(RETIRED_SINCE_BEFORE, ids) == []`. The same abuse with the refusal also deleted passes, so the new refusal is the only thing that catches it.
+- The 18 round-0 controls, re-run on the fixed file: 18/18 red at the same asserts.
+
+**Gate, round 1** (unarmed, `-o addopts= -rfs`):
+- tests/test_browser_fixture_scope.py whole: 34 passed, 0 failed, 0 skipped (100 s).
+- The three registered tests: 3 passed.
+- tests/test_kanban_review_record.py: see the hand-back.
+
+**Net test count**: 10696 (round 0 was also 10696; the new case is inside an existing test). Against the pre-card count of 10695 the card is +1.

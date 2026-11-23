@@ -902,7 +902,8 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "Player QA v3 (9fd47469, owner 2026-11-23, rule E) inverted CARD-213's "
         "AC-2: on the owner's 1 2 3 2 1 clue a closed run of two circles the "
         "one 2 with room for its neighbours either side, and Anna's 2 2 2 line "
-        "circles the middle 2; with rule E off the same marks circle nothing",
+        "circles the middle 2; the test's independent Python rule, with rule "
+        "E off, circles nothing on the same marks",
     ),
     "tests/test_puzzle_solver_clues.py::"
     "TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits::"
@@ -2444,9 +2445,11 @@ RENAMED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
 #: table that could delete coverage, and :func:`_retirement_problems` holds it
 #: to one rule: a recorded test is retired only TOGETHER with a replacement.
 #: The old id must be in CARD-217's record and no longer collected; the
-#: replacement must be collected and carried by an ``ADDED_SINCE_BEFORE``
-#: entry of the SAME card (so an unrelated allowlisted test cannot be named as
-#: the replacement), and replaces only this one id. A recorded test that
+#: replacement must be collected, live in the SAME file as the old id, be
+#: carried by an ``ADDED_SINCE_BEFORE`` entry of the SAME card, and replace
+#: only this one id. Nothing checks that the replacement tests the same thing
+#: as the old id: within one file, a card can still name any test it
+#: allowlisted there, and the reason is the only record of why. A recorded test that
 #: disappears with no entry here is still ``"tests removed"``
 #: (``test_the_baseline_goes_red_in_both_directions``, claim 3).
 RETIRED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
@@ -2571,8 +2574,8 @@ def _retirement_problems(
 
     The entry this refuses is one that retires a recorded test with no
     replacement of its own: an old id that is still there, a replacement that
-    is not, one nothing in :data:`ADDED_SINCE_BEFORE` carries, one another
-    card's entry carries, or one that two old ids share.
+    is not, one in another file, one nothing in :data:`ADDED_SINCE_BEFORE`
+    carries, one another card's entry carries, or one that two old ids share.
     """
     before = _family_node_ids(BEFORE_ARTEFACT)
     problems: list[str] = []
@@ -2591,6 +2594,10 @@ def _retirement_problems(
             problems.append(f"{old}: still collected, so nothing was retired")
         if new not in collected:
             problems.append(f"{old}: its replacement {new} is not collected")
+        if old.split("::")[0] != new.split("::")[0]:
+            problems.append(
+                f"{old}: its replacement {new} lives in a different file, so "
+                f"it replaces nothing that was in this one")
         if new not in ADDED_SINCE_BEFORE:
             problems.append(
                 f"{old}: its replacement {new} has no ADDED_SINCE_BEFORE entry, "
@@ -2713,9 +2720,11 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         4. the derived count moves with the allowlist, so it cannot silently
            become a snapshot again.
         """
-        # The recorded family as it stands after the renames — the set an
-        # empty allowlist derives. Claim 4 below is what pins it to the
-        # artefact's own size, so a rename cannot quietly add or lose an id.
+        # The recorded family after the renames AND the real retirements — the
+        # set an empty allowlist derives, so it is the artefact's size less
+        # len(RETIRED_SINCE_BEFORE). Claim 4 below pins the retirement-free
+        # derivation to the artefact's own size, so a rename cannot quietly
+        # add or lose an id; claim 3 pins what the retirements take out.
         before = _baseline_node_ids({})
         recorded = sorted(ADDED_SINCE_BEFORE)[0]
         one_entry = {recorded: ADDED_SINCE_BEFORE[recorded]}
@@ -2925,6 +2934,11 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         other_card = next(node for node, entry in sorted(ADDED_SINCE_BEFORE.items())
                           if entry[0] != card)
         unrecorded = f"{FAMILY_PREFIX}_zoom.py::TestNotAThing::test_nothing[x]"
+        # A test the same card allowlisted in another file: the abuse CARD-530
+        # review 1 (F-001) measured, which every other refusal lets through.
+        same_card_elsewhere = next(
+            node for node, entry in sorted(ADDED_SINCE_BEFORE.items())
+            if entry[0] == card and node.split("::")[0] != old.split("::")[0])
 
         # label -> (a table broken on purpose, the tree, the refusal it provokes)
         broken = {
@@ -2943,6 +2957,9 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
             "replacement not allowlisted": (
                 {old: (card, recorded, reason)}, tree,
                 "has no ADDED_SINCE_BEFORE entry"),
+            "another file's replacement": (
+                {old: (card, same_card_elsewhere, reason)}, tree,
+                "lives in a different file"),
             "another card's replacement": (
                 {old: (card, other_card, reason)}, tree,
                 "allowlist entry, not by"),
