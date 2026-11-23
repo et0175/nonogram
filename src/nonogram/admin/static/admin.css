@@ -2037,8 +2037,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      page a small board stopped at the 28 px cell cap with most of the window
      empty (a 10 x 10 was ~300 px at 1280 x 800); the cap is 36 px there. A
      big board is bound by the window's height long before either cap. */
-  .player-toolbar:not(:has([data-player-action="check"])) ~ .player-stage-wrap .player-stage { --player-cell-max: 36px; }
+  .player-toolbar:not(:has([data-player-action="check"])) ~ .player-stage-wrap .player-stage { --player-cell-max: 64px; }
 }
+/* Owner's test notes, 2026-11-23 ("Desktop - maybe we can use space
+   better?", option a): 36 px still left a 13 x 12 in the top-left third of
+   a 1440 x 900 window. The public desktop cap is 64 px, so the window's
+   HEIGHT (the fit's height term) sizes the board: it now fills the window
+   down to its bottom edge. The clue numerals keep their 14 px cap
+   (CARD-404), so only the cells grow. */
 /* The glyphs carry the pair's meaning in colour too, so the phone's
    icon-only Keep (✓) does not read as Check's tick. */
 [data-player-probe-action="keep"] .player-probe-glyph { color: var(--color-success); }
