@@ -1142,3 +1142,14 @@ Not observed: a real phone.
 | Rollback target | The CARD-523 deployment (`nonogram-studio-rd5i6sefk`). |
 
 Not observed: a real phone (QA #28's sideways shift is not reproduced in emulation).
+
+**The iPhone publish, 2026-11-23 (the day's second).** The owner's "так, публікуй" after the iPhone Safari follow-up (`9ea299be`) and the probe frame (`c333e457`) merged; Anna's phone turned out to be an iPhone (Safari), not Android. Built from **`c333e457`** the same way into `~/Documents/nonogram-reviews/deploy-2026-11-23-ios/src`, no `--analytics`. Reaching served files: WebKit `gesturestart`/`gesturechange` cancelled on the stage (Safari ignores user-scalable=no; a pinch-in opened its tab overview), a one-finger pan keeps to its axis (Safari pans a scroller diagonally), and the probing frame drawn round the board's visible box instead of the stage.
+
+| Step | Record |
+|---|---|
+| Assemble | Against production before the publish exactly two served files differed: `admin.css` `1034bec40ca5` → `8681d1640b67`, `solver.js` `3b5b6aa6e612` → `2bc10bd6160c`. |
+| Preview | **`nonogram-studio-lltsqan5r`**; doors 200, `/nope` 404, both files at the built hashes; iPhone 13 emulation (Chromium): the probe frame dashed and exactly on the board's box, no page errors. |
+| Production | `vercel promote` created **`nonogram-studio-phuul6pzn`**; new `solver.js` on poll 2; hashes matched, doors 200, `/nope` 404. |
+| Rollback target | The QA v3 deployment (`nonogram-studio-9z8wfuctp`). |
+
+Not observed: a real iPhone. The Safari-only parts (gesture events, diagonal pans) cannot run in Chromium; there is no iOS simulator on this Mac.

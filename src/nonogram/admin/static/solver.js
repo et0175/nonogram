@@ -2797,7 +2797,40 @@ function wireMarking(container, player) {
       className: "player-probe-flag", textContent: "Probing \u00b7 \u2713 Keep \u00b7 \u2717 Wrong guess",
     }));
   probeFlag?.setAttribute("aria-hidden", "true");
+  // The probe's frame, round the board's visible part (see admin.css
+  // .player-probe-frame): the board's box clipped to the stage's own visible
+  // box, in viewport pixels, re-measured wherever the flag is re-placed and
+  // whenever the stage or the page scrolls. None while the line view covers
+  // the board.
+  const probeFrame = probeFlag === null ? null
+    : stageWrap.appendChild(Object.assign(document.createElement("div"), { className: "player-probe-frame" }));
+  probeFrame?.setAttribute("aria-hidden", "true");
+  function placeProbeFrame() {
+    if (probeFrame === null) return;
+    const open = stageWrap.classList.contains("is-probing");
+    const table = container.querySelector(".player-board");
+    let box = null;
+    if (open && table !== null && !document.documentElement.classList.contains("is-line-open")) {
+      const board = table.getBoundingClientRect();
+      const stage = container.getBoundingClientRect();
+      const left = Math.max(board.left, stage.left);
+      const top = Math.max(board.top, stage.top);
+      const right = Math.min(board.right, stage.left + container.clientWidth);
+      const bottom = Math.min(board.bottom, stage.top + container.clientHeight);
+      if (right > left && bottom > top) box = { left, top, width: right - left, height: bottom - top };
+    }
+    probeFrame.classList.toggle("is-shown", box !== null);
+    if (box !== null) {
+      for (const [name, value] of Object.entries(box)) probeFrame.style[name] = `${Math.round(value)}px`;
+    }
+  }
+  if (probeFrame !== null) {
+    container.addEventListener("scroll", placeProbeFrame, { passive: true });
+    window.addEventListener("scroll", placeProbeFrame, { passive: true });
+    window.addEventListener("resize", placeProbeFrame, { passive: true });
+  }
   function placeProbeFlag() {
+    placeProbeFrame();
     if (probeFlag === null || !probeFlag.classList.contains("is-shown")) return;
     if (!placeInSlot(probeFlag, container)) probeFlag.removeAttribute("data-place");
   }
@@ -3523,6 +3556,66 @@ function wireMarking(container, player) {
     if (event.timeStamp - lastTouchEnd < DOUBLE_TAP_MS && event.cancelable) event.preventDefault();
     lastTouchEnd = event.timeStamp;
   }, { passive: false });
+
+  // iOS Safari (QA checklist v3, Anna's iPhone, 2026-11-23). Safari ignores
+  // the play page's user-scalable=no, so a two-finger gesture on the board
+  // was ALSO Safari's own: a pinch-in at the page's smallest zoom opens the
+  // tab overview, which looked like the tab closing (#29). WebKit's own
+  // gesture events are cancelled on the stage; the board's pinch runs on
+  // pointer events and is untouched by this.
+  for (const type of ["gesturestart", "gesturechange"]) {
+    container.addEventListener(type, (event) => event.preventDefault(), { passive: false });
+  }
+
+  // A one-finger pan of a zoomed board keeps to its axis (QA checklist v3
+  // #28, same iPhone: in portrait, scrolling a zoomed board up or down slid
+  // it a little to the left too). Safari pans a scroller on both axes at
+  // once, so a vertical swipe's sideways drift moved the board sideways;
+  // Chrome rails such a pan itself and never reaches the lock below. The
+  // first PAN_DECIDE px of a pan pick its axis (one axis when it is clearly
+  // dominant, both when the pan is diagonal) and the other axis is held where
+  // the pan found it until the scroll ends, a fling included. A second
+  // finger, a touch outside the stage and a scroll after the pan ended
+  // (a zoom button, Hint) are untouched.
+  const PAN_DECIDE = 10;
+  let panLock = null; // { left, top, axis: null | "x" | "y" | "both" }
+  container.addEventListener("touchstart", (event) => {
+    panLock = event.touches.length === 1
+      ? { left: container.scrollLeft, top: container.scrollTop, axis: null }
+      : null;
+  }, { passive: true });
+  document.addEventListener("touchstart", (event) => {
+    if (!(event.target instanceof Node) || !container.contains(event.target)) panLock = null;
+  }, { passive: true, capture: true });
+  // Released 200 ms after the last scroll once the finger is up: Safari
+  // has no reliable scrollend, and a lock left armed would hold the next
+  // programmatic scroll.
+  let panQuiet = 0;
+  const releaseSoon = () => {
+    clearTimeout(panQuiet);
+    panQuiet = setTimeout(() => { panLock = null; }, 200);
+  };
+  container.addEventListener("touchend", (event) => {
+    if (event.touches.length !== 0 || panLock === null) return;
+    if (panLock.axis === null) panLock = null;
+    else {
+      panLock.up = true;
+      releaseSoon();
+    }
+  }, { passive: true });
+  container.addEventListener("scrollend", () => { panLock = null; });
+  container.addEventListener("scroll", () => {
+    if (panLock === null || pinch) return;
+    if (panLock.up) releaseSoon();
+    if (panLock.axis === null) {
+      const dx = Math.abs(container.scrollLeft - panLock.left);
+      const dy = Math.abs(container.scrollTop - panLock.top);
+      if (Math.max(dx, dy) < PAN_DECIDE) return;
+      panLock.axis = dy >= 2 * dx ? "y" : dx >= 2 * dy ? "x" : "both";
+    }
+    if (panLock.axis === "y" && container.scrollLeft !== panLock.left) container.scrollLeft = panLock.left;
+    else if (panLock.axis === "x" && container.scrollTop !== panLock.top) container.scrollTop = panLock.top;
+  }, { passive: true });
 
   container.addEventListener("pointerdown", (event) => {
     // Pinch bookkeeping (CARD-195) runs ahead of — and independently of —
