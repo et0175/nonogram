@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_browser_fixture_scope.py
 **UI surface:** —
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-23T09:07Z
 **Closed:** —
 **Actual:** —
@@ -107,3 +107,5 @@ The two clue tests can follow the CARD-435 precedent: strike their old `ADDED_SI
 - tests/test_kanban_review_record.py: see the hand-back.
 
 **Net test count**: 10696 (round 0 was also 10696; the new case is inside an existing test). Against the pre-card count of 10695 the card is +1.
+
+[Review 2/3] Score: 9.5, certified. Re-derived: tests/test_browser_fixture_scope.py 34 passed, 0 skipped, on this branch and merged with CARD-527 (c5b9e16d) in a scratch clone with no conflicts; the cross-file abuse is refused ("lives in a different file") and the family test reds on it against the real collection; deleting the same-file refusal reds its own case; review-record census 71 passed. Cycle-1 F-001, F-002, F-003 closed; F-004 accepted (fails closed). F-005 (low, recorded): within one file a card can still retire any recorded test by naming a test it allowlisted there (249 of 422 recorded ids sit in a file with an allowlisted test); the table comment states it, and a retirement needs a written entry, so it shows in review. A "replacement new in this diff" rule would refuse this card's own entry, since 9fd47469 landed the replacements first. F-006 (low): the `same_card_elsewhere` case uses a bare `next()` and would error without a message if its precondition went away; fails closed. F-007 (info): the round-1 gate note gives no census figure; measured 71 passed.
