@@ -92,7 +92,9 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 15 — IN PROGRESS (board wave 94)
+## Wave 15 — DONE 2026-11-23 (board wave 94)
+
+Three cards merged, each certified in one review cycle: CARD-532 (`c83f74f8`, 9.5, net 0), CARD-533 (`f7bb2698`, 9.5, net 0), CARD-534 (`ac01f81d`, 9.5, net 0). Net tests 0. Wave close: `make test-wave-close` on main at `73eab315`, in a detached worktree pinned to that commit, 10682 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 68 min. No product change a reader of the public site would see, nothing to publish. Recorded, not carded: CARD-532 F-004 (three test thresholds still count against 4.8 mm, not `FLOOR_MM` 4.75), CARD-533 F-1, CARD-534 F-001 to F-003.
 
 ### As cut
 
