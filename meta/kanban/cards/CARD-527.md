@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_browser_fixture_scope.py; the browser-test files it newly covers, only if one needs a declaration
 **UI surface:** —
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-23T08:10Z
 **Closed:** —
 **Actual:** —
@@ -90,3 +90,5 @@ No suspect isolation found (G-2: no fixture scope changed).
 **Gate** (unarmed, `-o addopts= -rfs`): tests/test_browser_fixture_scope.py tests/test_puzzle_solver_page.py tests/test_puzzle_editor_ui.py tests/test_wave_close_marker.py tests/test_suite_profile.py tests/test_impact_set.py -> 886 passed, 1 failed, 0 skipped. The failure is `TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`, and it is **pre-existing**: red identically with this card's three files checked out at the merge base. Three family tests added by 9fd47469 (Player QA v3) are registered nowhere: two in test_puzzle_solver_clues.py's `TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits`, one in test_puzzle_solver_zoom.py's `TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom`. Not fixed here (outside this card; its ADDED_SINCE_BEFORE entries need that change's card/why).
 
 **Net test count**: 10695 before, 10694 after (−1: the editor file's local declaration test, folded into the shared one).
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. Re-derived: 32 browser files and 802 browser-marked items by collection; controls C1, C3, C4 red with the notes' messages; `_browser_files` fails closed on a nonzero child exit or an empty set; 8 declarations sampled and all 15 scope-walked, categories true; net -1. The one failing test, `test_the_family_collects_exactly_what_card_217_measured`, fails identically on main (three node ids added by 9fd47469 not in ADDED_SINCE_BEFORE): pre-existing, not scored. F-001 (Important): folding CARD-246's declaration dropped its fixture-scope check of the editor file's own `browser_page` and `live`; the shared own-page test checks only fixtures whose signature takes a page, so no server fixture in the 15 new files has its scope checked (mutant: a module-scoped `live` in test_puzzle_editor_ui.py stays green on HEAD, red on main with 'module' == 'function'). F-002 (minor): two tests in test_player_public_mode.py request `browser_page` without the `browser` marker, so a file whose browser tests are all unmarked would escape the census. F-003 (low): fixture dependencies are read from signatures only; `request.getfixturevalue` is not followed. F-004 (low): test_how_to_solve_page.py's reason passes the mechanism check only through a negated `localStorage`. F-005, F-006 (pre-existing, info): the family-collection failure; the two unmarked tests run under `-m "not browser"`.
