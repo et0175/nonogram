@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** pyproject.toml, scripts/impact_set.py, tests/test_puzzle_solver_page.py
 **UI surface:** —
-**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
+**Review score:** 9.5 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-23T13:43Z
 **Closed:** —
 **Actual:** —
@@ -55,3 +55,5 @@
 **Fix round 2 (orchestrator).** F-003 and F-004 fixed, comments and Why only; checked first with a grep: `/favicon.png` is linked only by `player/*.html` and `player/assemble.py`'s page template. No code change.
 
 **Fix round 3 (orchestrator, owner's request: "also fix the metadata.js one").** F-001 folded in, because both changes force a FULL gate through pyproject.toml; the round-2 gate was stopped unfinished. `test_every_admin_asset_ships_in_the_wheel` now also lists `nonogram/web/static` against a `"nonogram.web"` package-data entry (name kept: only the pyproject comment refers to it). Widened test without the entry: 1 failed (`nonogram.web: static/metadata.js` unshipped); with `"nonogram.web" = ["static/*.js"]`: 1 passed. `test_puzzle_solver_page.py`, `test_impact_set.py` and `test_web_server.py` (not browser): 418 passed. Net tests 0.
+
+[Review 3/3] Score: 9.5, certified. Re-derived: the widened test passes on 1aff636b; without the `"nonogram.web"` line it fails listing `nonogram.web: static/metadata.js`; with `static/*.css` dropped it fails listing `nonogram.admin: static/admin.css`; a missing or empty entry fails, not passes. The F-003/F-004 rewordings match the code. F-001, F-003, F-004 closed. F-005 (low, recorded): the test's package roots are a hand-written table, so a static folder in a third package would go unchecked; every tracked non-`.py` file under src is covered today. F-006 (info): the name says admin, the docstring says web too.
