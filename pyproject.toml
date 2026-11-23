@@ -82,7 +82,7 @@ where = ["src"]
 # puzzle player's client (ADR-0038/R5); without it an editable install works
 # and a built wheel serves a player page with no script. `static/*.png` is the
 # public site's tab icon (favicon.png, CARD-531): no admin page links it, and
-# player/assemble.py copies it from the checkout, so a wheel needs it only to
+# the public site's assembler copies it from the checkout, so a wheel needs it only to
 # keep this list equal to admin/static (test_every_admin_asset_ships_in_the_wheel).
 "nonogram.admin" = ["templates/*.html", "static/*.css", "static/*.js", "static/*.png"]
 # The vendored QR encoder's licence and provenance record (ADR-0006/R2, CARD-388):
