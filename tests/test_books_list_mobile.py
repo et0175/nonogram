@@ -62,7 +62,7 @@ _PAGE_WIDTH = """() => ({
 
 
 def _member(store, grid) -> str:
-    """One stored easy puzzle whose clues are filled in: the 4.8 mm floor
+    """One stored easy puzzle whose clues are filled in: the 4.75 mm floor
     measures a member's cell from its clues, and refuses a puzzle without."""
     rows, cols = _expected_clues(grid)
     return store.add_puzzle(

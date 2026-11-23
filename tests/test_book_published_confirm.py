@@ -192,11 +192,11 @@ def one_more(shelf, cell=(B20, M)) -> str:
 
 
 def below_the_floor(shelf) -> str:
-    """One stored, approved puzzle whose printed cell misses the 4.8 mm floor.
+    """One stored, approved puzzle whose printed cell misses the 4.75 mm floor.
 
     A 30x25 grid with 12-deep row clues — ``tests/test_book_floor.py``'s
-    ``BELOW_FLOOR`` fixture, whose 4.61 mm is measured there rather than
-    re-derived here. It is written through the store's own ``add_puzzle`` (not
+    ``BELOW_FLOOR`` fixture, whose stated cell is 4.54 mm (measured
+    4.5357 mm on Book 1); it is not re-derived here. It is written through the store's own ``add_puzzle`` (not
     the shelf's stub records) because the floor reads the clues, and it is the
     puzzle INV-006 refuses unless the submission carries an override for it.
     """

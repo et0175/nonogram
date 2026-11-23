@@ -50,7 +50,7 @@ How the MIN_CELL_MM floor interacts (EC-019)
 --------------------------------------------
 The floor (2.0 mm) still beats page fit on a placed page, as it does on A4.
 So EC-019's fit is asserted over every spec whose page fit is at least 2 mm.
-That includes every cell between 2 mm and NFR-008's 4.8 mm book floor: those
+That includes every cell between 2 mm and NFR-008's 4.75 mm book floor: those
 fit, and FR-031 flags them. A spec whose page fit is under 2 mm (only a
 freakishly small stored trim reaches that) is its own declared case. The cell
 is exactly 2 mm, the drawing anchors at the usable area's left edge (CARD-224:

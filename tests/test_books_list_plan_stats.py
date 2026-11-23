@@ -182,7 +182,7 @@ class Shelf:
     ``add_puzzle``, exactly as ``test_book_ready_gate``'s shelf does: this page
     reads a record's width, height and stored tier and nothing else, and a
     three-book scenario of 302 puzzles would otherwise cost 302 uniqueness
-    proofs. The one-cell clue pair keeps every puzzle far above the 4.8 mm
+    proofs. The one-cell clue pair keeps every puzzle far above the 4.75 mm
     floor, so membership is never refused (INV-006).
     """
 
