@@ -1130,3 +1130,15 @@ Not observed: a real phone, and the 327-339 / 421-451 px bands (IDEA-225) on the
 Correction to the CARD-511 record above: the public toolbar does show Show grid once a puzzle is solved (CARD-523's measurement: every solved public toolbar ends Probe, Show grid). The CARD-511 record listed the unsolved toolbar only. The public board did not move on solve then or now.
 
 Not observed: a real phone.
+
+**The QA v3 publish, 2026-11-23.** The owner's "дякую, публікуй" after the QA checklist v3 fixes merged (`8f799d5b`). Built from **`8f799d5b`** with `git archive 8f799d5b player src scripts pyproject.toml` into `~/Documents/nonogram-reviews/deploy-2026-11-23-qa3/src`, that tree's own `scripts/assemble_player_site.py --bundle build/player-bundle`, no `--analytics`. Reaching served files: a pinch that starts on a clue box is the board's pinch (`.player-stage` takes `touch-action: pan-x pan-y`), a pinch under 100% settles on 100% or Fit, and clue-circle rule E (a closed run of a repeated value that has room as one number only).
+
+| Step | Record |
+|---|---|
+| Assemble | 160 puzzles, 1 book landing. Against production before the publish exactly three served files differed: `admin.css` `d7e4e98b1c3e` → `1034bec40ca5`, `solver.js` `766ad7b2a699` → `3b5b6aa6e612`, `solver_state.js` `2ad12b4772c3` → `d7f36ca0a8ca`. |
+| Preview | **`nonogram-studio-qx6ht02k7`**; doors 200, `/nope` 404, the three files at the built hashes. |
+| Behaviour (headless Chromium, Pixel 7 emulation, `33fa80994c` 10 x 10, portrait and landscape) | A two-finger spread starting on a row clue box zoomed to 250% (production before: no change); a slight pinch-in from 100% stayed at 100%; `circledNumbers([2,2,2], ".D..WDDW.D")` read `[false, true, false]`; no page errors. |
+| Production | `vercel promote` created **`nonogram-studio-9z8wfuctp`**; new `solver_state.js` on poll 3; the three hashes matched, doors 200, `/nope` 404. |
+| Rollback target | The CARD-523 deployment (`nonogram-studio-rd5i6sefk`). |
+
+Not observed: a real phone (QA #28's sideways shift is not reproduced in emulation).
