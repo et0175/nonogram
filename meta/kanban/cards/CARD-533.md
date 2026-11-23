@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, its arrange-screen tests
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T17:51Z
 **Closed:** —
 **Actual:** —
@@ -52,3 +52,5 @@ The arrange screen labels each puzzle with its interior page through `_printed_p
 - AC-2: the existing arrange-screen tests pass unchanged (the two existing variants' assertions are untouched; the added unprinted assert holds for them).
 - AC-3: net tests +0 (10713 collected before and after; tests/test_book_arrange_page_breaks.py 20 and 20).
 - Gate, unarmed, `-o addopts= -rfs`: tests/test_book_arrange_page_breaks.py, tests/test_book_arrange_play_link.py, tests/test_book_arrange_position.py, tests/test_book_arrange_size_filter.py, tests/test_book_arrange_sort_by_size.py, tests/test_book_detail_page.py (book detail + CARD-490 not-printed tests), tests/test_book_toc.py and tests/test_book_finalise_gutter.py (the other two files that reach the page-plan path): 385 passed, 0 failed, 0 skipped. Nothing skipped unarmed, so no db_required test sits in this set's path; not run armed (the card asks for no armed run).
+
+[Review 1/3] Score: 9.5, certified. Re-derived: on main code a plan over `dict(row)` copies shows no notice, no row labels, marks the row "Not printed: cannot be drawn" and logs nothing; a four-row book with every second row copied loses a label and falsely marks two rows. On the branch both show the notice, no labels, no marking, and log a `LookupError` with traceback ("2 of 4 rows"); an unbroken plan shows no notice. With the check deleted, each of the six asserts for the copies variant is red on its own (soft-assert copy). `LookupError` escapes `(RuntimeError, ValueError)` and is logged by `except Exception`. `_printed_places` has one call site (ast over src/, tests/, scripts/). Gate files 385 passed, 0 skipped. Net 0. F-1 (low): the test comment "not a KeyError downstream" overstates the `isinstance(..., LookupError)` check; the message match is what pins it. F-2 (info): the guard checks identity of every printed row, which is stronger than the title's "count check" and matches step 1 word for word.
