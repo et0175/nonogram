@@ -4679,7 +4679,12 @@ function wireMarking(container, player) {
     lineParts.mini.style.setProperty("--player-line-aspect", `${width} / ${height}`);
   }
 
+  // The axis the view was last on (owner's test notes, 2026-11-23: Cols,
+  // back to the board, Line again -> it opened on Rows). Kept for the page's
+  // life, like the zoom; never saved.
+  let lineAxis = "row";
   function focusLine(axis, index, at = null) {
+    lineAxis = axis;
     focused = { axis, index: Math.max(0, Math.min(lineCount(axis) - 1, index)) };
     focusAt = at;
     lastClick = null; // a different line is an input: the next tap is a first tap
@@ -4690,12 +4695,14 @@ function wireMarking(container, player) {
     if (!lineOffered() || focused !== null) return;
     closeMenu();
     closeOffer();
-    const [row] = lastCell ?? [0, 0];
+    const [row, col] = lastCell ?? [0, 0];
     lineDialog.hidden = false;
     document.documentElement.classList.add("is-line-open");
     lineOpen.setAttribute("aria-expanded", "true");
     sizeMini();
-    focusLine("row", row, lastCell === null ? null : lastCell[1]);
+    // The line through the last cell touched, on the axis the view was last on.
+    if (lineAxis === "column") focusLine("column", col, lastCell === null ? null : row);
+    else focusLine("row", row, lastCell === null ? null : col);
     lineParts.action.close.focus();
   }
 

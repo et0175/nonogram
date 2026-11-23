@@ -1865,7 +1865,7 @@ def test_the_runtime_dependency_baseline_is_untouched() -> None:
         assert "https://" not in text, name
     assert "cdn" not in script.lower()
     # Only same-origin stylesheets, and no script element with a source.
-    assert re.findall(r'href="([^"]+)"', page) == ["/base.css", "/tokens.css", "/admin.css"]
+    assert re.findall(r'href="([^"]+)"', page) == ["/favicon.png", "/base.css", "/tokens.css", "/admin.css"]
     assert re.findall(r'src="([^"]+)"', page) == []
 
     # The one https:// URL this tree does carry, and the exemption stated as

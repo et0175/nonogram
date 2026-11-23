@@ -734,6 +734,8 @@ async function load() {
   const heading = page.querySelector("[data-pages-title]");
   const title = numbered ? readTitle(data) : "";
   if (heading !== null && title !== "") heading.textContent = title;
+  // Owner's test notes, 2026-11-23: and in the browser tab.
+  if (title !== "") document.title = title;
 
   if (numbered) {
     // CARD-418: the series above the title and "by <authors>" beside the

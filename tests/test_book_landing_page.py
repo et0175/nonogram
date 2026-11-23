@@ -371,6 +371,7 @@ def test_the_landing_header_and_squares_fit_a_phone(browser_page, pages_host) ->
     _open_pages(page, url, f"/b/{slug}")
     assert page.locator("[data-pages-series]").text_content() == BOOK_SERIES_SERVED
     assert page.locator("[data-pages-title]").inner_text() == BOOK_TITLE_SERVED
+    assert page.title() == BOOK_TITLE_SERVED  # owner's notes 2026-11-23: the book in the tab
     assert page.locator("[data-pages-byline]").inner_text().startswith(f"by {BOOK_AUTHORS}")
     assert page.evaluate(
         "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth"
