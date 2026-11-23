@@ -1285,7 +1285,7 @@ class TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership:
 
         The selection that bought the pdf_generated pass is not the selection
         the book now holds, and the gate runs at the **exit from draft only**
-        (``_refuse_unless_the_planned_book``) — so a changed membership left at
+        (``BookManager.check_plan_gate``) — so a changed membership left at
         pdf_generated would never be measured again on its way to KDP. What
         INV-012 buys is that the road back out of draft is the gate, and this
         membership does not clear it.
