@@ -1324,7 +1324,18 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* Review of 2026-11-17, pass 2 (item 3): an open probe, said in words and in
    the board's frame. The line sits in the same room as the hint box (under
    it: the box is the answer to a press, the line a standing state). */
-.player-stage-wrap.is-probing > .player-stage { outline: calc(2 * var(--player-rule-major)) dashed var(--color-warning); outline-offset: calc(-2 * var(--player-rule-major)); }
+/* The frame is drawn round the BOARD's visible part, not the stage (owner
+   on an iPhone, 2026-11-23: the stage is the whole room the board may grow
+   into, so its outline drew an empty dashed box beside a small board held
+   sideways, and upright the sticky clue bands covered all of it but a stub
+   under the board). solver.js placeProbeFrame sizes it from the board's and
+   the stage's boxes; fixed, like the flag, and never in the pointer's way. */
+.player-probe-frame {
+  position: fixed; z-index: 1024; box-sizing: border-box; pointer-events: none;
+  /* --player-rule-major lives on .player-stage, which this is not inside. */
+  border: calc(4 * var(--border-width)) dashed var(--color-warning);
+}
+.player-probe-frame:not(.is-shown) { display: none; }
 .player-probe-flag {
   position: fixed; inset: var(--space-2) 0 auto 0; margin: 0 auto; z-index: 1025;
   width: max-content; max-width: calc(100vw - 2 * var(--space-4));

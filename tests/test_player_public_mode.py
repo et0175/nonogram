@@ -1160,6 +1160,7 @@ class TestPublicMode_TheCensus:
                                f'<button {attribute}="ghost">?</button></div>\n</div>\n\n{{# CARD-427')
         assert planted != text and f"{attribute}=ghost" in template_controls(planted)
 
+    @pytest.mark.browser
     def test_an_unclicked_step_is_found_by_the_sweep_not_only_by_the_census(self, touch_page, serve) -> None:
         """A registry entry that does not drive its control (here: Redo's step
         replaced by one that looks at the page and clicks nothing) passes the
@@ -1820,6 +1821,7 @@ class TestPublicMode_LandscapeToolStrip:
     Portrait and desktop (AC-4) are the existing layout cells, unchanged.
     """
 
+    @pytest.mark.browser
     def test_the_tools_stand_in_a_strip_left_of_the_board(self, browser_page, serve, live) -> None:
         page = browser_page
         served = serve(public_payload(SWEEP_GRID))
