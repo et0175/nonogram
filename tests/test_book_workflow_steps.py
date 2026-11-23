@@ -261,7 +261,7 @@ class Shelf:
     Puzzle records go straight into the store, as in ``test_book_ready_gate``:
     nothing here proves a puzzle unique, and a book of twenty would otherwise
     cost twenty uniqueness proofs. The one-cell clue pair keeps every puzzle
-    well above the 4.8 mm floor, so membership is never refused (INV-006).
+    well above the 4.75 mm floor, so membership is never refused (INV-006).
     """
 
     def __init__(self, mode, factory, *, store=None, books=None):

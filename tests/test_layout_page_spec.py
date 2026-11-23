@@ -121,7 +121,7 @@ class TestBookCell_BookCapOverridesCliComfortCurve:
 
 
 class TestBookCell_ThirtyByThirtyNineDeepAboveFloor:
-    """AC-238: a 30x30 with 9-deep gutters prints 4.97 mm on Book 1, above the 4.8 mm floor."""
+    """AC-238: a 30x30 with 9-deep gutters prints 4.97 mm on Book 1, above the 4.75 mm floor."""
 
     def test_thirty_by_thirty_nine_deep_is_four_point_nine_seven(self) -> None:
         cell = _book_cell_mm(30, 30, row_depth=9, column_depth=9)

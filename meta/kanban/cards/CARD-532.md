@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/ (docstrings and comments in the files listed below)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T17:51Z
 **Closed:** —
 **Actual:** —
@@ -43,3 +43,75 @@ NFR-008's amendment of 2026-10-17 lowered the printed-cell floor from 4.8 mm to 
 - AC-3: `git diff` touches comments and docstrings only. The touched files pass, and the collected test ids are unchanged.
 
 ## Worktree notes
+
+### Premise, re-checked in the worktree (2026-11-23)
+
+`git grep -n "4\.8 mm" -- tests` before the change: 15 lines in 13 files, as the card says. The floor in force is `FLOOR_MM = 4.75` in `nonogram.admin.book_page_spec` (imported by `book_manager`, whose `add_puzzles_to_book` refuses `cell_mm < FLOOR_MM`). Note: `MIN_CELL_MM` (named in the card's item 2) is `nonogram.export.layout`'s 2.0 mm page-fit floor, not the book floor; the rewrites name 4.75 mm (the figure the surrounding prose already used) or the registry's own wording, never `MIN_CELL_MM`.
+
+### Item 1: classification of every `4.8 mm` line (before the change)
+
+| File (function / class) | Kind | Action |
+|---|---|---|
+| property/test_book_layout.py (module docstring, "How the MIN_CELL_MM floor interacts") | present tense | rewritten to 4.75 mm |
+| property/test_book_membership_floor.py (module docstring, EC-021) | present tense | rewritten to the registry's EC-021 wording, "the cell floor (TERM-024, NFR-008)" |
+| test_book_cell_size.py (`RETIRED_FLOOR_MM` comment) | history | left |
+| test_book_cell_size.py (`TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor`, 2 lines) | history | left |
+| test_book_interior_type_floor.py (module docstring, "was 4.8 mm before it") | history | left |
+| test_book_finalise_gutter.py (`book` docstring) | present tense | rewritten to 4.75 mm |
+| test_book_published_confirm.py (`below_the_floor`) | present tense + fixture claim | rewritten to 4.75 mm |
+| test_book_ready_gate.py (stub-records docstring, CARD-121 paragraph) | present tense + fixture claim | rewritten to 4.75 mm |
+| test_book_trim_persistence.py (`_comfortable_puzzle`) | present tense + fixture claim | stopped in round 0 (claim false at 4.75 mm); fix round 1 rewrote it to state only the measured trims (see below) |
+| test_book_workflow_steps.py (`Shelf`) | present tense + fixture claim | rewritten to 4.75 mm |
+| test_books_list_mobile.py (`_member`) | present tense | rewritten to 4.75 mm |
+| test_books_list_plan_stats.py (`Shelf`) | present tense + fixture claim | rewritten to 4.75 mm |
+| test_layout_page_spec.py (`TestBookCell_ThirtyByThirtyNineDeepAboveFloor`) | present tense + fixture claim | rewritten to 4.75 mm |
+| test_puzzle_review_bulk_read.py (`seed`) | present tense + fixture claim | rewritten to 4.75 mm |
+
+After fix round 1 (re-derived with `git grep -n "4\.8 mm" -- tests`): 4 lines in 2 files remain, all history (test_book_cell_size.py x3, test_book_interior_type_floor.py x1).
+
+### Item 3: fixture cells, measured with `book_cell_sizes(book_page_spec(book), ...)` (the floor check's own call)
+
+Script: /private/tmp/claude-501/card532/measure.py (scratch, not in the repo).
+
+| Fixture | Trim | Cell (mm) | Claim at 4.75 mm |
+|---|---|---|---|
+| one-cell clue pair (`[[1]]`/`[[1]]`): ready_gate, workflow_steps, plan_stats, bulk_read | Book 1 default | 7.5 (the cap) | "far/well above": true |
+| same | KDP minimum 10 x 10 cm | 7.5 | true |
+| `BELOW_FLOOR` (30x25, 12-deep rows), published_confirm | Book 1 default | 4.5357 | "misses": true |
+| AC-238 30x30 9-deep, test_layout_page_spec's own `BOOK1_ODD` spec | (test spec) | 4.9660 | "above": true |
+| same shape via production `book_cell_mm` | Book 1 default | 4.8846 | above: true |
+| `_comfortable_puzzle` (10x10, depth-1 clues), trim_persistence | Book 1 default / 6x9 in / 30x48 cm | 7.5 / 7.5 / 7.5 | true |
+| same | **any trim 10.0 cm tall** (e.g. 10 x 10 cm) | **4.7442** | **"clears the floor on any supported trim": FALSE** |
+
+`finalise_gutter`'s "has passed the floor" is not a figure claim: the members go through `add_puzzles_to_book`, which refuses any puzzle below the floor, so the sentence holds by construction.
+
+Side fix in the same docstring: `below_the_floor` said `BELOW_FLOOR`'s cell is "4.61 mm ... measured there"; test_book_floor.py's `BELOW_FLOOR` records 4.54 (measured above: 4.5357). Changed to 4.54. (4.61 is test_layout_page_spec's AC-239 figure on its own older-margin spec.)
+
+### `_comfortable_puzzle` (test_book_trim_persistence.py): stopped, then reworded in fix round 1
+
+Its docstring says it "clears the 4.8 mm floor on any supported trim". At the KDP minimum height (10.0 cm, any width, Book 1 margins) its cell is 4.7442 mm: below 4.75 mm as well as 4.8 mm. The tests that use it add it to a book on the Book 1 trim (7.5 mm), so they still pass; the prose overstates the fixture. Round 0 stopped here per item 3. Fix round 1 (coordinator's instruction): the docstring now says the fixture clears the floor (`FLOOR_MM`, 4.75 mm) on this file's trims, 7.5 mm on Book 1 (where `test_the_exported_interior_is_printed_at_the_stored_trim` adds it) and 7.5 mm on 6 x 9 in (where that test prints it), and that on a 10 cm-tall trim it prints 4.7442 mm, under the floor. Fixture unchanged. Re-measured in round 1: 7.5 / 7.5 / 4.7442 mm; every 10.0 cm-tall trim (widths 10..30 cm, 0.5 cm steps) gives 4.7442 mm.
+
+### Out of scope, recorded: `4.8` as code, not prose
+
+Three numeric literals still use 4.8 as a threshold: `property/test_book_layout.py` (`below_book_floor += page.cell_mm < 4.8`), `property/test_book_pdf_geometry.py` (`below_book_floor += expected_cell < 4.8`), and `test_layout_page_spec.py`'s `TestBookCell_ThirtyByThirtyNineDeepAboveFloor` (`assert cell >= 4.8`). They are assertions/counters, which this card may not change. The last one is still true (4.966 >= 4.8) and stricter than the floor; the two counters count cells below 4.8 rather than 4.75, which still exercises the regime their comments describe. A later card may want them to read `FLOOR_MM`.
+
+### Item 4 / AC-3: controls (re-derived in fix round 1, over all 11 touched files)
+
+- Collected ids over the 11 touched files: 766 at the base commit 4244629f, 766 after; `diff` of the id lists empty.
+- AST: each touched file's AST with module/class/function docstrings stripped is equal to its base-commit copy (11/11); the full ASTs differ, so the check sees the change. Control: the same check on a scratch copy of `property/test_book_layout.py` with `< 4.8` changed to `< 4.75` reports `stripped-equal: False`. Every changed line is inside a docstring (no comments changed).
+- Net collected tests (`tests/`): 10713 at the base commit, 10713 after (net 0).
+
+### Recorded for the reader
+
+- Out of scope for a prose-only card: three code thresholds still say 4.8, the two `below_book_floor` counters (`property/test_book_layout.py`, `property/test_book_pdf_geometry.py`) and `assert cell >= 4.8` in `TestBookCell_ThirtyByThirtyNineDeepAboveFloor` (test_layout_page_spec.py).
+- The card's item 2 named `MIN_CELL_MM` as the floor's source; that is wrong (`MIN_CELL_MM` is `nonogram.export.layout`'s 2.0 mm page-fit floor). The source is `FLOOR_MM` (4.75) in `nonogram.admin.book_page_spec`.
+
+### Gate (fix round 1, unarmed, `-o addopts= -rfs`)
+
+The 11 touched files plus neighbours test_book_floor.py and test_book_cell_size.py: 890 passed, 0 failed, 0 skipped.
+
+[Review 1/3] Score: 9.5, certified. Re-derived: 4 `4.8 mm` lines remain in tests/, in 2 files, all history (15 in 13 at the merge-base). Fixture cells re-measured with `book_cell_sizes(book_page_spec(...))` and its own grid builders: `BELOW_FLOOR` 4.5357 on Book 1; `_comfortable_puzzle` 7.5 on Book 1 and 6 x 9 in, 4.7442 on 10 x 10 and 30 x 10 cm; the one-cell clue pair 7.5; the 30x30 9-deep, production, 4.8846. With docstrings stripped, all 11 files' ASTs equal the base; no `#` line changed; 766 ids before and after. F-001 (medium): `_comfortable_puzzle`'s first line said "on this file's trims", but the file also stores a 10 x 10 cm trim, where the fixture is under the floor. F-002 (low): `below_the_floor`'s "4.54 mm is measured there" overstates what `test_book_floor.py` checks (the stated figure, through the refusal text). F-003 (info): AC-238's "4.97 mm on Book 1" is the test's own spec; production gives 4.8846; both are above 4.75. F-004 (info, in the notes): three code thresholds still say 4.8.
+
+**Fix round 2 (orchestrator, docstrings only).** F-001: "on the trims it is used with". F-002: "whose stated cell is 4.54 mm (measured 4.5357 mm on Book 1); it is not re-derived here". AST with docstrings stripped is unchanged in both files; both files pass (214, 0 skipped). F-003 and F-004 recorded, not carded: the counters and the assert want `FLOOR_MM`, which changes assertions, so a later card.
+
+**Merge gate (orchestrator).** `make test-gate BASE=main` on `9e26d7de` (main c9013cfc merged in) answered SELECTION: 6377 passed / 18 skipped (unarmed) / 11 deselected / 1 xfailed / 0 failed in 31 min 4 s, then the marked run 9 passed. 4 marked tests are owed at the wave close.
