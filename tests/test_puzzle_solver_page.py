@@ -509,17 +509,30 @@ class TestPlayerAssets:
 
     def test_every_admin_asset_ships_in_the_wheel(self) -> None:
         """R5: every file under admin/static and admin/templates matches a
-        package-data glob, so no built wheel serves a page without its script."""
+        package-data glob, so no built wheel serves a page without its script.
+        The generator's web form (web/static) is held to the same rule: its
+        metadata.js was unshipped until CARD-531."""
         manifest = tomllib.loads((_REPO / "pyproject.toml").read_text(encoding="utf-8"))
-        globs = manifest["tool"]["setuptools"]["package-data"]["nonogram.admin"]
-        files = [
-            path.relative_to(_ADMIN).as_posix()
-            for folder in ("static", "templates")
-            for path in (_ADMIN / folder).iterdir()
-            if path.is_file()
+        package_data = manifest["tool"]["setuptools"]["package-data"]
+        web = _REPO / "src" / "nonogram" / "web"
+        roots = {"nonogram.admin": (_ADMIN, ("static", "templates")), "nonogram.web": (web, ("static",))}
+        files = {
+            package: [
+                path.relative_to(root).as_posix()
+                for folder in folders
+                for path in (root / folder).iterdir()
+                if path.is_file()
+            ]
+            for package, (root, folders) in roots.items()
+        }
+        assert "static/solver.js" in files["nonogram.admin"] and "static/solver_state.js" in files["nonogram.admin"]
+        assert "static/metadata.js" in files["nonogram.web"]
+        unshipped = [
+            f"{package}: {name}"
+            for package, names in files.items()
+            for name in names
+            if not any(fnmatch(name, glob) for glob in package_data.get(package, []))
         ]
-        assert "static/solver.js" in files and "static/solver_state.js" in files
-        unshipped = [name for name in files if not any(fnmatch(name, glob) for glob in globs)]
         assert unshipped == []
 
     def test_pytest_playwright_is_a_dev_only_dependency(self) -> None:
