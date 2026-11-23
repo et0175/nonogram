@@ -1,6 +1,6 @@
 # CARD-532: Test prose stops stating the retired 4.8 mm cell floor as current
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/532-retired-floor-prose
-**Worktree:** ../PythonProject4-card-532
+**Worktree:** —
 **Source:** roadmap wave 15, cut 2026-11-23 on the owner's "pick the next no-decision wave from the backlog". IDEA-173.
 **Idea:** IDEA-173
 **Wave:** 94
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T17:51Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-23T19:28Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** c83f74f8c60dcdb0c3e9005f6535f54c926f29d3
 **Blocked by:** —
 
 ## Why this card exists
