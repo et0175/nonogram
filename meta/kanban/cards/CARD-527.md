@@ -1,6 +1,6 @@
 # CARD-527: Every browser-test file must declare its page isolation, not only the test_puzzle_solver_* files
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/527-page-isolation-all-browser-files
-**Worktree:** ../PythonProject4-card-527
+**Worktree:** —
 **Source:** roadmap wave 14, cut 2026-11-23 on the owner's "pick a no-decision wave from the backlog". IDEA-181 (CARD-246 finding).
 **Idea:** IDEA-181
 **Wave:** 93
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-23T08:10Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-23T10:37Z
+**Actual:** 2c — ratio 2/1 = 2.0
+**Merge commit:** 83da95e2c7b2666666034cd2e65f4dcfc3f1fc24
 **Blocked by:** —
 
 ## Why this card exists
