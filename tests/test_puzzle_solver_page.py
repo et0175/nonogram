@@ -577,11 +577,19 @@ def browser_type(playwright, browser_name):
     return browser
 
 
-#: CARD-235, AC-4. Which page-isolation category each of the
-#: ``tests/test_puzzle_solver_*.py`` files is in, and why — stated here, beside
-#: the fixture that implements it, so that a file's isolation is a declaration
-#: somebody has to change on purpose rather than a side effect of whichever
-#: fixture happened to be in scope.
+#: CARD-235, AC-4. Which page-isolation category each browser-test file is in,
+#: and why — stated here, beside the fixture that implements it, so that a
+#: file's isolation is a declaration somebody has to change on purpose rather
+#: than a side effect of whichever fixture happened to be in scope.
+#:
+#: "Browser-test file" is what collection says it is: every file with a test
+#: carrying the ``browser`` marker (CARD-527;
+#: ``test_browser_fixture_scope._browser_files`` asks a child collection).
+#: CARD-235 keyed this table on the ``tests/test_puzzle_solver_*.py`` glob, so a
+#: browser file under any other name was never asked; those files are the
+#: second block below. The glob still names CARD-235's *measured* family
+#: (``test_browser_fixture_scope._family_files``), which this table no longer
+#: defines.
 #:
 #: Two categories:
 #:
@@ -696,6 +704,111 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
         "own-page",
         "sets the viewport 20 times, persists the zoom level to localStorage "
         "and reloads to prove the zoom is restored",
+    ),
+    # CARD-527: the browser files outside the glob. Every one takes the
+    # function-scoped ``browser_page`` above, and every page fixture of its
+    # own is function-scoped too (``test_an_own_page_file_really_gets_its_own_page``
+    # reads that off the fixtures); the reason is what a shared page would
+    # have to undo.
+    "test_book_arrange_play_link.py": (
+        "own-page",
+        "its desktop_page and phone_page fixtures set the viewport on the "
+        "per-test browser_page and install pageerror and console listeners, "
+        "against a per-test live_arrangement server",
+    ),
+    "test_book_finalise_guide_preview_layout.py": (
+        "own-page",
+        "sets the desktop viewport and installs a pageerror listener on the "
+        "per-test browser_page before opening its per-test live_finalize app",
+    ),
+    "test_book_landing_page.py": (
+        "own-page",
+        "seeds, corrupts and clears the localStorage saves the landing page "
+        "reads, adds an init script that makes localStorage throw (an init "
+        "script runs again on every later navigation), installs pageerror and "
+        "request listeners and sets the viewport per screen",
+    ),
+    "test_book_setup_print_mobile.py": (
+        "own-page",
+        "its phone_page fixture sets the 390 px phone viewport on the per-test "
+        "browser_page and installs pageerror and console listeners whose "
+        "collected errors it asserts at teardown",
+    ),
+    "test_book_workflow_steps.py": (
+        "own-page",
+        "its one browser test installs a pageerror listener on the per-test "
+        "browser_page and needs the page to open in a fresh session's "
+        "centimetres before it clicks Inches, against a per-test live_book app",
+    ),
+    "test_books_list_mobile.py": (
+        "own-page",
+        "its desktop_page and phone_page fixtures set the viewport on the "
+        "per-test browser_page and install pageerror and console listeners, "
+        "against a per-test live_books server",
+    ),
+    "test_browser_fixture_scope.py": (
+        "own-page",
+        "opens no page in its own process: each of its browser-marked tests "
+        "runs in a child pytest, where test_puzzle_solver_page's per-test "
+        "browser_page and live do the isolating, and no page outlives the child",
+    ),
+    "test_how_to_solve_page.py": (
+        "own-page",
+        "only navigates the per-test browser_page: through the lesson's steps "
+        "by its location hash, and opened under a chosen referer, which decides "
+        "where its back links point; nothing else is installed or stored, so "
+        "own-page is inherited from browser_page here rather than needed",
+    ),
+    "test_player_base_css.py": (
+        "own-page",
+        "sets the viewport per width, emulates prefers-reduced-motion, and "
+        "installs a page.route interceptor that breaks the board before a "
+        "reload; the interceptor stays on the page",
+    ),
+    "test_player_public_mode.py": (
+        "own-page",
+        "opens its own touch context per test (touch_page, touch_pages), "
+        "installs pageerror, console, requestfailed and request listeners, "
+        "clears, rewrites and reads back the localStorage save and reloads to "
+        "prove it restores, and sets the viewport across the phone sizes",
+    ),
+    "test_player_shared_ui_site.py": (
+        "own-page",
+        "sets the viewport for phone and desktop widths and seeds a "
+        "localStorage save through an init script, which runs again on every "
+        "later navigation of that page",
+    ),
+    "test_player_viewport_matrix.py": (
+        "own-page",
+        "opens its own context per screen per test (the screen fixture) with "
+        "pageerror and console listeners, installs a page.route interceptor "
+        "that fails the index, and turns the viewport mid-test",
+    ),
+    "test_public_player.py": (
+        "own-page",
+        "its one browser test installs a context request listener on the "
+        "per-test browser_page to record every origin the page asks for",
+    ),
+    "test_public_player_pages.py": (
+        "own-page",
+        "installs pageerror, console and request listeners, page.route "
+        "interceptors that kill third-party hosts, and sets the phone "
+        "viewport; none of that is undone by navigating",
+    ),
+    # Moved here from that file's own PAGE_ISOLATION_DECLARATION (CARD-246
+    # review cycle 1, F-014), verbatim: one table, not two (CARD-527).
+    "test_puzzle_editor_ui.py": (
+        "own-page",
+        "installs page.route interceptors (an aborted verify, an aborted save, a "
+        "stubbed grade, a 204 that holds the exit's navigation back), request and "
+        "pageerror listeners and a MutationObserver on the save bar, seeds and "
+        "reads localStorage, and suppresses a document event listener — none of "
+        "which navigating undoes; and since CARD-250 its tests navigate AWAY from "
+        "the editor on purpose, so a page left on the puzzle list is a page the "
+        "next test would have to put back — as is a page deliberately left on the "
+        "editor holding an unstored stroke (review cycle 1, F-001), and since "
+        "CARD-251 one left holding an OPEN book question, whose two answers are "
+        "the only way past it",
     ),
 }
 

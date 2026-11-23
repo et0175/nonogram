@@ -68,8 +68,11 @@ than re-running them.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib.util
+import inspect
+import os
 import random
 import re
 import subprocess
@@ -81,6 +84,7 @@ from types import ModuleType
 
 import pytest
 
+from tests.helpers.browser_census import _getfixturevalue_names
 from tests.test_puzzle_solver_page import (
     PAGE_ISOLATION,
     PAGE_ISOLATION_CATEGORIES,
@@ -402,10 +406,107 @@ def _family_node_ids(artefact: Path) -> set[str]:
 
 
 def _family_files() -> list[str]:
+    """CARD-235's *measured* family: the files CARD-217's durations were cut by.
+
+    Not the set :data:`PAGE_ISOLATION` must cover — that is
+    :func:`_browser_files` (CARD-527). The two differ on purpose: the family's
+    registries (the measured artefact, ``ADDED_SINCE_BEFORE``, the recorded
+    order and alone runs) are keyed on this glob, and widening it would re-key
+    every one of them.
+    """
     return sorted(
         f"tests/{path.name}"
         for path in (REPO_ROOT / "tests").glob("test_puzzle_solver_*.py")
     )
+
+
+#: The marker the suite identifies a browser test by (``pyproject.toml``
+#: registers it; ADR-0038/R8).
+BROWSER_MARKER = "browser"
+
+@functools.cache
+def _browser_census() -> tuple[dict, ...]:
+    """What collection knows about the suite's browser tests, one record per item.
+
+    CARD-527: one child ``pytest --collect-only tests`` with
+    ``tests/helpers/browser_census.py`` loaded as a plugin, which records every
+    item that carries the ``browser`` marker **or** reaches ``browser_page`` /
+    ``browser_type`` (review 1, F-002), with every fixture the item reaches and
+    that fixture's scope and module — ``getfixturevalue`` literals followed
+    (review 1, F-003). Asked of collection, so a marker applied by a decorator,
+    a ``pytestmark``, a class mark, a ``pytest.param`` or a hook all count.
+
+    A child, cached for the process: the in-process session holds only the
+    items this run selected, so a run of one file would see one file.
+    ``PYTEST_ADDOPTS`` is dropped so that a gate's ``-m``/``-k``/
+    ``--deselect`` cannot narrow the census.
+    """
+    import json
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as scratch:
+        out = Path(scratch) / "browser-census.json"
+        env = {key: value for key, value in os.environ.items() if key != "PYTEST_ADDOPTS"}
+        env["BROWSER_CENSUS_OUT"] = str(out)
+        completed = subprocess.run(
+            [
+                sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-p", "no:warnings",
+                "-p", "tests.helpers.browser_census", "-o", "addopts=", "--collect-only",
+                "-q", "tests",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=_RUN_TIMEOUT_S,
+            env=env,
+        )
+        assert completed.returncode == 0, completed.stdout[-4000:] + completed.stderr[-2000:]
+        records = json.loads(out.read_text(encoding="utf-8"))
+    assert records, completed.stdout[-4000:]
+    return tuple(records)
+
+
+def _browser_files() -> tuple[str, ...]:
+    """Every file collection marks ``browser``, as paths under ``tests/``.
+
+    CARD-527: the set :data:`PAGE_ISOLATION` must cover. A filename glob saw
+    only ``tests/test_puzzle_solver_*.py``.
+    """
+    return tuple(sorted({
+        record["file"].removeprefix("tests/")
+        for record in _browser_census()
+        if record["marked"]
+    }))
+
+
+#: CARD-527 review 1, F-001: the fixtures wider than one test that an
+#: ``own-page`` file's browser tests may reach, each with why sharing it
+#: shares no page and no served state. Keyed ``name@module``, so a same-named
+#: fixture defined elsewhere is not covered. Every other fixture such a test
+#: reaches — every page, every server (``live``, ``live_book``,
+#: ``pages_host``, ``serve``, ``preview_host``, ...) — must be per-test.
+WIDER_FIXTURES_ALLOWED: dict[str, str] = {
+    "browser_type@tests.test_puzzle_solver_page": "the Chromium launcher, shared by the whole suite; each test's page comes from its own context",
+    "browser@pytest_playwright.pytest_playwright": "the one Chromium process; pages and contexts, which hold the state, are per test",
+    "launch_browser@pytest_playwright.pytest_playwright": "a factory that launches Chromium; holds no page",
+    "playwright@pytest_playwright.pytest_playwright": "the Playwright driver connection; holds no page",
+    "browser_name@pytest_playwright.pytest_playwright": "a string naming the browser",
+    "browser_type_launch_args@pytest_playwright.pytest_playwright": "the launch options, read once",
+    "browser_context_args@pytest_playwright.pytest_playwright": "the default context options; each context is still per test",
+    "connect_options@pytest_playwright.pytest_playwright": "remote-connect options (unused here); no page",
+    "device@pytest_playwright.pytest_playwright": "the emulated-device name option; no page",
+    "delete_output_dir@pytest_playwright.pytest_playwright": "empties Playwright's artefact folder once per session",
+    "_pw_artifacts_folder@pytest_playwright.pytest_playwright": "the temporary folder for Playwright traces and videos",
+    "base_url@pytest_base_url.plugin": "the --base-url option (unset here); a string",
+    "_verify_url@pytest_base_url.plugin": "checks --base-url once; no page",
+    "pytestconfig@_pytest.fixtures": "pytest's own configuration object",
+    "tmp_path_factory@_pytest.tmpdir": "pytest's factory for per-test tmp_path directories",
+    "test_db_url@tests.conftest": "the test database's URL, a string",
+    "_test_database_tables@tests.conftest": "builds the test schema once per session; no page and no server",
+    "_armed_database_is_ready@tests.conftest": "readies the armed database once before the first test; no page",
+    "_assembled_default_interior_writers@tests.conftest": "rebinds the book generator's default writers for the session; no page",
+    "fragment@tests.test_player_shared_ui_site": "the admin template rendered once to an immutable string; no page and no server",
+}
 
 
 def _fixture_scope(fixture: object) -> str:
@@ -463,6 +564,57 @@ def _fixture_function(fixture: object):
     if getattr(fixture, "_pytestfixturefunction", None) is not None:
         return fixture
     raise AssertionError(f"cannot unwrap {fixture!r}")
+
+
+#: What a page comes from: a fixture taking one of these (or a fixture that
+#: does) hands its test a page, a context or the browser to make one with.
+_PAGE_SOURCES = frozenset({"browser_page", "browser_type", "browser", "context", "page"})
+
+
+def _page_fixture_scopes(file_name: str) -> dict[str, str]:
+    """``{fixture name: scope}`` for every page-taking fixture ``file_name`` sees.
+
+    Read off the fixture objects (CARD-527), as :func:`_fixture_scope` reads
+    ``browser_page``'s: the module's own and imported fixtures, and those
+    defined on its classes — including fixtures no test requests, which the
+    collection census (:func:`_browser_census`) cannot see. "Page-taking" is
+    transitive within the file — ``desktop_page`` takes ``browser_page``, so a
+    fixture taking ``desktop_page`` takes a page too. What a fixture takes is
+    its signature **plus** every literal ``request.getfixturevalue("<name>")``
+    in its body (review 1, F-003: ``browser_page`` itself gets its page that
+    way); a ``getfixturevalue`` with a non-literal argument counts as taking a
+    page, since what it takes cannot be read. ``browser_type`` itself is the
+    shared Chromium process and takes no page, so it is not listed.
+    """
+    module = importlib.import_module("tests." + file_name.removesuffix(".py").replace("/", "."))
+    owners = [module] + [
+        value for value in vars(module).values()
+        if isinstance(value, type) and value.__module__ == module.__name__
+    ]
+    params: dict[str, tuple[str, set[str]]] = {}
+    for owner in owners:
+        for attribute, value in vars(owner).items():
+            try:
+                scope = _fixture_scope(value)
+            except AssertionError:
+                continue
+            marker = getattr(value, "_fixture_function_marker", None) or getattr(
+                value, "_pytestfixturefunction", None)
+            name = getattr(marker, "name", None) or attribute
+            function = _fixture_function(value)
+            taken = set(inspect.signature(function).parameters)
+            for fetched in _getfixturevalue_names(function):
+                taken.add("page" if fetched == "<dynamic>" else fetched)
+            params[name] = (scope, taken)
+    takes_page = set()
+    grew = True
+    while grew:
+        grew = False
+        for name, (_scope, taken) in params.items():
+            if name not in takes_page and taken & (_PAGE_SOURCES | takes_page):
+                takes_page.add(name)
+                grew = True
+    return {name: params[name][0] for name in sorted(takes_page)}
 
 
 def _pytest(*args: str, env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess:
@@ -3051,7 +3203,11 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         (measured: the ``PAGE_ISOLATION`` arm stays green there).
         """
         files = _family_files()
-        assert {path.split("/")[-1] for path in files} == set(PAGE_ISOLATION)
+        # CARD-527: PAGE_ISOLATION now covers every browser file, so the door
+        # is its family part — the keys under the family's own name.
+        assert {path.split("/")[-1] for path in files} == {
+            name for name in PAGE_ISOLATION if f"tests/{name}".startswith(FAMILY_PREFIX)
+        }
 
         named_by_node_ids = (
             {node.split("::")[0] for node in _family_node_ids(BEFORE_ARTEFACT)}
@@ -3157,15 +3313,41 @@ class TestBrowserFixtures_OrderIndependent:
 
 
 class TestBrowserFixtures_IsolationIsDeclaredPerFile:
-    """AC-4: a test that mutates un-resettable page state keeps its own page."""
+    """AC-4: a test that mutates un-resettable page state keeps its own page.
 
-    def test_every_family_file_declares_a_category_and_a_reason(self) -> None:
-        on_disk = {path.split("/")[-1] for path in _family_files()}
+    CARD-527: for every file collection marks ``browser``
+    (:func:`_browser_files`), not only CARD-235's measured family.
+    """
 
-        assert set(PAGE_ISOLATION) == on_disk, (
-            "PAGE_ISOLATION and tests/test_puzzle_solver_*.py disagree; a new "
-            "file in the family must declare its page isolation"
+    def test_every_browser_file_declares_a_category_and_a_reason(self) -> None:
+        """One declaration per browser file, and none for anything else.
+
+        The set is collection's (:func:`_browser_files`), so a declaration for
+        a file that is gone — or that no longer carries a browser test — is
+        refused exactly as a browser file with no declaration is.
+
+        And the marker the set is read from has to be on every browser test
+        (review 1, F-002): a test that reaches ``browser_page`` or
+        ``browser_type`` unmarked would leave a file of only such tests out of
+        the census — and runs Chromium under any ``-m "not browser"``.
+        """
+        unmarked = sorted(
+            record["nodeid"] for record in _browser_census() if not record["marked"]
         )
+        assert unmarked == [], (
+            f"these reach browser_page or browser_type but carry no browser "
+            f"marker: {unmarked}"
+        )
+        collected = set(_browser_files())
+
+        assert set(PAGE_ISOLATION) == collected, {
+            "a browser file with no PAGE_ISOLATION declaration": sorted(
+                collected - set(PAGE_ISOLATION)
+            ),
+            "declared, but collection marks no browser test in it (gone?)": sorted(
+                set(PAGE_ISOLATION) - collected
+            ),
+        }
         wrong = []
         for name, (category, reason) in sorted(PAGE_ISOLATION.items()):
             if category not in PAGE_ISOLATION_CATEGORIES:
@@ -3181,6 +3363,11 @@ class TestBrowserFixtures_IsolationIsDeclaredPerFile:
         objects: a page per test, and a server per test — the page would be
         useless on its own, since ``live``'s origin is where the save a test
         writes actually lives.
+
+        CARD-527 review 1, F-001: for every declared file, every fixture its
+        browser tests reach (from the collection census, so an override of
+        ``live`` in the file is the one read) is per-test, or named in
+        :data:`WIDER_FIXTURES_ALLOWED` with why sharing it shares no state.
         """
         assert all(
             category == "own-page" for category, _ in PAGE_ISOLATION.values()
@@ -3188,6 +3375,35 @@ class TestBrowserFixtures_IsolationIsDeclaredPerFile:
 
         for fixture in (_browser_page_fixture, _live_fixture):
             assert _fixture_scope(fixture) == "function", fixture
+
+        # CARD-527: the files outside the family make pages of their own
+        # (``touch_page``, ``screen``, ``phone_page``, ...). Any fixture an
+        # own-page file can reach that takes a page or the browser — directly
+        # or through another such fixture — must be per-test as well, or its
+        # page is shared.
+        wider = [
+            f"{name}: {fixture_name} is {scope}-scoped and takes a page or the browser"
+            for name in sorted(PAGE_ISOLATION)
+            for fixture_name, scope in _page_fixture_scopes(name).items()
+            if scope != "function"
+        ]
+        assert wider == [], wider
+
+        reached_wider: set[str] = set()
+        shared = []
+        for record in _browser_census():
+            if not record["marked"]:
+                continue  # refused by test_every_browser_file_declares_a_category_and_a_reason
+            for fixture_name, where in sorted(record["fixtures"].items()):
+                if where["scope"] == "function":
+                    continue
+                key = f"{fixture_name}@{where['module']}"
+                reached_wider.add(key)
+                if key not in WIDER_FIXTURES_ALLOWED:
+                    shared.append(f"{record['nodeid']}: {key} is {where['scope']}-scoped")
+        assert shared == [], shared[:20]
+        stale = sorted(set(WIDER_FIXTURES_ALLOWED) - reached_wider)
+        assert stale == [], f"allowed but reached by no browser test: {stale}"
 
     def test_the_reasons_name_state_the_file_actually_touches(self) -> None:
         """Each reason has to be true of its file, not merely plausible.
@@ -3202,6 +3418,13 @@ class TestBrowserFixtures_IsolationIsDeclaredPerFile:
             "page.route": r"\.route\(",
             "listener": r"\.on\(",
             "reload": r"\.reload\(",
+            # CARD-527: this file's own browser tests isolate by process.
+            "child pytest": r"subprocess\.run\(",
+            # CARD-527: carried over from the check test_puzzle_editor_ui.py
+            # made of its own declaration before it moved here.
+            "MutationObserver": r"MutationObserver",
+            # CARD-527 review 1, F-004: navigation under a chosen referer.
+            "referer": r"\.goto\([^)]*referer=",
         }
         wrong = []
         for name, (_category, reason) in sorted(PAGE_ISOLATION.items()):
