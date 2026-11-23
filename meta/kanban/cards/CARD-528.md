@@ -1,6 +1,6 @@
 # CARD-528: The impact selector resolves CLAUDE.md and other root files to their readers instead of the full suite
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/528-impact-root-files
-**Worktree:** ../PythonProject4-card-528
+**Worktree:** —
 **Source:** roadmap wave 14, cut 2026-11-23 on the owner's "pick a no-decision wave from the backlog". IDEA-193 (CARD-261 build-gate finding).
 **Idea:** IDEA-193
 **Wave:** 93
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.3 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-23T08:10Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-23T11:10Z
+**Actual:** 3c — ratio 3/1 = 3.0
+**Merge commit:** 4a687d3d0bb293972307283752771dbec0dc1b0c
 **Blocked by:** —
 
 ## Why this card exists
