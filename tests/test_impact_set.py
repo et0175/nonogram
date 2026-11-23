@@ -1195,6 +1195,16 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
             ("GUIDE.md", "pyproject.toml", 'readme = "GUIDE.md"\n', "unanalysable", "pyproject.toml"),
             ("GUIDE.md", "pyproject.toml", 'x = "a # b GUIDE.md"\n', "unanalysable", "pyproject.toml"),
             ("GUIDE.md", "Makefile", "doc:\n\tgrep -c '#' GUIDE.md\n", "unanalysable", "Makefile"),
+            # An escaped quote does not close a TOML string; a triple-quoted one spans lines.
+            ("GUIDE.md", "pyproject.toml", 'x = "say \\" # GUIDE.md"\n', "unanalysable", "pyproject.toml"),
+            ("GUIDE.md", "pyproject.toml", 'x = """\n# GUIDE.md\n"""\n', "unanalysable", "pyproject.toml"),
+            # The UNANALYSABLE Python owners name what they name: only the selector is exempt.
+            ("GUIDE.md", "tests/conftest.py", 'DOC = "GUIDE.md"\n', "unanalysable", "tests/conftest.py"),
+            ("GUIDE.md", "setup.py", 'README = "GUIDE.md"\n', "unanalysable", "setup.py"),
+            # Spelled only in the selector's own ROOT_FILE_CLASSES (the real selector,
+            # copied): a name it matches is not a reader, so nobody reads it. Built
+            # from pieces so this file does not itself "name" the repo's own copy.
+            ("runtime" + ".txt", "scripts/impact_set.py", None, "no-reader", "no test names"),
         ],
     )
     def test_a_root_level_file_it_cannot_model_stays_full_with_its_reason(
@@ -1202,8 +1212,15 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
     ):
         (tree / name).write_text("x\n")
         if owner:
-            (tree / owner).write_text(owner_text)
-        if name != "NOTES.md":
+            (tree / owner).parent.mkdir(exist_ok=True)
+            (tree / owner).write_text(SELECTOR.read_text(encoding="utf-8") if owner_text is None else owner_text)
+        if owner_text is None:
+            # The selector has readers of its own, as on the real tree: they must
+            # not become readers of every name its class table spells.
+            (tree / "tests" / "test_reads_selector.py").write_text(
+                "SEL = 'scripts/impact_set.py'\ndef test_s():\n    assert SEL\n"
+            )
+        if rule != "no-reader":
             # A test naming it: without the rule under test this would narrow.
             (tree / "tests" / "test_names_it.py").write_text(f"P = {name!r}\ndef test_n():\n    assert P\n")
         derived = impact.derive(tree, [name])
@@ -1220,7 +1237,8 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
          "from pathlib import Path\nREPO_ROOT = Path('.')\ndef test_w():\n    assert list(REPO_ROOT.iterdir())\n"),
         ("Dockerfile", "test_root_walker.py",
          "import os\nREPO_ROOT = '.'\ndef test_w():\n    assert os.listdir(REPO_ROOT)\n"),
-        ("Procfile", "dir_helper.py",
+        # "Proc" + "file": built from pieces so this file does not "name" the repo's own.
+        ("Proc" + "file", "dir_helper.py",
          "from pathlib import Path\ndef entries():\n    return list(Path(__file__).parents[1].glob('*'))\n"),
         ("run.sh", "test_root_walker.py",
          "from pathlib import Path\ndef test_w():\n    assert list(Path.cwd().iterdir())\n"),

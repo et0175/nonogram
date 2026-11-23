@@ -133,3 +133,52 @@ Procfile, railway.json and runtime.txt are read by no test. Their 48 files are t
 **Gate:** `tests/test_impact_set.py` and `tests/test_wave_close_marker.py`, unarmed, with `-rfs`: 231 passed, 0 failed, 0 skipped.
 
 [Review 2/3] Score: 8.5, one gating finding, not certified. Re-derived: 231 passed, 0 skipped; test_impact_set.py 200 -> 212; AC-3 on a different sample (merges 41-80, 111 KNOWN_ROOTS paths singly plus the set) 112/112 identical; 9 controls red at their cases; 79 non-literal root joins traced by ast, none reaching an admitted-class file; the prose, container, shell, database and hosting classes judged honest. Cycle-1 F-001, F-002, F-004 closed; F-003 closed for the reported cases. F-101 (Important, G-1/AC-2): the self-skip is in `_unanalysable_namer` but not `_referencers`, which finds the class table's literals in scripts/impact_set.py and counts the selector as a loader, so railway.json and runtime.txt (FULL no-reader in cycle 1) and a new app.json or compose.yml narrow to 48 files with no real reader; unpinned, all 212 tests stay green with `_referencers` skipping the selector. F-103 (minor): widening the self-skip to every .py owner, or cutting the owner loop to pyproject.toml and Makefile, survives every test. F-102 (low): `_strip_hash_comment` ignores backslash escapes and multi-line TOML strings.
+
+### Fix round 2 (review 2, 2026-11-23)
+
+**Correction to round 1.** Round 1 said the selector being counted as a `scripts/` referencer was a side effect that "only widens". That was wrong. For railway.json and runtime.txt, the selector's own class table was the only "reader", so the side effect turned FULL `no-reader` into a 48-file selection with no real reader. A new app.json or compose.yml would have done the same. This broke AC-2 and G-1 (F-101).
+
+- **F-101.** New constant `NAME_TABLE_OWNERS = ("scripts/impact_set.py",)`. It is the one exemption, shared by both places that need it:
+  - `_unanalysable_namer` skips `owner in NAME_TABLE_OWNERS`;
+  - `_referencers` takes a `skip` argument, and `_derive_root_file` passes `skip=NAME_TABLE_OWNERS`.
+
+  Asset derivation under the roots calls `_referencers` without `skip`, so it is unchanged (AC-3 below). New hermetic case: the real selector is copied into the fake repo, and a test there names the selector, as on the real tree. `runtime.txt`, spelled only in that copy, gives FULL `no-reader`.
+  - The case builds its file names from pieces (`"runtime" + ".txt"`, `"Proc" + "file"`), so `tests/test_impact_set.py`, an always-on scanner, does not itself "name" the repo's real runtime.txt or Procfile. Before I did this, its fixture strings made both select 43 files.
+- **F-103.** New cannot-model cases where `tests/conftest.py` and `setup.py` (the two UNANALYSABLE Python owners besides the selector) name `GUIDE.md`. Both give FULL `unanalysable`, with the owner named in the detail.
+- **F-102.** `_strip_hash_comment` (one line at a time) is replaced by `_strip_hash_comments`, which works on the whole text:
+  - a backslash inside `"` or `"""` escapes the next character;
+  - `"""` and `'''` strings run across lines, and nothing inside them is cut;
+  - a single-line quote left open at a newline closes there;
+  - an unclosed triple quote keeps the rest of the file, so every doubtful case keeps text.
+
+  New hermetic cases `x = "say \" # GUIDE.md"` and `x = """` / `# GUIDE.md` / `"""` both give FULL `unanalysable`.
+
+**Root files, re-derived on the final tree** (34 tracked plus one untracked probe):
+
+| Result | Files |
+|---|---|
+| Selection of 105 test files | CLAUDE.md |
+| Selection of 211 | README.md |
+| Selection of 46 | render.yaml |
+| Selection of 45 | nonogram_admin.db, start.sh |
+| Selection of 43 | ADMIN_SETUP.md, Dockerfile, docker-compose.yml (always-on scanners only; they are the namers) |
+| FULL `outside-known-roots` | 5 dotfiles, alembic.ini |
+| FULL `unanalysable` | Makefile, pyproject.toml, requirements.txt |
+| FULL `no-reader` | Procfile, railway.json, runtime.txt, 14 tracked `.md` files, the untracked probe |
+
+Files that do not exist on the tree: package.json, tsconfig.json and package-lock.json give FULL `outside-known-roots`; app.json and compose.yml give FULL `no-reader`.
+
+**AC-3:** same sample as before, the 97 KNOWN_ROOTS paths from `git log main --merges -40`, each run singly plus all 97 as one set. Comparing `34c94756`'s script with the final script on the final tree: 98/98 identical.
+**Net count:** 10695 at the base, 10712 now. That is +17 for the card, +5 this round: the cannot-model test went from 7 to 12 cases.
+
+**Controls** (`/private/tmp/claude-501/card528/controls2.py`, output in `/private/tmp/claude-501/card528/controls6.out`). Each mutant was run against the class's 21 tests, then the file was restored, and `git diff --stat` was the same afterwards. All 28 went red. The new ones:
+- C10, `_referencers` skip removed: `[runtime.txt]` red at `assert derived.full`.
+- C11, self-skip widened to `owner.endswith('.py')`: the conftest and setup.py cases red at `assert derived.full`.
+- C12, owner loop cut to pyproject.toml and Makefile: the same 2 cases red.
+- C13, backslash escape ignored: the escaped-quote case red.
+- C14, triple quotes ignored: the multi-line case red.
+- C9, unanalysable self-skip removed: 3 red, including `[runtime.txt]` with `assert ['unanalysable'] == ['no-reader']`.
+
+C1 to C8, the 5 class controls and the 5 idiom controls are all still red.
+
+**Gate:** `tests/test_impact_set.py` and `tests/test_wave_close_marker.py`, unarmed, with `-rfs`: 236 passed, 0 failed, 0 skipped.

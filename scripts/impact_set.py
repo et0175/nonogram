@@ -169,6 +169,15 @@ UNANALYSABLE = (
     "scripts/impact_set.py",
 )
 
+#: CARD-528: files whose string literals are names this script MATCHES, not
+#: files it opens -- the selector's own tables (``ROOT_FILE_CLASSES`` spells
+#: ``runtime.txt``). For a root-level file they are neither a namer
+#: (:func:`_unanalysable_namer`) nor a loader (:func:`_referencers` with
+#: ``skip``): the only root files this script opens are UNANALYSABLE entries,
+#: which are FULL anyway. Exact paths, so ``tests/conftest.py`` and ``setup.py``
+#: still name what they name.
+NAME_TABLE_OWNERS = ("scripts/impact_set.py",)
+
 #: Directory prefixes this script knows how to reason about. A changed path
 #: under none of them returns FULL rather than being ignored: "I do not know
 #: what this is" and "this affects nothing" are different answers, and only one
@@ -1041,7 +1050,7 @@ def _loading_text(path: str, text: str) -> str:
 
 
 def _referencers(
-    corpus: _Corpus, path: str, extra: str | None = None
+    corpus: _Corpus, path: str, extra: str | None = None, skip: tuple[str, ...] = ()
 ) -> tuple[set[str], set[str], set[str]]:
     """Files under ``src/`` and ``scripts/`` that name ``path``, to a fixpoint.
 
@@ -1049,9 +1058,10 @@ def _referencers(
     (or name something that names it -- a template ``include``), the non-Python
     files in the chain (the asset itself excluded), and the scripts that do.
     The chain is what turns ``admin.css`` into ``base.html`` into the module
-    that renders ``base.html``.
+    that renders ``base.html``. Files in ``skip`` are never referencers
+    (:data:`NAME_TABLE_OWNERS`, for a root-level file).
     """
-    files = corpus.loading_texts(extra)
+    files = [(f, t) for f, t in corpus.loading_texts(extra) if f.as_posix() not in skip]
     seen = {path}
     frontier = [path]
     modules: set[str] = set()
@@ -1229,25 +1239,53 @@ def _derive_one(
     return got, None
 
 
-def _strip_hash_comment(line: str) -> str:
-    """``line`` up to a ``#`` comment, for TOML, cfg, requirements and Makefiles.
+def _strip_hash_comments(text: str) -> str:
+    """``text`` with its ``#`` comments removed, for TOML, cfg, requirements and Makefiles.
 
-    A ``#`` starts a comment here only outside quotes and at the line start or
-    after whitespace: ``"a # b"`` in TOML, ``grep -c '#' X`` in a Makefile
-    recipe and pip's ``url#egg=`` all keep their text. Make itself cuts at any
-    unquoted ``#`` outside a recipe; cutting less keeps MORE text, which can
-    only find more namers (wider), never fewer.
+    A ``#`` starts a comment only outside quotes and at a line start or after
+    whitespace: ``"a # b"`` in TOML, ``grep -c '#' X`` in a Makefile recipe and
+    pip's ``url#egg=`` all keep their text. A backslash inside ``"`` or ``\"\"\"``
+    escapes the next character (``"say \\" # X"`` stays one string), and a
+    ``\"\"\"``/``\'\'\'`` string runs across lines, so a ``# X`` line inside one is
+    kept. A single-line quote left open at a newline closes there. Every
+    doubtful shape keeps text (an unclosed triple quote keeps the rest of the
+    file); Make cuts at any unquoted ``#`` outside a recipe, and keeping more
+    can only find more namers (wider), never fewer.
     """
+    out: list[str] = []
     quote = ""
-    for i, ch in enumerate(line):
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
         if quote:
-            if ch == quote:
+            if ch == "\\" and quote in ('"', '"""'):
+                out.append(text[i : i + 2])
+                i += 2
+                continue
+            if text.startswith(quote, i):
+                out.append(quote)
+                i += len(quote)
                 quote = ""
-        elif ch in "'\"":
+                continue
+            if ch == "\n" and len(quote) == 1:
+                quote = ""
+            out.append(ch)
+            i += 1
+            continue
+        if text.startswith('"""', i) or text.startswith("'''", i):
+            quote = text[i : i + 3]
+            out.append(quote)
+            i += 3
+            continue
+        if ch in "'\"":
             quote = ch
-        elif ch == "#" and (i == 0 or line[i - 1].isspace()):
-            return line[:i]
-    return line
+        elif ch == "#" and (i == 0 or text[i - 1].isspace()):
+            end = text.find("\n", i)
+            i = n if end == -1 else end
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
 
 
 def _unanalysable_namer(root: Path, path: str) -> str | None:
@@ -1265,13 +1303,13 @@ def _unanalysable_namer(root: Path, path: str) -> str | None:
     """
     pattern = _name_pattern(path)
     for owner in UNANALYSABLE:
-        if owner == path or owner == "scripts/impact_set.py":
+        if owner == path or owner in NAME_TABLE_OWNERS:
             continue
         text = _read(root, owner)
         if owner.endswith(".py"):
             text = _loading_text(owner, text)
         else:
-            text = "\n".join(_strip_hash_comment(line) for line in text.splitlines())
+            text = _strip_hash_comments(text)
         if pattern.search(text):
             return owner
     return None
@@ -1288,7 +1326,7 @@ def _derive_root_file(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path]
     if owner:
         return set(), Reason(path, RULE_UNANALYSABLE, f"named by {owner}, whose blast radius is not modelled")
     got = corpus.naming(path)
-    modules, chain_assets, scripts = _referencers(corpus, path)
+    modules, chain_assets, scripts = _referencers(corpus, path, skip=NAME_TABLE_OWNERS)
     if modules:
         got |= corpus.importers(modules, set())
     for named in chain_assets | scripts:
