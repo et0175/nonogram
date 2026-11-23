@@ -5448,8 +5448,9 @@ ideas:
   source_line: null
   intent: null
   category: tech-debt
-  status: backlog
-  needs_owner_decision: true
+  status: screened
+  owner_ruling: 'Owner 2026-11-23: leave it reported. CARD-315 already stops the overlap with ConcurrentWrite, and nothing runs two kill-matrix runs in one tree (each card has its own worktree; gates run one at a time).'
+  needs_owner_decision: false
   scored_at: '2026-11-22'
 - id: IDEA-228
   title: Retry an easy picture puzzle with a stricter threshold, then dithering, keeping it only if it still looks like the picture
