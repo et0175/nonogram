@@ -48,3 +48,45 @@ CARD-235's `PAGE_ISOLATION` table in `tests/test_browser_fixture_scope.py` makes
 * **G-2**: do not change any fixture scope; if a file's isolation looks wrong, record it in the notes as a finding, do not fix it here.
 
 ## Worktree notes
+
+### 2026-11-23 implementation (agent)
+
+**Premise re-verified by collection** (`--collect-only -m`-equivalent: a plugin reading `item.get_closest_marker("browser")` over all of `tests/`): 32 files carry a `browser`-marked test; 17 are `tests/test_puzzle_solver_*.py`, 15 are not: test_book_arrange_play_link, test_book_finalise_guide_preview_layout, test_book_landing_page, test_book_setup_print_mobile, test_book_workflow_steps, test_books_list_mobile, test_browser_fixture_scope (the guard itself: its child-pytest tests are marked), test_how_to_solve_page, test_player_base_css, test_player_public_mode, test_player_shared_ui_site, test_player_viewport_matrix, test_public_player, test_public_player_pages, test_puzzle_editor_ui. The marker is the suite's mechanism (registered in pyproject.toml; no conftest hook applies it). Fixture name is not: test_book_finalise_guide_preview.py and test_book_pdf_band.py request a fixture named `page` that is their own PDF page, not Chromium; neither carries the marker.
+
+**What changed**
+- `test_browser_fixture_scope._browser_files()` (new helper, cached): one child `pytest --collect-only -q -m browser tests` with PYTEST_ADDOPTS dropped and the warnings plugin off; the file set PAGE_ISOLATION must equal. `_family_files()` keeps the glob, now documented as CARD-235's measured family only (its registries — the artefact, ADDED_SINCE_BEFORE, the order/alone records — stay keyed on it, which is why the editor file's F-014 note had refused to widen the glob; this card does not widen it).
+- `test_every_browser_file_declares_a_category_and_a_reason` (renamed from `test_every_family_file_...`): set equality with collection, the message naming both directions (undeclared browser file / declared file collection does not mark).
+- `test_an_own_page_file_really_gets_its_own_page`: additionally, via new helper `_page_fixture_scopes`, every fixture a declared file can see (module, imported, class-defined) that takes `browser_page`/`browser_type`/`browser`/`context`/`page`, transitively, must be function-scoped.
+- `test_the_reasons_name_state_the_file_actually_touches`: two mechanisms added — `child pytest` (subprocess.run, for the guard file) and `MutationObserver` (the one check test_puzzle_editor_ui's own test made that the shared test did not).
+- `test_the_family_on_disk_is_the_family_the_registry_names`: its PAGE_ISOLATION door now compares the family to the table's family-named keys.
+- `test_puzzle_solver_page.PAGE_ISOLATION`: 14 new `own-page` declarations; test_puzzle_editor_ui's moved in verbatim. test_puzzle_editor_ui.py: `PAGE_ISOLATION_DECLARATION` and `test_this_files_page_isolation_is_declared_and_true` removed (one table, not two).
+
+**AC-3, per file** (page fixtures read off the fixture objects; every one function-scoped; all pages come from the session-scoped Chromium that `browser_type` launches, as the family's do):
+- book_arrange_play_link: `desktop_page`/`phone_page` over `browser_page`, server `live_arrangement` — viewport + pageerror/console listeners.
+- book_finalise_guide_preview_layout: `browser_page`, server `live_finalize` — viewport + pageerror listener.
+- book_landing_page: `browser_page`, servers `pages_host`/`pages_site` — localStorage seeded/corrupted/cleared, init script making localStorage throw, pageerror/request listeners, viewport.
+- book_setup_print_mobile: class fixture `phone_page` over `browser_page`, server `live_book` — viewport + listeners.
+- book_workflow_steps: `browser_page`, `live_book` — one test, pageerror listener, relies on a fresh session's unit.
+- books_list_mobile: `browser_page`, `live_books` — viewport + listeners.
+- browser_fixture_scope: no page in-process; its browser tests run child pytests using test_puzzle_solver_page's `browser_page`/`live`.
+- how_to_solve_page: `browser_page`, `pages_host` — navigation only; own-page inherited, not needed (no state a shared page would have to undo was found).
+- player_base_css: `browser_page`, `bundle` — viewport, emulate_media, page.route + reload.
+- player_public_mode: `browser_page`, `touch_page`, `touch_pages` (own contexts, closed at teardown), `serve`, `live` — listeners, localStorage, reload, viewport.
+- player_shared_ui_site: `browser_page`, `touch_page`, `preview_host` — viewport, localStorage init script. (`fragment` is module-scoped but is an immutable rendered string, takes no page.)
+- player_viewport_matrix: `screen` (own context per test, closed at teardown), inline contexts closed in `finally` — listeners, page.route, viewport.
+- public_player: `browser_page`, `host` — one test, context request listener.
+- public_player_pages: `browser_page`, `pages_host`/`counted_host` — listeners, page.route, viewport.
+- puzzle_editor_ui: `browser_page`, `live` — the moved CARD-246 reason.
+No suspect isolation found (G-2: no fixture scope changed).
+
+**Controls** (each applied to the committed tree, run, restored with `git checkout`; `git status` clean after):
+- C1 glob restored inside `_browser_files` -> `test_every_browser_file_declares_a_category_and_a_reason` red: `AssertionError: {... 'declared, but collection marks no browser test in it (gone?)': [... 14 non-family files ...]}`.
+- C2 test_public_player.py's declaration deleted -> same test red: `{'a browser file with no PAGE_ISOLATION declaration': ['test_public_player.py'], ...}`.
+- C3 declaration added for test_no_such_browser_file.py -> same test red: `{..., 'declared, but collection marks no browser test in it (gone?)': ['test_no_such_browser_file.py']}`.
+- C4 `touch_page` widened to scope="module" -> `test_an_own_page_file_really_gets_its_own_page` red: `['test_player_public_mode.py: touch_page is module-scoped and takes a page or the browser', 'test_player_shared_ui_site.py: ...']`.
+- C5 `child pytest` mechanism removed -> `test_the_reasons_name_state_the_file_actually_touches` red: `['test_browser_fixture_scope.py: the reason names no mechanism to check']`.
+- C6 MutationObserver pattern pointed at nothing -> same test red: `['test_puzzle_editor_ui.py: reason claims MutationObserverXX, file has none']`.
+
+**Gate** (unarmed, `-o addopts= -rfs`): tests/test_browser_fixture_scope.py tests/test_puzzle_solver_page.py tests/test_puzzle_editor_ui.py tests/test_wave_close_marker.py tests/test_suite_profile.py tests/test_impact_set.py -> 886 passed, 1 failed, 0 skipped. The failure is `TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`, and it is **pre-existing**: red identically with this card's three files checked out at the merge base. Three family tests added by 9fd47469 (Player QA v3) are registered nowhere: two in test_puzzle_solver_clues.py's `TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits`, one in test_puzzle_solver_zoom.py's `TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom`. Not fixed here (outside this card; its ADDED_SINCE_BEFORE entries need that change's card/why).
+
+**Net test count**: 10695 before, 10694 after (−1: the editor file's local declaration test, folded into the shared one).
