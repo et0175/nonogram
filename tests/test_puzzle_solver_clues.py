@@ -193,9 +193,11 @@ class TestSolverClues_RuleExamples:
     STOPS = [
         ((1, 1), "DDW.......", [False, False]),  # longer than c1: no circle
         ((1, 2), "DDWDW.....", [True, True]),  # rule A stops; rule C circles both
-        ((1, 1, 2, 2), "DDWDW.....", [False, False, False, False]),  # the walk stops, and only the walk runs
+        # The walk stops; since rule E (2026-11-23) the closed 1 is circled as
+        # the second 1, the only one with room on both sides of it.
+        ((1, 1, 2, 2), "DDWDW.....", [False, True, False, False]),
         ((2, 1), ".....WDWDD", [True, True]),  # the same from the right edge
-        ((2, 2, 1, 1), ".....WDWDD", [False, False, False, False]),
+        ((2, 2, 1, 1), ".....WDWDD", [False, False, True, False]),  # the same, mirrored
         ((1, 2), "WWWWWWWWWD", [True, False]),  # a closed run may end at the far edge
         ((2, 1), "DWWWWWWWWW", [False, True]),  # the same, walking from the right
     ]
@@ -422,7 +424,7 @@ def _walk_in(clue, marks, numbers):
     return circled
 
 
-def _rule_circles(clue, marks, *, rule_c=True):
+def _rule_circles(clue, marks, *, rule_c=True, rule_e=True):
     """``solver_state.js``'s rule block written again here, from its prose
     rather than its code: rules A and B (CARD-188) and, unless `rule_c` is
     off, rule C (CARD-213). ``rule_c=False`` is the behaviour before CARD-213
@@ -453,6 +455,35 @@ def _rule_circles(clue, marks, *, rule_c=True):
         for number, value in enumerate(clue):
             if clue.count(value) == 1 and closed.count(value) == 1:
                 circled[number] = True
+    if rule_e:
+        # Rule E (owner 2026-11-23, QA checklist v3: "the middle 2"): a closed
+        # run of a value the clue repeats, when exactly one of those numbers
+        # has room for its neighbours on both sides of it. Room is counted
+        # cell by cell here (each earlier number and the white after it must
+        # fit in the cells before the run), not summed as the module does.
+        start = 0
+        while start < len(marks):
+            if marks[start] != "D":
+                start += 1
+                continue
+            end = start
+            while end < len(marks) and marks[end] == "D":
+                end += 1
+            closed_here = ((start == 0 or marks[start - 1] == "W")
+                           and (end == len(marks) or marks[end] == "W"))
+            length = end - start
+            if closed_here and clue.count(length) > 1:
+                room = []
+                for k, value in enumerate(clue):
+                    if value != length:
+                        continue
+                    left = len("".join("x" * n + "." for n in clue[:k]))
+                    right = len("".join("." + "x" * n for n in clue[k + 1:]))
+                    if left <= start and right <= len(marks) - end:
+                        room.append(k)
+                if len(room) == 1:
+                    circled[room[0]] = True
+            start = end
     return circled
 
 
@@ -501,10 +532,13 @@ class TestSolverClues_UniqueLengthCirclesAnywhere:
 
 
 @pytest.mark.browser
-class TestSolverClues_RepeatedLengthDoesNotCircle:
-    """CARD-213 AC-2 — the same clue with a closed run of TWO mid-line and
+class TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits:
+    """CARD-213 AC-2, revised by rule E (owner 2026-11-23, QA checklist v3:
+    "the middle 2"). The same clue with a closed run of TWO mid-line and
     undecided cells either side: "2" occurs twice in "1 2 3 2 1", so rule C
-    cannot tell which of them the run is and circles nothing.
+    cannot tell which of them the run is — but in each row only one of the
+    two 2s has room for its neighbours either side of the run, and rule E
+    circles that one.
 
     The control is every one of those marks under "1 2 3", where 2 occurs
     once: there the 2 IS circled. Both assertions read the same marks, so
@@ -526,17 +560,33 @@ class TestSolverClues_RepeatedLengthDoesNotCircle:
         [False, True, False],
     ]
 
-    def test_the_repeated_value_circles_nothing(self, browser_page, live) -> None:
-        """The claim of CARD-213 AC-2, retired by CARD-400 on 2026-11-10 (the
-        marks pin some of these runs, and rule D circled them) and RESTORED by
-        CARD-434 on 2026-11-12, the owner's ruling after playing with rule D:
-        "circle clues only if they're surrounded by white (dots)". A repeated
-        value circles nothing here — rule C cannot tell the two 2s apart by
-        length, and nothing else reaches the run."""
+    #: Which 2 has room in each row: the first 2 in the first three (the 3,
+    #: 2 and 1 after it need nine cells), the second in the last (the 1, 2
+    #: and 3 before it need nine). The closed 1 in row three has room as
+    #: neither 1, so it stays uncircled.
+    RULE_E = [
+        [False, True, False, False, False],
+        [False, True, False, False, False],
+        [False, True, False, False, False],
+        [False, False, False, True, False],
+    ]
+
+    def test_the_repeated_value_circles_the_one_that_fits(self, browser_page, live) -> None:
+        """CARD-213 AC-2 said "nothing"; CARD-434 (2026-11-12) kept it so,
+        withdrawing rule D's circles beside unmarked cells. Rule E circles
+        only a CLOSED run, so it keeps that ruling and still reverses this
+        row: the owner, on Anna's "2 2 2" line, wanted the middle 2. Plant:
+        drop rule E from solver_state.js -> every row reads _NOTHING."""
         _blank_page(browser_page, live)
         got = _numbers(browser_page, [(_OWNER_CLUE, marks) for marks in self.MARKS])
-        assert got == [_NOTHING] * len(self.MARKS)
+        assert got == self.RULE_E
         assert got == [_rule_circles(_OWNER_CLUE, marks) for marks in self.MARKS]
+        assert [_rule_circles(_OWNER_CLUE, marks, rule_e=False) for marks in self.MARKS] \
+            == [_NOTHING] * len(self.MARKS)
+        # Anna's line: "2 2 2" on ten cells, single darks at cells 2 and 9
+        # still open, the middle 2 closed by dots.
+        anna = _numbers(browser_page, [((2, 2, 2), ".D..WDDW.D")])
+        assert anna == [[False, True, False]] == [_rule_circles((2, 2, 2), ".D..WDDW.D")]
 
     def test_the_same_marks_circle_a_two_that_occurs_once(self, browser_page, live) -> None:
         _blank_page(browser_page, live)
@@ -3499,8 +3549,8 @@ class TestSolverClues_PinnedNumbersCircle:
     and every marking of lines 1..7 cells long that fits some placement (dark,
     white, blank) — every number the module circles is pinned AND closed by
     white or by the line's edge, the module reads exactly what rules A, B and
-    C give, and the withdrawal is counted: 8,244 numbers that rule D circled
-    no longer do. Held to its own case counts so the corpus cannot shrink.
+    C (and, since 2026-11-23, E) give, and the withdrawal is counted: 8,108
+    numbers that rule D circled no longer do (8,244 before rule E). Held to its own case counts so the corpus cannot shrink.
     Plant: rule D put back (pinnedNumbers OR-ed into circledNumbers) -> red on
     the owner's line, on the closedness property and on the count.
     """
@@ -3558,4 +3608,7 @@ class TestSolverClues_PinnedNumbersCircle:
         pinned_open = sum(1 for (clue, marks), w in zip(lines, want) for i, p in enumerate(w)
                           if p and "." in marks)
         assert len(lines) >= 16000 and pinned_open >= 1000, (len(lines), pinned_open)  # 16,292 lines measured
-        assert stopped == 8244, stopped
+        # 8,244 at CARD-434; rule E (owner 2026-11-23, "the middle 2") gives
+        # back the 136 of them whose run is CLOSED and whose repeated value
+        # has room as one number only — every one still closed, as asserted above.
+        assert stopped == 8108, stopped

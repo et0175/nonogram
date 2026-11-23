@@ -825,6 +825,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    already exclude it; solver.js's touchend guard covers the board itself. */
 .player-toolbar, .player-line { touch-action: manipulation; }
 .player-board.is-region .player-cell { touch-action: none; }
+/* QA checklist v3 #29 (Anna, 2026-11-23): a pinch on the clue bands is the
+   board's pinch too. It used to be left to the browser's page pinch, which
+   the play page has switched off since CARD-473 (user-scalable=no), so a
+   pinch that started on a clue did nothing the reader could see; in
+   landscape, where the bands are most of the stage, the pinch was "very
+   hard", and the phone took the two fingers for its own gesture and closed
+   the tab. pan-x pan-y on the stage (the scroller) reaches every clue box
+   inside it: panning stays, the browser's pinch and double-tap go. */
+.player-stage { touch-action: pan-x pan-y; }
 /* CARD-449: the Region anchor (a press held on a cell), a thick inset accent
    ring — not the hint's outline, not the probe's dashed edge — and no iOS
    callout or selection on the long press that sets it. */
