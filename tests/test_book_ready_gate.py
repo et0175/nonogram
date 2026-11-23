@@ -26,6 +26,7 @@ the code under test.
 
 from __future__ import annotations
 
+import copy
 import uuid
 
 import pytest
@@ -278,6 +279,25 @@ class Shelf:
     def status(self, book_id) -> str:
         return self.books.get_book(book_id).status
 
+    def stored(self, book_id):
+        """Everything storage holds for the book: its row (or stored object)
+        and its plan, as values, so a write of any column shows as a change."""
+        if self.factory is None:
+            return (
+                copy.deepcopy(self.books.books[book_id]),
+                copy.deepcopy(self.books._plans.get(book_id)),
+            )
+        from nonogram.db.models import Book as DBBook
+
+        with self.factory() as db:
+            row = db.query(DBBook).filter(DBBook.id == uuid.UUID(book_id)).one()
+            return {column.key: getattr(row, column.key) for column in DBBook.__table__.columns}
+
+    def gate(self, book_id, status=READY_FOR_PDF) -> None:
+        """CARD-534: the plan gate alone, read-only, for the book as stored."""
+        book = self.books.get_book(book_id)
+        self.books.check_plan_gate(book_id, book.status, status, list(book.puzzle_ids))
+
     def refusal(self, book_id, status=READY_FOR_PDF) -> str:
         """The refusal the gate raises for that transition (it must raise one).
 
@@ -378,6 +398,10 @@ class TestBookReady_AcceptsWhenEveryCellWithinTolerance:
 
     def test_the_book_reaches_the_ready_status(self, shelf) -> None:
         book_id = shelf.book(cells_of(AC218_SELECTION))
+        before = shelf.stored(book_id)
+
+        assert shelf.gate(book_id) is None  # CARD-534: the read-only gate passes it
+        assert shelf.stored(book_id) == before, "the read-only gate wrote on a pass"
 
         assert shelf.books.set_book_status(book_id, READY_FOR_PDF) is True
         assert shelf.status(book_id) == READY_FOR_PDF
@@ -424,8 +448,15 @@ class TestBookReady_RefusedBeyondThreePoints:
 
     def test_the_transition_is_rejected_and_the_book_stays_draft(self, shelf) -> None:
         book_id = shelf.book(cells_of(AC220_SELECTION))
+        before = shelf.stored(book_id)
 
-        shelf.refusal(book_id)
+        # CARD-534: the read-only gate refuses with the status change's own
+        # text, and writes nothing.
+        with pytest.raises(StatusRefusal) as gated:
+            shelf.gate(book_id)
+        assert shelf.stored(book_id) == before, "the read-only gate wrote on a refusal"
+
+        assert shelf.refusal(book_id) == str(gated.value)
 
         assert shelf.status(book_id) == DRAFT
 

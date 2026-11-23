@@ -5558,10 +5558,8 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
                             raise
                         return _page_plan_failure_page(broken_plan)
                     if counts is None:
-                        # A private BookManager method, called across modules
-                        # on purpose: book_manager.py has no public read-only
-                        # form of the gate yet (review F-003, follow-up). Only
-                        # the gate is asked — not set_book_status's other
+                        # The plan gate's read-only form, check_plan_gate:
+                        # only the gate is asked — not set_book_status's other
                         # checks — and only to keep its refusal first.
                         #
                         # CARD-171: the gate's refusal is flashed here, with
@@ -5571,7 +5569,7 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
                         # ValueError (no puzzle store to read the selection
                         # through) is a fault, and takes the outer handler.
                         try:
-                            book_mgr._refuse_unless_the_planned_book(
+                            book_mgr.check_plan_gate(
                                 book_id,
                                 book.status,
                                 BookStatus.READY_FOR_PDF.value,

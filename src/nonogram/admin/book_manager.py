@@ -2385,6 +2385,35 @@ class BookManager:
         if refusal is not None:
             raise StatusRefusal(refusal)
 
+    def check_plan_gate(
+        self, book_id: str, current_status: str, new_status: str, puzzle_ids
+    ) -> None:
+        """The read-only form of the plan gate :meth:`set_book_status` runs.
+
+        Asks only ADR-0035/R1's question -- would moving a book in
+        ``current_status`` holding ``puzzle_ids`` to ``new_status`` be refused
+        by its stored plan? -- and none of :meth:`set_book_status`'s other
+        checks (a published book, an empty one). It is the same gate, not a
+        second one: it delegates to :meth:`_refuse_unless_the_planned_book`,
+        so the verdict and the refusal text are the ones a status change gets.
+        Returns ``None`` when the gate has nothing to say.
+
+        It writes nothing: the book's stored row and plan are as they were
+        after a refusal and after a pass, in both storage modes
+        (tests/test_book_ready_gate.py,
+        ``TestBookReady_RefusedBeyondThreePoints`` and
+        ``TestBookReady_AcceptsWhenEveryCellWithinTolerance``).
+
+        The Finalise route asks it ahead of the gutter check, so the gate's
+        refusal comes before the one for an interior that cannot be counted.
+
+        Raises:
+            StatusRefusal: the gate's refusal, the text the owner is shown.
+            ValueError: a selection that cannot be read (no puzzle store) -- a
+                fault, not a refusal (CARD-496).
+        """
+        self._refuse_unless_the_planned_book(book_id, current_status, new_status, puzzle_ids)
+
     def set_book_status(self, book_id: str, status: str) -> bool:
         """Update book status.
 
