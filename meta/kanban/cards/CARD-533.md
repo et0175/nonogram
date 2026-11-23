@@ -1,6 +1,6 @@
 # CARD-533: The arrange screen's page plan fails loudly if its labels stop covering the printed rows
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/533-arrange-count-check
+**Worktree:** ../PythonProject4-card-533
 **Source:** roadmap wave 15, cut 2026-11-23 on the owner's "pick the next no-decision wave from the backlog". IDEA-022 (CARD-140 F-005).
 **Idea:** IDEA-022
 **Wave:** 94
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/app.py, its arrange-screen tests
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-23T17:51Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
