@@ -51,10 +51,11 @@ for a second Approve to send. It is a DECLARED REDUNDANCY and
 says so; this paragraph used to claim the stronger thing for all four, which
 the mutant falsified.
 
-**Page isolation** is declared in :data:`PAGE_ISOLATION_DECLARATION` below and
-checked by this file's own test, because CARD-235's registry globs
-``tests/test_puzzle_solver_*.py`` and cannot see a file outside that name
-(review cycle 1, F-014).
+**Page isolation** is declared in ``tests/test_puzzle_solver_page.py``'s
+``PAGE_ISOLATION``, like every browser-test file's. It was declared here, by
+hand, while that table's guard globbed ``tests/test_puzzle_solver_*.py``
+(review cycle 1, F-014); CARD-527 keyed the guard on collection's ``browser``
+marker and moved the declaration there verbatim.
 
 Property corpora are hand-built with ``random.Random`` and a fixed seed, each
 asserting its own minimum count (no ``hypothesis``: not in the baseline).
@@ -164,32 +165,6 @@ _EDIT_ROUTES = (
 EDITOR = "/puzzle/{}/editor"
 SAVE = "/puzzle/{}/edit"
 VERIFY = "/puzzle/{}/edit/verify"
-
-#: This file's page isolation, in CARD-235's own vocabulary and checked by
-#: ``TestPuzzleEditor_Guardrails.test_this_files_page_isolation_is_declared``.
-#: CARD-235 keeps the declaration for its twelve files in
-#: ``tests/test_puzzle_solver_page.py``'s ``PAGE_ISOLATION``, whose guard globs
-#: ``tests/test_puzzle_solver_*.py`` — a glob this file's name is outside, so
-#: the discipline could not see it (review cycle 1, F-014). The glob is left
-#: alone deliberately: widening it would re-key CARD-235's collection
-#: baseline, its allowlist of added node ids and its recorded 422-test order
-#: runs, which is a change to that card's machinery and not to this one's. The
-#: declaration is made here instead, with the same two categories and the same
-#: check that the fixtures this file imports really are per-test.
-PAGE_ISOLATION_DECLARATION = (
-    "own-page",
-    "installs page.route interceptors (an aborted verify, an aborted save, a "
-    "stubbed grade, a 204 that holds the exit's navigation back), request and "
-    "pageerror listeners and a MutationObserver on the save bar, seeds and "
-    "reads localStorage, and suppresses a document event listener — none of "
-    "which navigating undoes; and since CARD-250 its tests navigate AWAY from "
-    "the editor on purpose, so a page left on the puzzle list is a page the "
-    "next test would have to put back — as is a page deliberately left on the "
-    "editor holding an unstored stroke (review cycle 1, F-001), and since "
-    "CARD-251 one left holding an OPEN book question, whose two answers are "
-    "the only way past it",
-)
-
 
 # --------------------------------------------------------------------------
 # The panel over the in-memory store (these cannot skip)
@@ -752,35 +727,6 @@ class TestPuzzleEditor_Guardrails:
         assert "classify" not in code
         # Everything shown about the grade is read out of the response.
         assert "grade.difficulty_tier" in code and "grade.difficulty_score" in code
-
-    def test_this_files_page_isolation_is_declared_and_true(self) -> None:
-        """F-014. CARD-235's rule is that a browser-test file's page isolation
-        is a declaration somebody changes on purpose; its registry's guard
-        globs ``tests/test_puzzle_solver_*.py``, which this file's name is
-        outside, so the declaration is made here and checked here — in that
-        card's own vocabulary, against that card's own reading of the fixture
-        scopes, and with the reason grepped for the mechanisms it claims, as
-        ``PAGE_ISOLATION``'s three tests do for the files inside it. (The
-        ordinal that used to stand there — "the twelve" — was stale by two by
-        the time CARD-267 added the fourteenth, so it is gone rather than
-        re-counted: a number nothing checks is a number that goes wrong.)"""
-        from tests.test_browser_fixture_scope import _fixture_scope
-        from tests.test_puzzle_solver_page import PAGE_ISOLATION, PAGE_ISOLATION_CATEGORIES
-
-        category, reason = PAGE_ISOLATION_DECLARATION
-        source = Path(__file__).read_text()
-
-        assert category in PAGE_ISOLATION_CATEGORIES
-        assert len(reason.split()) >= 8, reason
-        # Why this file declares its own: it is not in the family's glob, so
-        # adding a key to PAGE_ISOLATION would fail that registry's own
-        # "they agree with the files on disk" test.
-        assert Path(__file__).name not in PAGE_ISOLATION
-        # own-page means a page per test AND a server per test.
-        for fixture in (browser_page, live):
-            assert _fixture_scope(fixture) == "function", fixture
-        for mechanism in (r"\.route\(", r"\.on\(", r"localStorage", r"MutationObserver"):
-            assert re.search(mechanism, source), mechanism
 
     def test_the_edit_mode_contract_counts_its_own_branches(self) -> None:
         """F-009: solver.js's EDIT MODE contract says how many things the one
