@@ -138,7 +138,12 @@ def _stored_columns(books, book_id) -> tuple[str, str]:
 
 
 def _comfortable_puzzle(app, scope, mode) -> str:
-    """One small puzzle that clears the 4.8 mm floor on any supported trim."""
+    """One small puzzle that clears the floor (``FLOOR_MM``, 4.75 mm) on this file's trims.
+
+    Measured with ``book_cell_sizes``: 7.5 mm on Book 1 (where it joins the
+    book) and on 6 x 9 in (where it is printed). Not on every supported trim:
+    on a 10 cm-tall trim it prints 4.7442 mm, under the floor.
+    """
     grid = [[2 <= x < 8 and 2 <= y < 7 for x in range(10)] for y in range(10)]
     found = clues.compute_clues(grid)
     batch_id = None if mode == "memory" else make_batch(scope, source="random", total_count=1)
