@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/impact_set.py, tests/test_impact_set.py
 **UI surface:** —
-**Review score:** 8.5 (cycle 2/3)
+**Review score:** 9.3 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-23T08:10Z
 **Closed:** —
 **Actual:** —
@@ -182,3 +182,5 @@ Files that do not exist on the tree: package.json, tsconfig.json and package-loc
 C1 to C8, the 5 class controls and the 5 idiom controls are all still red.
 
 **Gate:** `tests/test_impact_set.py` and `tests/test_wave_close_marker.py`, unarmed, with `-rfs`: 236 passed, 0 failed, 0 skipped.
+
+[Review 3/3] Score: 9.3, certified. Re-derived: 236 passed, 0 skipped; test_impact_set.py 200 -> 217; AC-3 on a third sample (merges 81-120, 96 KNOWN_ROOTS paths singly plus the set) 97/97 identical; the `_referencers` skip is passed only by `_derive_root_file` (ast); 200,000 seeded strings through `_strip_hash_comments` never cut more than the cycle-1 split; controls C9-C14 red at their cases; the root-file table matches; the database class honest under G-1. Cycle-2 F-101, F-102, F-103 closed. F-201 (medium, recorded): no test covers a scripts/ file loading a root file; a mutant skipping scripts/ referencers in `_derive_root_file` leaves every test green (only README.md has such a referencer today). F-202 (low, recorded): a new root NOTES.md, GUIDE.md, run.sh or data.db selects the 43-file baseline rather than FULL no-reader, because test fixtures spell those names; nothing is missed, since the baseline holds the whole-tree scanners.
