@@ -1,6 +1,6 @@
 # CARD-530: The browser-family registry records the three tests Player QA v3 renamed, and can retire a recorded test whose claim the owner inverted
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/530-qa-v3-registry
-**Worktree:** ../PythonProject4-card-530
+**Worktree:** —
 **Source:** found 2026-11-23 by CARD-527's implementation and review (F-005): main has been red since the Player QA v3 merge (8f799d5b), which renamed three browser tests without updating tests/test_browser_fixture_scope.py's registry. Added to wave 14 because it reds every merge gate.
 **Idea:** —
 **Wave:** 93
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-23T09:07Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-23T10:08Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** d978bd1cd2e5bb9aa5d31c3a2a5c491cc1faa6ce
 **Blocked by:** —
 
 ## Why this card exists
