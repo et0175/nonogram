@@ -616,7 +616,7 @@ ideas:
     rows vs `len(plan.printed)`) that flips `page_plan_failed`   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1

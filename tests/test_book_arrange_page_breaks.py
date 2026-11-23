@@ -1171,6 +1171,12 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         CARD-502 (IDEA-023): and ``puzzle_section``'s own precondition — ids
         parallel to payloads — broken by its caller, the same seam-bug class.
         It is reached here by handing the real check one id too few.
+
+        CARD-533 (IDEA-022, CARD-140 F-005): and a plan that prints *copies* of
+        the caller's rows. ``places`` is keyed by ``id(row)``, so a copy names
+        no row the screen holds: every page label would silently vanish and
+        every row read as unprintable. The count check turns that into this
+        same failure — notice shown, traceback logged, no row marked.
         """
         from nonogram.admin import book_pdf_generator
 
@@ -1185,7 +1191,14 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         def one_id_short(self, payloads, *args, ids=None, **kwargs):
             return original_section(self, payloads, *args, ids=list(ids)[:-1], **kwargs)
 
-        for name, broken in (("section_plan", truncated), ("puzzle_section", one_id_short)):
+        def copies(self, puzzles):
+            return original_plan(self, [dict(row) for row in puzzles])
+
+        for name, broken in (
+            ("section_plan", truncated),
+            ("puzzle_section", one_id_short),
+            ("section_plan", copies),
+        ):
             book_id = panel.book_of(panel.puzzle("easy", size=10, teeth=3))
             caplog.clear()
             with monkeypatch.context() as patch:
@@ -1195,6 +1208,8 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
 
             assert 'id="page-plan-unavailable"' in markup, (name, "the owner is still told")
             assert shown_labels(markup) == [], name
+            # CARD-490: with no plan, no row is called unprintable.
+            assert shown_unprinted(markup) == [], name
             failures = [record for record in caplog.records if record.levelno >= logging.ERROR]
             assert failures, (name, caplog.text)
             assert any(record.exc_info is not None for record in failures), (
@@ -1207,6 +1222,13 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
                 # The real check fired, not a TypeError of this test's own.
                 assert any(
                     "ids must be parallel to payloads" in str(record.exc_info[1])
+                    for record in failures if record.exc_info
+                ), caplog.text
+            if broken is copies:
+                # CARD-533: the count check fired, not a KeyError downstream.
+                assert any(
+                    isinstance(record.exc_info[1], LookupError)
+                    and "not the caller's row objects" in str(record.exc_info[1])
                     for record in failures if record.exc_info
                 ), caplog.text
 

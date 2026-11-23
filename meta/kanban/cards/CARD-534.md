@@ -1,6 +1,6 @@
 # CARD-534: The Finalise route asks BookManager's plan gate through a public read-only method
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/534-public-plan-gate
+**Worktree:** ../PythonProject4-card-534
 **Source:** roadmap wave 15, cut 2026-11-23 on the owner's "pick the next no-decision wave from the backlog". IDEA-042 (CARD-153 F-003).
 **Idea:** IDEA-042
 **Wave:** 94
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-23T18:30Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
