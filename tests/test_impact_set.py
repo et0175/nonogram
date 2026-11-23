@@ -1161,7 +1161,8 @@ class TestImpactSet_AMentionIsNotALoad:
 
 
 class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
-    """G-6: the root stays closed; the readers of the repo-root ``player/`` are derived."""
+    """G-6: the root stays closed; the readers of the repo-root ``player/`` are
+    derived, and since CARD-528 so are those of a root-level file."""
 
     def test_the_real_player_assets_select_every_public_player_test(self):
         public = sorted(
@@ -1179,11 +1180,112 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
             assert selected != impact.FULL, asset
             assert sorted(set(public) - set(selected)) == [], asset
 
-    def test_a_root_level_prose_file_stays_full_with_its_reason(self, tree):
-        derived = impact.derive(tree, ["ONLINE_GAME_SPECIFICATION.md"])
+    @pytest.mark.parametrize(
+        "name, owner, owner_text, rule, detail",
+        [
+            # CARD-528 AC-2: a new (untracked) root file nobody reads.
+            ("NOTES.md", "", "", "no-reader", "no test names"),
+            # No ROOT_FILE_CLASSES class admits it: a tool reads it by location,
+            # so the test naming it is not its only reader.
+            (".notes.md", "", "", "outside-known-roots", "ROOT_FILE_CLASSES"),  # a dotfile, even one of an admitted suffix
+            ("tool.ini", "", "", "outside-known-roots", "ROOT_FILE_CLASSES"),
+            ("package.json", "", "", "outside-known-roots", "ROOT_FILE_CLASSES"),
+            # Named by an UNANALYSABLE file, so inside a radius nobody models;
+            # a '#' inside quotes is not a comment (TOML string, Makefile recipe).
+            ("GUIDE.md", "pyproject.toml", 'readme = "GUIDE.md"\n', "unanalysable", "pyproject.toml"),
+            ("GUIDE.md", "pyproject.toml", 'x = "a # b GUIDE.md"\n', "unanalysable", "pyproject.toml"),
+            ("GUIDE.md", "Makefile", "doc:\n\tgrep -c '#' GUIDE.md\n", "unanalysable", "Makefile"),
+            # An escaped quote does not close a TOML string; a triple-quoted one spans lines.
+            ("GUIDE.md", "pyproject.toml", 'x = "say \\" # GUIDE.md"\n', "unanalysable", "pyproject.toml"),
+            ("GUIDE.md", "pyproject.toml", 'x = """\n# GUIDE.md\n"""\n', "unanalysable", "pyproject.toml"),
+            # The UNANALYSABLE Python owners name what they name: only the selector is exempt.
+            ("GUIDE.md", "tests/conftest.py", 'DOC = "GUIDE.md"\n', "unanalysable", "tests/conftest.py"),
+            ("GUIDE.md", "setup.py", 'README = "GUIDE.md"\n', "unanalysable", "setup.py"),
+            # Spelled only in the selector's own ROOT_FILE_CLASSES (the real selector,
+            # copied): a name it matches is not a reader, so nobody reads it. Built
+            # from pieces so this file does not itself "name" the repo's own copy.
+            ("runtime" + ".txt", "scripts/impact_set.py", None, "no-reader", "no test names"),
+        ],
+    )
+    def test_a_root_level_file_it_cannot_model_stays_full_with_its_reason(
+        self, tree, name, owner, owner_text, rule, detail
+    ):
+        (tree / name).write_text("x\n")
+        if owner:
+            (tree / owner).parent.mkdir(exist_ok=True)
+            (tree / owner).write_text(SELECTOR.read_text(encoding="utf-8") if owner_text is None else owner_text)
+        if owner_text is None:
+            # The selector has readers of its own, as on the real tree: they must
+            # not become readers of every name its class table spells.
+            (tree / "tests" / "test_reads_selector.py").write_text(
+                "SEL = 'scripts/impact_set.py'\ndef test_s():\n    assert SEL\n"
+            )
+        if rule != "no-reader":
+            # A test naming it: without the rule under test this would narrow.
+            (tree / "tests" / "test_names_it.py").write_text(f"P = {name!r}\ndef test_n():\n    assert P\n")
+        derived = impact.derive(tree, [name])
         assert derived.full
-        assert derived.reasons[0].rule == "outside-known-roots"
-        assert "ONLINE_GAME_SPECIFICATION.md" in str(derived.reasons[0])
+        assert [r.rule for r in derived.reasons] == [rule]
+        assert name in str(derived.reasons[0])
+        assert detail in derived.reasons[0].detail
+
+    #: One admitted ROOT_FILE_CLASSES class and one ROOT_WALK_IDIOMS spelling per
+    #: case, so removing either reds a case of its own. The ``parents[N]`` walker
+    #: sits in a helper a test imports: root_readers follows helpers.
+    _ROOT_CASES = [
+        ("NOTES.md", "test_root_walker.py",
+         "from pathlib import Path\nREPO_ROOT = Path('.')\ndef test_w():\n    assert list(REPO_ROOT.iterdir())\n"),
+        ("Dockerfile", "test_root_walker.py",
+         "import os\nREPO_ROOT = '.'\ndef test_w():\n    assert os.listdir(REPO_ROOT)\n"),
+        # "Proc" + "file": built from pieces so this file does not "name" the repo's own.
+        ("Proc" + "file", "dir_helper.py",
+         "from pathlib import Path\ndef entries():\n    return list(Path(__file__).parents[1].glob('*'))\n"),
+        ("run.sh", "test_root_walker.py",
+         "from pathlib import Path\ndef test_w():\n    assert list(Path.cwd().iterdir())\n"),
+        ("data.db", "test_root_walker.py",
+         "import glob\ndef test_w():\n    assert glob.glob('*.txt') is not None\n"),
+    ]
+
+    @pytest.mark.parametrize("name, walker, walker_text", _ROOT_CASES, ids=[c[0] for c in _ROOT_CASES])
+    def test_a_root_level_file_selects_its_namers_loaders_and_root_walkers(self, tree, name, walker, walker_text):
+        """CARD-528: an admitted root file is derived like a file under the roots."""
+        (tree / name).write_text("x\n")
+        (tree / "pyproject.toml").write_text(f"# {name} is only mentioned in a comment\n")
+        # The selector's own class table spells these names; that is not a load.
+        (tree / "scripts").mkdir()
+        (tree / "scripts" / "impact_set.py").write_text(SELECTOR.read_text(encoding="utf-8"))
+        (tree / "tests" / "test_reads_notes.py").write_text(f"P = {name!r}\ndef test_n():\n    assert P\n")
+        (tree / "src" / "nonogram" / "lonely.py").write_text(f"NOTES = {name!r}\n")
+        (tree / "tests" / "test_imports_lonely.py").write_text(
+            "from nonogram import lonely\ndef test_l():\n    assert lonely\n"
+        )
+        (tree / "tests" / walker).write_text(walker_text)
+        if walker != "test_root_walker.py":
+            (tree / "tests" / "test_root_walker.py").write_text(
+                "from tests.dir_helper import entries\ndef test_w():\n    assert entries() is not None\n"
+            )
+        selected = impact.select(tree, [name])
+        assert selected != impact.FULL
+        assert "tests/test_reads_notes.py" in selected
+        assert "tests/test_imports_lonely.py" in selected
+        assert "tests/test_root_walker.py" in selected
+        assert "tests/test_orphan.py" not in selected
+
+    def test_claude_md_selects_every_test_that_reads_it(self):
+        """CARD-528 AC-1, on the real tree. The readers are found here by ``ast``
+        (a string constant naming the file), not by the selector's own text rule."""
+        readers = set()
+        for path in sorted((REPO / "tests").glob("**/test_*.py")):
+            module = ast.parse(path.read_text(encoding="utf-8"))
+            if any(
+                isinstance(n, ast.Constant) and isinstance(n.value, str) and "CLAUDE.md" in n.value
+                for n in ast.walk(module)
+            ):
+                readers.add(path.relative_to(REPO).as_posix())
+        assert "tests/test_cli.py" in readers, "the control's own corpus lost its known reader"
+        derived = _real_derive(["CLAUDE.md"])
+        assert not derived.full, derived.reasons
+        assert sorted(readers - set(derived.files)) == []
 
     def test_an_unread_page_outside_the_roots_is_full(self, tree):
         (tree / "site").mkdir()
