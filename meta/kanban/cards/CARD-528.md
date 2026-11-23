@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/impact_set.py, tests/test_impact_set.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-23T08:10Z
 **Closed:** —
 **Actual:** —
@@ -80,3 +80,5 @@
 **Gate**: `tests/test_impact_set.py` + `tests/test_wave_close_marker.py` (the tests that load `impact_set` by path, found by `ast`; `tests/test_public_player_pages.py` names it only in a docstring), unarmed, `-rfs`: 224 passed, 0 failed, 0 skipped. G-2: `gate_verdict`, `lift`, `subject_files` and the Makefile untouched; a root-file FULL still carries `outside-known-roots`/`no-reader`/`unanalysable`, the rule ids the lift already knew.
 
 **Not modelled (declared)**: a test building a root file's name from pieces (`"CLAUDE" + ".md"`), and a root walker whose receiver matches none of `ROOT_WALK_IDIOMS`; `changed_from_git` still sweeps untracked files only under src/ and tests/, so a new untracked root file reaches the selector only when passed explicitly.
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. Re-derived: every root-file figure (CLAUDE.md 105, README.md 211, render.yaml 46, nonogram_admin.db 45, start.sh 45, three at 43); AC-3 98/98 identical on the same 40-merge sample; controls C1, C2, C6 red per assert; 224 passed, 0 skipped; test_impact_set.py +5. G-1 judged per narrowed file: nonogram_admin.db is opened by no src/ module; render.yaml, Dockerfile, docker-compose.yml, start.sh are read by tools the suite never runs. F-001 (Important, G-1): only dotfiles and .ini/.cfg/.toml/.lock are refused as tool config, so a new root package.json (or tsconfig.json, package-lock.json) narrows to 47 files because two tests name it to assert its absence from player/; node reads it by location, and a `"type": "module"` there changes how `tests/test_web_metadata.py`'s `node --check` parses metadata.js, a test the narrowed gate would not run. F-002 (medium): only one of the five ROOT_WALK_IDIOMS is planted in a test; `_Corpus.root_readers` scans test files but not helpers they import. F-003 (low): `_unanalysable_namer` cuts at any `#`, including one inside a string or a Makefile recipe. F-004 (low): a tool-config refusal's reason text names the generic rule. F-005 (info): helper docstrings mentioning CLAUDE.md lift 4 of 6 wave_close_only files on a CLAUDE.md change; safe, costs part of the saving.
