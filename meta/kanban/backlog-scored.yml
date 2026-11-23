@@ -1150,7 +1150,7 @@ ideas:
     needs a public read-only gate in `book_manager.py`   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
