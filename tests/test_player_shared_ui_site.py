@@ -106,6 +106,9 @@ FOUR_FILES = {
     "src/nonogram/admin/static/admin.css": "admin.css",
     "src/nonogram/admin/static/solver_state.js": "solver_state.js",
     "src/nonogram/admin/static/tokens.css": "tokens.css",
+    # A fifth since 2026-11-23 (the owner's test notes): the tab icon. The
+    # name stays, as node ids of the tests below are keyed on it.
+    "src/nonogram/admin/static/favicon.png": "favicon.png",
 }
 
 # --------------------------------------------------------------------------
@@ -481,6 +484,8 @@ class TestSharedUi_ThePageRuns:
         assert page.locator(".player-head h1").inner_text() == f"Puzzle {number}"
         assert page.locator("[data-player-size]").inner_text() == "10\u00d710"
         assert page.title().startswith(f"Puzzle {number} \u00b7 10\u00d710")
+        assert page.title().endswith(f" - {BOOK_TITLE_SERVED}")  # owner's notes 2026-11-23: the book in the tab
+        assert page.locator('link[rel="icon"]').count() == 1
         # CARD-462 (UX review M6): on this upright phone the 10 x 10 is no
         # longer stopped at the 28 px cell cap against the left edge: it
         # fills most of the stage and sits centred in it.

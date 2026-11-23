@@ -359,6 +359,15 @@ class TestSolverLine_OpensAtTheLastCellTouched:
             page.locator('[data-player-line-action="close"]').tap()
             assert _dialog(page).is_hidden()
             assert page.evaluate("document.activeElement.hasAttribute('data-player-line-open')")
+
+            # Owner's test notes, 2026-11-23: Cols, back to the board, Line again
+            # opens on Cols, through the last cell touched (column 11 here).
+            # Plant: openLine always "row" -> "Row 14 of 30".
+            _open_line(page)
+            page.locator('[data-player-line-axis="column"]').tap()
+            page.locator('[data-player-line-action="close"]').tap()
+            _open_line(page)
+            assert _title(page).startswith("Column 11 of ")
         finally:
             context.close()
 

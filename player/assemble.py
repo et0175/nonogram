@@ -424,6 +424,10 @@ COPIED_FROM_ADMIN: dict[str, str] = {
     "src/nonogram/admin/static/solver_state.js": "solver_state.js",
     "src/nonogram/admin/static/admin.css": "admin.css",
     "src/nonogram/admin/static/tokens.css": "tokens.css",
+    # The tab icon (owner's test notes, 2026-11-23): one for every book and
+    # every page, the admin's own mark drawn as a PNG (an SVG carries an
+    # xmlns URL, which the served-tree scan rightly counts as foreign).
+    "src/nonogram/admin/static/favicon.png": "favicon.png",
 }
 
 # --------------------------------------------------------------------------
@@ -543,6 +547,7 @@ _SHARED_UI_PAGE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Nonogram</title>
+<link rel="icon" href="/favicon.png" type="image/png">
 <link rel="stylesheet" href="@@BASE@@">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/admin.css">
@@ -711,7 +716,14 @@ function wayBack(slug, title) {
   // this row ("\\u2190 Christmas Non\\u2026" upright, "\\u2190 Christma\\u2026" sideways),
   // so there the link says "\\u2190 Book"; its accessible name keeps the title.
   const compact = matchMedia("(max-width: 600px), (max-height: 500px)");
-  const word = () => { name.textContent = `\\u2190 ${compact.matches ? "Book" : named}`; };
+  // Owner's test notes, 2026-11-23: on a wide screen the link sat at the far
+  // right edge, a long way from the title; there it now follows the title.
+  // A phone keeps it at the row's end, where the row is short anyway.
+  const word = () => {
+    name.textContent = `\\u2190 ${compact.matches ? "Book" : named}`;
+    slot.style.textAlign = compact.matches ? "right" : "left";
+    slot.style.paddingLeft = compact.matches ? "" : "var(--space-5)";
+  };
   compact.addEventListener("change", word);
   word();
   link.setAttribute("aria-label", `Back to ${named}`);
@@ -857,8 +869,11 @@ async function main() {
     size.setAttribute("style", "font-size:var(--text-sm);color:var(--color-text-secondary);"
       + "white-space:nowrap");
     heading.after(size);
+    // Owner's test notes, 2026-11-23: the book's name in the tab, not "Nonogram".
+    const shelf = typeof shelved.title === "string" && shelved.title.trim() !== ""
+      ? shelved.title.trim() : "Nonogram";
     document.title = `Puzzle ${number} \\u00b7 ${width}\\u00d7${height}`
-      + `${label ? " \\u00b7 " + label : ""} - Nonogram`;
+      + `${label ? " \\u00b7 " + label : ""} - ${shelf}`;
     wayOn(book, shelved.puzzles[number]);
   }
   if (holds && THEMES.includes(shelved.theme)) {
