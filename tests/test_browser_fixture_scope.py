@@ -798,6 +798,16 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "tests/test_puzzle_solver_probe.py::TestSolverProbe_BrokenLinesAreFlagged::test_a_line_the_probe_breaks_turns_its_clue_red": (
         "CARD-410", "AC-2..AC-5: the probe's broken line clue turns red on both twins and Contradiction is flagged; cleared by Keep and Contradiction",
     ),
+    # The replacement half of a RETIRED_SINCE_BEFORE entry: the test it
+    # replaces is in CARD-217's record, so it is retired there, not struck.
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom::"
+    "test_a_pinch_starting_on_a_column_clue_box_zooms_the_board[chromium]": (
+        "CARD-530",
+        "Player QA v3 (9fd47469, checklist v3 #29) inverted CARD-195's AC-8: a "
+        "two-finger pinch that starts on a column clue box zooms the board past "
+        "150 %, the page's own scale stays 1, and the stage's touch-action is "
+        "pan-x pan-y",
+    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_HintComesIntoView::test_reveal_scroll_against_an_independent_rule": (
         "CARD-408", "AC-1: revealScroll (the stage offset that shows a box clear of a sticky band) against an independent rule",
     ),
@@ -877,19 +887,30 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "AC-1's control: rules A and B circle nothing on any of those lines, "
         "so every circle AC-1 asserts is rule C's and not an edge walk's",
     ),
+    # CARD-213's two AC-2 entries were
+    # "TestSolverClues_RepeatedLengthDoesNotCircle::test_the_repeated_value_
+    # circles_nothing" and "...::test_the_same_marks_circle_a_two_that_occurs_
+    # once", struck here by CARD-530 as the removal half of the rule above,
+    # as CARD-435 struck CARD-268's F-005 entry. Player QA v3 (9fd47469, the
+    # owner's QA round, which had no card) moved both into the class below
+    # and inverted the first: rule E now circles the one repeated value that
+    # fits. CARD-530 is their attribution.
     "tests/test_puzzle_solver_clues.py::"
-    "TestSolverClues_RepeatedLengthDoesNotCircle::"
-    "test_the_repeated_value_circles_nothing": (
-        "CARD-213",
-        "AC-2: a closed run whose length occurs twice in the clue circles "
-        "nothing, because rule C's uniqueness is per line and per value",
+    "TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits::"
+    "test_the_repeated_value_circles_the_one_that_fits": (
+        "CARD-530",
+        "Player QA v3 (9fd47469, owner 2026-11-23, rule E) inverted CARD-213's "
+        "AC-2: on the owner's 1 2 3 2 1 clue a closed run of two circles the "
+        "one 2 with room for its neighbours either side, and Anna's 2 2 2 line "
+        "circles the middle 2; with rule E off the same marks circle nothing",
     ),
     "tests/test_puzzle_solver_clues.py::"
-    "TestSolverClues_RepeatedLengthDoesNotCircle::"
+    "TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits::"
     "test_the_same_marks_circle_a_two_that_occurs_once": (
-        "CARD-213",
-        "AC-2's paired positive: the same marks under a clue where that value "
-        "occurs once do circle it, so the negative is not vacuous",
+        "CARD-530",
+        "CARD-213's AC-2 control, moved unchanged by Player QA v3 (9fd47469) "
+        "into the rule E class: the same marks under 1 2 3, where 2 occurs "
+        "once, circle the 2 in every row",
     ),
     "tests/test_puzzle_solver_clues.py::"
     "TestSolverClues_AmbiguousUniqueLengthCirclesNothing::"
@@ -2407,6 +2428,40 @@ RENAMED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
 }
 
 
+#: Node ids CARD-217 recorded that the owner RETIRED by inverting their claim,
+#: each ``old id -> (card, replacement id, reason)``.
+#:
+#: Neither table above can say this. :data:`ADDED_SINCE_BEFORE` may strike
+#: only what it added, and an id CARD-217 recorded must not simply disappear;
+#: :data:`RENAMED_SINCE_BEFORE` may change only what is inside a node id's
+#: ``[...]``. When the owner reverses a ruling, the recorded test asserting
+#: the old ruling becomes a test asserting its opposite under a new name, and
+#: keeping the old name would make the name lie. CARD-530 is the first:
+#: Player QA v3 (9fd47469) turned CARD-195's "a pinch on a clue box is left to
+#: the browser" into "a pinch on a clue box zooms the board".
+#:
+#: A retirement removes the old id from the expected family, so it is the
+#: table that could delete coverage, and :func:`_retirement_problems` holds it
+#: to one rule: a recorded test is retired only TOGETHER with a replacement.
+#: The old id must be in CARD-217's record and no longer collected; the
+#: replacement must be collected and carried by an ``ADDED_SINCE_BEFORE``
+#: entry of the SAME card (so an unrelated allowlisted test cannot be named as
+#: the replacement), and replaces only this one id. A recorded test that
+#: disappears with no entry here is still ``"tests removed"``
+#: (``test_the_baseline_goes_red_in_both_directions``, claim 3).
+RETIRED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_PinchOnAClueBoxIsNotTheBoardsZoom::"
+    "test_a_pinch_starting_on_a_column_clue_box_is_left_to_the_browser[chromium]": (
+        "CARD-530",
+        "tests/test_puzzle_solver_zoom.py::TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom::"
+        "test_a_pinch_starting_on_a_column_clue_box_zooms_the_board[chromium]",
+        "CARD-195's AC-8 said a clue-box pinch is left to the browser's page "
+        "pinch; Player QA v3 (9fd47469, checklist v3 #29) reversed it because "
+        "that page pinch is off since CARD-473, so the pinch did nothing",
+    ),
+}
+
+
 def _recorded_node_ids(
     renames: dict[str, tuple[str, str, str]] | None = None,
 ) -> set[str]:
@@ -2428,18 +2483,22 @@ def _recorded_node_ids(
 def _baseline_node_ids(
     allowlist: dict[str, tuple[str, str]] | None = None,
     renames: dict[str, tuple[str, str, str]] | None = None,
+    retirements: dict[str, tuple[str, str, str]] | None = None,
 ) -> set[str]:
-    """The node ids the family is expected to hold: the record | the allowlist.
+    """The node ids the family is expected to hold:
+    (the record - the retired) | the allowlist.
 
     CARD-217's committed artefact supplies the recorded part (through
-    :func:`_recorded_node_ids`, which applies the recorded renames to it) and
-    :data:`ADDED_SINCE_BEFORE` the part added since. ``allowlist`` and
-    ``renames`` are parameters only so the controls below can run this same
-    derivation against tables they have altered; every real caller passes
-    nothing.
+    :func:`_recorded_node_ids`, which applies the recorded renames to it),
+    less the ids :data:`RETIRED_SINCE_BEFORE` retired, and
+    :data:`ADDED_SINCE_BEFORE` the part added since, retirements' replacements
+    included. ``allowlist``, ``renames`` and ``retirements`` are parameters
+    only so the controls below can run this same derivation against tables
+    they have altered; every real caller passes nothing.
     """
     entries = ADDED_SINCE_BEFORE if allowlist is None else allowlist
-    return _recorded_node_ids(renames) | set(entries)
+    retired = RETIRED_SINCE_BEFORE if retirements is None else retirements
+    return (_recorded_node_ids(renames) - set(retired)) | set(entries)
 
 
 def _rename_problems(table: dict[str, tuple[str, str, str]]) -> list[str]:
@@ -2498,6 +2557,60 @@ def _rename_problems(table: dict[str, tuple[str, str, str]]) -> list[str]:
     return problems
 
 
+def _retirement_problems(
+    table: dict[str, tuple[str, str, str]], collected: set[str]
+) -> list[str]:
+    """What is wrong with ``table`` as a record of retirements, one line each.
+
+    A function for the reason :func:`_rename_problems` is one: the real table
+    is clean, so each refusal is driven over a table broken on purpose by
+    ``test_the_retirement_table_refuses_what_it_claims_to`` and asserted by
+    its own message. ``collected`` is the family's collection, because two of
+    the refusals are about the tree, not the table: a retirement describes a
+    test that went and a replacement that came.
+
+    The entry this refuses is one that retires a recorded test with no
+    replacement of its own: an old id that is still there, a replacement that
+    is not, one nothing in :data:`ADDED_SINCE_BEFORE` carries, one another
+    card's entry carries, or one that two old ids share.
+    """
+    before = _family_node_ids(BEFORE_ARTEFACT)
+    problems: list[str] = []
+    replaced_by: dict[str, str] = {}
+    for old, entry in sorted(table.items()):
+        if not isinstance(entry, tuple) or len(entry) != 3:
+            problems.append(
+                f"{old}: entry must be (card, replacement id, reason), not {entry!r}")
+            continue
+        card, new, reason = entry
+        if old not in before:
+            problems.append(
+                f"{old}: not in CARD-217's record, so there is nothing to retire; "
+                f"a test added since is struck from the allowlist instead")
+        if old in collected:
+            problems.append(f"{old}: still collected, so nothing was retired")
+        if new not in collected:
+            problems.append(f"{old}: its replacement {new} is not collected")
+        if new not in ADDED_SINCE_BEFORE:
+            problems.append(
+                f"{old}: its replacement {new} has no ADDED_SINCE_BEFORE entry, "
+                f"so nothing records why it exists")
+        elif ADDED_SINCE_BEFORE[new][0] != card:
+            problems.append(
+                f"{old}: its replacement is carried by {ADDED_SINCE_BEFORE[new][0]}'s "
+                f"allowlist entry, not by {card!r}'s, so it is an unrelated test")
+        if new in replaced_by:
+            problems.append(
+                f"{old}: its replacement already replaces {replaced_by[new]}, so "
+                f"one of the two is retired with no replacement of its own")
+        replaced_by.setdefault(new, old)
+        if not re.fullmatch(r"CARD-\d+", card):
+            problems.append(f"{old}: {card!r} does not name the card that retired it")
+        if len(reason.split()) < 8:
+            problems.append(f"{old}: the retirement's reason says too little: {reason!r}")
+    return problems
+
+
 def _collection_drift(
     collected: set[str], baseline: set[str]
 ) -> dict[str, list[str]]:
@@ -2524,8 +2637,10 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         out of CARD-217's committed ``--durations`` artefact — every test that
         ran, by node id, recorded before CARD-235 existed and by somebody
         else. The added half is :data:`ADDED_SINCE_BEFORE`, one entry per node
-        id gained since, each naming the card that added it and why. The
-        expected count is ``len`` of their union, **derived** by
+        id gained since, each naming the card that added it and why; the
+        recorded ids :data:`RETIRED_SINCE_BEFORE` retired leave the recorded
+        half, and are held here to the replacement each names. The
+        expected count is ``len`` of that union, **derived** by
         :func:`_baseline_node_ids`: a hand-written count is exactly what
         failed here when CARD-213 added ten tests to one of the twelve files,
         and a count regenerated from today's collection could only ever agree
@@ -2563,12 +2678,16 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
             f"tests removed: {drift['removed']} are expected but not "
             f"collected. A test recorded by CARD-217's artefact must not "
             f"disappear; one added by a later card may, but its "
-            f"ADDED_SINCE_BEFORE entry has to be struck in the same diff"
+            f"ADDED_SINCE_BEFORE entry has to be struck in the same diff, and "
+            f"one whose claim the owner inverted is retired in "
+            f"RETIRED_SINCE_BEFORE together with its replacement"
         )
+        assert _retirement_problems(RETIRED_SINCE_BEFORE, ids) == []
         assert len(ids) == len(baseline), (
             f"the family collects {len(ids)} tests against a baseline of "
             f"{len(baseline)} = {len(_family_node_ids(BEFORE_ARTEFACT))} "
-            f"recorded by CARD-217 + {len(ADDED_SINCE_BEFORE)} allowlisted "
+            f"recorded by CARD-217 - {len(RETIRED_SINCE_BEFORE)} retired + "
+            f"{len(ADDED_SINCE_BEFORE)} allowlisted "
             f"since, with the two set comparisons above clean — which should "
             f"be impossible, so one of them is no longer comparing sets"
         )
@@ -2588,7 +2707,9 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
            and missed **without** it, which is precisely why striking an entry
            has to be a deliberate edit rather than a side effect;
         3. a test CARD-217 recorded is caught when it disappears whatever the
-           allowlist says, because the allowlist can only ever add;
+           allowlist says, because the allowlist can only ever add, and
+           whatever the retirement table says unless it names that test; the
+           real table lets through exactly the ids it names;
         4. the derived count moves with the allowlist, so it cannot silently
            become a snapshot again.
         """
@@ -2627,18 +2748,26 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
             "removed": [],
         }
 
-        # 3 — a test CARD-217 recorded cannot be dropped under any allowlist.
-        dropped = sorted(before)[0]
+        # 3 — a test CARD-217 recorded cannot be dropped under any allowlist,
+        # nor under a retirement table that does not name it (``dropped`` is
+        # taken from the record, not from the derivation under test); the
+        # real retirements are exactly what the real table names.
+        dropped = sorted(_recorded_node_ids() - set(RETIRED_SINCE_BEFORE))[0]
         for table in ({}, one_entry, ADDED_SINCE_BEFORE):
-            baseline = _baseline_node_ids(table)
-            assert _collection_drift(baseline - {dropped}, baseline) == {
-                "added": [],
-                "removed": [dropped],
-            }
+            for retired in ({}, RETIRED_SINCE_BEFORE):
+                baseline = _baseline_node_ids(table, retirements=retired)
+                assert _collection_drift(baseline - {dropped}, baseline) == {
+                    "added": [],
+                    "removed": [dropped],
+                }
+        assert _collection_drift(
+            _baseline_node_ids(), _baseline_node_ids(retirements={})
+        ) == {"added": [], "removed": sorted(RETIRED_SINCE_BEFORE)}
 
         # 4 — the count is a function of the allowlist, not a literal, and
         # the renames are moves, so they leave the recorded size alone.
-        assert len(_baseline_node_ids({})) == len(_family_node_ids(BEFORE_ARTEFACT))
+        assert len(_baseline_node_ids({}, retirements={})) == len(
+            _family_node_ids(BEFORE_ARTEFACT))
         assert len(_baseline_node_ids(one_entry)) == len(before) + 1
         assert len(_baseline_node_ids()) == len(before) + len(ADDED_SINCE_BEFORE)
 
@@ -2778,6 +2907,73 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         assert _rename_problems(RENAMED_SINCE_BEFORE) == []
         assert _rename_problems({old: RENAMED_SINCE_BEFORE[old]}) == []
 
+    def test_the_retirement_table_refuses_what_it_claims_to(self) -> None:
+        """:func:`_retirement_problems`, driven the way the control above drives
+        :func:`_rename_problems`: one table (or tree) broken on purpose per
+        refusal, each asserted by the message only that refusal writes, the
+        fragments distinct and none inside another.
+
+        The tree is the baseline the real tables derive, which is what the
+        family collects whenever ``test_the_family_collects_exactly_what_card_
+        217_measured`` is green; that test runs the real table against the
+        real collection.
+        """
+        old = sorted(RETIRED_SINCE_BEFORE)[0]
+        card, new, reason = RETIRED_SINCE_BEFORE[old]
+        tree = _baseline_node_ids()
+        recorded = sorted(tree & _family_node_ids(BEFORE_ARTEFACT))[0]
+        other_card = next(node for node, entry in sorted(ADDED_SINCE_BEFORE.items())
+                          if entry[0] != card)
+        unrecorded = f"{FAMILY_PREFIX}_zoom.py::TestNotAThing::test_nothing[x]"
+
+        # label -> (a table broken on purpose, the tree, the refusal it provokes)
+        broken = {
+            "not a 3-tuple": (
+                {old: (card, new)}, tree,
+                "entry must be (card, replacement id, reason)"),
+            "not recorded": (
+                {unrecorded: (card, new, reason)}, tree,
+                "not in CARD-217's record, so there is nothing to retire"),
+            "still collected": (
+                RETIRED_SINCE_BEFORE, tree | {old},
+                "still collected, so nothing was retired"),
+            "replacement not collected": (
+                RETIRED_SINCE_BEFORE, tree - {new},
+                "is not collected"),
+            "replacement not allowlisted": (
+                {old: (card, recorded, reason)}, tree,
+                "has no ADDED_SINCE_BEFORE entry"),
+            "another card's replacement": (
+                {old: (card, other_card, reason)}, tree,
+                "allowlist entry, not by"),
+            "one replacement for two": (
+                {old: (card, new, reason), recorded: (card, new, reason)},
+                tree - {recorded},
+                "one of the two is retired with no replacement of its own"),
+            "unattributed": (
+                {old: ("Player QA v3", new, reason)}, tree,
+                "does not name the card that retired it"),
+            "mute reason": (
+                {old: (card, new, "inverted")}, tree,
+                "the retirement's reason says too little"),
+        }
+        for label, (table, collected, expected) in broken.items():
+            problems = _retirement_problems(table, collected)
+            hits = [problem for problem in problems if expected in problem]
+            assert len(hits) == 1, (
+                f"{label}: {expected!r} matched {len(hits)} of {problems} — "
+                f"0: the refusal it names did not fire; 2: the fragment is too "
+                f"loose to say which refusal fired"
+            )
+        fragments = [expected for _table, _tree, expected in broken.values()]
+        assert len(set(fragments)) == len(fragments), fragments
+        nested = [(one, other)
+                  for one in fragments for other in fragments
+                  if one != other and one in other]
+        assert nested == [], nested
+        # ... and the real table against the tree it derives trips none of them.
+        assert _retirement_problems(RETIRED_SINCE_BEFORE, tree) == []
+
     def test_a_recorded_rename_is_a_move_and_an_unrecorded_one_goes_red(
         self,
     ) -> None:
@@ -2797,15 +2993,15 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         one_move = {old: RENAMED_SINCE_BEFORE[old]}
         tree = (before - {old}) | {new}
 
-        assert _collection_drift(tree, _baseline_node_ids({}, one_move)) == {
+        assert _collection_drift(tree, _baseline_node_ids({}, one_move, {})) == {
             "added": [],
             "removed": [],
         }
-        assert _collection_drift(tree, _baseline_node_ids({}, {})) == {
+        assert _collection_drift(tree, _baseline_node_ids({}, {}, {})) == {
             "added": [new],
             "removed": [old],
         }
-        assert _collection_drift(before, _baseline_node_ids({}, one_move)) == {
+        assert _collection_drift(before, _baseline_node_ids({}, one_move, {})) == {
             "added": [old],
             "removed": [new],
         }

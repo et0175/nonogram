@@ -53,3 +53,33 @@ The two clue tests can follow the CARD-435 precedent: strike their old `ADDED_SI
 * **G-2**: do not touch CARD-527's or CARD-528's files beyond this one test file. CARD-527 also edits tests/test_browser_fixture_scope.py, in other regions, so keep the diff to the registry tables and their helpers and tests.
 
 ## Worktree notes
+
+### 2026-11-23 implementation (CARD-530)
+
+**Premise, re-verified before any change** (a script over `_collection_drift(collected, _baseline_node_ids())`): exactly three added, three removed. Removed: the two `TestSolverClues_RepeatedLengthDoesNotCircle` ids (in `ADDED_SINCE_BEFORE`, CARD-213, not in the artefact) and the zoom id `TestSolverZoom_PinchOnAClueBoxIsNotTheBoardsZoom::test_a_pinch_starting_on_a_column_clue_box_is_left_to_the_browser[chromium]` (in CARD-217's artefact, not allowlisted). The change is 9fd47469 (merged by 8f799d5b). The old zoom test came from 49aec834, whose file header is CARD-195; its class docstring said AC-8.
+
+**What changed** (tests/test_browser_fixture_scope.py only):
+- `ADDED_SINCE_BEFORE`: the two CARD-213 clue entries struck, with a comment naming them, as CARD-435 did. The two `TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits` ids and the zoom replacement `TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom::test_a_pinch_starting_on_a_column_clue_box_zooms_the_board[chromium]` added, attributed to CARD-530. Each reason was read from the test body and docstring.
+- New `RETIRED_SINCE_BEFORE` (`old id -> (card, replacement id, reason)`) with the one zoom entry. New `_retirement_problems(table, collected)` with nine refusals: entry shape; old id not in CARD-217's record; old id still collected; replacement not collected; replacement with no `ADDED_SINCE_BEFORE` entry; replacement carried by another card's allowlist entry; one replacement shared by two old ids; attribution not `CARD-\d+`; a reason under 8 words. The card's AC-2 lists five of these. The other four close holes in the same rule: a recorded test is retired only together with a replacement of its own.
+- `_baseline_node_ids` takes `retirements` and derives `(recorded after renames - retired) | allowlist`.
+- `test_the_family_collects_exactly_what_card_217_measured`: it now asserts `_retirement_problems(RETIRED_SINCE_BEFORE, ids) == []` against the real collection. The count message reads `recorded - retired + allowlisted` (AC-1), and the "tests removed" message names the retirement table.
+- `test_the_baseline_goes_red_in_both_directions`: claim 3 now also loops over retirement tables `({}, RETIRED_SINCE_BEFORE)`. `dropped` is now taken from `_recorded_node_ids()` minus the retired ids, not from the derivation under test. A new assert says the real table lets through exactly the ids it names. Claim 4's size check passes `retirements={}`, keeping its original claim that renames are 1 -> 1.
+- `test_a_recorded_rename_is_a_move_and_an_unrecorded_one_goes_red`: it compares against the raw artefact, so its three derivations pass `retirements={}`.
+- New `test_the_retirement_table_refuses_what_it_claims_to`: one broken table or tree per refusal, each asserted by its own message, with the fragment-distinct and no-nesting checks copied from the rename control. The last assert is the real table against its derived tree.
+
+**Controls** (mutation applied to a pristine copy, named test run, file restored; `cmp` showed it byte-identical afterwards). All 18 went red at the named assert:
+- Each of the 9 refusals deleted (its `problems.append` made a no-op): `test_the_retirement_table_refuses_what_it_claims_to` red at `assert len(hits) == 1` for that refusal's own case (9/9).
+- A refusal that refuses the real table (`if old in collected` -> `if True`): red at `assert _retirement_problems(RETIRED_SINCE_BEFORE, tree) == []`.
+- Two cases given one fragment: red at `assert len(set(fragments)) == len(fragments)`. One fragment nested in another: red at `assert nested == []`.
+- `- set(retired)` deleted from `_baseline_node_ids`: baseline control red at the real-retirement `_collection_drift` assert. The family test is red at `assert drift["removed"] == []` (tests removed: the zoom id).
+- A retirement that retires every recorded id: baseline control red at claim 3's loop assert (`removed: [dropped]`).
+- The real table not consulted by default (`retired = {} if retirements is None`): baseline control red at the real-retirement assert.
+- The zoom entry's replacement pointed at another card's allowlisted test: the drift stays clean, but the family test is red at `assert _retirement_problems(RETIRED_SINCE_BEFORE, ids) == []`.
+- AC-3: the zoom retirement entry deleted, so a recorded test is gone with no entry. The family test is red at `assert drift["removed"] == []` with "tests removed: [...left_to_the_browser[chromium]]".
+
+**Gate** (unarmed, `-o addopts= -rfs`):
+- tests/test_browser_fixture_scope.py whole: 34 passed, 0 failed, 0 skipped (86 s).
+- Neighbours: the three registered tests (`TestSolverClues_RepeatedLengthCirclesWhereOnlyOneFits`, `TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom`): 3 passed.
+- tests/test_kanban_review_record.py after the card edit: 71 passed, 0 skipped.
+
+**Net test count**: 10695 before, 10696 after (+1, `test_the_retirement_table_refuses_what_it_claims_to`). Everything else extends existing tests.
