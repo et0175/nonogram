@@ -867,8 +867,28 @@ def _printed_places(book, puzzles):
         and both rows then read the later one's page: a screen reporting a page
         the book does not print them on, which is the one thing this seam exists
         to prevent (CARD-140 F-003).
+
+    Raises:
+        LookupError: the plan printed a row that is not one of the caller's
+            row objects (CARD-533, CARD-140 F-005). The key above holds only
+            while ``section_plan`` hands back the rows it was given; a plan of
+            copies would key every label to an object the caller never sees,
+            so the screen would drop every page label and mark every row "not
+            printed" without saying why. Checked here, beside the key it
+            guards. Deliberately neither ``RuntimeError`` nor ``ValueError``,
+            the failures the seam declares: this is a bug in the seam, so the
+            arrange view logs it with its traceback and shows its page-plan
+            notice, as for any unexpected failure.
     """
-    plan = BookPDFGenerator(book).section_plan(list(puzzles))
+    rows = list(puzzles)
+    plan = BookPDFGenerator(book).section_plan(rows)
+    given = {id(row) for row in rows}
+    strangers = sum(1 for row in plan.printed if id(row) not in given)
+    if strangers:
+        raise LookupError(
+            f"the page plan printed {strangers} of {len(plan.printed)} rows that "
+            "are not the caller's row objects; their page labels cannot be keyed"
+        )
     places = {}
     divider_pages = {}
     for page in plan.pages:
@@ -5357,7 +5377,8 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
         # *declares*: RuntimeError from the pairing walk (`puzzle_pages`) and
         # ValueError from `book_page_spec` on a stored trim or margin that is
         # not a sheet. Anything else is a bug in `_printed_places` itself — a
-        # renamed plan field, a changed `numbers` index — and is the one
+        # renamed plan field, a changed `numbers` index, a plan that prints
+        # copies of the rows it was given (CARD-533) — and is the one
         # regression class this seam exists to make impossible, so it is logged
         # with its traceback at `exception()` rather than as a one-line warning:
         # the two cases must be told apart in the log, because a screen with no
