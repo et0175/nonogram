@@ -500,6 +500,9 @@ ASSET_RULES = {
     # ADR-0006/R2): both sit at src/nonogram/admin/_vendor/ with the suffix
     # ".qrcodegen" and are read as bytes by tests that name them.
     ".qrcodegen": "named",
+    # The admin tab icon (src/nonogram/admin/static/favicon.png, CARD-531):
+    # bytes no code executes, read by the tests that name it.
+    ".png": "named",
     ".DS_Store": "inert",
 }
 ASSET_KINDS = ("executed", "template", "named", "inert")
