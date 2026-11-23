@@ -42,8 +42,8 @@ const STEP_NAMES = [
   "The rules",
   "Squeeze from both ends",
   "What every arrangement agrees on",
-  "Probe, and watch it break",
   "The buttons",
+  "Probe, and watch it break",
   "Big puzzles on a phone",
   "Levels and the promise",
 ];
@@ -315,6 +315,16 @@ function setupTry(page) {
 // The squeeze picture
 // --------------------------------------------------------------------------
 
+// The row's clue at its start, as the board draws a row clue (owner's test
+// notes, 2026-11-23: steps 2 and 3 showed the clue only in the sentence).
+function stripClue(clue) {
+  const box = document.createElement("span");
+  box.className = "hts-strip-clue";
+  box.setAttribute("aria-hidden", "true");
+  box.textContent = String(clue);
+  return box;
+}
+
 function setupSqueeze(page) {
   const box = page.querySelector("[data-hts-squeeze]");
   if (box === null) return;
@@ -345,7 +355,7 @@ function setupSqueeze(page) {
         cell.dataset.state = k >= row.from && k <= row.to ? row.state : "unknown";
         cells.append(cell);
       }
-      line.append(label, cells);
+      line.append(label, stripClue(run), cells);
       return line;
     })
   );
@@ -390,7 +400,7 @@ function setupAgree(page) {
       cell.dataset.state = state;
       cells.append(cell);
     }
-    line.append(label, cells);
+    line.append(label, stripClue(3), cells);
     return line;
   }));
 }
@@ -556,6 +566,14 @@ function setupProbe(page) {
         if (phase === "open" && r === pr && c === pc) {
           phase = "following";
           step = 0;
+          redraw();
+        } else if (phase === "open" || phase === "stuck") {
+          // Owner's test notes, 2026-11-23: after Probe a tap on any other
+          // square did nothing at all, which read as broken. This example
+          // probes one square, so the tap is answered with where it is.
+          said = phase === "stuck"
+            ? "This example is stuck on purpose: press Probe first."
+            : `In this example, probe the outlined square: ${where}. Tap it to make it black.`;
           redraw();
         }
       },

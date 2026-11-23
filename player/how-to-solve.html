@@ -44,8 +44,8 @@
       <button type="button" class="hts-dot" data-hts-goto="1" aria-label="Step 1: The rules"></button>
       <button type="button" class="hts-dot" data-hts-goto="2" aria-label="Step 2: Squeeze from both ends"></button>
       <button type="button" class="hts-dot" data-hts-goto="3" aria-label="Step 3: What every arrangement agrees on"></button>
-      <button type="button" class="hts-dot" data-hts-goto="4" aria-label="Step 4: Probe, and watch it break"></button>
-      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: The buttons"></button>
+      <button type="button" class="hts-dot" data-hts-goto="4" aria-label="Step 4: The buttons"></button>
+      <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: Probe, and watch it break"></button>
       <button type="button" class="hts-dot" data-hts-goto="6" aria-label="Step 6: Big puzzles on a phone"></button>
       <button type="button" class="hts-dot" data-hts-goto="7" aria-label="Step 7: Levels and the promise"></button>
     </div>
@@ -103,7 +103,30 @@
     <div class="hts-card hts-squeeze" data-hts-agree></div>
   </section>
 
-  <section class="hts-step" data-hts-step="4" data-hts-name="Probe, and watch it break" hidden>
+  <section class="hts-step" data-hts-step="4" data-hts-name="The buttons" hidden>
+    <h2>The buttons</h2>
+    <p>Every puzzle has these, and the same list sits under each board as
+      <b>How to play</b>.</p>
+    <!-- CARD-444: the player's own "How to play" list (puzzle_solve.html's
+         #puzzle-player-hint, less the panel-only Check), word for word, each
+         beside the control it names as the player draws it.
+         tests/test_how_to_solve_page.py holds the words and the two icons'
+         paths equal to the player's, so the two cannot drift apart. -->
+    <ul class="hts-keys" data-hts-keys>
+      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="unknown"></span></span><span><strong>Tap</strong> or click a square to fill it. Do it again to cycle: black, white (dot), empty.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span></span><span><strong>Brush</strong> (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span><span class="hts-swatch" data-state="filled"></span></span><span><strong>Region</strong> (the two squares): turn it on, then drag along a row or column to mark many squares at once, or press and hold one square and tap the other end. With it off, dragging scrolls.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6"></path></svg><svg class="hts-icon hts-mirror" viewBox="0 0 16 16" focusable="false"><path d="M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6"/></svg></span><span><strong>Undo</strong> and <strong>Redo</strong>: step back or forward one mark at a time.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M13 8a5 5 0 01-8.7 3.4M3 8a5 5 0 018.7-3.4M11 2v3h-3M5 14v-3h3"/></svg></span><span><strong>Reset</strong>: clears the whole board after asking. Undo brings it back.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v7h-13zM5.8 4.5v7M10.2 4.5v7"/></svg></span><span><strong>Line</strong> (on a phone): opens one row or column in big squares.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 12.5h4M6.5 14.5h3M5.8 10.5a4.5 4.5 0 114.4 0c-.4.3-.7.8-.7 1.3v.7h-3v-.7c0-.5-.3-1-.7-1.3z"/></svg></span><span><strong>Hint</strong>: press up to three times. First it shows where to look, then why, then it fills the square.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg></span><span><strong>Probe</strong>: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.</span></li>
+      <li><span class="hts-key" aria-hidden="true">&minus; +</span><span><strong>Zoom</strong>: &minus; / + or Fit to see the whole puzzle.</span></li>
+      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v8h-13zM4 7h1M7 7h1M10 7h1M5 10h6"/></svg></span><span>On a computer, right-click puts White; the arrow keys move and Space marks.</span></li>
+    </ul>
+  </section>
+
+  <section class="hts-step" data-hts-step="5" data-hts-name="Probe, and watch it break" hidden>
     <h2>Probe, and watch it break</h2>
     <p>Stuck? Press <b>Probe</b>, make one open square black, and follow what
       it forces. Everything you mark while probing gets a dashed edge. If a
@@ -127,8 +150,10 @@
         <button type="button" class="btn hts-quiet" data-hts-probe-open aria-pressed="false"><svg class="hts-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg>Probe</button>
         <button type="button" class="btn hts-go" data-hts-probe-follow hidden>Follow it</button>
         <button type="button" class="btn hts-quiet" data-hts-probe-hint hidden><svg class="hts-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6 12.5h4M6.5 14.5h3M5.8 10.5a4.5 4.5 0 114.4 0c-.4.3-.7.8-.7 1.3v.7h-3v-.7c0-.5-.3-1-.7-1.3z"/></svg>Hint</button>
-        <button type="button" class="btn hts-quiet" data-hts-probe-keep hidden><span aria-hidden="true">✓</span> Keep</button>
-        <button type="button" class="btn hts-quiet hts-wrong" data-hts-probe-abandon hidden><span aria-hidden="true">✗</span> Wrong guess</button>
+        <span class="hts-pair">
+          <button type="button" class="btn hts-quiet" data-hts-probe-keep hidden><span aria-hidden="true">✓</span> Keep</button>
+          <button type="button" class="btn hts-quiet hts-wrong" data-hts-probe-abandon hidden><span aria-hidden="true">✗</span> Wrong guess</button>
+        </span>
         <button type="button" class="btn hts-go" data-hts-probe-finish hidden>Finish with line logic</button>
         <button type="button" class="btn hts-quiet" data-hts-probe-reset hidden>Start over</button>
       </div>
@@ -139,29 +164,6 @@
     <p>This is not guessing: you prove one option impossible, so the other one
       is certain.</p>
 
-  </section>
-
-  <section class="hts-step" data-hts-step="5" data-hts-name="The buttons" hidden>
-    <h2>The buttons</h2>
-    <p>Every puzzle has these, and the same list sits under each board as
-      <b>How to play</b>.</p>
-    <!-- CARD-444: the player's own "How to play" list (puzzle_solve.html's
-         #puzzle-player-hint, less the panel-only Check), word for word, each
-         beside the control it names as the player draws it.
-         tests/test_how_to_solve_page.py holds the words and the two icons'
-         paths equal to the player's, so the two cannot drift apart. -->
-    <ul class="hts-keys" data-hts-keys>
-      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="unknown"></span></span><span><strong>Tap</strong> or click a square to fill it. Do it again to cycle: black, white (dot), empty.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span></span><span><strong>Brush</strong> (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span><span class="hts-swatch" data-state="filled"></span></span><span><strong>Region</strong> (the two squares): turn it on, then drag along a row or column to mark many squares at once, or press and hold one square and tap the other end. With it off, dragging scrolls.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6"></path></svg><svg class="hts-icon hts-mirror" viewBox="0 0 16 16" focusable="false"><path d="M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6"/></svg></span><span><strong>Undo</strong> and <strong>Redo</strong>: step back or forward one mark at a time.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M13 8a5 5 0 01-8.7 3.4M3 8a5 5 0 018.7-3.4M11 2v3h-3M5 14v-3h3"/></svg></span><span><strong>Reset</strong>: clears the whole board after asking. Undo brings it back.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v7h-13zM5.8 4.5v7M10.2 4.5v7"/></svg></span><span><strong>Line</strong> (on a phone): opens one row or column in big squares.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 12.5h4M6.5 14.5h3M5.8 10.5a4.5 4.5 0 114.4 0c-.4.3-.7.8-.7 1.3v.7h-3v-.7c0-.5-.3-1-.7-1.3z"/></svg></span><span><strong>Hint</strong>: press up to three times. First it shows where to look, then why, then it fills the square.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg></span><span><strong>Probe</strong>: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.</span></li>
-      <li><span class="hts-key" aria-hidden="true">&minus; +</span><span><strong>Zoom</strong>: &minus; / + or Fit to see the whole puzzle.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v8h-13zM4 7h1M7 7h1M10 7h1M5 10h6"/></svg></span><span>On a computer, right-click puts White; the arrow keys move and Space marks.</span></li>
-    </ul>
   </section>
 
   <section class="hts-step" data-hts-step="6" data-hts-name="Big puzzles on a phone" hidden>

@@ -33,7 +33,7 @@ Acceptance criteria (CARD-419, local labels; registry ids at dispatch):
         screenshots in the card's worktree notes)
 
 CARD-444 (owner 2026-11-14: the lesson must look and explain like the
-player): test_the_lessons_buttons_are_the_players holds step 5's list to the
+player): test_the_lessons_buttons_are_the_players holds step 4's list to the
 player's own "How to play" list and icons; the try-one test runs the lesson's
 tap rule against the player's clickedState; the probe test walks Wrong guess
 and the "Mark it?" offer.
@@ -320,7 +320,8 @@ def _text(fragment: str) -> str:
 
 
 def test_the_lessons_buttons_are_the_players() -> None:
-    """CARD-444 — step 5 is the player's own "How to play" list, word for
+    """CARD-444 — step 4 (5 until 2026-11-23, when the owner moved it before
+    Probe) is the player's own "How to play" list, word for
     word and in order, less the panel-only Check (public mode hides it), and
     the two icons it draws are the player's own paths, so the lesson cannot
     drift from the controls a reader actually sees."""
@@ -389,7 +390,8 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     assert _visible_step(page) == [2]
 
     # CARD-440 put the phone's line view at step 5 and CARD-444 the buttons
-    # before it, so the line view is step 6 and the levels step 7.
+    # before it, so the line view is step 6 and the levels step 7 (the
+    # 2026-11-23 swap of buttons and Probe, steps 4 and 5, moves neither).
     _open(page, url, "/how-to-solve#6")
     assert _visible_step(page) == [6]
     assert page.locator("[data-hts-step='6'] h2").inner_text() == "Big puzzles on a phone"
@@ -484,7 +486,7 @@ def test_try_one_marks_black_white_and_maybe_and_show_me_solves_it(browser_page,
 def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) -> None:
     url = pages_host[0]
     page = browser_page
-    _open(page, url, "/how-to-solve#4")
+    _open(page, url, "/how-to-solve#5")  # step 5 since 2026-11-23: the buttons (Hint) come before Probe
     phase = lambda: page.locator("[data-hts-probe-board]").get_attribute("data-phase")  # noqa: E731
     r, c = _constant("PROBE_CELL")
     target = lambda: _cell(page, "probe", r, c)  # noqa: E731

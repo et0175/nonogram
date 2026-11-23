@@ -2681,6 +2681,23 @@ html.is-line-open, html.is-line-open body { overflow: hidden; }
 .player-line .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 .player-line-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .player-line-title { margin: 0; font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-tight); white-space: nowrap; }
+/* Owner's test notes, 2026-11-23 ("Small phone - line view 'Board' comes out
+   of the button"): the head is Board, the title and Rows/Cols on one row,
+   and on a narrow phone the flex row squeezed the Board button below its
+   own words. The button keeps its width; the title gives way instead, cut
+   with an ellipsis (the mini map and the clue still say which line it is). */
+.player-line-close { flex: none; white-space: nowrap; }
+.player-line-head .player-line-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Under 375 px even that cut the title ("Ro…" at 320): there the button is
+   its arrow alone (the word stays its accessible name), Rows/Cols are a
+   little narrower and the title a step smaller (from 420 px down). */
+@media (max-width: 419px) { .player-line-head .player-line-title { font-size: var(--text-base); } }
+@media (max-width: 374px) {
+  .player-line-head { gap: var(--space-1); }
+  .player-line-axis .btn { padding: 0 var(--space-2); }
+  .player-line-close { padding: 0; width: 44px; }
+  .player-line-close > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .player-line-axis { display: flex; flex: none; }
 .player-line-axis .btn { padding: 0 var(--space-3); border-radius: 0; }
 .player-line-axis .btn:first-child { border-radius: 22px 0 0 22px; }
