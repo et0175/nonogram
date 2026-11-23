@@ -6,8 +6,9 @@ only: it changes no board state, is never recorded, serialized or saved, and
 starts at 100% on every page load. 100% to 300%, in 25-point steps on the
 toolbar's zoom buttons ("Zoom out" / "Zoom in", #puzzle-player-controls
 .player-zoom) and continuously on a two-finger pinch that starts on a board
-cell; a pinch starting on a clue box or off the board is left to the
-browser's own page pinch. A button zoom keeps the stage's own visible-box
+cell or on a clue box (QA checklist v3 #29: a clue-box pinch used to be left
+to the browser's page pinch, which the play page has switched off since
+CARD-473). A button zoom keeps the stage's own visible-box
 centre on the same board point; a pinch keeps the two fingers' midpoint on
 the same board point (solver_state.js anchoredScroll, the "keep the view"
 formula). The stage (.player-stage) scrolls in both directions once the
@@ -402,8 +403,8 @@ class TestSolverZoom_ZoomKeepsTheViewCentre:
 
 
 # ==========================================================================
-# AC-6 / AC-7 / AC-8 — pinch: zooms on a cell, cancels a stroke, leaves a
-# clue-box pinch to the browser
+# AC-6 / AC-7 / AC-8 — pinch: zooms on a cell, cancels a stroke, and (QA
+# checklist v3 #29) zooms from a clue box too
 # ==========================================================================
 
 
@@ -491,10 +492,15 @@ class TestSolverZoom_PinchCancelsTheStrokeInProgress:
 
 
 @pytest.mark.browser
-class TestSolverZoom_PinchOnAClueBoxIsNotTheBoardsZoom:
-    """AC-8."""
+class TestSolverZoom_PinchOnAClueBoxIsTheBoardsZoom:
+    """AC-8, reversed by QA checklist v3 #29 (Anna, 2026-11-23): in landscape
+    the clue bands are most of the stage, and a pinch there did nothing
+    (the page pinch it was left to is off since CARD-473) or was taken by
+    the phone for its own gesture. Plants: restore the rule-(d) guard in
+    solver.js's pointerdown -> the readout stays 100%; drop .player-stage's
+    touch-action -> the clue box reads "auto"."""
 
-    def test_a_pinch_starting_on_a_column_clue_box_is_left_to_the_browser(self, browser, live) -> None:
+    def test_a_pinch_starting_on_a_column_clue_box_zooms_the_board(self, browser, live) -> None:
         context = browser.new_context(has_touch=True, viewport={"width": 390, "height": 844})
         page = context.new_page()
         try:
@@ -508,8 +514,12 @@ class TestSolverZoom_PinchOnAClueBoxIsNotTheBoardsZoom:
             _dispatch_touch(cdp, "touchMove", [(x - 40, y), (x + 80, y)])
             _dispatch_touch(cdp, "touchEnd", [])
 
-            assert _zoom_readout(page) == "100%"
-            assert page.evaluate("(el) => getComputedStyle(el).touchAction", clue_box.element_handle()) != "none"
+            page.wait_for_timeout(300)
+            assert _zoom_readout(page) != "100%"
+            assert _zoom_percent(page) > 150
+            assert page.evaluate("window.visualViewport.scale") == 1
+            stage = page.locator(".player-stage").element_handle()
+            assert page.evaluate("(el) => getComputedStyle(el).touchAction", stage) == "pan-x pan-y"
         finally:
             context.close()
 
@@ -1651,6 +1661,10 @@ class TestSolverZoom_Fit:
                 inFromFloor: S.stepZoom(62, 'in', 62),
                 outFrom125: S.stepZoom(125, 'out', 62),
                 pinchToFloor: S.pinchZoom(100, 200, 50, 62),
+                // QA checklist v3 #29: under 100% a pinch has the buttons' two
+                // stops only — 100% until past halfway to the floor (81), then Fit.
+                pinchUnder: [S.pinchZoom(100, 100, 95, 62), S.pinchZoom(100, 100, 82, 62),
+                             S.pinchZoom(100, 100, 80, 62), S.pinchZoom(200, 100, 40, 62)],
                 clampToFloor: S.clampZoom(10, 62),
                 refused: attempt(() => S.fitZoom(0, 10, 10, 10)),
               };
@@ -1660,6 +1674,7 @@ class TestSolverZoom_Fit:
         assert result["fits"] == independent == [71, 100, 38, 50], result
         assert (result["outToFloor"], result["outAtFloor"], result["inFromFloor"], result["outFrom125"]) == (62, 62, 100, 100)
         assert (result["pinchToFloor"], result["clampToFloor"]) == (62, 62)
+        assert result["pinchUnder"] == [100, 100, 62, 62], result["pinchUnder"]
         assert result["refused"] == "RangeError"
 
     @pytest.mark.parametrize("width,height", [(390, 844), (844, 390)])

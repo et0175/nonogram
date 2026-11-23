@@ -532,7 +532,8 @@ export function isClueSolved(board, rows, columns) {
 // never from the solution, with the payload's clues (ADR-0038/R3). In a line
 // a cell is dark (FILLED), white (EMPTY) or undecided (any other state). A
 // closed run is a maximal run of dark cells whose neighbour on each side is a
-// white cell or the line's edge. A number is circled by rule A, B or C:
+// white cell or the line's edge. A number is circled by rule A, B, C or E
+// (E, for a value the clue repeats, is at the end of circledNumbers):
 //   A  walk in from each edge: skip white cells; stop at the end or at an
 //      undecided cell; at a dark run, stop unless it is closed and its length
 //      is the next unassigned clue number from that edge — then circle that
@@ -642,6 +643,29 @@ export function circledNumbers(clue, cells) {
   const times = (list, value) => list.reduce((n, item) => n + (item === value ? 1 : 0), 0);
   for (let number = 0; number < count; number += 1) {
     if (times(clue, clue[number]) === 1 && times(closed, clue[number]) === 1) circled[number] = true;
+  }
+  // Rule E (QA checklist v3, owner 2026-11-23, "the middle 2"): a closed run
+  // whose value the clue REPEATS is circled when only one of those numbers
+  // can stand there by room alone — number k needs its k predecessors
+  // (with a white after each) before the run and its successors after it.
+  // In "2 2 2" on ten cells, a closed 2 on cells 5-6 can only be the middle
+  // one. Only closed runs, so it keeps the 2026-11-12 ruling (a circle only
+  // beside dots or the edge); the other marks on the line are not read.
+  const before = (k) => clue.slice(0, k).reduce((sum, n) => sum + n + 1, 0);
+  const after = (k) => clue.slice(k + 1).reduce((sum, n) => sum + n + 1, 0);
+  for (let start = 0; start < length; start += 1) {
+    if (cells[start] !== FILLED) continue;
+    let end = start;
+    while (end < length && cells[end] === FILLED) end += 1;
+    const isClosed = (start === 0 || cells[start - 1] === EMPTY) && (end === length || cells[end] === EMPTY);
+    if (isClosed && times(clue, end - start) > 1) {
+      const fits = [];
+      for (let k = 0; k < count; k += 1) {
+        if (clue[k] === end - start && before(k) <= start && after(k) <= length - end) fits.push(k);
+      }
+      if (fits.length === 1) circled[fits[0]] = true;
+    }
+    start = end;
   }
   return Object.freeze(circled);
 }
@@ -1204,11 +1228,18 @@ export function stepZoom(current, direction, floor = ZOOM_MIN) {
 // `startDistance` that is not a positive number is refused with RangeError
 // (a pinch's two starting points can never coincide in solver.js, but this
 // stays a guarded boundary rather than dividing by zero or a negative).
+//
+// Below 100% a pinch has the buttons' two stops and nothing between them
+// (QA checklist v3 #29, Anna, 2026-11-23: a pinch read "80%" where the
+// buttons only ever said "100%" and "Fit"): under ZOOM_MIN it settles on
+// ZOOM_MIN until it is past halfway to the floor, then on the floor itself.
 export function pinchZoom(startZoom, startDistance, currentDistance, floor = ZOOM_MIN) {
   if (!(startDistance > 0)) {
     throw new RangeError(`pinchZoom needs a positive starting distance, not ${startDistance}`);
   }
-  return clampZoom(startZoom * (currentDistance / startDistance), floor);
+  const pinched = clampZoom(startZoom * (currentDistance / startDistance), floor);
+  if (pinched >= ZOOM_MIN) return pinched;
+  return pinched <= (ZOOM_MIN + floor) / 2 ? floor : ZOOM_MIN;
 }
 
 // Bring a box into view along ONE axis of a scroller (CARD-408, owner

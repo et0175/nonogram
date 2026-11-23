@@ -533,12 +533,11 @@
 //             either pointer recomputes the zoom from pinchZoom(starting
 //             zoom, starting distance, current distance) (rule c) and
 //             anchors on the pointers' current midpoint, in the stage's own
-//             box — not the page's. Two pointers landing with the first NOT
-//             on a board cell (a clue box, or off the board entirely) is
-//             rule (d): solver.js does nothing — no preventDefault, no
-//             pointer capture — so the browser's own page pinch runs
-//             instead, which is why clue boxes keep touch-action: auto
-//             (admin.css, unchanged by this card). A third touch/pen pointer
+//             box — not the page's. Rule (d) is retired (QA checklist v3
+//             #29, 2026-11-23): a pinch whose first finger is on a clue box
+//             is the board's pinch too, and the whole stage takes
+//             touch-action: pan-x pan-y (admin.css), because the page pinch
+//             rule (d) handed it to has been off since CARD-473. A third touch/pen pointer
 //             while one of the two is already tracked, or while a pinch is
 //             already active, is ignored outright. Mouse pointers never
 //             reach any of this (rule f — only "touch"/"pen" pointerTypes
@@ -3534,16 +3533,17 @@ function wireMarking(container, player) {
       if (pinch) return; // a third pointer while a pinch is active: ignored
       const cell = cellUnder(container, event.clientX, event.clientY);
       if (touchPoints.size === 1) {
-        // The second touch/pen pointer: pinch rule (a) when the first one
-        // started on a board cell, rule (d) — leave it to the browser —
-        // otherwise. Either way this pointer never starts its own gesture.
+        // The second touch/pen pointer is the board's pinch wherever in the
+        // stage the first one started — a cell or a clue box (QA checklist
+        // v3 #29, 2026-11-23: rule (d) left a clue-box pinch to the
+        // browser, whose page pinch the play page switched off in CARD-473,
+        // so such a pinch did nothing; see .player-stage's touch-action in
+        // admin.css). This pointer never starts its own gesture.
         const [firstId] = touchPoints.keys();
         touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
         touchStartCell.set(event.pointerId, cell);
-        if (touchStartCell.get(firstId) !== null) {
-          event.preventDefault();
-          beginPinch(firstId, event.pointerId);
-        }
+        event.preventDefault();
+        beginPinch(firstId, event.pointerId);
         return;
       }
       touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
