@@ -47,6 +47,7 @@ so the two agree on where the grid is before either measures anything in it.
 
 from __future__ import annotations
 
+import gc
 import math
 import random
 import re
@@ -1910,11 +1911,17 @@ def _font_bytes() -> bytes:
 
 @lru_cache(maxsize=None)
 def _set_once(text: str, size: int) -> np.ndarray:
-    """The ink of ``text`` set once at ``size`` px, cropped to its ink box."""
+    """The ink of ``text`` set once at ``size`` px, cropped to its ink box.
+
+    Returned as a **copy** of the crop (CARD-529): :func:`_cropped` hands back
+    a numpy view, and a view cached here would keep its whole uncropped canvas
+    mask alive for the rest of the session. The retention control at the end
+    of this file holds every value in this cache to owning its data.
+    """
     font = ImageFont.truetype(BytesIO(_font_bytes()), size=size)
     canvas = Image.new("L", (int(font.getlength(text)) + 2 * size, 3 * size), 255)
     ImageDraw.Draw(canvas).text((size, canvas.height // 2), text, font=font, fill=0, anchor="lm")
-    return _cropped(np.asarray(canvas) < INK_LEVEL)
+    return _cropped(np.asarray(canvas) < INK_LEVEL).copy()
 
 
 def _cropped(ink: np.ndarray) -> np.ndarray:
@@ -3125,6 +3132,13 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
     fix; the larger one is recorded here because the smaller one was being
     read as a bound.
 
+    **CARD-529 closed that gap.** ``_set_once`` now caches a ``.copy()`` of
+    the crop, so each cached mask owns its data and no uncropped base stays
+    behind; the last assertion of
+    ``test_no_module_level_accumulator_retains_a_page_bitmap`` holds every
+    cached array to that. The figures above are the 2026-10-24 reading and
+    are kept as history; CARD-529's own before/after reading is on its card.
+
     This control is **selection-independent** — unlike the render-count
     controls below it, it needs no denominator: whatever ran, an accumulator
     holding more than its digests is holding more than its digests. One node
@@ -3260,6 +3274,32 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
             "page bitmap, in which case give it its own named exemption here, "
             "or it does, in which case it is the retention this control "
             "exists to refuse."
+        )
+        # CARD-529: what `_set_once` keeps is only what it returns. A cached
+        # numpy view keeps its whole uncropped base alive through an edge the
+        # walk above declines (see `_step`), so the byte figure cannot see it;
+        # this asks each cached array directly. One entry is set here first so
+        # the check is never vacuous on a selection that left the cache cold.
+        _set_once("529", BAND_FONT_PX)
+        cached = [
+            value
+            for store in gc.get_referents(_set_once)
+            if isinstance(store, dict)
+            for value in store.values()
+            if isinstance(value, np.ndarray)
+        ]
+        assert cached, "`_set_once`'s cache store could not be read"
+        borrowing = [
+            (value.shape, value.nbytes, value.base.nbytes)
+            for value in cached
+            if value.base is not None and value.base.nbytes > value.nbytes
+        ]
+        assert not borrowing, (
+            f"{len(borrowing)} of the {len(cached)} arrays `_set_once` caches "
+            "are views of a larger array, so the cache keeps every uncropped "
+            "canvas mask alive for the session (CARD-529; first three as "
+            f"(shape, nbytes, base nbytes): {borrowing[:3]}). Cache a "
+            "`.copy()` of the crop, not the view `_cropped` returns."
         )
 
 
