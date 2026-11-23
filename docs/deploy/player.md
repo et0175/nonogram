@@ -1153,3 +1153,14 @@ Not observed: a real phone (QA #28's sideways shift is not reproduced in emulati
 | Rollback target | The QA v3 deployment (`nonogram-studio-9z8wfuctp`). |
 
 Not observed: a real iPhone. The Safari-only parts (gesture events, diagonal pans) cannot run in Chromium; there is no iOS simulator on this Mac.
+
+**The test-notes publish, 2026-11-23 (the day's third).** The owner's "publish it when ready" after their "Nonogram - test" notes (two rounds) and option a for the desktop merged. Built from **`c4d81904`** the same way into `~/Documents/nonogram-reviews/deploy-2026-11-23-notes/src`, no `--analytics`. Reaching served files: the book's title in the tab (book page and a book's puzzles), one tab icon (`favicon.png`, a fifth byte-identical admin copy), the book link beside the title on a wide screen, Line reopening on its last axis, the public desktop cell cap 36 -> 64 px, the lesson's strip clues, Buttons before Probe, the probe example's pointer, Keep + Wrong guess together, and the line view's head on small phones.
+
+| Step | Record |
+|---|---|
+| Assemble | Against production before the publish ten served files differed: `admin.css`, `solver.js`, `pages.js`, `player.css`, `how-to-solve.js`, the four pages (`b/`, `library/`, `how-to-solve/`, `play/` index.html) and the new `favicon.png` (`638068b293d1`). |
+| Preview | **`nonogram-studio-pdd7xte3h`**; doors 200, `/nope` 404, five changed files at the built hashes; Chromium at 1440 x 900: tab "Christmas Nonograms" and "Puzzle 6 · 13×12 · EASY - Christmas Nonograms", 50 px cells, lesson step 4 "The buttons", no page errors. |
+| Production | `vercel promote` created **`nonogram-studio-dx2xosgcx`**; new `solver.js` on poll 3; hashes matched, doors 200, `/nope` 404. |
+| Rollback target | The iPhone deployment (`nonogram-studio-phuul6pzn`). |
+
+Not observed: a real phone.
