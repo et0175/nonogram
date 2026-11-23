@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 14 — IN PROGRESS (board wave 93)
+
+### As cut
+
+Cut against main on 2026-11-23 on the owner's "pick a no-decision wave from the backlog", while CARD-526 waits for held-out pictures. Three test-tooling items whose premises were re-checked on main at the cut: IDEA-181 (the page-isolation glob still reads only `tests/test_puzzle_solver_*.py`), IDEA-193 (`impact_set.py CLAUDE.md` still prints FULL), IDEA-212 (`_set_once` is still an unbounded `lru_cache` returning a view). IDEA-202 was considered and left: its fix (resolving every declared check id to a definition) is larger than one card, and `tests/test_check_ref_resolution.py` already reports its dead refs. CARD-529 starts when a slot frees (cap 2). Owner rulings 2026-11-23: IDEA-105 screened (Book 1 finalised), IDEA-227 screened (leave it reported).
+
+### tech-debt
+- **CARD-527** (IDEA-181) Every browser-test file must declare its page isolation — 1c
+- **CARD-528** (IDEA-193) The impact selector resolves CLAUDE.md and other root files to their readers — 1c
+- **CARD-529** (IDEA-212) The glyph cache stops keeping whole uncropped arrays alive — 1c
+
 ## Wave 13 — DONE 2026-11-22 (board wave 92)
 
 One card merged: CARD-525 (`2f53bd60`), on the owner's ruling ("merge it now") after review 3 at 8.5, not certified; its AC-3 item 1 was corrected by the orchestrator to carry the `smooth_corr >= 0.96` floor (F-011). Wave close: `make test-wave-close` on `main` at `ce3835e0`, 10664 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 32 min. Net tests +1 (the experiment script's test). No product change, nothing to publish. Result: on easy puzzles only, a stricter threshold kept only above the floor takes fixtures 69.7% -> 59.0% easy and the owner's folder 80.7% -> 70.3%; the rule was chosen post hoc. Dithering is not guarded by the floor (it adds checkered or scattered cells). Owner ruling 2026-11-22: build threshold, then dithering -> CARD-526 (IDEA-228), ready, unscheduled; it needs a dithering noise check and at least 10 held-out pictures. Recorded, not carded: the line-art warning (ink share < 0.230 and enclosed > 0.031) fits 6 failing fixtures from about 2100 candidate rules and has 1 held-out failing picture.

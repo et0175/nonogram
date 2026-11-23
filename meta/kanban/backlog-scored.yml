@@ -4410,7 +4410,7 @@ ideas:
   source_line: 333
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -4741,7 +4741,7 @@ ideas:
   source_line: 353
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -5211,7 +5211,7 @@ ideas:
   source_line: 397
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
