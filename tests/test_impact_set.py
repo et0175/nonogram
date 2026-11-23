@@ -1161,7 +1161,8 @@ class TestImpactSet_AMentionIsNotALoad:
 
 
 class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
-    """G-6: the root stays closed; the readers of the repo-root ``player/`` are derived."""
+    """G-6: the root stays closed; the readers of the repo-root ``player/`` are
+    derived, and since CARD-528 so are those of a root-level file."""
 
     def test_the_real_player_assets_select_every_public_player_test(self):
         public = sorted(
@@ -1179,11 +1180,63 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
             assert selected != impact.FULL, asset
             assert sorted(set(public) - set(selected)) == [], asset
 
-    def test_a_root_level_prose_file_stays_full_with_its_reason(self, tree):
-        derived = impact.derive(tree, ["ONLINE_GAME_SPECIFICATION.md"])
+    @pytest.mark.parametrize(
+        "name, pyproject, rule",
+        [
+            # CARD-528 AC-2: a new (untracked) root file nobody reads.
+            ("NOTES.md", "", "no-reader"),
+            # Read by a tool from where it sits: a test naming it is not its only reader.
+            (".toolrc", "", "outside-known-roots"),
+            ("tool.ini", "", "outside-known-roots"),
+            # Named by an UNANALYSABLE file, so inside a radius nobody models.
+            ("GUIDE.md", 'readme = "GUIDE.md"\n', "unanalysable"),
+        ],
+    )
+    def test_a_root_level_file_it_cannot_model_stays_full_with_its_reason(self, tree, name, pyproject, rule):
+        (tree / name).write_text("x\n")
+        (tree / "pyproject.toml").write_text(pyproject)
+        if name != "NOTES.md":
+            # A test naming it: without the rule under test this would narrow.
+            (tree / "tests" / "test_names_it.py").write_text(f"P = {name!r}\ndef test_n():\n    assert P\n")
+        derived = impact.derive(tree, [name])
         assert derived.full
-        assert derived.reasons[0].rule == "outside-known-roots"
-        assert "ONLINE_GAME_SPECIFICATION.md" in str(derived.reasons[0])
+        assert [r.rule for r in derived.reasons] == [rule]
+        assert name in str(derived.reasons[0])
+
+    def test_a_root_level_file_selects_its_namers_loaders_and_root_walkers(self, tree):
+        """CARD-528: a root file is derived like a file under the roots."""
+        (tree / "NOTES.md").write_text("x\n")
+        (tree / "pyproject.toml").write_text("# NOTES.md is only mentioned in a comment\n")
+        (tree / "tests" / "test_reads_notes.py").write_text("P = 'NOTES.md'\ndef test_n():\n    assert P\n")
+        (tree / "src" / "nonogram" / "lonely.py").write_text("NOTES = 'NOTES.md'\n")
+        (tree / "tests" / "test_imports_lonely.py").write_text(
+            "from nonogram import lonely\ndef test_l():\n    assert lonely\n"
+        )
+        (tree / "tests" / "test_root_walker.py").write_text(
+            "from pathlib import Path\nREPO_ROOT = Path('.')\ndef test_w():\n    assert list(REPO_ROOT.iterdir())\n"
+        )
+        selected = impact.select(tree, ["NOTES.md"])
+        assert selected != impact.FULL
+        assert "tests/test_reads_notes.py" in selected
+        assert "tests/test_imports_lonely.py" in selected
+        assert "tests/test_root_walker.py" in selected
+        assert "tests/test_orphan.py" not in selected
+
+    def test_claude_md_selects_every_test_that_reads_it(self):
+        """CARD-528 AC-1, on the real tree. The readers are found here by ``ast``
+        (a string constant naming the file), not by the selector's own text rule."""
+        readers = set()
+        for path in sorted((REPO / "tests").glob("**/test_*.py")):
+            module = ast.parse(path.read_text(encoding="utf-8"))
+            if any(
+                isinstance(n, ast.Constant) and isinstance(n.value, str) and "CLAUDE.md" in n.value
+                for n in ast.walk(module)
+            ):
+                readers.add(path.relative_to(REPO).as_posix())
+        assert "tests/test_cli.py" in readers, "the control's own corpus lost its known reader"
+        derived = _real_derive(["CLAUDE.md"])
+        assert not derived.full, derived.reasons
+        assert sorted(readers - set(derived.files)) == []
 
     def test_an_unread_page_outside_the_roots_is_full(self, tree):
         (tree / "site").mkdir()

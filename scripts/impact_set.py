@@ -499,10 +499,40 @@ ASSET_KINDS = ("executed", "template", "named", "inert")
 #: repo-root ``player/`` site is the case. G-6 keeps the roots closed; what
 #: changes is that a stylesheet, script, page or Python file there is no longer
 #: refused for its location alone but analysed like its ``src/`` twin, and still
-#: ends in FULL (naming the path and the rule) when nobody reads it. A root-level
-#: ``.md`` / ``.ini`` / ``.db`` is NOT here: ``ONLINE_GAME_SPECIFICATION.md``
-#: stays FULL.
+#: ends in FULL (naming the path and the rule) when nobody reads it. Other
+#: root-LEVEL files (``CLAUDE.md``, ``Procfile``) are derived by
+#: :func:`_derive_root_file` instead, unless :data:`ROOT_TOOL_CONFIG` refuses them.
 OUTSIDE_ROOT_DERIVABLE = (".css", ".js", ".html", ".py")
+
+#: CARD-528: the root-level files that stay FULL by LOCATION even when a test
+#: names them, because a tool reads them from where they sit, not because a test
+#: opened them: git (``.gitignore``, ``.gitattributes``), pytest/alembic/mypy
+#: (``pytest.ini``, ``alembic.ini``, ``setup.cfg``, ``*.toml``), a package
+#: manager's lock file, any dotfile (``.coveragerc``, ``.python-version``). A
+#: test naming ``alembic.ini`` is one reader; the alembic CLI that a DB test
+#: runs from the repo root is another nobody names. Suffixes and the leading dot
+#: are a class rule: a new ``tox.ini`` is refused without being listed.
+ROOT_TOOL_CONFIG_SUFFIXES = (".ini", ".cfg", ".toml", ".lock")
+
+
+def _root_tool_config(path: str) -> bool:
+    """A root-level file a tool reads by location (see ROOT_TOOL_CONFIG_SUFFIXES)."""
+    name = Path(path).name
+    return name.startswith(".") or Path(path).suffix in ROOT_TOOL_CONFIG_SUFFIXES
+
+
+#: A test that WALKS the repo root itself: no root name to match, so the
+#: :meth:`_Corpus.tree_readers` rule cannot see it. Matched against the walk's
+#: receiver -- a name containing ``root``/``repo``, ``parents[N]``/``.parent``,
+#: ``Path()``/``Path(".")``/``cwd()``, or a bare relative pattern -- and selected
+#: for any root-level change. Over-matching (``_WEB_ROOT.glob``) only widens.
+ROOT_WALK_IDIOMS = (
+    re.compile(r"""(?i)\b\w*(?:root|repo)\w*\s*\)?\s*\.(?:glob|iterdir)\("""),
+    re.compile(r"""(?i)\b(?:listdir|scandir|walk)\(\s*(?:\w*(?:root|repo)\w*|["']\.?["'])?\s*\)"""),
+    re.compile(r"""(?:parents\[\d+\]|\.parent)\s*\.(?:glob|iterdir)\("""),
+    re.compile(r"""(?:Path\(\s*(?:["']\.?["'])?\s*\)|\.cwd\(\))\s*\.(?:glob|iterdir)\("""),
+    re.compile(r"""glob\.glob\(\s*["'][^"'/]*["']"""),
+)
 
 #: Tracked probe scripts and measurement records. Nothing ships from them and a
 #: test reads one only by naming it, so they are NAMED, never forced to FULL:
@@ -891,6 +921,15 @@ class _Corpus:
                 out.add(t)
         return out
 
+    def root_readers(self) -> set[Path]:
+        """Tests that WALK the repo root (see :data:`ROOT_WALK_IDIOMS`); an
+        unparsable test is one too, since nothing rules it out."""
+        return {
+            t
+            for t in self.tests
+            if t in self.unreadable or any(w.search(self.text[t]) for w in ROOT_WALK_IDIOMS)
+        }
+
     # -- who executes what --------------------------------------------------
 
     def executors(self) -> set[Path]:
@@ -1012,6 +1051,8 @@ def _classify_pre(path: str) -> Reason | None:
     if not path.startswith(KNOWN_ROOTS):
         if Path(path).suffix in OUTSIDE_ROOT_DERIVABLE:
             return None  # readers are derived from the file itself (G-6)
+        if "/" not in path and not _root_tool_config(path):
+            return None  # a root-level file: readers derived (CARD-528)
         return Reason(
             path,
             RULE_OUTSIDE_ROOTS,
@@ -1052,6 +1093,8 @@ def derive(root: Path, changed: list[str], corpus: _Corpus | None = None) -> Der
     for walked in ("src", "tests", "meta", "docs", "scripts", "scratchpad"):
         if any(c.startswith(walked + "/") for c in changed):
             selected |= corpus.tree_readers(walked)
+    if any("/" not in c for c in changed):
+        selected |= corpus.root_readers()
 
     closure_tests, _ = corpus.conftest_closure()
     for path in changed:
@@ -1124,6 +1167,10 @@ def _derive_one(
     if path.startswith("src/") or (outside and rel.suffix in (".css", ".js", ".html")):
         return _derive_asset(root, corpus, path, subject=subject)
 
+    # --- a root-level file (CARD-528): its readers, or FULL ------------------
+    if "/" not in path and rel.suffix not in OUTSIDE_ROOT_DERIVABLE:
+        return _derive_root_file(root, corpus, path)
+
     # --- code or data outside src/: named by a reader, or FULL ---------------
     prose_root = path.startswith(("meta/", "docs/")) and not path.endswith(".py")
     got = corpus.naming(path)
@@ -1135,6 +1182,50 @@ def _derive_one(
         return got, None
     if not got:
         return got, Reason(path, RULE_NO_READER, "no test names this file, and it is not board prose")
+    return got, None
+
+
+def _unanalysable_namer(root: Path, path: str) -> str | None:
+    """The first :data:`UNANALYSABLE` file that names ``path`` outside a comment.
+
+    ``pyproject.toml`` naming ``README.md`` as the package readme, or the
+    Makefile passing a root file to a recipe, puts that file inside a blast
+    radius this script does not model, so it inherits that FULL. Comments are
+    dropped (``#`` lines in config, docstrings and comments in Python): a
+    pyproject comment recalling what CLAUDE.md once said loads nothing.
+    """
+    pattern = _name_pattern(path)
+    for owner in UNANALYSABLE:
+        if owner == path:
+            continue
+        text = _read(root, owner)
+        if owner.endswith(".py"):
+            text = _loading_text(owner, text)
+        else:
+            text = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+        if pattern.search(text):
+            return owner
+    return None
+
+
+def _derive_root_file(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reason | None]:
+    """A root-level file: the tests that name it, and those reaching a module,
+    asset or script that loads it -- the same name and referencer rules a file
+    under the roots gets. FULL when an UNANALYSABLE file names it, or when
+    nothing does (an unread file is not an unaffecting one). The root walkers
+    are added by :func:`derive`, the always-on scanners as for any change.
+    """
+    owner = _unanalysable_namer(root, path)
+    if owner:
+        return set(), Reason(path, RULE_UNANALYSABLE, f"named by {owner}, whose blast radius is not modelled")
+    got = corpus.naming(path)
+    modules, chain_assets, scripts = _referencers(corpus, path)
+    if modules:
+        got |= corpus.importers(modules, set())
+    for named in chain_assets | scripts:
+        got |= corpus.naming(named)
+    if not got:
+        return got, Reason(path, RULE_NO_READER, "a root-level file no test names and no src/ or scripts/ file loads")
     return got, None
 
 
