@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** pyproject.toml
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T13:43Z
 **Closed:** —
 **Actual:** —
@@ -42,3 +42,5 @@
 ## Worktree notes
 
 **Implementation (orchestrator, one line).** Added `"static/*.png"` to the `"nonogram.admin"` package-data list and extended its comment. `test_every_admin_asset_ships_in_the_wheel`: 1 failed before the change, 1 passed after. `tests/test_puzzle_solver_page.py -m "not browser"`: 35 passed. A real wheel build was not run: the venv has no setuptools, and an isolated build needs the network. No test added or removed (net 0).
+
+[Review 1/3] Score: 9.5, certified. Re-derived: the wheel test passes on the branch; with the glob removed it fails listing only `static/favicon.png`. AC-2 holds: one glob added, no other package-data entry changed. ADR-0006/R1, ADR-0006/R2, ADR-0038/R5, ADR-0038/R7 and ADR-0042/R4 hold, and their tests pass. F-001 (low, pre-existing, recorded, not carded): `src/nonogram/web/static/metadata.js` is served by `web/handler.py` and loaded by both `web/pages.py` form pages, but no package-data glob names it, so a built wheel would 404 it; the wheel test covers only `admin/static` and `admin/templates`. F-002 (info): no real wheel built (no setuptools offline); fnmatch matches setuptools for flat names.
