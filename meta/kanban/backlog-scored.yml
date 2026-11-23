@@ -2696,7 +2696,8 @@ ideas:
   raw: '- [ ] CARD-169 owner look (2026-10-05): the deferred visual check found the Finalise guide preview
     needs changes — owner to say what   @feature'
   category: feature
-  status: backlog
+  status: screened
+  reason: 'Owner 2026-11-23: "I think the first book is finalized". Book 1 was checked and finalised through the existing preview, so the changes were never specified and are no longer needed. Reopen only if the owner names a change while finalising a later book.'
   method: wsjf
   scores:
     user_business_value: 3
