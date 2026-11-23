@@ -186,7 +186,7 @@ class Shelf:
         CARD-121: the in-memory stub carries the same one-cell clue pair the
         DB branch below always did. The gate itself still reads only width,
         height and tier — but ``add_puzzles_to_book`` now measures each
-        puzzle's printed cell against the 4.8 mm floor (INV-006) and refuses a
+        puzzle's printed cell against the 4.75 mm floor (INV-006) and refuses a
         stored record whose clues cannot be read, so a record with no clue
         fields at all is a stub the store could never have written
         (``add_puzzle`` always writes them) rather than a puzzle these tests

@@ -282,7 +282,7 @@ class Panel:
 
         The records go straight into the store (see the module docstring), the
         membership through the real ``add_puzzles_to_book`` — so every puzzle
-        has passed the 4.8 mm floor (INV-006) — and the plan is the selection
+        has passed the 4.75 mm floor (INV-006) — and the plan is the selection
         itself, so the readiness gate (ADR-0035/R1) has nothing to say and the
         only thing that can refuse this book at finalise is the KDP check.
 

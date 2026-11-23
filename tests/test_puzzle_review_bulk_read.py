@@ -63,7 +63,7 @@ def seed(store, tiers, factory=None) -> list:
     Written straight into the store rather than through ``add_puzzle`` — the
     paths under test read a record's size, clues and stored tier and nothing
     else, and a thirty-puzzle book would otherwise cost thirty uniqueness
-    proofs. A one-cell clue pair lays out far above the 4.8 mm floor, so every
+    proofs. A one-cell clue pair lays out far above the 4.75 mm floor, so every
     one of them can join a book. In DB mode they are real ``puzzles`` rows
     under a real batch (``puzzles.batch_id`` is a foreign key).
     """

@@ -1,10 +1,11 @@
 """EC-021 — below the floor only with a stored override, whatever the route (INV-006).
 
     For any puzzle, any stored trim and margins and every add route, a puzzle
-    whose book cell is below 4.8 mm becomes a member only together with a
-    stored override for its id; **and** the tile's cell, the add refusal and
-    the finalise count all come from the one computation FR-030's PDF uses, so
-    no two of them can disagree about a puzzle.
+    whose book cell is below the cell floor (TERM-024, NFR-008) becomes a
+    member only together with a stored override for its id; **and** the
+    tile's cell, the add refusal and the finalise count all come from the one
+    computation FR-030's PDF uses, so no two of them can disagree about a
+    puzzle.
 
 The constraint has two halves and this file holds both. The *membership* half
 is the four tests below; the *agreement* half (CARD-123) is the last one, which
