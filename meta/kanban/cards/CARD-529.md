@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_book_pdf_band.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T09:35Z
 **Closed:** —
 **Actual:** —
@@ -58,3 +58,5 @@ In `tests/test_book_pdf_band.py`, `_set_once` is an unbounded `@lru_cache`. It r
   - removing `.copy()`, node id alone, gives red: `AssertionError: 1 of the 1 arrays `_set_once` caches are views of a larger array ... [((45, 104), 4680, 41064)]`.
   - removing the warm-up call, node id alone with a cold cache, gives red: `AssertionError: `_set_once`'s cache store could not be read`. The two pre-existing asserts in that test are unchanged by this card.
 - Gate: `tests/test_book_pdf_band.py` whole, unarmed, `-rfs`: before 91 passed, 0 failed, 0 skipped. After 91 passed, 0 failed, 0 skipped (AC-3). Net collected count: 10695 before, 10695 after (net 0).
+
+[Review 1/3] Score: 9.5, certified. Re-derived with two instruments: a session-end walk (main 783 entries, 0 owning their data, 123,623,682 B; head 784, all owning, 26,747,109 B) and tracemalloc bytes freed by `cache_clear()` (123,880,247 B and 26,977,831 B); 91 passed, 0 skipped; run time 15.04/14.62 s on main against 14.47/14.64 s at head; control 1 red alone and in the whole file, control 2 red alone with a cold cache; `.copy()` keeps dtype bool and every caller compares by value; the warm-up key is used nowhere else; the `gc.get_referents` read fails closed. F-001 (minor, recorded): `_step` in tests/helpers/shared_fixture_controls.py and `test_the_bound_on_a_numpy_arrays_contents_is_the_collectors` in tests/test_shared_fixture_controls.py still state the 2026-10-24 view figures in the present tense, and that test's assert message says the cache figure understates its base memory 4.5-fold; the general limit they describe still holds. F-002 (low): the retention class's docstring and second assert message still call `_set_once` out of scope and backlogged. F-003 (low): the byte instrument was a scratch plugin; the reviewer rebuilt it from the notes and got identical figures. F-004 (info): the cache read relies on CPython internals and fails closed.
