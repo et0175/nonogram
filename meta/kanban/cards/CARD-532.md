@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/ (docstrings and comments in the files listed below)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T17:51Z
 **Closed:** —
 **Actual:** —
@@ -109,3 +109,7 @@ Three numeric literals still use 4.8 as a threshold: `property/test_book_layout.
 ### Gate (fix round 1, unarmed, `-o addopts= -rfs`)
 
 The 11 touched files plus neighbours test_book_floor.py and test_book_cell_size.py: 890 passed, 0 failed, 0 skipped.
+
+[Review 1/3] Score: 9.5, certified. Re-derived: 4 `4.8 mm` lines remain in tests/, in 2 files, all history (15 in 13 at the merge-base). Fixture cells re-measured with `book_cell_sizes(book_page_spec(...))` and its own grid builders: `BELOW_FLOOR` 4.5357 on Book 1; `_comfortable_puzzle` 7.5 on Book 1 and 6 x 9 in, 4.7442 on 10 x 10 and 30 x 10 cm; the one-cell clue pair 7.5; the 30x30 9-deep, production, 4.8846. With docstrings stripped, all 11 files' ASTs equal the base; no `#` line changed; 766 ids before and after. F-001 (medium): `_comfortable_puzzle`'s first line said "on this file's trims", but the file also stores a 10 x 10 cm trim, where the fixture is under the floor. F-002 (low): `below_the_floor`'s "4.54 mm is measured there" overstates what `test_book_floor.py` checks (the stated figure, through the refusal text). F-003 (info): AC-238's "4.97 mm on Book 1" is the test's own spec; production gives 4.8846; both are above 4.75. F-004 (info, in the notes): three code thresholds still say 4.8.
+
+**Fix round 2 (orchestrator, docstrings only).** F-001: "on the trims it is used with". F-002: "whose stated cell is 4.54 mm (measured 4.5357 mm on Book 1); it is not re-derived here". AST with docstrings stripped is unchanged in both files; both files pass (214, 0 skipped). F-003 and F-004 recorded, not carded: the counters and the assert want `FLOOR_MM`, which changes assertions, so a later card.

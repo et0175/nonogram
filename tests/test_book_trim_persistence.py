@@ -138,7 +138,7 @@ def _stored_columns(books, book_id) -> tuple[str, str]:
 
 
 def _comfortable_puzzle(app, scope, mode) -> str:
-    """One small puzzle that clears the floor (``FLOOR_MM``, 4.75 mm) on this file's trims.
+    """One small puzzle that clears the floor (``FLOOR_MM``, 4.75 mm) on the trims it is used with.
 
     Measured with ``book_cell_sizes``: 7.5 mm on Book 1 (where it joins the
     book) and on 6 x 9 in (where it is printed). Not on every supported trim:
