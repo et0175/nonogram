@@ -1,6 +1,6 @@
 # CARD-529: test_book_pdf_band.py's glyph cache stops keeping whole uncropped arrays alive
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/529-glyph-cache-copy
+**Worktree:** ../PythonProject4-card-529
 **Source:** roadmap wave 14, cut 2026-11-23 on the owner's "pick a no-decision wave from the backlog". IDEA-212 (CARD-218 review cycle 2 finding).
 **Idea:** IDEA-212
 **Wave:** 93
@@ -19,7 +19,7 @@
 **Touches:** tests/test_book_pdf_band.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-23T09:35Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
