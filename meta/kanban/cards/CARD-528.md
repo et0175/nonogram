@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** scripts/impact_set.py, tests/test_impact_set.py
 **UI surface:** —
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 8.5 (cycle 2/3)
 **Started:** 2026-11-23T08:10Z
 **Closed:** —
 **Actual:** —
@@ -131,3 +131,5 @@ Procfile, railway.json and runtime.txt are read by no test. Their 48 files are t
 - One per `ROOT_WALK_IDIOMS` regex, removed: each idiom's own case red, `assert 'tests/test_root_walker.py' in [...]`.
 
 **Gate:** `tests/test_impact_set.py` and `tests/test_wave_close_marker.py`, unarmed, with `-rfs`: 231 passed, 0 failed, 0 skipped.
+
+[Review 2/3] Score: 8.5, one gating finding, not certified. Re-derived: 231 passed, 0 skipped; test_impact_set.py 200 -> 212; AC-3 on a different sample (merges 41-80, 111 KNOWN_ROOTS paths singly plus the set) 112/112 identical; 9 controls red at their cases; 79 non-literal root joins traced by ast, none reaching an admitted-class file; the prose, container, shell, database and hosting classes judged honest. Cycle-1 F-001, F-002, F-004 closed; F-003 closed for the reported cases. F-101 (Important, G-1/AC-2): the self-skip is in `_unanalysable_namer` but not `_referencers`, which finds the class table's literals in scripts/impact_set.py and counts the selector as a loader, so railway.json and runtime.txt (FULL no-reader in cycle 1) and a new app.json or compose.yml narrow to 48 files with no real reader; unpinned, all 212 tests stay green with `_referencers` skipping the selector. F-103 (minor): widening the self-skip to every .py owner, or cutting the owner loop to pyproject.toml and Makefile, survives every test. F-102 (low): `_strip_hash_comment` ignores backslash escapes and multi-line TOML strings.
