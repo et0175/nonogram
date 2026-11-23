@@ -102,6 +102,7 @@ Cut against main on 2026-11-23 on the owner's "pick a no-decision wave from the 
 - **CARD-527** (IDEA-181) Every browser-test file must declare its page isolation — 1c
 - **CARD-528** (IDEA-193) The impact selector resolves CLAUDE.md and other root files to their readers — 1c
 - **CARD-529** (IDEA-212) The glyph cache stops keeping whole uncropped arrays alive — 1c
+- **CARD-530** (added 2026-11-23, P1) The browser-family registry records the three tests Player QA v3 renamed (main red since 8f799d5b; blocks every merge gate) — 1c
 
 ## Wave 13 — DONE 2026-11-22 (board wave 92)
 
