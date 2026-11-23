@@ -82,3 +82,52 @@
 **Not modelled (declared)**: a test building a root file's name from pieces (`"CLAUDE" + ".md"`), and a root walker whose receiver matches none of `ROOT_WALK_IDIOMS`; `changed_from_git` still sweeps untracked files only under src/ and tests/, so a new untracked root file reaches the selector only when passed explicitly.
 
 [Review 1/3] Score: 8.5, one gating finding, not certified. Re-derived: every root-file figure (CLAUDE.md 105, README.md 211, render.yaml 46, nonogram_admin.db 45, start.sh 45, three at 43); AC-3 98/98 identical on the same 40-merge sample; controls C1, C2, C6 red per assert; 224 passed, 0 skipped; test_impact_set.py +5. G-1 judged per narrowed file: nonogram_admin.db is opened by no src/ module; render.yaml, Dockerfile, docker-compose.yml, start.sh are read by tools the suite never runs. F-001 (Important, G-1): only dotfiles and .ini/.cfg/.toml/.lock are refused as tool config, so a new root package.json (or tsconfig.json, package-lock.json) narrows to 47 files because two tests name it to assert its absence from player/; node reads it by location, and a `"type": "module"` there changes how `tests/test_web_metadata.py`'s `node --check` parses metadata.js, a test the narrowed gate would not run. F-002 (medium): only one of the five ROOT_WALK_IDIOMS is planted in a test; `_Corpus.root_readers` scans test files but not helpers they import. F-003 (low): `_unanalysable_namer` cuts at any `#`, including one inside a string or a Makefile recipe. F-004 (low): a tool-config refusal's reason text names the generic rule. F-005 (info): helper docstrings mentioning CLAUDE.md lift 4 of 6 wave_close_only files on a CLAUDE.md change; safe, costs part of the saving.
+
+### Fix round 1 (review 1, 2026-11-23)
+
+Supersedes the "What changed" and "Root files after" paragraphs above where they differ.
+
+- **F-001 (G-1), default inverted.** `_root_tool_config`/`ROOT_TOOL_CONFIG_SUFFIXES` are gone. A root-level file now narrows only if `_root_file_class` finds it in `ROOT_FILE_CLASSES`, a dict of name-glob classes (matched with `fnmatchcase`), each with its stated reason in the code: `prose` (`*.md`), `container` (`Dockerfile`, `Dockerfile.*`, `*.dockerfile`, `docker-compose*.yml/yaml`, `compose.yml/yaml`; docker is stubbed by `tests/helpers/admin_scripts.py`, never run), `hosting` (`Procfile`, `render.yaml`, `railway.json`, `runtime.txt`, `app.json`; read at deploy), `shell` (`*.sh`; runs only when invoked by name), `database` (`*.db`, `*.sqlite`, `*.sqlite3`; opened only by path). A dotfile is never admitted, even `.notes.md`. Anything else stays FULL `outside-known-roots`: `package.json`, `tsconfig.json`, `package-lock.json` all FULL on the real tree (measured).
+- **F-002.** `_ROOT_CASES` parametrises `test_a_root_level_file_selects_its_namers_loaders_and_root_walkers` over 5 cases. Each case pairs one admitted class with one `ROOT_WALK_IDIOMS` spelling, so each class and each idiom has a case of its own. `_Corpus.root_readers` now scans the test-tree helpers too and follows them to their importers, as `naming()` does. The `Procfile` case puts its `parents[1].glob` walker in a helper that a test imports. On the real tree, no helper matches any idiom (measured by running the idioms over every non-test module under tests/).
+- **F-003.** `_strip_hash_comment` cuts at a `#` only outside quotes and at the start of a line or after whitespace. This one rule applies to TOML, cfg, requirements and Makefiles; Python still goes through `_loading_text`. Cutting less keeps more text, which can only widen the selection. Hermetic cases cover a pyproject `x = "a # b GUIDE.md"` and a Makefile recipe `grep -c '#' GUIDE.md`; both give FULL `unanalysable`.
+- **F-004.** The refusal detail now names the rule that refused the file: "a root-level file|dotfile no ROOT_FILE_CLASSES class admits; a tool (git, node, alembic, a package manager) may read it by location...". The rule id stays `outside-known-roots`, so the gate behaves as before (G-2). The cannot-model cases assert `ROOT_FILE_CLASSES` in the detail.
+- **New, found while re-deriving.** With the less aggressive comment stripping, `scripts/impact_set.py` (which is in UNANALYSABLE) now named `Dockerfile`, `Procfile`, `render.yaml`, `railway.json` and `runtime.txt` through its own class table, which turned them FULL `unanalysable`. `_unanalysable_namer` now skips the selector itself. The names in its class table are names to match, not files it opens; the only root files it opens are the UNANALYSABLE entries, which are FULL anyway. The hermetic test copies the real selector into the fake tree; control C9 below covers this. A side effect, which only widens the selection: the selector still names these files as a `scripts/` referencer, so their selection includes the tests that name `scripts/impact_set.py` (5 extra files).
+- **F-005.** No change, by the reviewer's ruling. Helper docstrings that mention CLAUDE.md lift 4 of the 6 `wave_close_only` files on a CLAUDE.md gate. This only widens the run.
+
+**Root files, re-derived on the final tree** (34 tracked root files plus one untracked probe):
+
+| Result | Files |
+|---|---|
+| Selection of 105 test files | CLAUDE.md |
+| Selection of 211 | README.md |
+| Selection of 51 | render.yaml |
+| Selection of 48 | Dockerfile, Procfile, railway.json, runtime.txt |
+| Selection of 45 | nonogram_admin.db, start.sh |
+| Selection of 43 | ADMIN_SETUP.md, docker-compose.yml |
+| FULL `outside-known-roots` | 5 dotfiles, alembic.ini |
+| FULL `unanalysable` | Makefile, pyproject.toml, requirements.txt |
+| FULL `no-reader` | 14 tracked `.md` files, plus the untracked `UNTRACKED_PROBE_528.md` |
+
+Procfile, railway.json and runtime.txt are read by no test. Their 48 files are the always-on scanners plus the selector's own tests (the referencer side effect above).
+
+**AC-3, re-derived:** the same sample as before (97 KNOWN_ROOTS paths from `git log main --merges -40`, each run singly, plus the 97 as one set). `34c94756`'s script and the final script were run against the final tree: 98 of 98 identical.
+**Net count:** 10695 at the base, 10707 now. That is +12 for the card, +7 this round. The cannot-model test went from 4 to 7 cases (`.toolrc` became `.notes.md`, and `package.json` plus two `#` cases were added); the selects test went from 1 to 5 cases.
+
+**Controls** (`/private/tmp/claude-501/card528/controls2.py`): each mutant was run against the class's 16 tests, then the file was restored, and `git diff --stat` was the same afterwards. All 23 went red:
+- C1, root branch admits nothing: 10 red, `assert ['outside-known-roots'] == ['no-reader']`.
+- C2a, dotfile refusal removed: `[.notes.md]` red, `assert derived.full`.
+- C2b, `*.json` admitted: `[package.json]` red, `assert derived.full`.
+- C2c, `*.ini` admitted: `[tool.ini]` red, `assert derived.full`.
+- C3, the namer returns None: 3 GUIDE.md cases red, `assert derived.full`.
+- C4, root walkers not added: 5 red, `assert 'tests/test_root_walker.py' in [...]`.
+- C4h, helper following removed: `[Procfile]` red, same assert.
+- C5, loader importers dropped: 5 red, `assert 'tests/test_imports_lonely.py' in [...]`.
+- C6, comment stripping removed: 6 red, `assert 'FULL' != 'FULL'` (including the real CLAUDE.md test).
+- C6q, naive `split("#")` restored: the quoted-`#` and Makefile-recipe cases red, `assert derived.full`.
+- C7, no-reader FULL dropped: `[NOTES.md]` red.
+- C8, detail without the rule name: 3 red, `assert 'ROOT_FILE_CLASSES' in '...'`.
+- C9, self-skip removed: `[Dockerfile]` and `[Procfile]` red, `assert 'FULL' != 'FULL'`.
+- One per class, its glob removed: prose 6 red; container, hosting, shell and database each red in their own case, `assert 'FULL' != 'FULL'`.
+- One per `ROOT_WALK_IDIOMS` regex, removed: each idiom's own case red, `assert 'tests/test_root_walker.py' in [...]`.
+
+**Gate:** `tests/test_impact_set.py` and `tests/test_wave_close_marker.py`, unarmed, with `-rfs`: 231 passed, 0 failed, 0 skipped.

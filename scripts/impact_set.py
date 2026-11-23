@@ -500,25 +500,55 @@ ASSET_KINDS = ("executed", "template", "named", "inert")
 #: changes is that a stylesheet, script, page or Python file there is no longer
 #: refused for its location alone but analysed like its ``src/`` twin, and still
 #: ends in FULL (naming the path and the rule) when nobody reads it. Other
-#: root-LEVEL files (``CLAUDE.md``, ``Procfile``) are derived by
-#: :func:`_derive_root_file` instead, unless :data:`ROOT_TOOL_CONFIG` refuses them.
+#: root-LEVEL files are derived by :func:`_derive_root_file` only when
+#: :data:`ROOT_FILE_CLASSES` admits them.
 OUTSIDE_ROOT_DERIVABLE = (".css", ".js", ".html", ".py")
 
-#: CARD-528: the root-level files that stay FULL by LOCATION even when a test
-#: names them, because a tool reads them from where they sit, not because a test
-#: opened them: git (``.gitignore``, ``.gitattributes``), pytest/alembic/mypy
-#: (``pytest.ini``, ``alembic.ini``, ``setup.cfg``, ``*.toml``), a package
-#: manager's lock file, any dotfile (``.coveragerc``, ``.python-version``). A
-#: test naming ``alembic.ini`` is one reader; the alembic CLI that a DB test
-#: runs from the repo root is another nobody names. Suffixes and the leading dot
-#: are a class rule: a new ``tox.ini`` is refused without being listed.
-ROOT_TOOL_CONFIG_SUFFIXES = (".ini", ".cfg", ".toml", ".lock")
+#: CARD-528: the root-level file classes whose readers CAN be derived. A root
+#: file is refused (FULL) by default; a class is admitted only with a stated
+#: reason that its real readers are tests naming it (or a ``src/``/``scripts/``
+#: file loading it, which the referencer chain follows) plus tools the suite
+#: never runs. Everything else stays FULL -- above all what a language
+#: toolchain or package manager reads by LOCATION (``package.json``,
+#: ``package-lock.json``, ``tsconfig.json``, ``alembic.ini``, ``setup.cfg``,
+#: ``Pipfile``; ``pyproject.toml`` is UNANALYSABLE), since node or alembic
+#: reads it from where it sits without any test naming it. A dotfile is never
+#: admitted (git, docker, linters read those by location). Globs, matched
+#: case-sensitively against the file name: a class, not a list of today's files.
+ROOT_FILE_CLASSES: dict[str, tuple[tuple[str, ...], str]] = {
+    "prose": (
+        ("*.md",),
+        "read by humans and by the tests that open it by name; no tool reads it during a run",
+    ),
+    "container": (
+        ("Dockerfile", "Dockerfile.*", "*.dockerfile", "docker-compose*.yml", "docker-compose*.yaml",
+         "compose.yml", "compose.yaml"),
+        "read by docker, which the suite never runs (tests/helpers/admin_scripts.py stubs docker and docker-compose)",
+    ),
+    "hosting": (
+        ("Procfile", "render.yaml", "railway.json", "runtime.txt", "app.json"),
+        "a hosting platform's deploy descriptor, read at deploy time; no test deploys",
+    ),
+    "shell": (
+        ("*.sh",),
+        "runs only when something invokes it by name, and that something is a test or a scripts/ file naming it",
+    ),
+    "database": (
+        ("*.db", "*.sqlite", "*.sqlite3"),
+        "opened only by path, so its readers are the tests and src/ modules that name it",
+    ),
+}
 
 
-def _root_tool_config(path: str) -> bool:
-    """A root-level file a tool reads by location (see ROOT_TOOL_CONFIG_SUFFIXES)."""
+def _root_file_class(path: str) -> str | None:
+    """The :data:`ROOT_FILE_CLASSES` entry admitting a root-level ``path``, or None."""
     name = Path(path).name
-    return name.startswith(".") or Path(path).suffix in ROOT_TOOL_CONFIG_SUFFIXES
+    if name.startswith("."):
+        return None
+    for cls, (globs, _why) in ROOT_FILE_CLASSES.items():
+        if any(fnmatch.fnmatchcase(name, g) for g in globs):
+            return cls
+    return None
 
 
 #: A test that WALKS the repo root itself: no root name to match, so the
@@ -922,13 +952,19 @@ class _Corpus:
         return out
 
     def root_readers(self) -> set[Path]:
-        """Tests that WALK the repo root (see :data:`ROOT_WALK_IDIOMS`); an
-        unparsable test is one too, since nothing rules it out."""
-        return {
-            t
-            for t in self.tests
-            if t in self.unreadable or any(w.search(self.text[t]) for w in ROOT_WALK_IDIOMS)
+        """Tests that WALK the repo root (see :data:`ROOT_WALK_IDIOMS`), and the
+        tests importing a test-tree helper that does (as :meth:`naming` follows
+        helpers); an unparsable file is a walker too, since nothing rules it out."""
+        walkers = {
+            s
+            for s in self.sources
+            if s in self.unreadable or any(w.search(self.text[s]) for w in ROOT_WALK_IDIOMS)
         }
+        found = {t for t in self.tests if t in walkers}
+        helpers = {d for s in walkers if s not in found and (d := _tests_dotted(s.as_posix()))}
+        if helpers:
+            found |= self.importers(set(), helpers)
+        return found
 
     # -- who executes what --------------------------------------------------
 
@@ -1051,8 +1087,16 @@ def _classify_pre(path: str) -> Reason | None:
     if not path.startswith(KNOWN_ROOTS):
         if Path(path).suffix in OUTSIDE_ROOT_DERIVABLE:
             return None  # readers are derived from the file itself (G-6)
-        if "/" not in path and not _root_tool_config(path):
-            return None  # a root-level file: readers derived (CARD-528)
+        if "/" not in path:
+            if _root_file_class(path):
+                return None  # an admitted root-level class: readers derived (CARD-528)
+            return Reason(
+                path,
+                RULE_OUTSIDE_ROOTS,
+                "a root-level " + ("dotfile" if Path(path).name.startswith(".") else "file")
+                + " no ROOT_FILE_CLASSES class admits; a tool (git, node, alembic, a package manager) "
+                "may read it by location, so a test naming it is not its only reader",
+            )
         return Reason(
             path,
             RULE_OUTSIDE_ROOTS,
@@ -1185,6 +1229,27 @@ def _derive_one(
     return got, None
 
 
+def _strip_hash_comment(line: str) -> str:
+    """``line`` up to a ``#`` comment, for TOML, cfg, requirements and Makefiles.
+
+    A ``#`` starts a comment here only outside quotes and at the line start or
+    after whitespace: ``"a # b"`` in TOML, ``grep -c '#' X`` in a Makefile
+    recipe and pip's ``url#egg=`` all keep their text. Make itself cuts at any
+    unquoted ``#`` outside a recipe; cutting less keeps MORE text, which can
+    only find more namers (wider), never fewer.
+    """
+    quote = ""
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "#" and (i == 0 or line[i - 1].isspace()):
+            return line[:i]
+    return line
+
+
 def _unanalysable_namer(root: Path, path: str) -> str | None:
     """The first :data:`UNANALYSABLE` file that names ``path`` outside a comment.
 
@@ -1193,16 +1258,20 @@ def _unanalysable_namer(root: Path, path: str) -> str | None:
     radius this script does not model, so it inherits that FULL. Comments are
     dropped (``#`` lines in config, docstrings and comments in Python): a
     pyproject comment recalling what CLAUDE.md once said loads nothing.
+
+    This script is skipped as a namer: :data:`ROOT_FILE_CLASSES` spells
+    ``Procfile`` and ``Dockerfile`` as names to MATCH, and the only root files
+    it opens are the UNANALYSABLE entries it reads here, which are FULL anyway.
     """
     pattern = _name_pattern(path)
     for owner in UNANALYSABLE:
-        if owner == path:
+        if owner == path or owner == "scripts/impact_set.py":
             continue
         text = _read(root, owner)
         if owner.endswith(".py"):
             text = _loading_text(owner, text)
         else:
-            text = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+            text = "\n".join(_strip_hash_comment(line) for line in text.splitlines())
         if pattern.search(text):
             return owner
     return None

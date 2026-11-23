@@ -1181,20 +1181,28 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
             assert sorted(set(public) - set(selected)) == [], asset
 
     @pytest.mark.parametrize(
-        "name, pyproject, rule",
+        "name, owner, owner_text, rule, detail",
         [
             # CARD-528 AC-2: a new (untracked) root file nobody reads.
-            ("NOTES.md", "", "no-reader"),
-            # Read by a tool from where it sits: a test naming it is not its only reader.
-            (".toolrc", "", "outside-known-roots"),
-            ("tool.ini", "", "outside-known-roots"),
-            # Named by an UNANALYSABLE file, so inside a radius nobody models.
-            ("GUIDE.md", 'readme = "GUIDE.md"\n', "unanalysable"),
+            ("NOTES.md", "", "", "no-reader", "no test names"),
+            # No ROOT_FILE_CLASSES class admits it: a tool reads it by location,
+            # so the test naming it is not its only reader.
+            (".notes.md", "", "", "outside-known-roots", "ROOT_FILE_CLASSES"),  # a dotfile, even one of an admitted suffix
+            ("tool.ini", "", "", "outside-known-roots", "ROOT_FILE_CLASSES"),
+            ("package.json", "", "", "outside-known-roots", "ROOT_FILE_CLASSES"),
+            # Named by an UNANALYSABLE file, so inside a radius nobody models;
+            # a '#' inside quotes is not a comment (TOML string, Makefile recipe).
+            ("GUIDE.md", "pyproject.toml", 'readme = "GUIDE.md"\n', "unanalysable", "pyproject.toml"),
+            ("GUIDE.md", "pyproject.toml", 'x = "a # b GUIDE.md"\n', "unanalysable", "pyproject.toml"),
+            ("GUIDE.md", "Makefile", "doc:\n\tgrep -c '#' GUIDE.md\n", "unanalysable", "Makefile"),
         ],
     )
-    def test_a_root_level_file_it_cannot_model_stays_full_with_its_reason(self, tree, name, pyproject, rule):
+    def test_a_root_level_file_it_cannot_model_stays_full_with_its_reason(
+        self, tree, name, owner, owner_text, rule, detail
+    ):
         (tree / name).write_text("x\n")
-        (tree / "pyproject.toml").write_text(pyproject)
+        if owner:
+            (tree / owner).write_text(owner_text)
         if name != "NOTES.md":
             # A test naming it: without the rule under test this would narrow.
             (tree / "tests" / "test_names_it.py").write_text(f"P = {name!r}\ndef test_n():\n    assert P\n")
@@ -1202,20 +1210,43 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
         assert derived.full
         assert [r.rule for r in derived.reasons] == [rule]
         assert name in str(derived.reasons[0])
+        assert detail in derived.reasons[0].detail
 
-    def test_a_root_level_file_selects_its_namers_loaders_and_root_walkers(self, tree):
-        """CARD-528: a root file is derived like a file under the roots."""
-        (tree / "NOTES.md").write_text("x\n")
-        (tree / "pyproject.toml").write_text("# NOTES.md is only mentioned in a comment\n")
-        (tree / "tests" / "test_reads_notes.py").write_text("P = 'NOTES.md'\ndef test_n():\n    assert P\n")
-        (tree / "src" / "nonogram" / "lonely.py").write_text("NOTES = 'NOTES.md'\n")
+    #: One admitted ROOT_FILE_CLASSES class and one ROOT_WALK_IDIOMS spelling per
+    #: case, so removing either reds a case of its own. The ``parents[N]`` walker
+    #: sits in a helper a test imports: root_readers follows helpers.
+    _ROOT_CASES = [
+        ("NOTES.md", "test_root_walker.py",
+         "from pathlib import Path\nREPO_ROOT = Path('.')\ndef test_w():\n    assert list(REPO_ROOT.iterdir())\n"),
+        ("Dockerfile", "test_root_walker.py",
+         "import os\nREPO_ROOT = '.'\ndef test_w():\n    assert os.listdir(REPO_ROOT)\n"),
+        ("Procfile", "dir_helper.py",
+         "from pathlib import Path\ndef entries():\n    return list(Path(__file__).parents[1].glob('*'))\n"),
+        ("run.sh", "test_root_walker.py",
+         "from pathlib import Path\ndef test_w():\n    assert list(Path.cwd().iterdir())\n"),
+        ("data.db", "test_root_walker.py",
+         "import glob\ndef test_w():\n    assert glob.glob('*.txt') is not None\n"),
+    ]
+
+    @pytest.mark.parametrize("name, walker, walker_text", _ROOT_CASES, ids=[c[0] for c in _ROOT_CASES])
+    def test_a_root_level_file_selects_its_namers_loaders_and_root_walkers(self, tree, name, walker, walker_text):
+        """CARD-528: an admitted root file is derived like a file under the roots."""
+        (tree / name).write_text("x\n")
+        (tree / "pyproject.toml").write_text(f"# {name} is only mentioned in a comment\n")
+        # The selector's own class table spells these names; that is not a load.
+        (tree / "scripts").mkdir()
+        (tree / "scripts" / "impact_set.py").write_text(SELECTOR.read_text(encoding="utf-8"))
+        (tree / "tests" / "test_reads_notes.py").write_text(f"P = {name!r}\ndef test_n():\n    assert P\n")
+        (tree / "src" / "nonogram" / "lonely.py").write_text(f"NOTES = {name!r}\n")
         (tree / "tests" / "test_imports_lonely.py").write_text(
             "from nonogram import lonely\ndef test_l():\n    assert lonely\n"
         )
-        (tree / "tests" / "test_root_walker.py").write_text(
-            "from pathlib import Path\nREPO_ROOT = Path('.')\ndef test_w():\n    assert list(REPO_ROOT.iterdir())\n"
-        )
-        selected = impact.select(tree, ["NOTES.md"])
+        (tree / "tests" / walker).write_text(walker_text)
+        if walker != "test_root_walker.py":
+            (tree / "tests" / "test_root_walker.py").write_text(
+                "from tests.dir_helper import entries\ndef test_w():\n    assert entries() is not None\n"
+            )
+        selected = impact.select(tree, [name])
         assert selected != impact.FULL
         assert "tests/test_reads_notes.py" in selected
         assert "tests/test_imports_lonely.py" in selected
