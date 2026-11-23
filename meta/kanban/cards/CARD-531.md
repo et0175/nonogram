@@ -1,6 +1,6 @@
 # CARD-531: The admin tab icon ships in the wheel
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/531-favicon-package-data
-**Worktree:** ../PythonProject4-card-531
+**Worktree:** —
 **Source:** found 2026-11-23 by the wave 14 close: commit 7a21d0ba (owner test notes 2026-11-23, no card) added src/nonogram/admin/static/favicon.png, which no package-data glob in pyproject.toml names. Added to wave 14 because it reds the wave close.
 **Idea:** —
 **Wave:** 93
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-23T13:43Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-23T16:01Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 57ae3ddc3fe24af12fcb8a55829e33fff0f08aeb
 **Blocked by:** —
 
 ## Why this card exists
