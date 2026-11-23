@@ -16,7 +16,7 @@
 **Created wave:** 93
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** pyproject.toml, scripts/impact_set.py
+**Touches:** pyproject.toml, scripts/impact_set.py, tests/test_puzzle_solver_page.py
 **UI surface:** —
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-23T13:43Z
@@ -37,7 +37,8 @@
 ## Acceptance criteria
 
 - AC-1: `test_every_admin_asset_ships_in_the_wheel` passes, and fails again if the new glob is removed.
-- AC-2: No other package-data entry changes.
+- AC-2: No other package-data entry changes, apart from AC-3's new `"nonogram.web"` entry.
+- AC-3 (added 2026-11-23 on the owner's word, from review F-001): `src/nonogram/web/static/metadata.js` ships in the wheel through a `"nonogram.web"` package-data entry, and the same wheel test holds `web/static` to it: red without the entry, green with it.
 
 ## Worktree notes
 
@@ -52,3 +53,5 @@
 [Review 2/3] Score: 9.5, certified. Re-derived: without `".png": "named"` the class gives 2 failed / 7 passed, with it 9 passed; impact, shared-UI site and TestPlayerAssets 272 passed. "named" is right: `player/assemble.py` copies the PNG byte for byte, and `test_player_shared_ui_site.py` checks the copy, so it is not "inert"; no test executes it. The 51 files: the 46 every named admin asset gets, plus 5 through `player/assemble.py`. F-003 (medium): the new pyproject comment and this card's Why said every page links the icon and a wheel would 404 it; no admin page links it (`base.html` has an inline SVG). F-004 (low): the ASSET_RULES comment left out `player/assemble.py`. F-001 (low, pre-existing, recorded) carried.
 
 **Fix round 2 (orchestrator).** F-003 and F-004 fixed, comments and Why only; checked first with a grep: `/favicon.png` is linked only by `player/*.html` and `player/assemble.py`'s page template. No code change.
+
+**Fix round 3 (orchestrator, owner's request: "also fix the metadata.js one").** F-001 folded in, because both changes force a FULL gate through pyproject.toml; the round-2 gate was stopped unfinished. `test_every_admin_asset_ships_in_the_wheel` now also lists `nonogram/web/static` against a `"nonogram.web"` package-data entry (name kept: only the pyproject comment refers to it). Widened test without the entry: 1 failed (`nonogram.web: static/metadata.js` unshipped); with `"nonogram.web" = ["static/*.js"]`: 1 passed. `test_puzzle_solver_page.py`, `test_impact_set.py` and `test_web_server.py` (not browser): 418 passed. Net tests 0.

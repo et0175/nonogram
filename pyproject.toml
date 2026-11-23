@@ -88,6 +88,10 @@ where = ["src"]
 # The vendored QR encoder's licence and provenance record (ADR-0006/R2, CARD-388):
 # package data, not a dependency. The .py itself ships as a module.
 "nonogram.admin._vendor" = ["LICENSE.qrcodegen", "PROVENANCE.qrcodegen"]
+# The generator web form's script (web/static/metadata.js), served by
+# web/handler.py and loaded by both form pages in web/pages.py: absent from a
+# wheel until CARD-531, so an installed form ran without it.
+"nonogram.web" = ["static/*.js"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
