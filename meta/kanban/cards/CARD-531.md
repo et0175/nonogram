@@ -40,3 +40,5 @@
 - AC-2: No other package-data entry changes.
 
 ## Worktree notes
+
+**Implementation (orchestrator, one line).** Added `"static/*.png"` to the `"nonogram.admin"` package-data list and extended its comment. `test_every_admin_asset_ships_in_the_wheel`: 1 failed before the change, 1 passed after. `tests/test_puzzle_solver_page.py -m "not browser"`: 35 passed. A real wheel build was not run: the venv has no setuptools, and an isolated build needs the network. No test added or removed (net 0).
