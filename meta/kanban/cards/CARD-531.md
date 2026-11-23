@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** pyproject.toml, scripts/impact_set.py
 **UI surface:** —
-**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-23T13:43Z
 **Closed:** —
 **Actual:** —
@@ -27,7 +27,7 @@
 
 ## Why this card exists
 
-`tests/test_puzzle_solver_page.py::TestPlayerAssets::test_every_admin_asset_ships_in_the_wheel` fails on main with `assert ['static/favicon.png'] == []`. Commit 7a21d0ba gave every page one tab icon, `src/nonogram/admin/static/favicon.png`. The `"nonogram.admin"` package-data list in `pyproject.toml` names `templates/*.html`, `static/*.css` and `static/*.js` only, so a built wheel has no icon to serve. An editable install, which is how the checkout runs, still finds it.
+`tests/test_puzzle_solver_page.py::TestPlayerAssets::test_every_admin_asset_ships_in_the_wheel` fails on main with `assert ['static/favicon.png'] == []`. Commit 7a21d0ba gave the public site's pages one tab icon, `src/nonogram/admin/static/favicon.png`, which `player/assemble.py` copies from the checkout into the site. The `"nonogram.admin"` package-data list in `pyproject.toml` names `templates/*.html`, `static/*.css` and `static/*.js` only, and the test holds that list equal to everything under `admin/static`. No admin page links the PNG (the admin's icon is an inline SVG in `base.html`), so the missing glob breaks no served page; it breaks the test's invariant.
 
 ## What to implement
 
@@ -48,3 +48,7 @@
 **Merge gate, round 1 (orchestrator).** `make test-gate BASE=main` answered FULL (pyproject.toml changed): 2 failed / 10680 passed / 30 skipped (unarmed) / 1 xfailed in 40 min 45 s. Both reds are `tests/test_impact_set.py::TestImpactSet_EveryShippedAssetHasADerivation` (`test_the_known_asset_types_equal_the_shipped_asset_types`: "shipped but no rule: ['.png']"; `test_every_static_file_has_a_derivation_that_is_not_full`). Same root cause as the card: 7a21d0ba put the first `.png` under `src/`, and `scripts/impact_set.py`'s `ASSET_RULES` must name every shipped asset type. Not caused by the glob.
 
 **Fix round 1 (orchestrator).** Added `".png": "named"` to `ASSET_RULES`: the icon is bytes no code executes, read by tests that name it, as `.ttf` is. The two tests: 2 failed without the rule, 9 passed (the class) with it. `impact_set.py src/nonogram/admin/static/favicon.png` now derives 51 test files instead of FULL. No test added or removed (net 0).
+
+[Review 2/3] Score: 9.5, certified. Re-derived: without `".png": "named"` the class gives 2 failed / 7 passed, with it 9 passed; impact, shared-UI site and TestPlayerAssets 272 passed. "named" is right: `player/assemble.py` copies the PNG byte for byte, and `test_player_shared_ui_site.py` checks the copy, so it is not "inert"; no test executes it. The 51 files: the 46 every named admin asset gets, plus 5 through `player/assemble.py`. F-003 (medium): the new pyproject comment and this card's Why said every page links the icon and a wheel would 404 it; no admin page links it (`base.html` has an inline SVG). F-004 (low): the ASSET_RULES comment left out `player/assemble.py`. F-001 (low, pre-existing, recorded) carried.
+
+**Fix round 2 (orchestrator).** F-003 and F-004 fixed, comments and Why only; checked first with a grep: `/favicon.png` is linked only by `player/*.html` and `player/assemble.py`'s page template. No code change.
