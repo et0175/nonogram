@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_browser_fixture_scope.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-23T09:07Z
 **Closed:** —
 **Actual:** —
@@ -83,3 +83,5 @@ The two clue tests can follow the CARD-435 precedent: strike their old `ADDED_SI
 - tests/test_kanban_review_record.py after the card edit: 71 passed, 0 skipped.
 
 **Net test count**: 10695 before, 10696 after (+1, `test_the_retirement_table_refuses_what_it_claims_to`). Everything else extends existing tests.
+
+[Review 1/3] Score: 8.5, one gating finding, not certified. Re-derived: tests/test_browser_fixture_scope.py 34 passed, 0 skipped, on this branch and merged with CARD-527 in a scratch clone (no conflicts); 5 of 18 controls red at their asserts; the reason lines match what each test asserts; the same-card and one-replacement rules hold; no existing claim weakened. F-001 (Important): `_retirement_problems` links the old id and the replacement only by the card name, so a card can retire a recorded test in any file by naming one of its own allowlisted tests (measured: a page.py test retired against a clue test, drift empty, every guard green); the table's comment overclaims. F-002 (medium): a comment in `test_the_baseline_goes_red_in_both_directions` still describes `before` as the record after renames and claim 4 as pinning it. F-003 (low): one clue reason says the page is checked with rule E off; only the Python rule is. F-004 (info): a recorded test that was renamed cannot be retired; fails closed.
