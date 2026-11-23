@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 15 — IN PROGRESS (board wave 94)
+
+### As cut
+
+Cut against main on 2026-11-23 on the owner's "pick the next no-decision wave from the backlog". Three tech-debt items whose premises were re-checked on main at the cut: IDEA-173 (15 lines in 13 test files say `4.8 mm`; the floor in force is 4.75 mm), IDEA-022 (the arrange screen's `places.get(id(puzzle), {})` has no count check), IDEA-042 (the Finalise route still calls `BookManager._refuse_unless_the_planned_book`). Left out: IDEA-179 (its rename has to change requirements.yml and trace.yml, which only the architect pass writes), IDEA-019 (part of it edits an applied migration), and the architect-pass and audit items (IDEA-106, 111, 112, 127, 128, 200, 202, 203), which are larger than a card. CARD-533 and CARD-534 both touch `admin/app.py`, so they run one after the other: CARD-532 and CARD-533 first (cap 2), CARD-534 when a slot frees.
+
+### tech-debt
+- **CARD-532** (IDEA-173) Test prose stops stating the retired 4.8 mm cell floor as current — 1c
+- **CARD-533** (IDEA-022) The arrange screen's page plan fails loudly if its labels stop covering the printed rows — 1c
+- **CARD-534** (IDEA-042) The Finalise route asks BookManager's plan gate through a public read-only method — 1c
+
 ## Wave 14 — DONE 2026-11-23 (board wave 93)
 
 Five cards merged, all certified: CARD-527 (`83da95e2`, 9.5, net −1), CARD-528 (`4a687d3d`, 9.3, net +17), CARD-530 (`d978bd1c`, 9.5, net 0), CARD-529 (`bacbe8e7`, 9.5, net 0), CARD-531 (`57ae3ddc`, 9.5, net 0). Net tests +16. Wave close: `make test-wave-close` on main at `73afd872`, in a detached worktree pinned to that commit, 10682 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 34 min. Two earlier close runs are void: owner-session merges landed on main while they ran (2d64b937, then c4d81904 inside the run's own worktree), so each tested a mix of trees. Their reds passed on the tip. The first also found one real red: 7a21d0ba's favicon.png was in no package-data glob and had no impact-set rule, which became CARD-531, and on the owner's word it also ships the generator form's metadata.js (review F-001). No product change of this wave's own, nothing to publish. Recorded, not carded: CARD-528 F-201/F-202, CARD-530 F-005, CARD-529 F-001, CARD-531 F-005.

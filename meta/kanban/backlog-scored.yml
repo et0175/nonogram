@@ -616,7 +616,7 @@ ideas:
     rows vs `len(plan.printed)`) that flips `page_plan_failed`   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -1150,7 +1150,7 @@ ideas:
     needs a public read-only gate in `book_manager.py`   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -4195,7 +4195,7 @@ ideas:
   source_line: 315
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
