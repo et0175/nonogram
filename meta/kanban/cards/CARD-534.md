@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-23T18:30Z
 **Closed:** —
 **Actual:** —
@@ -53,3 +53,5 @@ Re-checked on main at the cut: the Finalise branch of `src/nonogram/admin/app.py
 - Control 2: `check_plan_gate` was changed to `return None` without delegating. 3 tests went red: `test_the_transition_is_rejected_and_the_book_stays_draft[memory]` and `[db]` ("DID NOT RAISE StatusRefusal"), and `TestFinalisePost_PlanGateRefusalIsNotAnError::test_the_refusal_is_flashed_and_nothing_is_logged[uncountable]` (`assert 'x medium: 0% against 100%' in` the page). File restored; `git diff --stat` empty.
 - Gate, unarmed, `-rfs`: tests/test_book_finalise_gutter.py, tests/test_book_ready_gate.py, tests/property/test_book_ready_gate.py, tests/test_book_published_confirm.py, tests/test_admin_error_text.py, tests/test_book_manager.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_guide_preview_layout.py, tests/test_card_108_delete_book_releases.py, tests/test_book_arrange_size_filter.py, tests/test_book_arrange_sort_by_size.py. Result: 499 passed, 0 failed, 0 skipped.
 - Not established: no test sends the CARD-496 `ValueError` (manager with no puzzle store) through `check_plan_gate`. It reaches the private gate only through `set_book_status` (`TestBookReady_UnreadableSelectionIsRefused`). The public method passes the call through unchanged, and `create_app` always wires a store, so the route cannot reach that state.
+
+[Review 1/3] Score: 9.5, certified. Re-derived: an `ast` walk of src/, tests/ and scripts/ finds `_refuse_unless_the_planned_book` only in book_manager.py (definition, `set_book_status`, `check_plan_gate`, docstrings). Baseline 355 passed over the five gate files. Skip-the-gate control: 4 red (both modes of `test_the_transition_is_rejected_and_the_book_stays_draft`, `TestBookReady_RefusalNamesOffendingCell::test_the_finalize_route_flashes_it`, and `TestFinalisePost_PlanGateRefusalIsNotAnError::test_the_refusal_is_flashed_and_nothing_is_logged[uncountable]`). Write-to-row and write-to-plan-only controls: each 4 red on their own messages, in memory and db, so "writes nothing" catches a plan write too. Finalise: only the call name and the comment changed; the refusal handling is identical to main. Net 0. F-001 (low): the notes' "Control 2: 3 tests red" is 4; the fourth is `TestBookReady_RefusalNamesOffendingCell::test_the_finalize_route_flashes_it`. This line is the correction. F-002 (info): `Shelf.stored` does not compare puzzles.book_id; AC-3 does not ask for it. F-003 (info): the CARD-496 `ValueError` is not sent through `check_plan_gate`; already under "Not established".
