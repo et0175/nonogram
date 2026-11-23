@@ -2797,7 +2797,40 @@ function wireMarking(container, player) {
       className: "player-probe-flag", textContent: "Probing \u00b7 \u2713 Keep \u00b7 \u2717 Wrong guess",
     }));
   probeFlag?.setAttribute("aria-hidden", "true");
+  // The probe's frame, round the board's visible part (see admin.css
+  // .player-probe-frame): the board's box clipped to the stage's own visible
+  // box, in viewport pixels, re-measured wherever the flag is re-placed and
+  // whenever the stage or the page scrolls. None while the line view covers
+  // the board.
+  const probeFrame = probeFlag === null ? null
+    : stageWrap.appendChild(Object.assign(document.createElement("div"), { className: "player-probe-frame" }));
+  probeFrame?.setAttribute("aria-hidden", "true");
+  function placeProbeFrame() {
+    if (probeFrame === null) return;
+    const open = stageWrap.classList.contains("is-probing");
+    const table = container.querySelector(".player-board");
+    let box = null;
+    if (open && table !== null && !document.documentElement.classList.contains("is-line-open")) {
+      const board = table.getBoundingClientRect();
+      const stage = container.getBoundingClientRect();
+      const left = Math.max(board.left, stage.left);
+      const top = Math.max(board.top, stage.top);
+      const right = Math.min(board.right, stage.left + container.clientWidth);
+      const bottom = Math.min(board.bottom, stage.top + container.clientHeight);
+      if (right > left && bottom > top) box = { left, top, width: right - left, height: bottom - top };
+    }
+    probeFrame.classList.toggle("is-shown", box !== null);
+    if (box !== null) {
+      for (const [name, value] of Object.entries(box)) probeFrame.style[name] = `${Math.round(value)}px`;
+    }
+  }
+  if (probeFrame !== null) {
+    container.addEventListener("scroll", placeProbeFrame, { passive: true });
+    window.addEventListener("scroll", placeProbeFrame, { passive: true });
+    window.addEventListener("resize", placeProbeFrame, { passive: true });
+  }
   function placeProbeFlag() {
+    placeProbeFrame();
     if (probeFlag === null || !probeFlag.classList.contains("is-shown")) return;
     if (!placeInSlot(probeFlag, container)) probeFlag.removeAttribute("data-place");
   }
