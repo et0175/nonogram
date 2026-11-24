@@ -672,6 +672,7 @@ class TestSharedUi_ThePageRuns:
         # offers no Probe (the sweep board, Medium, keeps it). Plant: drop
         # assemble.py's tier from the payload -> the toggle shows.
         assert not browser_page.locator("[data-player-probe]").is_visible()
+        assert browser_page.locator("[data-player-howto-probe]").count() == 0  # nor in How to play
         before = states(browser_page)
         action(browser_page, "hint").click()
         assert states(browser_page) == before

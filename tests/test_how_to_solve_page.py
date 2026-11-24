@@ -394,7 +394,8 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     # 2026-11-23 swap of buttons and Probe, steps 4 and 5, moves neither).
     _open(page, url, "/how-to-solve#6")
     assert _visible_step(page) == [6]
-    assert page.locator("[data-hts-step='6'] h2").inner_text() == "Big puzzles on a phone"
+    assert page.locator("[data-hts-step='6'] h2").inner_text() == "Line mode"  # renamed 2026-11-24 (owner)
+    assert page.locator("[data-hts-line] .hts-strip-clue").inner_text() == "4 4"  # its picture: row 3 of the heart
     # One row of progress segments, one per step (a sixth once wrapped).
     assert page.evaluate("() => new Set([...document.querySelectorAll('[data-hts-goto]')].map(d => d.offsetTop)).size") == 1
     assert page.locator("[data-hts-next]").inner_text() == "Next: Levels and the promise"
@@ -534,6 +535,11 @@ def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) ->
     page.locator("[data-hts-probe-keep]").click()
     assert phase() == "kept"
     assert "is-bad" not in clue.get_attribute("class")
+    # Owner, 2026-11-24 ("Keep doesn't work"): Keep answers in words, goes
+    # away, and flags the one move left.
+    assert "press Wrong guess" in page.locator("[data-hts-probe-text]").inner_text()
+    assert page.locator("[data-hts-probe-keep]").is_hidden()
+    assert "is-flagged" in abandon.get_attribute("class")
     # CARD-444: Wrong guess, as the player names it, then the player's offer.
     page.locator("[data-hts-probe-abandon]").click()
     assert phase() == "offered"
