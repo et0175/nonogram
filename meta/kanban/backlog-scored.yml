@@ -922,7 +922,7 @@ ideas:
     recreated schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -2181,7 +2181,7 @@ ideas:
     single-puzzle-page path (no shared two-up fixture); the no-plan banner points to Finalise even when
     the cause is a code bug; the stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -2671,7 +2671,7 @@ ideas:
     (it is 47.999904; the assertion is right). Also owner wording check: the inch minimum refusal says
     "on both sides" where the cm one says "in both dimensions"   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1

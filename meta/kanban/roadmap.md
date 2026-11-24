@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 18 — IN PROGRESS (board wave 97)
+
+### As cut
+
+Cut against main on 2026-11-24 on the owner's pick of "a small Wave 18" from the backlog's remaining no-decision items. Each card verifies first and fixes only what is still live. IDEA-104 and IDEA-084 are carded in part: their wording halves (the inch refusal's "on both sides", the no-plan banner's Finalise pointer) are the owner's and stay in the backlog. IDEA-056 (player minors) was offered and not taken. CARD-540 and CARD-541 first (cap 2), CARD-542 when a slot frees.
+
+### tech-debt
+- **CARD-540** (IDEA-104, comment half) The print-spec test's inch-to-centimetre comment states the product it computes — 1c
+- **CARD-541** (IDEA-084, F-001 and F-003) The book detail page's print-number fallback for a repeated id, verified first — 1c
+- **CARD-542** (IDEA-033) The test-database rebuild's ownership and grants note, verified against today's code — 1c
+
 ## Wave 17 — DONE 2026-11-24 (board wave 96)
 
 Four cards merged, all certified: CARD-536 (`16b2d8be`, 9.5 at cycle 2, net 0), CARD-537 (`408a1fe5`, 9.5, net 0), CARD-538 (`afbc64d1`, 9.5, net 0), CARD-539 (`e6f9cb4e`, 9.5, net +1). Net tests +1. Wave close: `make test-wave-close` on main at `819cc8cc`, in a detached worktree pinned to that commit, 10683 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 34 min. Verdicts: CARD-536 found two of CARD-190's minors live (API store, either-side pagination) and, at review, a third (the loosening E1/E4 mutants on `_side_bounds`, which the card's own text had defined the wrong way round); CARD-537 found a same-length byte change escaping all three determinism tests (fixed: bytes compared with the info timestamps masked) and an RGBA cover over the one-page memory bound, which became CARD-539; CARD-538 found F-004 and F-007 live and fixed, F-003 moot, and F-005's Docker branches live but resolved by the README note CARD-150 accepted. CARD-539 changes `create_cover_page` only: the printed cover is byte-identical for every upload mode tried. The admin upload route already converted to RGB before export, so nothing a reader sees changes and there is nothing to publish. Open for the owner, not carded: what a transparent region of an uploaded cover should print as (the route prints the colour stored under alpha 0). Recorded, not carded: CARD-536 F-003 (note wording), CARD-537 F-002, CARD-538 F-001/F-002, CARD-539 F-001/F-002.
