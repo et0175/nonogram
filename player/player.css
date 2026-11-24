@@ -627,6 +627,26 @@ body {
   font-size: var(--text-sm);
 }
 
+/* Line mode's picture (owner, 2026-11-24): the small board with one row lit
+   beside that row as the line view shows it. */
+.hts-card.hts-linefig { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; align-content: start; gap: var(--space-4); }
+.hts-linefig-map {
+  flex: none; display: grid; width: 7.5rem; aspect-ratio: 1; gap: 1px;
+  padding: 1px; background: var(--hts-thin); border: var(--player-rule-major) solid var(--grid-ink);
+}
+.hts-linefig-map > span { background: var(--grid-paper); }
+.hts-linefig-map > span[data-state="filled"] { background: var(--grid-ink); }
+.hts-linefig-map > span.is-lit { background: var(--color-accent-tint); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.hts-linefig-view { flex: 1 1 14rem; min-width: 0; display: grid; align-content: start; gap: var(--space-3); }
+.hts-linefig-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-sm); }
+.hts-linefig-btn { padding: 0 var(--space-2); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-control); white-space: nowrap; }
+.hts-linefig-axis { display: inline-flex; white-space: nowrap; }
+.hts-linefig-axis > span { padding: 0 var(--space-2); border: var(--border-width) solid var(--color-border-strong); }
+.hts-linefig-axis > span:first-child { border-radius: 999px 0 0 999px; }
+.hts-linefig-axis > span:last-child { border-radius: 0 999px 999px 0; margin-left: calc(-1 * var(--border-width)); }
+.hts-linefig-axis > .is-on { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+.hts-linefig .hts-strip-cell { height: 1.9rem; }
+
 /* Keep and Wrong guess stay on one row together (owner's test notes,
    2026-11-23); the pair wraps as one, never between its two buttons. */
 .hts-pair { display: inline-flex; flex-wrap: nowrap; gap: var(--space-2); }

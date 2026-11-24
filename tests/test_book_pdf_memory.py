@@ -162,6 +162,7 @@ import inspect
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -2267,7 +2268,28 @@ class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
 
     The control is in the same class: :func:`_streams_agree` is handed one
     page's stream with a single character changed and must say no.
+
+    CARD-537: the operators and the pixels are not the whole file. A
+    same-length change to a byte outside every page's content stream that the
+    rasteriser does not draw -- a ``/FontName``, a ``/ProcSet`` name, one digit
+    of an xref offset, one bit of the embedded font program -- passed all
+    three tests while the third compared only lengths; measured, by mutants
+    applied to a real export. The third test therefore compares the bytes, with
+    only the document information dictionary's two timestamps masked
+    (:data:`_INFO_TIMESTAMP`): Pillow writes them at one-second resolution, and
+    two exports a second apart were measured to differ in exactly those two
+    places and nowhere else.
     """
+
+    #: Pillow's ``/CreationDate`` and ``/ModDate``, the one part of the file
+    #: that differs between two exports of the same book (CARD-537).
+    _INFO_TIMESTAMP = re.compile(rb"/(CreationDate|ModDate) \(D:\d{14}Z\)")
+
+    @classmethod
+    def _without_timestamps(cls, data: bytes) -> bytes:
+        masked, count = cls._INFO_TIMESTAMP.subn(rb"/\1 (D:--------------Z)", data)
+        assert count == 2, f"expected the two info timestamps, masked {count}"
+        return masked
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -2290,9 +2312,12 @@ class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
         assert len(first) == BASELINE_PAGE_COUNT
         assert self._streams_agree(first, second)
 
-    def test_the_same_book_is_the_same_length_every_time(self, twice):
+    def test_the_same_book_is_the_same_bytes_every_time(self, twice):
         first, second = twice
         assert len(first) == len(second)
+        assert self._without_timestamps(first) == self._without_timestamps(second), (
+            "the same book wrote different bytes outside the info timestamps"
+        )
         assert pdf_vector.page_media(first) == pdf_vector.page_media(second)
 
     def test_the_same_book_renders_to_the_same_pixels_every_time(self, twice):
