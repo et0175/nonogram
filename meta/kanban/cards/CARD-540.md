@@ -42,3 +42,5 @@ CARD-174's review (F-004) found a comment in `tests/test_print_specs.py` saying 
 - AC-3: owner's test budget: change existing tests rather than add; net test count at most +1; report it.
 
 ## Worktree notes
+
+**Implementation (orchestrator).** The comment above `EXACT_BOUNDARY_INCHES` in `tests/test_print_specs.py`, computed exactly with `decimal`: 3.937 x 2.54 = 9.99998 (as written), 11.811 x 2.54 = 29.99994 (as written), 18.8976 x 2.54 = 47.999904 (written as 48.0: live, fixed to 47.999904, the precision its neighbours use). The same comment's "0.01 in beyond" figures also hold: 3.927 x 2.54 = 9.97458 (9.97), 11.821 x 2.54 = 30.02534 (30.03), 18.9076 x 2.54 = 48.025304 (48.03). Comment only: no assertion or case changed, net tests 0. The "on both sides" wording (IDEA-104's second half) is left for the owner.

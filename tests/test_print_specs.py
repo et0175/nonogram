@@ -545,7 +545,7 @@ class TestTrimRefusal_StatedInchLimitIsAccepted:
 
 #: CARD-174 review F-001: inch entries that convert to exactly the cm bound
 #: (10.00 / 30.00 / 48.00 cm, hand-checked: 3.937 x 2.54 = 9.99998,
-#: 11.811 x 2.54 = 29.99994, 18.8976 x 2.54 = 48.0) — accepted on main, so
+#: 11.811 x 2.54 = 29.99994, 18.8976 x 2.54 = 47.999904) — accepted on main, so
 #: G-1 requires they stay accepted — and the entries 0.01 in beyond them
 #: (9.97 / 30.03 / 48.03 cm), which stay refused. One axis per case, so each
 #: bound comparison is pinned at equality on its own.
