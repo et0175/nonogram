@@ -103,7 +103,9 @@ Cut against main on 2026-11-24 on the owner's "pick the next no-decision wave fr
 - **CARD-537** (IDEA-025) The CARD-145 export minors, verified first — 1c
 - **CARD-538** (IDEA-018) The CARD-150 admin-local script-test minors, verified first — 1c
 
-## Wave 16 — IN PROGRESS (board wave 95)
+## Wave 16 — DONE 2026-11-24 (board wave 95)
+
+One card merged: CARD-535 (`745aa960`, 9.7 at cycle 2, net 0). Wave close: `make test-wave-close` on main at `0c79eaad`, in a detached worktree pinned to that commit, 10682 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 53 min. The tree includes the owner session's `89f3daf5` (no Probe on an Easy puzzle), which landed on main while CARD-535's gate ran; the two touch disjoint files. CARD-535's gate had one red, a browser click timeout in `tests/test_player_public_mode.py` (re-run alone twice: 27 passed each), recorded as a flake. Test-only, nothing to publish. Recorded, not carded: CARD-535 F-002.
 
 ### As cut
 
