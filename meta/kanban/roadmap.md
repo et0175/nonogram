@@ -92,6 +92,16 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 19 — IN PROGRESS (board wave 98)
+
+### As cut
+
+Cut against main on 2026-11-24 on the owner's "card both": the two proposals recorded at the Wave 18 close. Both verify first and are test-only. CARD-543 and CARD-544 together (cap 2).
+
+### tech-debt
+- **CARD-543** The public-mode mutant matrix's clean control survives a loaded machine — 1c
+- **CARD-544** (CARD-541 review F-001) A two-up page whose grids are swapped under their bands fails a test — 1c
+
 ## Wave 18 — DONE 2026-11-24 (board wave 97)
 
 Three cards merged, all certified: CARD-540 (`de94738b`, 9.5, net 0), CARD-541 (`e4e3dd30`, 9.5, net +1), CARD-542 (`bfde900c`, 10.0 at cycle 3, net 0). Net tests +1. Wave close: `make test-wave-close` on main at `469bfeaa`, in a detached worktree pinned to that commit, 10684 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 41 min. Verdicts: CARD-540 corrected the one misstated product (18.8976 x 2.54 = 47.999904, not 48.0). CARD-541 found both CARD-165 minors live (a repeated id dropped by the plan-failure fallback went unnoticed; no test in the file ever built a two-up page) and a helper spy that had never run; fixed in tests. CARD-542 found both halves of CARD-156 F-007 true (the rebuild needs the role to own `public`; the rebuilt schema has no grants) and documented them; its two fix rounds were wording errors in the orchestrator's own rewrite. Test-only and docs-only: nothing to publish. Open for the owner: IDEA-104's and IDEA-084's wording halves. Proposed, not yet carded: `tests/test_player_public_mode.py::TestPublicMode_EveryWayOfLosingItIsCaught::test_the_check_is_green_on_the_real_files_and_red_on_the_mutant` reddened two of today's gates (CARD-535, CARD-542) on a 10 s click timeout under load, green alone each time; and CARD-541 review F-001 (a two-up page whose two grids are swapped under their bands passes every behavioural test). Recorded, not carded: CARD-540 F-002, CARD-542 F-001 (cycle 3, info).
