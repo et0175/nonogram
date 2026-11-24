@@ -296,7 +296,11 @@ def test_a_row_outside_the_supported_range_belongs_to_no_longest_side_range():
 
 @pytest.mark.parametrize(
     "longest_side_range",
-    [(MAX_SIZE + 1, None), (None, MIN_SIZE - 1), (25, 15), (5, 5)],
+    # The out-of-range bounds sit on the side whose open partner leaves the
+    # pair un-inverted (31 as "to" with "from" open is 10..31; 9 as "from"
+    # with "to" open is 9..30), so only the range check can reject them —
+    # pinning both edges of `_side_bounds` (CARD-190 review F-003; CARD-536).
+    [(None, MAX_SIZE + 1), (MIN_SIZE - 1, None), (25, 15), (5, 5)],
 )
 def test_an_impossible_longest_side_range_is_reported_too(longest_side_range):
     service = PuzzleReviewService()
