@@ -1,6 +1,6 @@
 # CARD-542: The test-database rebuild's ownership and grants note, verified against today's code
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/542-schema-grants
+**Worktree:** ../PythonProject4-card-542
 **Source:** roadmap wave 18, cut 2026-11-24 on the owner's pick of "a small Wave 18" from the backlog's remaining no-decision items. IDEA-033.
 **Idea:** IDEA-033
 **Wave:** 97
@@ -19,7 +19,7 @@
 **Touches:** tests/README.md, src/nonogram/db/session.py (only if a finding cannot be closed in the README)
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T11:23Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
