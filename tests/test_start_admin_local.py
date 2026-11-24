@@ -194,6 +194,11 @@ def test_the_harness_reaches_the_end_of_the_script(tmp_path: Path) -> None:
 
     If this ever fails, the tests below stop proving anything -- they would be
     passing because the script died early for a reason of the harness's own.
+
+    Without ``--check-only`` the same healthy run goes on to the launch line,
+    which the ``python`` stub logs and returns from; that is where G-3's launch
+    target -- ``nonogram.admin.app``, CARD-139's fix for a live 500 -- is
+    pinned (CARD-150 review F-007).
     """
     run = run_script(tmp_path, "--check-only")
     assert run.returncode == 0, run.output
@@ -202,6 +207,12 @@ def test_the_harness_reaches_the_end_of_the_script(tmp_path: Path) -> None:
     assert "All checks passed" in run.output
     # --check-only stops short of the one line that never returns.
     assert not [c for c in run.called("python") if "flask" in c], run.calls
+
+    launched = run_script(tmp_path / "launch")
+    assert launched.returncode == 0, launched.output
+    assert launched.called("python")[-1] == (
+        "python -m flask --app nonogram.admin.app run --port 5000"
+    ), launched.calls
 
 
 class TestStartAdminLocal_RefusesAMissingDatabase:
@@ -461,7 +472,11 @@ class TestStartAdminLocal_ReadmeMatchesTheScript:
         self, tmp_path: Path
     ) -> None:
         run = run_script(tmp_path, "--check-only", missing_db=DEFAULT_DB)
-        assert run.returncode != 0, run.output  # the behaviour being documented
+        # The behaviour being documented -- and refused for that reason: an
+        # exit code alone is met by any failure at all, an unknown flag
+        # included (CARD-150 review F-004).
+        assert run.returncode != 0, run.output
+        assert f"Database '{DEFAULT_DB}' is not reachable" in run.stdout, run.output
 
         lowered = README.read_text().lower()
         assert "does not exist" in lowered or "unreachable" in lowered
@@ -478,7 +493,9 @@ class TestStartAdminLocal_ReadmeMatchesTheScript:
         run = run_script(
             tmp_path, "--check-only", alembic_fails=True, alembic_message="boom"
         )
-        assert run.returncode != 0, run.output  # the behaviour being documented
+        # The behaviour being documented, refused for that reason (F-004).
+        assert run.returncode != 0, run.output
+        assert "Migrations failed" in run.stdout, run.output
 
         lowered = README.read_text().lower()
         assert "alembic" in lowered
