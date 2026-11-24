@@ -1,6 +1,6 @@
 # CARD-536: The longest-side filter minors from CARD-190, verified first and fixed only where still live
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/536-side-range-minors
-**Worktree:** ../PythonProject4-card-536
+**Worktree:** —
 **Source:** roadmap wave 17, cut 2026-11-24 on the owner's "pick the next no-decision wave from the backlog". IDEA-154.
 **Idea:** IDEA-154
 **Wave:** 96
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-24T07:52Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-24T08:39Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 16b2d8be
 **Blocked by:** —
 
 ## Why this card exists
