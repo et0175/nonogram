@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import re
 import tempfile
+from collections import Counter
 from pathlib import Path
 from typing import NamedTuple, Optional, Sequence, Union
 
@@ -548,6 +549,74 @@ def _band_lines(page: ContentStream) -> list[str]:
 #: A puzzle header's row as poppler reads it (CARD-207): the number, then the
 #: tier word in capitals.
 _HEADER_ROW = re.compile(r"^(Puzzle \d+) (EASY|MEDIUM|HARD)$")
+
+
+#: The footer rule of a Book 1 two-up page, in PDF points down the trim: the
+#: lower slot's clues all sit above it, the folio and pointer line below it.
+_FOOTER_RULE_PT = (
+    (BOOK1_HEIGHT_MM - BOTTOM_MM - FOOTER_STRIP_PX / PX_PER_MM) * 72 / 25.4
+)
+
+
+def _clues_under_each_band(page: ContentStream) -> dict[int, Counter[str]]:
+    """Each band's puzzle number, mapped to the clue digits printed below it.
+
+    CARD-544: read from the page's text layer (poppler, as :func:`_band_lines`
+    reads it), so *which* clues sit under "Puzzle N" is the exported page's
+    answer, not the argument order of any helper. A slot runs from its band's
+    row down to the next band, and the last one down to the footer rule.
+    """
+    data = write_vector_pdf([page], 1).getvalue()
+    with tempfile.TemporaryDirectory(prefix="two-up-clues-") as directory:
+        words = pdf_vector.word_boxes(data, 1, out_dir=Path(directory))
+    bands = sorted(
+        (band.top, int(number.text))
+        for band in words
+        if band.text == "Puzzle"
+        for number in words
+        if number.text.isdigit() and abs(number.top - band.top) < 0.5
+    )
+    floors = [top for top, _ in bands[1:]] + [_FOOTER_RULE_PT]
+    return {
+        number: Counter(
+            word.text
+            for word in words
+            if word.text.isdigit() and top + 0.5 < word.top < floor
+        )
+        for (top, number), floor in zip(bands, floors, strict=True)
+    }
+
+
+def _clue_digits(puzzle: dict) -> Counter[str]:
+    """Every clue number ``puzzle`` prints, as the digits a page carries."""
+    return Counter(
+        str(value) for clue in puzzle["clues_rows"] + puzzle["clues_cols"] for value in clue
+    )
+
+
+def _paired_runs_puzzle(puzzle_id: str) -> dict:
+    """A :data:`_SMALL_PAIR` drawing whose clues no ``_puzzle`` of it shares.
+
+    The same 10x10 with 3-deep gutters both ways (13 cells square, so the pair
+    lays out exactly as two ``_puzzle(**_SMALL_PAIR)`` do), but row 0 and
+    column 0 carry three runs of **two** where ``_grid`` sets single cells: it
+    prints "2"s and the plain one prints none, so the two slots of a two-up page
+    can be told apart by their clues.
+    """
+    puzzle = _puzzle(**_SMALL_PAIR, puzzle_id=puzzle_id)
+    grid = [[False] * 10 for _ in range(10)]
+    for start in (0, 3, 6):
+        for step in (0, 1):
+            grid[0][start + step] = True
+            grid[start + step][0] = True
+    found = clues.compute_clues(grid)
+    puzzle.update(
+        grid=grid,
+        clues_rows=[list(clue) for clue in found.rows],
+        clues_cols=[list(clue) for clue in found.columns],
+    )
+    assert _across(puzzle) == _down(puzzle) == 13
+    return puzzle
 
 
 def _same_ink(first: Optional[_Ink], second: Optional[_Ink]) -> bool:
@@ -1131,11 +1200,15 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         - BAND_MM
     )
 
+    #: The pair, told apart by their clues (CARD-544): puzzle two prints runs
+    #: of two, puzzle one none, and both drawings are 13 cells square.
+    PUZZLES = (
+        _puzzle(**_SMALL_PAIR, puzzle_id="one"),
+        _paired_runs_puzzle("two"),
+    )
+
     def _page(self):
-        puzzles = [
-            _puzzle(**_SMALL_PAIR, puzzle_id="one"),
-            _puzzle(**_SMALL_PAIR, puzzle_id="two"),
-        ]
+        puzzles = list(self.PUZZLES)
         raw = _raw_interior(puzzles)
         assert len(raw) == _interior_pages(
             puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
@@ -1170,6 +1243,16 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
             # CARD-360: a page of operators is also READ, by poppler's text
             # layer, so the words are not asked of the function that set them.
             assert _band_lines(raw) == ["Puzzle 1 · Easy", "Puzzle 2 · Easy"]
+            # CARD-544: and each band sits over ITS puzzle's drawing. The two
+            # puzzles print different clues, so a page whose "Puzzle 1" band
+            # sits over puzzle two's grid (or whose slots swapped places)
+            # reads different digits under each band.
+            one, two = self.PUZZLES
+            assert _clue_digits(one) != _clue_digits(two)
+            assert _clues_under_each_band(raw) == {
+                1: _clue_digits(one),
+                2: _clue_digits(two),
+            }
 
     def test_the_two_bands_are_not_the_same_line(self):
         """The measurement has teeth: one band is not the other's ink."""
