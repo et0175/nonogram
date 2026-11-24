@@ -44,7 +44,7 @@ const STEP_NAMES = [
   "What every arrangement agrees on",
   "The buttons",
   "Probe, and watch it break",
-  "Big puzzles on a phone",
+  "Line mode",
   "Levels and the promise",
 ];
 
@@ -325,6 +325,72 @@ function stripClue(clue) {
   return box;
 }
 
+// The line view, drawn (owner, 2026-11-24: "show it a bit more, not only a
+// description"): a small board with one row lit, and that row as the Line
+// button opens it, big squares with its clue, some of it already marked.
+// A static picture, built here so the clue cannot disagree with the row.
+const LINE_PICTURE = [
+  "............", "..##....##..", ".####..####.", "############", "############", "############",
+  ".##########.", "..########..", "...######...", "....####....", ".....##.....", "............",
+];
+const LINE_ROW = 2;
+
+function setupLineFigure(page) {
+  const box = page.querySelector("[data-hts-line]");
+  if (box === null) return;
+  const size = LINE_PICTURE.length;
+  const row = [...LINE_PICTURE[LINE_ROW]].map((ch) => ch === "#");
+  const runs = [];
+  let run = 0;
+  for (const black of [...row, false]) {
+    if (black) run += 1;
+    else if (run > 0) { runs.push(run); run = 0; }
+  }
+  const map = document.createElement("div");
+  map.className = "hts-linefig-map";
+  map.setAttribute("role", "img");
+  map.setAttribute("aria-label", `The whole ${size} by ${size} board, row ${LINE_ROW + 1} outlined.`);
+  map.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+  LINE_PICTURE.forEach((text, r) => {
+    for (const ch of text) {
+      const cell = document.createElement("span");
+      if (r < LINE_ROW && ch === "#") cell.dataset.state = "filled";
+      if (r === LINE_ROW) cell.classList.add("is-lit");
+      map.append(cell);
+    }
+  });
+  const head = document.createElement("div");
+  head.className = "hts-linefig-head";
+  head.innerHTML = '<span class="hts-linefig-btn">\u2190 Board</span>'
+    + `<b>Row ${LINE_ROW + 1} of ${size}</b>`
+    + '<span class="hts-linefig-axis"><span class="is-on">Rows</span><span>Cols</span></span>';
+  head.setAttribute("aria-hidden", "true");
+  const strip = document.createElement("div");
+  strip.className = "hts-strip";
+  const clue = document.createElement("span");
+  clue.className = "hts-strip-clue";
+  clue.textContent = runs.join(" ");
+  const cells = document.createElement("div");
+  cells.className = "hts-strip-cells";
+  cells.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
+  // Part-way through: the first run marked, the squares around it white.
+  const firstEnd = row.indexOf(false, row.indexOf(true));
+  const states = row.map((black, k) => (k < firstEnd ? (black ? "filled" : "empty") : k === firstEnd ? "empty" : "unknown"));
+  cells.setAttribute("role", "img");
+  cells.setAttribute("aria-label", `Row ${LINE_ROW + 1} in big squares, clue ${runs.join(" ")}, its first run marked.`);
+  for (const state of states) {
+    const cell = document.createElement("span");
+    cell.className = "hts-strip-cell";
+    cell.dataset.state = state;
+    cells.append(cell);
+  }
+  strip.append(clue, cells);
+  const view = document.createElement("div");
+  view.className = "hts-linefig-view";
+  view.append(head, strip);
+  box.replaceChildren(map, view);
+}
+
 function setupSqueeze(page) {
   const box = page.querySelector("[data-hts-squeeze]");
   if (box === null) return;
@@ -477,16 +543,16 @@ function probeText(phase, step, clues) {
   const where = `row ${ordinal(pr)}, column ${ordinal(pc)}`;
   switch (phase) {
     case "stuck":
-      return `Lines are stuck here: no row or column can settle any of the ${PROBE_OPEN} open squares. Press Probe, then make the outlined square (${where}) black.`;
+      return `A guided example, one step at a time. Lines are stuck here: no row or column can settle any of the ${PROBE_OPEN} open squares. Press Probe, then make the outlined square (${where}) black.`;
     case "open":
       return "Probe is on. Tap the outlined square to make it black. It gets a dashed edge, like everything you mark until you close the probe.";
     case "following":
-      if (step === 0) return "Now follow what that black square forces. Press Follow it.";
+      if (step === 0) return "Now follow what that black square forces. In a real puzzle you would work it out and mark it yourself; here, press Follow it to see each step.";
       return `${line(PROBE_CHAIN[step - 1])}, so ${describe(PROBE_CHAIN[step - 1].cells)}.`;
     case "broken":
       return `${line(PROBE_CHAIN.at(-1))}, and it can no longer fit. The probe broke. Keep, or Wrong guess?`;
     case "kept":
-      return "Keep would leave a line that cannot fit its clue, so this probe cannot be right. Press Wrong guess.";
+      return `Keep saves the dashed marks when a guess works out. This one broke ${PROBE_CHAIN.at(-1).axis} ${PROBE_CHAIN.at(-1).index + 1}, so there is nothing worth keeping: press Wrong guess.`;
     case "offered":
       return "Every dashed mark is gone. Your first square was the guess that broke, so the page offers to mark it the other colour.";
     case "proved":
@@ -584,10 +650,12 @@ function setupProbe(page) {
     buttons.open.setAttribute("aria-pressed", String(open));
     buttons.follow.hidden = phase !== "following";
     buttons.hint.hidden = !(phase === "following" || phase === "broken" || phase === "kept");
-    buttons.keep.hidden = !(phase === "broken" || phase === "kept");
+    // Owner, 2026-11-24: Keep "did nothing" here. It answers in words, and
+    // goes away once pressed, leaving the one move that fits this probe.
+    buttons.keep.hidden = phase !== "broken";
     buttons.abandon.hidden = !(phase === "broken" || phase === "kept");
     // The player flags Wrong guess while the probe has broken a line (CARD-410).
-    buttons.abandon.classList.toggle("is-flagged", bad);
+    buttons.abandon.classList.toggle("is-flagged", bad || phase === "kept");
     offer.hidden = phase !== "offered";
     page.querySelector("[data-hts-probe-offer-text]").textContent =
       `Your first guess was wrong, so ${where} must be white. Mark it?`;
@@ -799,6 +867,7 @@ function load() {
   const tryBoard = setupTry(page);
   setupSqueeze(page);
   setupAgree(page);
+  setupLineFigure(page);
   const probe = setupProbe(page);
   window.howToSolve = {
     getStep: wizard.getStep,
