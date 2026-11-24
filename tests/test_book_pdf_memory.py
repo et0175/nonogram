@@ -2344,6 +2344,17 @@ class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
 # --------------------------------------------------------------------------
 
 
+def _transparent_cover_upload() -> Image.Image:
+    """An RGBA cover upload (CARD-539): a fully transparent band with colour
+    under its zero alpha, a half-transparent band and an opaque band, at the
+    1200 x 1800 size CARD-537 measured, so ``create_cover_page`` must resize it
+    up to the trim."""
+    upload = Image.new("RGBA", (1200, 1800), (200, 30, 90, 0))
+    upload.paste((20, 160, 220, 128), (0, 600, 1200, 1200))
+    upload.paste((250, 200, 10, 255), (0, 1200, 1200, 1800))
+    return upload
+
+
 class TestBookPdfMemory_InteriorAndCoverStillSeparate:
     """INV-013 survives the restructure: two files, parity from interior page 1.
 
@@ -2373,7 +2384,8 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
     def export(cls, measured):
         return measured.data
 
-    def test_the_whole_book_holds_one_page_bitmap_at_a_time(self, measured):
+    @pytest.mark.parametrize("upload", [None, "RGBA"], ids=["no-upload", "rgba-upload"])
+    def test_the_whole_book_holds_one_page_bitmap_at_a_time(self, measured, upload):
         """Both files, thirteen pages, one retained page bitmap — the cover keeps none.
 
         ``export_book`` writes the interior and then the cover, and the peak
@@ -2404,7 +2416,29 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         measures **13.00** page bitmaps on this twelve-page book (CARD-198:
         up from eleven), 328 MB, and 7.70 GB on the 305-page one (CARD-198:
         up from 182).
+
+        **An uploaded cover is held at the same one RGB page** (CARD-539,
+        the ``rgba-upload`` case): a transparent PNG is resized in its own
+        mode and converted to ``"RGB"`` inside ``create_cover_page``. When it
+        was returned as RGBA, this book peaked at 1.33 page bitmaps, four
+        bytes a pixel for the cover against three for every other page.
         """
+        if upload is not None:
+            cover = _transparent_cover_upload()
+            assert cover.mode == upload
+            measured = _measured(
+                lambda: BookPDFGenerator(corpus_book()).export_book(
+                    baseline_puzzles(), BOOK_TITLE, cover
+                )
+            )
+            # And it prints as it did before: resized in its own mode, then
+            # converted. Converting first prints the transparent band in the
+            # colour under its zero alpha instead of black.
+            (printed,) = pdf_pages(measured.data.cover.getvalue())
+            assert same_page(
+                printed,
+                cover.resize(printed.size, Image.Resampling.LANCZOS).convert("RGB"),
+            ), "the uploaded cover printed different pixels from main's"
         probe = measured.probe
 
         assert probe.seen == BASELINE_PAGE_COUNT + 1, "twelve interior pages and a cover"

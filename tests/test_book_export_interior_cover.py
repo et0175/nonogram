@@ -4429,10 +4429,18 @@ class Generator:
         # which hands the frame's ``footer_depth`` to ``compute_layout`` so the
         # page is fitted above the footer rule. Read off this test's own
         # measurement.
-        ((), 727),
-        (("builtins",), 467),
-        (("builtins", "definitions and imports"), 171),
-        (("builtins", "definitions and imports", "parameters"), 170),
+        #
+        # **CARD-539: +1** (727 -> 728, 467 -> 468, 171 -> 172, 170 -> 171,
+        # last two still 0): ``create_cover_page``'s ``page.convert("RGB")``,
+        # which hands an uploaded cover back as one RGB page. ``convert`` is
+        # an attribute of a receiver this module does not define (a PIL
+        # image), so it costs a refusal at every step until that class. The
+        # module's ``ast.Call`` count moves by exactly that one (799 -> 800).
+        # Read off this test's own measurement.
+        ((), 728),
+        (("builtins",), 468),
+        (("builtins", "definitions and imports"), 172),
+        (("builtins", "definitions and imports", "parameters"), 171),
         (
             (
                 "builtins",
