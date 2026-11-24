@@ -16,9 +16,9 @@
 **Created wave:** 95
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/test_layout_page_spec.py, tests/property/test_book_membership_floor.py, one module under tests/helpers/
+**Touches:** tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/test_layout_page_spec.py, tests/test_book_floor.py, tests/helpers/book_floor.py (new)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-11-24T05:42Z
 **Closed:** —
 **Actual:** —
@@ -62,3 +62,7 @@ Each file keeps its expectations independent of the code it checks: `test_layout
 - AC-3: with `BOOK_FLOOR_MM = 4.8` the cross-check fails (`AssertionError: (4.8, 4.75)`); at 4.75 it passes. That test plus `tests/test_layout_page_spec.py`: 113 passed.
 - AC-4, measured by a temporary print, removed: the layout counter is 506 at 4.8 and 494 at 4.75, out of 1485 checked (minimum 100). The PDF counter is 127 at 4.8 and 126 at 4.75, out of 216 checked (minimum 20). So 12 layout cases and 1 PDF case print between 4.75 and 4.8 mm and were counted as below the floor. Both minimums still hold by a wide margin.
 - AC-5: no test added or removed (net 0).
+
+[Review 1/3] Score: 9.5, not certified (one medium finding). I re-derived every Worktree-notes claim in the worktree, with every touched file restored afterwards. AC-1: `git grep -nE "< ?4\.8\b|>= ?4\.8\b" -- tests` finds nothing. AC-2: an `ast` walk shows the helper has no imports and loads no `nonogram` module. `test_layout_page_spec.py` and `test_book_layout.py` import no `nonogram.admin` module. `test_book_pdf_geometry.py` imports only `book_manager`, `book_pdf_generator` and `book_vector` from `nonogram.admin`, and neither `book_page_spec` nor `compute_layout`/`PageSpec`. AC-3: with `BOOK_FLOOR_MM` at 4.8, the cross-check fails in both storage modes (2 failed); at 4.75 it passes (2 passed, 0 skipped). AC-4, measured with a temporary print that I then removed: the layout counter is 494 at 4.75 and 506 at 4.8, out of 1485 checked (minimum 100). The PDF counter is 126 at 4.75 and 127 at 4.8, out of 216 checked (minimum 20). Both property tests pass in both runs. AC-5: net tests 0. I confirmed the "lowered from 4.8 on 2026-10-17" date from commit 1271bf32. F-001 (medium): the helper's docstring names `test_book_membership_floor.py` as the cross-check, but it is in `tests/test_book_floor.py::TestBookAddPuzzles_AcceptsCellJustAboveFloor::test_the_two_fixtures_sit_either_side_of_the_floor`, and Touches has the same mistake. F-002 (low, not blocking): no test notices a threshold site reverting to 4.8 or flipping to `<=`/`>`. All the edge mutants survived (113 and 111 passed), which is acceptable because the counters need only a minimum.
+
+**Fix round 1 (orchestrator).** F-001: the helper's docstring now names `tests/test_book_floor.py` and the test, and Touches lists `tests/test_book_floor.py` instead of the membership file. Docstring and card only; no code change. F-002 recorded, not fixed: pinning the comparison operators would add a test for no behaviour the counters need (owner's fewer-tests rule).

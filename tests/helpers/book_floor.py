@@ -6,8 +6,10 @@ the code under test: ``tests/test_layout_page_spec.py`` and
 ``tests/property/test_book_pdf_geometry.py`` never imports ``book_page_spec``.
 The floor in force lives in ``nonogram.admin.book_page_spec.FLOOR_MM``, so
 those tests read this literal instead. It is held equal to ``FLOOR_MM`` by
-``tests/property/test_book_membership_floor.py``, a test that may import it,
-so a change to the floor fails there rather than leaving this copy behind.
+``tests/test_book_floor.py``'s
+``TestBookAddPuzzles_AcceptsCellJustAboveFloor::test_the_two_fixtures_sit_either_side_of_the_floor``,
+a test that may import it, so a change to the floor fails there rather than
+leaving this copy behind.
 
 This module imports nothing.
 """
