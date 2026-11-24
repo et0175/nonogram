@@ -2788,6 +2788,9 @@ function wireMarking(container, player) {
   // discipline is Hint's and Check's.
   const probeBar = document.getElementById("puzzle-player-probe-bar");
   const probeToggle = probeBar?.querySelector("[data-player-probe]") ?? null;
+  // No Probe on an Easy puzzle (owner, 2026-11-24), so How to play does not
+  // describe it there either.
+  if (player.probeOffered === false) document.querySelector("[data-player-howto-probe]")?.remove();
   const probeKeep = probeBar?.querySelector('[data-player-probe-action="keep"]') ?? null;
   const probeAbandon = probeBar?.querySelector('[data-player-probe-action="abandon"]') ?? null;
   const probeNote = probeBar?.querySelector(".player-probe-note") ?? null;
