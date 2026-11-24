@@ -1164,3 +1164,11 @@ Not observed: a real iPhone. The Safari-only parts (gesture events, diagonal pan
 | Rollback target | The iPhone deployment (`nonogram-studio-phuul6pzn`). |
 
 Not observed: a real phone.
+
+**The Easy-without-Probe publish, 2026-11-24.** The owner's "так, публікуй" after "no Probe on Easy" (`89f3daf5`) and the lesson's probe example and Line mode (`da73225e`) merged. Built from main **`21510992`** (later commits since `da73225e` are kanban and test-only) the same way into `~/Documents/nonogram-reviews/deploy-2026-11-24-easy/src`, no `--analytics`. Served files that differed from production: `solver.js` (`c5437ed0a2e9`), `how-to-solve.js` (`f06c8eb478ba`), `player.css` (`e3928a2a626d`), `play/index.html`, `how-to-solve/index.html`.
+
+| Step | Record |
+|---|---|
+| Preview | **`nonogram-studio-26nr6pzsx`**; Pixel-sized Chromium: an Easy puzzle shows no Probe and no How-to-play Probe line, a Medium shows both; lesson step 6 "Line mode" with its 4 4 strip; no page errors. |
+| Production | `vercel promote` created **`nonogram-studio-gfmk7t1n9`**; new `solver.js` on poll 2; hashes matched, doors 200, `/nope` 404. |
+| Rollback target | The test-notes deployment (`nonogram-studio-dx2xosgcx`). |
