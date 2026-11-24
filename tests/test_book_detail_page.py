@@ -75,15 +75,17 @@ def _rectangle(width, height, left, top, right, bottom):
     ]
 
 
-def _add_puzzle(app, index, tier, name):
-    grid = _rectangle(20, 20, index, index, 8 + 2 * index, 10 + index)
+def _add_puzzle(app, index, tier, name, side=20):
+    grid = _rectangle(
+        side, side, index, index, min(8 + 2 * index, side), min(10 + index, side)
+    )
     found = clues.compute_clues(grid)
     puzzle_id = app.puzzle_review_service.add_puzzle(
         grid=grid,
         clues_rows=[list(c) for c in found.rows],
         clues_cols=[list(c) for c in found.columns],
-        width=20,
-        height=20,
+        width=side,
+        height=side,
         theme="winter",
         difficulty_score=10,
         difficulty_tier=tier,
@@ -96,8 +98,10 @@ def _add_puzzle(app, index, tier, name):
     return puzzle_id
 
 
-def _make_book(app, title="Winter pictures", names=NAMES, tiers=TIERS, size="8x10"):
-    """A book holding one named puzzle per entry of ``names``."""
+def _make_book(
+    app, title="Winter pictures", names=NAMES, tiers=TIERS, size="8x10", side=20
+):
+    """A book holding one named puzzle per entry of ``names``, ``side`` cells square."""
     book_id = app.book_manager.create_book(
         title=title,
         description="Pictures of winter.",
@@ -106,7 +110,7 @@ def _make_book(app, title="Winter pictures", names=NAMES, tiers=TIERS, size="8x1
         size=size,
     )
     ids = [
-        _add_puzzle(app, i, tier, name)
+        _add_puzzle(app, i, tier, name, side)
         for i, (name, tier) in enumerate(zip(names, tiers))
     ]
     if ids:
@@ -642,7 +646,7 @@ LEVEL_RANK = {"easy": 0, "medium": 1, "hard": 2}
 MIXED = (("M1", "medium"), ("E1", "easy"), ("H1", "hard"), ("E2", "easy"), ("M2", "medium"))
 
 
-def _book_stored_as(app, members, title="Mixed levels"):
+def _book_stored_as(app, members, title="Mixed levels", side=20):
     """A book whose stored ``puzzle_ids`` are exactly ``members``' order.
 
     ``add_puzzles_to_book`` files each puzzle inside its level (INV-009), so the
@@ -654,6 +658,7 @@ def _book_stored_as(app, members, title="Mixed levels"):
         title=title,
         names=[name for name, _ in members],
         tiers=[tier for _, tier in members],
+        side=side,
     )
     app.book_manager.books[book_id].puzzle_ids = list(ids)
     return book_id, ids
@@ -701,8 +706,8 @@ def _bands_the_export_prints(app, client, monkeypatch, book_id):
         drawn.append((payload.row_clues, band))
         return stream
 
-    def spy_two(self, plan, payloads):
-        stream = real_two(self, plan, payloads)
+    def spy_two(self, plan, payloads, *args, **kwargs):
+        stream = real_two(self, plan, payloads, *args, **kwargs)
         bands = _bands_written_on(stream)
         assert len(bands) == len(payloads) == 2, bands
         for payload, band in zip(payloads, bands, strict=True):
@@ -742,10 +747,25 @@ class TestBookDetail_NumbersPuzzlesLikeTheBook:
         page = _read(client, f"/book/{book_id}")
         assert [row["hash"].strip() for row in page.rows] == ["1", "2", "3", "4", "5"]
 
+    @pytest.mark.parametrize(
+        "side, two_up", [(20, False), (10, True)], ids=["one-up", "two-up"]
+    )
     def test_each_number_is_the_band_the_exported_interior_prints(
-        self, admin_app, client, monkeypatch
+        self, admin_app, client, monkeypatch, side, two_up
     ):
-        book_id, ids = _book_stored_as(admin_app, MIXED)
+        """20x20 grids never pair on 8x10; 10x10 same-level neighbours do
+        (CARD-541, CARD-165 F-001), so the band is read on both page kinds."""
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator, PuzzlePagePlan
+
+        book_id, ids = _book_stored_as(admin_app, MIXED, side=side)
+        book = admin_app.book_manager.get_book(book_id)
+        service = admin_app.puzzle_review_service
+        plan = BookPDFGenerator(book).section_plan(
+            [service.get_puzzle(p) for p in book.puzzle_ids]
+        )
+        assert any(
+            entry.is_two_up for entry in plan.pages if isinstance(entry, PuzzlePagePlan)
+        ) is two_up
         page = _read(client, f"/book/{book_id}")
 
         bands = _bands_the_export_prints(admin_app, client, monkeypatch, book_id)
@@ -908,8 +928,13 @@ class TestBookDetail_UndrawableMemberHasNoNumber:
     def test_a_book_whose_page_plan_cannot_be_built_shows_no_numbers(
         self, admin_app, client, caplog
     ):
-        """An unreadable trim: no plan, so no numbers — and the page says so."""
+        """An unreadable trim: no plan, so no numbers — and the page says so.
+
+        One id is stored twice, as legacy data can hold it: the fallback lists
+        it twice too (CARD-541, CARD-165 F-003)."""
         book_id, ids = _book_stored_as(admin_app, MIXED)
+        ids = ids + [ids[0]]
+        admin_app.book_manager.books[book_id].puzzle_ids = list(ids)
         admin_app.book_manager.books[book_id].trim_width_cm = "not-a-number"
 
         import logging
