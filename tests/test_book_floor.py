@@ -43,6 +43,7 @@ from nonogram.admin.book_manager import BookManager
 from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers.book_floor import BOOK_FLOOR_MM
 from tests.helpers.db import sqlite_session_scope
 
 #: The two fixtures FR-031 names, as (width, height, row-clue gutter depth,
@@ -497,6 +498,9 @@ class TestBookAddPuzzles_AcceptsCellJustAboveFloor:
         }
 
         assert cells[below] < FLOOR_MM <= cells[above]
+        # The layout and PDF geometry tests may not import FLOOR_MM and count
+        # against the test-side copy instead (CARD-535); this holds it equal.
+        assert BOOK_FLOOR_MM == FLOOR_MM, (BOOK_FLOOR_MM, FLOOR_MM)
         assert cells[below] == pytest.approx(BELOW_FLOOR[4], abs=0.005)
         assert cells[above] == pytest.approx(ABOVE_FLOOR[4], abs=0.005)
 

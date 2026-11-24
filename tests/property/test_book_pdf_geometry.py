@@ -49,6 +49,7 @@ from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_vector import ContentStream
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers.book_floor import BOOK_FLOOR_MM
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
@@ -678,7 +679,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
 
         checked += 1
         at_cap += abs(expected_cell - STANDARD_CELL_MM) < 1e-9
-        below_book_floor += expected_cell < 4.8
+        below_book_floor += expected_cell < BOOK_FLOOR_MM
     assert checked >= 200, checked
     # The clearance window (Sheet.drawing_top_mm) is a declared uncertainty,
     # not the corpus: it may not cover a tenth of the cases checked.

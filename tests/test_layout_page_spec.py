@@ -47,6 +47,7 @@ from nonogram.export.layout import (
     compute_layout,
 )
 from tests.fixtures.a4_golden import golden
+from tests.helpers.book_floor import BOOK_FLOOR_MM
 
 #: CON-018's Book 1 profile, in mm: 8.5 x 11 in trim, 0.5 in gutter, 0.375 in
 #: outside/top/bottom, the 12 mm band (TERM-028), portrait only, the flat
@@ -126,7 +127,7 @@ class TestBookCell_ThirtyByThirtyNineDeepAboveFloor:
     def test_thirty_by_thirty_nine_deep_is_four_point_nine_seven(self) -> None:
         cell = _book_cell_mm(30, 30, row_depth=9, column_depth=9)
 
-        assert cell >= 4.8
+        assert cell >= BOOK_FLOOR_MM
         assert cell == pytest.approx(BOOK1_USABLE_WIDTH_MM / 39, abs=1e-9)
         assert round(cell, 2) == 4.97
 
@@ -141,7 +142,7 @@ class TestBookCell_TwelveDeepBandFallsBelowFloor:
     def test_twelve_deep_row_gutter_is_four_point_six_one(self) -> None:
         cell = _book_cell_mm(30, 25, row_depth=12, column_depth=8)
 
-        assert cell < 4.8
+        assert cell < BOOK_FLOOR_MM
         assert cell == pytest.approx(BOOK1_USABLE_WIDTH_MM / 42, abs=1e-9)
         assert round(cell, 2) == 4.61
 

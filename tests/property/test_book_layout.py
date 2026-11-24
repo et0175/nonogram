@@ -79,6 +79,7 @@ from nonogram.export.layout import (
     compute_layout,
 )
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers.book_floor import BOOK_FLOOR_MM
 
 DPI = 300
 PX_PER_MM = DPI / 25.4
@@ -236,7 +237,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell() -> Non
         assert abs((page.drawing_right - page.drawing_left) - across * page.cell_mm * PX_PER_MM) <= 1
 
         checked += 1
-        below_book_floor += page.cell_mm < 4.8
+        below_book_floor += page.cell_mm < BOOK_FLOOR_MM
         at_cap += page.cell_mm == STANDARD_CELL_MM
     assert checked >= 1000, checked
     # Both regimes are exercised: held at the cap, and fitted below NFR-008's floor.
