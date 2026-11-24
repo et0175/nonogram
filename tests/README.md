@@ -67,7 +67,7 @@ All in `conftest.py`; there is no other conftest.
   truncated before each test. The drop needs the connecting role to own
   `public` or be a superuser. On a database never rebuilt, `public` belongs
   to `pg_database_owner`, so the database's owner qualifies (PostgreSQL 15's
-  default). The schema the rebuild recreates is owned by that
+  default). The schema the rebuild recreates is owned by the connecting
   role with **no** grants: a fresh database's `public` is owned by
   `pg_database_owner` with `=U/pg_database_owner` (USAGE for every role); after
   the rebuild `\dn+ public` shows your role as owner and an empty access
@@ -170,10 +170,11 @@ the profiling section below.
   `public` schema your role owns.
 - **`must be owner of schema public`**: the role in your URL neither owns the
   test database's `public` schema nor is a superuser, so the rebuild's
-  `DROP SCHEMA` is refused. Connect as a superuser or as the database's
-  owner (`\l` names it); after a rebuild, the role `\dn+ public` names as
-  owner works too. Before any rebuild that column says `pg_database_owner`,
-  which is not a login role.
+  `DROP SCHEMA` is refused. Before any rebuild, connect as the database's
+  owner (`\l` names it; `\dn+ public` says `pg_database_owner`, which is not
+  a login role). After one, connect as the role `\dn+ public` names as owner:
+  the rebuild gives `public` to whichever role ran it. A superuser works
+  either way.
 - **A `TEST_DATABASE_URL` name outside `[a-z0-9_]`**: the fixtures will not
   create it (they would have to interpolate it into `CREATE DATABASE`) and the
   skip reason says so. Create it yourself or pick a plainer name.
