@@ -20,6 +20,8 @@
 //                                       ABSENT in public mode, and a public payload
 //                                       that has it is refused
 //     "mode":     "edit" | "public", optional   see EDIT MODE and PUBLIC MODE below
+//     "tier":     string, optional    the public page's tier; "easy" offers no
+//                                       Probe (owner, 2026-11-24)
 //   }
 // "rows"/"columns" are compute_clues(stored grid) — the one encoder, never
 // re-derived here (ADR-0038/R3). A line with no filled cell is [0] and is shown
@@ -1633,6 +1635,11 @@ function start() {
   const marking = wireMarking(stage, {
     getHistory: () => history,
     locked: () => solved,
+    // Owner, 2026-11-24: an Easy puzzle is finished by the overlap rule alone
+    // (docs/GENERATION_ALGORITHM.md, "simple_overlap"), so it never needs a
+    // probe, and the button only crowded the row. The public page's payload
+    // names the tier; the panel's does not, and keeps Probe everywhere.
+    probeOffered: payload.tier !== "easy",
     // CARD-246: a hint reveals the solution, and in edit mode the solution
     // is what the owner is rewriting — "revealing" it would push the board
     // back to the stored grid. The editor's page ships no Hint button and
@@ -3425,7 +3432,7 @@ function wireMarking(container, player) {
     // CARD-411: Probe BECOMES the pair while one is open (the owner's
     // "at full toolbar size"); the line is as tall as its buttons either
     // way, so nothing moves.
-    probeToggle.hidden = open;
+    probeToggle.hidden = open || player.probeOffered === false;
     probeKeep.hidden = !open;
     probeAbandon.hidden = !open;
     probeNote.hidden = !open;
@@ -4069,7 +4076,7 @@ function wireMarking(container, player) {
   // view's own Probe / Keep / Wrong guess, so there is one implementation of
   // each. Each answers whether it acted; the caller moves focus.
   function openProbe() {
-    if (gesture || probe !== null || player.locked()) return false;
+    if (gesture || probe !== null || player.locked() || player.probeOffered === false) return false;
     setProbe(nextProbe(probe, player.getHistory(), "open"));
     player.probed();
     refresh();

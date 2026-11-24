@@ -908,6 +908,8 @@ async function main() {
   data.id = "puzzle-player-data";
   data.textContent = JSON.stringify({
     id: key, width, height, rows: clues.rows, columns: clues.columns, mode: "public",
+    // Owner, 2026-11-24: no Probe on an Easy puzzle (solver.js probeOffered).
+    ...(typeof tier === "string" ? { tier } : {}),
   });
   document.body.append(data);
   await import("/solver.js");
