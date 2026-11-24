@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py (comments only, if any), tests/test_admin_filter_side_range_and_name.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3)
 **Started:** 2026-11-24T07:52Z
 **Closed:** —
 **Actual:** —
@@ -60,3 +60,5 @@ Mutant runner: `/private/tmp/claude-501/card536/mutant.py <NAME>` (scratch, not 
 src/ is unchanged. The only changed file is `tests/test_admin_filter_side_range_and_name.py`, where two existing tests were edited and none were added.
 
 Gate (unarmed, `-o addopts= -rfs -q`): `tests/test_admin_filter_side_range_and_name.py`, `tests/test_book_select_tabs.py`, `tests/test_puzzles_list_pagination.py`, `tests/test_card_066_status_filter.py`, `tests/property/test_longest_side_buckets.py`, `tests/test_card_063_limits.py`, `tests/test_card_065_follow_ups.py`. Result: 141 passed, 0 failed, 0 skipped. Collected count (`--collect-only -q -o addopts= tests/`) is 10713 before and 10713 after, so the net change is 0.
+
+[Review 1/3] Score: 8.5, not certified (one high finding). I re-derived every verdict with my own mutants, restoring each file by copy. STORE (`admin_app` on sqlite): the AC-4 API test fails on the branch (1 failed, and 1 failed/27 passed for the whole file) and passes on main's test (1 passed), so F-002 is live and fixed. EITHER (either-side matching in both store branches): the pagination test fails on the branch (1 failed; whole file 10 failed/18 passed) and passes on main's test (1 passed; whole file 9 failed/19 passed), so O-001 is live and fixed. The new butterfly3.jpg assert discriminates; the old "dot" assert could never fail. O-004 is moot: the one "either side" comment is a contrast. F-003 is not moot (F-001, high). The notes ran the card text's tightening mutants, which do die (branch 11/17 and 2/26; the notes' 10/18 and 3/25 are main's test file, F-002 low). CARD-190's own E1 (`high <= MAX_SIZE + 1`) and E4 (`MIN_SIZE - 1 <= low`) still survive the five covering files at 125 passed each, because the impossible-range parametrize's out-of-range cases become inverted pairs once the open bound is filled in. Suggested fix: swap them for `(None, MAX_SIZE + 1)` and `(MIN_SIZE - 1, None)` (net 0). Gate set: 141 passed, 0 skipped. Test file: 28 collected. Orchestrator's note: the card's Why defined E1/E4 the wrong way round (tightening, not CARD-190's loosening); that was the orchestrator's wording, not the implementer's.
