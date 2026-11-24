@@ -1,6 +1,6 @@
 # CARD-541: The book detail page's print-number fallback for a repeated puzzle id, verified first and pinned only if live
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/541-repeated-id-number
+**Worktree:** ../PythonProject4-card-541
 **Source:** roadmap wave 18, cut 2026-11-24 on the owner's pick of "a small Wave 18" from the backlog's remaining no-decision items. IDEA-084.
 **Idea:** IDEA-084
 **Wave:** 97
@@ -19,7 +19,7 @@
 **Touches:** tests/test_book_detail_page.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T11:03Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

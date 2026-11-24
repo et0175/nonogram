@@ -1,6 +1,6 @@
 # CARD-540: The print-spec test's inch-to-centimetre comment states the product it computes
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/540-inch-comment
+**Worktree:** ../PythonProject4-card-540
 **Source:** roadmap wave 18, cut 2026-11-24 on the owner's pick of "a small Wave 18" from the backlog's remaining no-decision items. IDEA-104.
 **Idea:** IDEA-104
 **Wave:** 97
@@ -19,7 +19,7 @@
 **Touches:** tests/test_print_specs.py (one comment)
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T11:03Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
