@@ -1,6 +1,6 @@
 # CARD-538: The CARD-150 admin-local script-test minors, verified first and fixed only where still live
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/538-script-test-minors
+**Worktree:** ../PythonProject4-card-538
 **Source:** roadmap wave 17, cut 2026-11-24 on the owner's "pick the next no-decision wave from the backlog". IDEA-018.
 **Idea:** IDEA-018
 **Wave:** 96
@@ -19,7 +19,7 @@
 **Touches:** tests/test_admin_local_cost.py, tests/helpers/admin_script_stubs.py, tests/test_start_admin_local.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T08:21Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
