@@ -42,3 +42,33 @@ CARD-156's review (F-007) noted that `DROP SCHEMA public CASCADE` needs the test
 - AC-3: owner's test budget: change existing tests rather than add; net test count at most +1; report it.
 
 ## Worktree notes
+
+### Verification (2026-11-24, PostgreSQL 15.19 on localhost, role `postgres`, superuser)
+
+Premise correction: the rebuild lives in `tests/conftest.py`'s `_rebuild_public_schema` (`DROP SCHEMA public CASCADE`, `CREATE SCHEMA public`, alembic subprocess); `src/nonogram/db/session.py` holds only `reset_engine`, whose docstring describes it. CARD-156 F-007 (cycle 2 review, still `status: open`) names both halves: ownership needed, default grants lost.
+
+Database: `nonogram_pythonproject4_card_542_9abdf51bcc36_test` (`db_name.resolve_test_database_url({}, REPO_ROOT)`, checked equal to the armed URL). It did not exist; created through the suite's own `_ensure_test_database` (no rebuild), so the pristine state could be probed.
+
+Before (fresh database), `\dn+ public`:
+
+    public | pg_database_owner | pg_database_owner=UC/pg_database_owner+ | standard public schema
+           |                   | =U/pg_database_owner
+    has_schema_privilege('public','public','USAGE') = t
+
+One armed rebuild: `DATABASE_URL=<that URL> pytest -o addopts= -rfs -k test_no_server_side_prepared_statement_is_ever_created tests/test_db_engine_lifecycle.py` -> `1 passed, 19 deselected`.
+
+After, `\dn+ public`:
+
+    public | postgres |  |
+    has_schema_privilege('public','public','USAGE') = f   (8 tables in public)
+
+Ownership half, probed on the after-state in a rolled-back transaction: `SET LOCAL ROLE pg_read_all_data` (non-superuser, not owner); `DROP SCHEMA public CASCADE` -> `ERROR:  must be owner of schema public`.
+
+Verdicts:
+- Ownership requirement: LIVE as a fact, already documented (troubleshooting bullet under "Refusing to set up the test database"), but filed under a refusal that is about the name guard, not the error a non-owner sees. Added a troubleshooting bullet for `must be owner of schema public`.
+- Lost grants: LIVE and undocumented (tests/README.md said nothing about grants). Documented under the `db_session` fixture with the before/after above. Not a code defect: the armed run passed after the rebuild, and fixtures and app connect through the one URL that rebuilt the schema; only a second non-superuser role on the same database is affected. `src/nonogram/db/session.py` unchanged; `tests/conftest.py` untouched (protected).
+- AC-2: comment-only fix, the computed figures are the psql outputs above.
+
+Gate (unarmed, `-o addopts= -rfs`): tests/test_kill_matrix.py, tests/test_full_suite_lock.py, tests/test_cli.py, tests/test_guard_integrity.py (the tests that read or scan tests/README.md, found by an `ast` scan for README literals) -> 449 passed, 0 skipped.
+
+Net test count: 10714 before, 10714 after (`--collect-only -q -o addopts= tests/`), net 0.

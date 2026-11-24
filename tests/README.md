@@ -64,7 +64,15 @@ All in `conftest.py`; there is no other conftest.
 - `db_session`: points `DATABASE_URL` at an empty, fully migrated test database
   and yields the `SessionLocal` factory. The schema is rebuilt once per session
   (`DROP SCHEMA public CASCADE`, then `alembic upgrade head`); every table is
-  truncated before each test.
+  truncated before each test. The drop needs the connecting role to own
+  `public` (or be a superuser), and the schema it recreates is owned by that
+  role with **no** grants: a fresh database's `public` is owned by
+  `pg_database_owner` with `=U/pg_database_owner` (USAGE for every role); after
+  the rebuild `\dn+ public` shows your role as owner and an empty access
+  list (CARD-542, measured on PostgreSQL 15). The suite does not need those
+  grants back: its fixtures and the app under test connect through the one
+  URL that rebuilt the schema. A second, non-superuser role sharing the
+  database would lose `USAGE` on `public`, and with it its tables.
 - `app` (Flask test app on that database) and `client` (its test client).
 - `puzzle_review_service`, `batch_generator_service`, `generator` (a seeded
   `MockGenerator`), `sample_puzzle`, `sample_puzzles`, `cleanup_puzzles`.
@@ -157,6 +165,10 @@ the profiling section below.
 - **"Refusing to set up the test database"**: `TEST_DATABASE_URL` names a
   database the fixtures must not erase. Point it at a `*_test` database whose
   `public` schema your role owns.
+- **`must be owner of schema public`**: the role in your URL neither owns the
+  test database's `public` schema nor is a superuser, so the rebuild's
+  `DROP SCHEMA` is refused. Connect as a superuser or as the role
+  `\dn+ public` names as owner.
 - **A `TEST_DATABASE_URL` name outside `[a-z0-9_]`**: the fixtures will not
   create it (they would have to interpolate it into `CREATE DATABASE`) and the
   skip reason says so. Create it yourself or pick a plainer name.
