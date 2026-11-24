@@ -1,6 +1,6 @@
 # CARD-535: The three below-floor test thresholds count against the 4.75 mm floor, not 4.8
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/535-floor-thresholds
-**Worktree:** ../PythonProject4-card-535
+**Worktree:** —
 **Source:** CARD-532 review F-004 (wave 15, recorded, not carded); carded 2026-11-24 on the owner's "card the three 4.8 thresholds to read FLOOR_MM". Owner ruling the same day: keep each file's import rule, use a test-side 4.75 literal cross-checked against `FLOOR_MM`.
 **Idea:** —
 **Wave:** 95
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.7 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-24T05:42Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-24T06:56Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 745aa960
 **Blocked by:** —
 
 ## Why this card exists
