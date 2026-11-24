@@ -102,6 +102,7 @@ Cut against main on 2026-11-24 on the owner's "pick the next no-decision wave fr
 - **CARD-536** (IDEA-154) The longest-side filter minors from CARD-190, verified first — 1c
 - **CARD-537** (IDEA-025) The CARD-145 export minors, verified first — 1c
 - **CARD-538** (IDEA-018) The CARD-150 admin-local script-test minors, verified first — 1c
+- **CARD-539** (IDEA-025, added 2026-11-24 from CARD-537's minor 2) An uploaded cover is held as one RGB page, so a transparent upload stays within the one-page memory bound — 1c
 
 ## Wave 16 — DONE 2026-11-24 (board wave 95)
 
