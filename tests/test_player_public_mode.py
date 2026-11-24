@@ -668,14 +668,19 @@ def solve_to_the_end(page, grid, ctx=None) -> None:
         action(page, "reset").click()
         page.locator('[data-player-confirm="accept"]').click()
     probe = page.locator("[data-player-probe]")
+    # An Easy puzzle offers no Probe (owner, 2026-11-24): there the last click
+    # solves an ordinary board, and the rest of the claim is unchanged.
+    probing = probe.is_visible()
     for r, c in cells[:-1]:
         cell(page, r, c).click()
-    probe.click()
-    assert probe.get_attribute("aria-pressed") == "true"
+    if probing:
+        probe.click()
+        assert probe.get_attribute("aria-pressed") == "true"
     r, c = cells[-1]
     cell(page, r, c).click()
     assert page.locator("#puzzle-player-solved").is_visible(), "the Solved banner (from the clues alone)"
-    assert probe.get_attribute("aria-pressed") == "false", "a probe that reached the solution commits (rule 7)"
+    if probing:
+        assert probe.get_attribute("aria-pressed") == "false", "a probe that reached the solution commits (rule 7)"
     assert page.evaluate("document.querySelector('.player-board').classList.contains('is-solved')")
 
 

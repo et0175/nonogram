@@ -668,6 +668,10 @@ class TestSharedUi_ThePageRuns:
         url, report, keys, _ = preview_host
         open_play(browser_page, url, keys["stall"])
         assert not disabled(action(browser_page, "hint"))
+        # Owner, 2026-11-24: this board is tagged Easy, and an Easy puzzle
+        # offers no Probe (the sweep board, Medium, keeps it). Plant: drop
+        # assemble.py's tier from the payload -> the toggle shows.
+        assert not browser_page.locator("[data-player-probe]").is_visible()
         before = states(browser_page)
         action(browser_page, "hint").click()
         assert states(browser_page) == before

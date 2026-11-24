@@ -1692,6 +1692,7 @@ def test_the_page_carries_no_answer_and_no_third_party_asset(browser_page, host)
         "id",
         "mode",
         "rows",
+        "tier",  # owner 2026-11-24: an Easy puzzle offers no Probe; the tier says which
         "width",
     ]
     # ... and reading the sealed solution is an error, never a tolerated null.
