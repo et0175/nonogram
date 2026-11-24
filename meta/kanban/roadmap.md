@@ -92,6 +92,17 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 17 — IN PROGRESS (board wave 96)
+
+### As cut
+
+Cut against main on 2026-11-24 on the owner's "pick the next no-decision wave from the backlog", while the Wave 16 close runs. Three tech-debt items whose premises have partly drifted since they were logged, so each card verifies first and fixes only what is still live (the CARD-486 pattern): IDEA-154, IDEA-025, IDEA-018. Left out, each needing the owner or the architect pass: the owner checks and actions (IDEA-080, 137, 139, 142, 144, 153, 158, 162), the open questions (IDEA-114, 198), IDEA-178 and IDEA-098 (layout calls on narrow trims, not blockers on the owner's 2026-11-19 ruling), IDEA-179, IDEA-019 and IDEA-152 (each part-owed to the architect pass or an applied migration), the architect-pass and audit items (IDEA-106, 111, 112, 127, 128, 200, 202, 203), and IDEA-056 and IDEA-084 (they touch the public player or its banner wording). IDEA-089 (moving the shared browser fixtures out of `tests/test_puzzle_solver_page.py`) is larger than one card and touches the frozen browser-family census. CARD-536 and CARD-537 first (cap 2), CARD-538 when a slot frees.
+
+### tech-debt
+- **CARD-536** (IDEA-154) The longest-side filter minors from CARD-190, verified first — 1c
+- **CARD-537** (IDEA-025) The CARD-145 export minors, verified first — 1c
+- **CARD-538** (IDEA-018) The CARD-150 admin-local script-test minors, verified first — 1c
+
 ## Wave 16 — IN PROGRESS (board wave 95)
 
 ### As cut

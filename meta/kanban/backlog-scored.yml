@@ -505,7 +505,7 @@ ideas:
     runtime coverage; nothing asserts G-3''s launch target though the stub logs it   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -700,7 +700,7 @@ ideas:
     the uploaded cover''s RGBA path is not measured for memory   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -3794,7 +3794,7 @@ ideas:
   source_line: 230
   intent: null
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
