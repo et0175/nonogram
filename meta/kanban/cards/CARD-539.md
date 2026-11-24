@@ -1,6 +1,6 @@
 # CARD-539: An uploaded cover is held as one RGB page, so a transparent upload stays within the one-page memory bound
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/539-rgb-cover
+**Worktree:** ../PythonProject4-card-539
 **Source:** found 2026-11-24 by CARD-537 (IDEA-025, minor 2), which stopped on its own rule because the fix changes `src/`. Added to wave 17.
 **Idea:** IDEA-025
 **Wave:** 96
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py (`BookPDFGenerator.create_cover_page`), tests/test_book_pdf_memory.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T08:40Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
