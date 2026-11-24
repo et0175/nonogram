@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py (comments only, if any), tests/test_admin_filter_side_range_and_name.py
 **UI surface:** —
-**Review score:** 8.5 (cycle 1/3)
+**Review score:** 9.5 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-24T07:52Z
 **Closed:** —
 **Actual:** —
@@ -69,3 +69,5 @@ Gate (unarmed, `-o addopts= -rfs -q`): `tests/test_admin_filter_side_range_and_n
 - Control: LE1 gives 1 failed, 27 passed, in `test_an_impossible_longest_side_range_is_reported_too[longest_side_range0]` with `Failed: DID NOT RAISE ValueError`. LE4 gives 1 failed, 27 passed, in `test_an_impossible_longest_side_range_is_reported_too[longest_side_range1]` with `Failed: DID NOT RAISE ValueError`.
 - The strict-mutant figures above came from main's copy of the file. Re-derived on this branch with the fix applied: strict E1 gives 11 failed, 17 passed; strict E4 gives 2 failed, 26 passed.
 - Gate (same seven files, unarmed, `-o addopts= -rfs -q`): 141 passed, 0 failed, 0 skipped. Collected tests: 10713, so the net change for the card is still 0. src/ is unchanged.
+
+[Review 2/3] Score: 9.5, certified. F-001 is fixed, checked with the reviewer's own mutants. CARD-190's loosening E1 (`high <= MAX_SIZE + 1`) and E4 (`MIN_SIZE - 1 <= low`) each fail `test_an_impossible_longest_side_range_is_reported_too`, E1 on `[longest_side_range0]` and E4 on `[longest_side_range1]`: 1 failed, 27 passed in the test file and 1 failed, 124 passed across the five covering files. With the fix reverted, both survive at 28 passed. A probe shows (None, 31) and (9, None) reach the range error. (25, 15) still raises the inverted error and (5, 5) the range error, and the case count is unchanged at 4. The notes' figures re-derive: strict E1 11/17, strict E4 2/26, gate set 141 passed with 0 skipped, 10713 collected. F-003 (low): the Fix round 1 note's cause sentence credits the inverted check, but `_side_bounds` checks the range first, and the old cases were rejected by the untouched half of the range check (31 as "from" fails `low <= MAX_SIZE`, 9 as "to" fails `MIN_SIZE <= high`); the inverted check is only the backstop. The cycle-1 report repeated CARD-190's explanation. The conclusion and the fix stand. This paragraph is the correction.
