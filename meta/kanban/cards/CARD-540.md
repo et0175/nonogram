@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_print_specs.py (one comment)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-24T11:03Z
 **Closed:** —
 **Actual:** —
@@ -42,3 +42,11 @@ CARD-174's review (F-004) found a comment in `tests/test_print_specs.py` saying 
 - AC-3: owner's test budget: change existing tests rather than add; net test count at most +1; report it.
 
 ## Worktree notes
+
+**Implementation (orchestrator).** The comment above `EXACT_BOUNDARY_INCHES` in `tests/test_print_specs.py`, computed exactly with `decimal`: 3.937 x 2.54 = 9.99998 (as written), 11.811 x 2.54 = 29.99994 (as written), 18.8976 x 2.54 = 47.999904 (written as 48.0: live, fixed to 47.999904, the precision its neighbours use). The same comment's "0.01 in beyond" figures also hold: 3.927 x 2.54 = 9.97458 (9.97), 11.821 x 2.54 = 30.02534 (30.03), 18.9076 x 2.54 = 48.025304 (48.03). Comment only: no assertion or case changed, net tests 0. The "on both sides" wording (IDEA-104's second half) is left for the owner.
+
+[Review 1/3] Score: 9.5, certified. The diff changes one comment line in `tests/test_print_specs.py` (the comment above `EXACT_BOUNDARY_INCHES`) and adds the card's notes; no assertion or case changed, so the net test count is 0. All six products were recomputed exactly with `decimal`. 3.937 x 2.54 = 9.99998, 11.811 x 2.54 = 29.99994 and 18.8976 x 2.54 = 47.999904 (was 48.0) are now all given exactly, like their neighbours. The beyond-bound figures 3.927, 11.821 and 18.9076 x 2.54 = 9.97458, 30.02534 and 48.025304 round to the stated 9.97 / 30.03 / 48.03, matching `PrintSpecValidator.inches_to_cm`'s `.2f`. The comment's accepted cases, refused cases and "0.01 in beyond" wording match `EXACT_BOUNDARY_INCHES`, `BEYOND_BOUNDARY_INCHES` and the four tests that use them. `tests/test_print_specs.py`: 177 passed, 0 skipped. F-001 (low): the notes do not quote the command AC-1 asks for. F-002 (info, out of scope): no test asserts the beyond-bound cm figures; the beyond tests check only the refusal prefixes.
+
+**Orchestrator.** F-001: the command was `python -c "from decimal import Decimal as D; [print(x, D(x)*D('2.54')) for x in ('3.937','11.811','18.8976','3.927','11.821','18.9076')]"`, which printed the six products recorded above. F-002 recorded, not carded.
+
+**Merge gate (orchestrator).** `make test-gate BASE=main` on `c9ef644d` (main 4b15a0ce, the branch base) answered SELECTION: 4479 passed / 15 skipped (unarmed) / 8 deselected / 1 xfailed / 0 failed in 15 min 23 s, then the marked run 4 passed. 9 marked tests are owed at the wave close.
