@@ -1,6 +1,6 @@
 # CARD-536: The longest-side filter minors from CARD-190, verified first and fixed only where still live
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/536-side-range-minors
+**Worktree:** ../PythonProject4-card-536
 **Source:** roadmap wave 17, cut 2026-11-24 on the owner's "pick the next no-decision wave from the backlog". IDEA-154.
 **Idea:** IDEA-154
 **Wave:** 96
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/puzzle_review.py (comments only, if any), tests/test_admin_filter_side_range_and_name.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T07:52Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

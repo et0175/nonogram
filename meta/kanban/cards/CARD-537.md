@@ -1,6 +1,6 @@
 # CARD-537: The CARD-145 export minors, verified first and fixed only where still live
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/537-export-minors
+**Worktree:** ../PythonProject4-card-537
 **Source:** roadmap wave 17, cut 2026-11-24 on the owner's "pick the next no-decision wave from the backlog". IDEA-025.
 **Idea:** IDEA-025
 **Wave:** 96
@@ -19,7 +19,7 @@
 **Touches:** tests/test_book_pdf_memory.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T07:52Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
