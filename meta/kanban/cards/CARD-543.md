@@ -43,3 +43,28 @@
 - AC-3: owner's test budget: change existing tests rather than add; net test count 0; report it.
 
 ## Worktree notes
+
+**Verdict (AC-1): reproduced; two causes, both measured. The sweep's 10 s click abort is a SYSTEM SLEEP, not CPU load; CPU load separately aborts the stall control's 3 s goto.** All runs below are only `tests/test_player_public_mode.py::TestPublicMode_EveryWayOfLosingItIsCaught::test_the_check_is_green_on_the_real_files_and_red_on_the_mutant` (or named cases of it), from this worktree with `/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts= -q -p no:cacheprovider`. Load = N `yes > /dev/null` processes started and killed (trap) by the same script (`loaded_run.sh <N> ...`), plus whatever the machine was already running (1-min load average quoted). A scratch plugin (`-p clicktimer`, not committed) timed every Playwright action and every check call, with wall-clock and monotonic time.
+
+- **Run 1, before the change.** Load: 16 `yes` (more than the later limit of 8), load average 144-183. Result: 3 failed / 24 passed in 474.39 s. All 3 reds were the STALL clean control: `aborted: TimeoutError: Page.goto: Timeout 3000ms exceeded.` (each a real 3.0 s). Clean sweeps took 11.5-14.6 s and stayed green; no single clean-sweep click took over 1 s.
+- **Run 2, before the change.** Load: 8 `yes`, load average 89 falling to 22. Result: 27 passed in 244.60 s. The slowest single action in any clean sweep was 0.31 s (a goto), and clean sweeps took 9.2-11.7 s. CPU load does not make sweep clicks slow.
+- **What did reproduce `Locator.click: Timeout ...ms exceeded`: a system sleep.** From 21:39 local the machine cycled DarkWake (~45 s) / Sleep (~15 min) (`pmset -g log`). In that state a clean-sweep click on `[data-player-probe]` raised `Locator.click: Timeout 30000ms exceeded` after 0.451 s of awake (monotonic) time. Another raised `Page.goto: Timeout 30000ms exceeded` after 0.463 s, with 900.9 s of sleep inside the call. Playwright's clock counts the sleep; Python's `time.monotonic` does not. So a sleep mid-action fires the timeout whatever its length.
+- **The gate reds line up with sleeps.** `pmset -g log` shows 'Idle Sleep' at 08:10:46 and 08:40:26 in the CARD-535 gate window (merge 08:56, gate 22 min plus two re-runs). It shows 'Idle Sleep' at 16:33:12 and 17:22:46 in the CARD-542 gate window (gate after 16:29, 21.5 min plus re-runs). A drift sampler (`time.time() - time.monotonic()`) logged `23:22:04 drift jump 100.4` across one sleep.
+
+**The change: `tests/test_player_public_mode.py`, test only; the player's files are untouched.**
+1. `_CONTROL_TIMEOUT = 30000`: the clean control's Playwright timeout, about twice the slowest whole clean sweep measured under load (14.6 s). The mutant keeps each check's own timeout (3 s / 5 s / 10 s), so its verdict is unchanged. This covers the stall goto aborts of run 1 (card item 3). It is passed to every check as `timeout=`; `_hint_check`/`_solved_check` ignore it as before.
+2. `_awake(run)`: re-runs a check call, on a fresh page and a fresh served tree, only when `time.time() - time.monotonic()` drifted by 2 s or more during it, i.e. the machine slept. It makes at most 3 attempts and is applied to both the clean and the mutant call. A run the machine stayed awake through is returned as it is, so an abort on an awake machine is never retried away. A mutant that reds only because of a sleep is also re-run, which makes the matrix stricter.
+A longer timeout alone would not have fixed the gate reds: the 30 s timeout still aborted across a sleep (above).
+
+**AC-2, after the change (fix1).** Load: 8 `yes`, load average 10-83, with the machine's sleep cycling live. Result: `27 passed in 255.72s` (pytest's monotonic awake time; 23:22-00:02 wall). That is 57 check calls in all:
+- 27 awake clean runs, all `[]`; the slowest clean sweep took 12.69 s.
+- 27 awake mutant runs, every one non-empty, so every mutant in `MUTANTS` still reds its check.
+- 3 calls slept (312.9 s, 916.7 s, 900.9 s) and were re-run. One of them, at 23:59:58, was the gate's failure itself: a clean sweep `sweep aborted: TimeoutError: Page.goto: Timeout 30000ms exceeded.` after 1.22 s of awake time. `_awake` re-ran it, and it was green at 00:00:11.
+
+**Final plain run, after the change** (no plugin, no added load, sleep cycling live): `pytest tests/test_player_public_mode.py -o addopts= -q -p no:cacheprovider -rfEs` gave 79 passed, 1 warning in 278.51 s, 0 skipped, exit 0.
+
+**AC-3.** `--collect-only` of the file: 79 tests on HEAD, 79 with the change, so the net test count is 0. Two existing tests were changed and none added.
+
+**Not done, outside this card's Touches:** a gate on this laptop can still lose any browser test to an idle sleep, and only this test now tolerates it. Running the gate under `caffeinate -i` (Makefile `test-gate`/`test-wave-close`) would prevent the sleep itself. That needs a decision; it is not changed here.
+
+**Process incident.** One measurement run (19:38Z, pid 9634) passed node ids that zsh expanded as subscripts (`$T[...]`). pytest got no node id, started the whole suite and took the full-suite lock. I killed it, which left the lock stale; it blocked CARD-544 for 16 min until the coordinator removed it. Later runs quoted the ids and were bounded by a watchdog.

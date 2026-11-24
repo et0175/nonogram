@@ -40,6 +40,7 @@ import random
 import re
 import shutil
 import threading
+import time
 from itertools import groupby
 from pathlib import Path
 
@@ -1730,6 +1731,27 @@ MUTANTS = [
 ]
 
 
+#: CARD-543: every Playwright wait of a clean control, in ms - about twice the
+#: slowest WHOLE clean sweep measured under load (14.6 s at load ~150).
+_CONTROL_TIMEOUT = 30000
+
+
+def _awake(run, attempts: int = 3):
+    """CARD-543: ``run()``, run again (fresh page, fresh tree) when the machine
+    SLEPT during it, and only then. A system sleep mid-action fires
+    Playwright's timeout at once ("Timeout 30000ms exceeded" after 0.45 s of
+    awake time, measured), whatever the timeout; on macOS ``time.time``
+    counts the sleep and ``time.monotonic`` does not, so their drift is the
+    sleep. A run the machine stayed awake through is returned as it is, so an
+    abort on an awake machine is never retried away."""
+    for _ in range(attempts):
+        drift = time.time() - time.monotonic()
+        result = run()
+        if abs(time.time() - time.monotonic() - drift) < 2.0:
+            return result
+    return result
+
+
 @pytest.fixture
 def touch_pages(browser_page):
     """A factory of pages in touch-capable contexts, closed at teardown."""
@@ -1751,9 +1773,18 @@ class TestPublicMode_EveryWayOfLosingItIsCaught:
     def test_the_check_is_green_on_the_real_files_and_red_on_the_mutant(self, mutant, touch_pages, serve) -> None:
         name, check_name, edits = mutant
         payload, check, extra = CHECKS[check_name]
-        clean = check(touch_pages(), serve(payload(), extra_files=extra))
+        # CARD-543: the control runs with a load-tolerant timeout; the mutant
+        # keeps the check's own. On the real files every wait resolves (the
+        # slowest clean-sweep action measured 0.31 s at load 89), so a wait
+        # there times out only because the machine is busy (a 3 s goto
+        # reddened the stall control at load ~150) - or asleep, which no
+        # timeout absorbs: both runs are redone if the machine slept in them.
+        # A longer wait cannot hide a lost property (that is an assertion, a
+        # page error or a request, never a timeout), and the mutant's run, and
+        # so its verdict, keeps the check's own timeouts.
+        clean = _awake(lambda: check(touch_pages(), serve(payload(), extra_files=extra), timeout=_CONTROL_TIMEOUT))
         assert clean == [], f"the control ({check_name}) is not green on the real files: {clean}"
-        broken = check(touch_pages(), serve(payload(), edits=edits, extra_files=extra))
+        broken = _awake(lambda: check(touch_pages(), serve(payload(), edits=edits, extra_files=extra)))
         assert broken != [], f"{name}: the {check_name} check did not see the mutant"
 
     def test_there_is_a_mutant_for_every_way_the_card_names(self) -> None:
