@@ -922,7 +922,7 @@ ideas:
     recreated schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
