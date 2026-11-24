@@ -181,6 +181,9 @@ class TestPuzzlesApi_SizeRangeUsesLongestSide:
 
     def test_the_api_lists_only_the_15x12(self, admin_app):
         service = admin_app.puzzle_review_service
+        # The in-memory store, as the fixture intends, not a silent fallback
+        # to another one (CARD-190 review F-002; CARD-536).
+        assert service._session_factory is None
         _add(service, 25, 15, source="wide-25x15.png")
         _add(service, 15, 12, source="small-15x12.png")
 
@@ -209,16 +212,19 @@ def test_the_filter_has_no_either_side_field_any_more():
 
 
 def test_the_page_reads_from_and_to_and_keeps_them_in_pagination(admin_app):
+    """The 20x30's short side is in 10-20 but its longest is not, so an
+    either-side filter would count 4 here, not 3 (CARD-190 review O-001;
+    CARD-536)."""
     service = admin_app.puzzle_review_service
     for _ in range(3):
-        _add(service, 20, 30, source="butterfly3.jpg")
-    _add(service, 10, 10, source="dot.png")
+        _add(service, 10, 10, source="dot.png")
+    _add(service, 20, 30, source="butterfly3.jpg")
 
-    body = admin_app.test_client().get("/puzzles?size_from=25&size_to=30&limit=2").get_data(as_text=True)
+    body = admin_app.test_client().get("/puzzles?size_from=10&size_to=20&limit=2").get_data(as_text=True)
 
     assert "Puzzles (3 total)" in body
-    assert "dot" not in _names(body)
-    assert "size_from=25&amp;size_to=30" in body, "the page links must carry the range forward"
+    assert "butterfly3.jpg" not in _names(body)
+    assert "size_from=10&amp;size_to=20" in body, "the page links must carry the range forward"
 
 
 def test_an_inverted_range_on_the_page_is_a_filter_error(admin_app):

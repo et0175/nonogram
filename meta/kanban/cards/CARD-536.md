@@ -42,3 +42,21 @@ CARD-190's review left five minors (F-002/F-003, O-001/O-004/O-005): no test pin
 - AC-3: owner's test budget: change existing tests rather than add; net test count at most +1; report it.
 
 ## Worktree notes
+
+### Verdicts (2026-11-24, worktree run)
+
+Mutant runner: `/private/tmp/claude-501/card536/mutant.py <NAME>` (scratch, not committed). It applies one mutant with a `count(old) == 1` assert per replacement, runs pytest with `-o addopts= -rfs -q`, and restores the file. `git diff --stat -- src/` was empty after every run.
+
+- F-003 (E1/E4 survive on `_side_bounds`): **moot**. E1 (`MIN_SIZE <= low` to `MIN_SIZE < low`) against `tests/test_admin_filter_side_range_and_name.py`: 10 failed, 18 passed. E4 (`high <= MAX_SIZE` to `high < MAX_SIZE`): 3 failed, 25 passed, among them `test_an_open_bound_means_the_supported_limit` and `test_a_row_outside_the_supported_range_belongs_to_no_longest_side_range` (`ValueError: Size range must stay within 10-30 cells`). No change.
+- F-002 (AC-4 API test does not assert its store): **live**. Mutant STORE puts the `admin_app` fixture on the sqlite store (DATABASE_URL set to sqlite, `nonogram.db.session_scope` patched). `TestPuzzlesApi_SizeRangeUsesLongestSide::test_the_api_lists_only_the_15x12` still passed (1 passed, exit 0).
+  Fix: that test now asserts `service._session_factory is None` before it adds rows.
+  Control: STORE against the fixed test gives 1 failed, with `assert <function sqlite_session_scope.<locals>.scope ...> is None`.
+- O-001 (pagination test passes under both meanings): **live** for `test_the_page_reads_from_and_to_and_keeps_them_in_pagination`. Mutant EITHER filters by either side in both store branches (memory: `any(low <= s <= high for s in sides)`; DB: `or_` of the two `between`s). Against the AC-4 class, the AC-3 class, that test and `test_the_longest_side_range_pages_its_own_members_and_counts_them`: 4 failed, 1 passed, and the one that passed was this test. Its range 25-30 cannot tell the two meanings apart, because a side of 25..30 is also the longest side within the supported range. The AC-3 tests and the store-level pagination test already failed under EITHER, so the property itself was pinned.
+  Fix: the same test now uses three 10x10 rows and one 20x30 row at `size_from=10&size_to=20`, and asserts that `butterfly3.jpg` is not listed.
+  Control: EITHER against the fixed tests gives 5 failed, 0 passed. This test fails on `assert 'Puzzles (3 total)' in ...`, because either-side counts 4.
+- O-004 (stale "either side" comment in `puzzle_review.py`): **moot**. A `tokenize` pass over the file's COMMENT and STRING tokens finds one comment with "either side". It sits by the in-memory longest-side branch of `filter_puzzles` and reads `max(width, height), not "either side"`, which contrasts the filter with "either side" and does not describe it that way. No change.
+- O-005 (no FR traces the review filter): **out of scope**. `requirements.yml` and `trace.yml` are written only by the architect pass, so it is recorded here for that pass.
+
+src/ is unchanged. The only changed file is `tests/test_admin_filter_side_range_and_name.py`, where two existing tests were edited and none were added.
+
+Gate (unarmed, `-o addopts= -rfs -q`): `tests/test_admin_filter_side_range_and_name.py`, `tests/test_book_select_tabs.py`, `tests/test_puzzles_list_pagination.py`, `tests/test_card_066_status_filter.py`, `tests/property/test_longest_side_buckets.py`, `tests/test_card_063_limits.py`, `tests/test_card_065_follow_ups.py`. Result: 141 passed, 0 failed, 0 skipped. Collected count (`--collect-only -q -o addopts= tests/`) is 10713 before and 10713 after, so the net change is 0.
