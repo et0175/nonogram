@@ -4323,7 +4323,21 @@ class BookPDFGenerator:
         name (see that function, AC-4).
 
         An uploaded ``cover_image`` is resized and returned untouched by any
-        of this: nothing about that path changed (AC-6).
+        of this (AC-6), except that the page handed back is always ``"RGB"``
+        (CARD-539): an upload in any other mode is resized **in its own mode
+        first** and converted after, which is the order :meth:`_write_page`
+        converted it in when the page arrived there still in that mode, so the
+        printed cover keeps the pixels it had (measured byte-identical for
+        RGBA, LA, L, P with transparency, PA, CMYK, 1, I and F uploads).
+        Converting before the resize would not: Pillow resamples an alpha
+        mode with premultiplied alpha: the fully transparent band of the
+        RGBA upload in ``test_the_whole_book_holds_one_page_bitmap_at_a_time``
+        prints black this way, and converting first prints it in the colour
+        stored under its zero alpha. Returning the upload's own
+        mode held an RGBA or CMYK cover at four bytes a pixel, over the one
+        RGB page bitmap the book's memory bound allows; the resized bitmap in
+        the upload's mode is not kept past this call. An ``"RGB"`` upload is
+        returned as resized, with no copy.
 
         Args:
             book_title: Title for the book. A blank or all-whitespace title
@@ -4342,8 +4356,11 @@ class BookPDFGenerator:
                 before the title is looked at.
         """
         if cover_image:
-            # Use provided cover, resized to standard page size
-            return cover_image.resize((self.page_width_px, self.page_height_px), Image.Resampling.LANCZOS)
+            # Use provided cover, resized to standard page size -- in the
+            # upload's own mode, then converted, so the pixels are the ones
+            # the writer's per-page conversion printed (CARD-539).
+            page = cover_image.resize((self.page_width_px, self.page_height_px), Image.Resampling.LANCZOS)
+            return page if page.mode == "RGB" else page.convert("RGB")
 
         # Create blank cover with title
         cover = Image.new("RGB", (self.page_width_px, self.page_height_px), "white")
