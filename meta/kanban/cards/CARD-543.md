@@ -1,6 +1,6 @@
 # CARD-543: The public-mode mutant matrix's clean control survives a loaded machine
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/543-public-control-load
+**Worktree:** ../PythonProject4-card-543
 **Source:** roadmap wave 19, cut 2026-11-24 on the owner's "card both" (the two proposals recorded at the Wave 18 close).
 **Idea:** —
 **Wave:** 98
@@ -19,7 +19,7 @@
 **Touches:** tests/test_player_public_mode.py
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-24T19:06Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
