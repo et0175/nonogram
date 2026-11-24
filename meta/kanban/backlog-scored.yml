@@ -505,7 +505,7 @@ ideas:
     runtime coverage; nothing asserts G-3''s launch target though the stub logs it   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
