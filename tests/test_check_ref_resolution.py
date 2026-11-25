@@ -1679,7 +1679,11 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # name without its def's test_ prefix, declared on FR-044's trace.yml row only,
 # re-spelt there as the def name requirements.yml already declares (EC-035,
 # and now AC-422). Diffed as sets of _declared_refs().
-CENSUS = (598, "a99ee186711e2ec8")
+# CARD-547 (2026-11-25): 598 -> 598, OUT 1, IN 1 -- EC-022's property test
+# renamed from its retired "fixed top edge" name, at both of its sites
+# (requirements.yml EC-022 test:, trace.yml FR-032 row); the entrant is three
+# `ast`-found def lines under tests/property/, the departure none.
+CENSUS = (598, "ea52881c29823706")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1750,7 +1754,12 @@ CENSUS = (598, "a99ee186711e2ec8")
 # CARD-503 (2026-11-20): 509 -> 509, OUT 1, IN 1 -- FR-044's row: OUT the
 # EC-035 corpus test's unprefixed spelling, IN its def's own name, one
 # `ast`-found def line in tests/test_puzzle_solver_marking.py.
-TRACE_TESTS = (509, "7eae2da7662d683f")
+# CARD-547 (2026-11-25): 509 -> 509, OUT 1, IN 1 -- FR-032's row: OUT EC-022's
+# property test's retired "fixed top edge" name, IN its new name (the one
+# EC-022's test: field now carries),
+# which an independent `ast` index resolves to three def lines (the layout half
+# and the _pdf_pages / _two_up_pages PDF halves); the old name has zero.
+TRACE_TESTS = (509, "47e991490e34a5a3")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1881,7 +1890,11 @@ TRACE_TESTS = (509, "7eae2da7662d683f")
 # exactly CENSUS's 2 entrants, each an `ast`-found def line under tests/.
 # CARD-503 (2026-11-20): 485 -> 484, OUT 1, IN 0 -- exactly CENSUS's departure;
 # the def it resolved to stays here under its own name.
-DEFINED = (484, "108985e55c6a6d97")
+# CARD-547 (2026-11-25): 484 -> 484, OUT 1, IN 1 -- EC-022's property test
+# renamed (the same swap as TRACE_TESTS above, declared in requirements.yml and
+# trace.yml); the entrant resolves by an independent `ast` index to three def
+# lines under tests/property/, the departure to none.
+DEFINED = (484, "4a719adf01b0ea7d")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

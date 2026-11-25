@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/property/test_book_pdf_geometry.py, tests/property/test_book_layout.py (module docstring only), tests/wave_close_marker.py, tests/test_wave_close_marker.py, meta/architecture/requirements.yml (EC-022 `test:` and the comments that name the test), meta/architecture/trace.yml (the FR-032 row and its notes)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-25T11:41Z
 **Closed:** —
 **Actual:** —
@@ -45,3 +45,43 @@
 - AC-4: owner's test budget: no test added or removed; net test count 0; report it.
 
 ## Worktree notes
+
+### Implementation round 1 (2026-11-25)
+
+**Verdict:** done, with two premise corrections and one AC-1 residual held for the orchestrator (below).
+
+**Chosen name:** `PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent`.
+Reason: every one of the three bodies asserts portrait, unrotated (columns x rows as drawn), and the 42% float of the puzzle area's spare (`varying_tops > 1` / `len(tops) > 1` as the retired fixed edge's survivor); "clear of both rules" is left out because only the `_pdf_pages` body asserts a rule (the footer side, CARD-485 AC-2) and none asserts the header side directly, so the name would claim more than the bodies check. "FortyTwoPercent" follows `TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare`.
+
+**Premise corrections (measured, not inferred):**
+- The name has **three** defs, not two: the layout half `tests/property/test_book_layout.py::test_<name>` plus the two PDF halves `_pdf_pages` and `_two_up_pages`. `trace.yml` already recorded "3 cases collected at the AC gate". All three were renamed; otherwise AC-1's grep could not be empty. The layout function's docstring paragraph "Function name kept for trace stability" was rewritten to record the rename (docstring only).
+- The `wave_close_only` marker applied before this card to **one** of them, not both: `_pdf_pages` is in `LIST_1[0].marked`; `_two_up_pages` is that entry's `smoke` node (the gate keeps it, so it is unmarked by design); the layout half is unregistered. The registry's shape is unchanged; only the node ids/keys were renamed.
+
+**Change (names and docs only; no test body, case count or assertion changed):**
+- `tests/property/test_book_pdf_geometry.py`, `tests/property/test_book_layout.py`: three function names, both module docstrings, the layout function's docstring paragraph.
+- `tests/wave_close_marker.py` (marked node id, smoke node id, floors key) and `tests/test_wave_close_marker.py` (`PINNED_FLOORS` keys).
+- `meta/architecture/requirements.yml` (EC-022 `test:` and the comment naming it), `meta/architecture/trace.yml` (FR-032 row; the "still encodes the retired rule ... rename is still owed" passage replaced with a dated "Renamed 2026-11-25 (CARD-547)" line, history kept), `meta/architecture/handoff.md` (test list).
+- `tests/test_check_ref_resolution.py`: three census baselines re-derived, each with a dated provenance comment: `CENSUS` (598, digest only), `TRACE_TESTS` (509, digest only), `DEFINED` (484, digest only); each move is OUT 1 (old name) / IN 1 (new name). Each was red after the rename and green on the base (stash control: the two failing tests 2 passed on base). The new ref resolves by an independent `ast` index to 3 def lines; the old name to 0.
+
+**AC evidence:**
+- AC-1: `grep -rn PortraitWithFixedTopEdge src tests meta/architecture` prints ONE line: `tests/hang_guard.py` (a comment recording CARD-336's projection for "the CARD-322 geometry node `PortraitWithFixedTopEdge_pdf_pages`"). Not edited: the brief forbids editing any guard file. Held for the orchestrator to decide (edit the comment, or accept it as historical). `ast` index: new name -> exactly 3 defs (listed above), old name -> 0. By node id, each run once: layout half 1 collected / 1 passed / 0 skipped, exit 0, 0.93 s call; `_two_up_pages` 1/1/0, exit 0, 2.35 s call; `_pdf_pages` 1/1/0, exit 0, 22.55 s call (quiet host).
+- AC-2: `tests/test_wave_close_marker.py` passes (19 collected, inside the run below). `-m wave_close_only --collect-only` over the two property files: 3/15 collected (12 deselected), exit 0, listing `..._DrawingFitsUsableAreaUnderStandardCell_pdf_pages`, `test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages`, `..._MirroredMarginsCentreDrawingForEveryParity_pdf_pages`. `_two_up_pages` is not listed, as before the card (it is the entry's smoke node).
+- AC-3: tests that read `trace.yml` / `requirements.yml` refs: `tests/test_check_ref_resolution.py` (26), `tests/test_grid_bound_agreement.py` (4), `tests/test_book_page_packing_doc.py` (3), `tests/test_approval_guess_gate.py::test_the_registrys_check_refs_for_this_card_all_resolve` (1), `tests/test_impact_set.py` (217, holds the trace census in its regret table), plus `tests/test_wave_close_marker.py` (19): 270 collected, 270 passed, 0 skipped, exit 0 (2 UserWarnings, identical on the base). Forge validator (forge_1, `~/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py --root meta/architecture`): before 0 errors / 104 warnings, after 0 errors / 104 warnings; output identical modulo the name.
+- AC-4: no test added or removed. Collection over the four edited test files: 60 before, 60 after. Net test count 0.
+
+### Review cycle 1 (2026-11-25)
+
+**Score:** 9.5/10. **Verdict:** CERTIFIED (score >= 9, no important findings). Report: `meta/review/CARD-547-review-1.yml` (gitignored). Reviewed head 73bc995e against main a5a1a320.
+
+**Findings:**
+- F-001 (Minor, low): the `_two_up_pages` half's name reads as claiming the 42% float of two-up slots, which EC-022 disclaims ("the ratio is NOT claimed of a slot before that split"). Its body pins two-up slots at band foot + rule gap and single pages at 42%. The docstring explains the split, and the shared stem is the suffix convention, so it is not gating. An optional fix is one docstring sentence.
+
+**Verified independently:**
+- Name truthfulness: all three bodies assert portrait (`orientation == "portrait"` / `size[0] < size[1]`), unrotated (`(columns, rows)` as drawn), and the 42% float (layout `SPARE_ABOVE * spare_mm`; `_pdf_pages` `sheet.drawing_top_mm`; `_two_up_pages` on its single pages). Leaving "clear of both rules" out of the name is the conservative choice.
+- Names and docs only: 0 changed `assert` lines in the diff. The non-name hunks are the layout docstring paragraph, the three census pins with dated comments, and the trace.yml notes.
+- Census: TRACE_TESTS re-derived by an independent `yaml.safe_load` reader (every `tests:` string, sha256 of sorted newline-joined, first 16 characters). HEAD gives 509 `47e991490e34a5a3`, equal to the pin. Base gives 509 `7eae2da7662d683f`, equal to the old pin. CENSUS and DEFINED are held by the green run only and were not re-derived.
+- Residual: `grep -rn PortraitWithFixedTopEdge src tests meta/architecture` prints the `tests/hang_guard.py` comment only (ruling c). Outside that set, the name appears only in `meta/kanban/**` and `meta/profiling/**`, both historical. By `ast`, the new name resolves to 3 defs and the old name to 0.
+- Mutants, both killed and restored (git status clean): (1) trace.yml FR-032 row reverted to the old name failed 3 tests in `tests/test_check_ref_resolution.py` (3 failed / 23 passed), including `test_the_trace_tests_lists_agree_with_an_independent_reading`. (2) The `tests/wave_close_marker.py` smoke node reverted failed 1 of 19 tests (`test_every_smoke_and_control_exists_is_unmarked_and_is_in_the_gate_set`).
+- Runs: `tests/test_wave_close_marker.py`, `tests/test_check_ref_resolution.py` and the three renamed tests by node id gave 48 passed, 0 skipped, exit 0, 2 UserWarnings. The warnings were not compared against a base run. `-m wave_close_only --collect-only` lists the renamed `_pdf_pages` (3/5). The forge_1 validator gives 0 errors and 104 warnings.
+- Trace notes: CARD-224's facts are kept (merge c65bb3b, AC-190's class deleted, 3 cases, sound test). The "rename still owed" passage became the dated "Renamed 2026-11-25 (CARD-547)" line. The older amendments below it are untouched.
+- System contract: 24 rules checked. 1 holds (ADR-0039/R4: the moved figures name their instrument). 23 are unchecked with no_eligible_fact. 0 are violated.

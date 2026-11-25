@@ -261,8 +261,8 @@ class TestWaveCloseMarker_TheGateKeepsSmokeAndControls:
 #: written against; raising them is fine, lowering them is the defect.
 PINNED_FLOORS = {
     ("test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages", "checked"): 200,
-    ("test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages", "len(extents)"): 120,
-    ("test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages", "counted"): 150,
+    ("test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages", "len(extents)"): 120,
+    ("test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages", "counted"): 150,
     ("test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages", "checked"): 100,
     ("test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage", "len(cases)"): 28,
     ("test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_pages", "books"): 15,
