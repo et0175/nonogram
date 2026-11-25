@@ -167,7 +167,9 @@ function drawBoard(container, grid, view) {
   if (held?.row !== undefined && held.column !== undefined) {
     container.querySelector(`.hts-cell[data-row="${held.row}"][data-column="${held.column}"]`)?.focus();
   }
-  wireCrosshair(container);
+  // Owner, 2026-11-25: no crosshair on a board whose squares cannot be
+  // chosen (the probe example) — it promised a choice that is not there.
+  if (view.crosshair !== false) wireCrosshair(container);
 }
 
 // The player's crosshair (CARD-267): the row and the column of the square
@@ -623,6 +625,9 @@ function setupProbe(page) {
     const offer = page.querySelector("[data-hts-probe-offer]");
     const lit = (axis, index) => showing !== null && showing.axis === axis && showing.index === index;
     drawBoard(board, PROBE_GRID, {
+      crosshair: false,
+      // The square is outlined from the start, and is the NEXT press only
+      // once Probe is on (see is-next below).
       cell: (r, c) => ({ ...cells[r][c], target: (phase === "stuck" || phase === "open") && r === pr && c === pc }),
       litRow: (r) => lit("row", r) && !bad,
       litColumn: (c) => lit("column", c) && !bad,
@@ -666,6 +671,16 @@ function setupProbe(page) {
     board.querySelector(`.hts-cell[data-row="${pr}"][data-column="${pc}"]`)
       ?.classList.toggle("is-offered", phase === "offered");
     text.textContent = said ?? probeText(phase, step, clues);
+    // The next press, lit (owner, 2026-11-25: "an arrow to Probe, or
+    // something better"): the one control this step of the example wants
+    // gets a pulsing ring, all the way through — Probe, the outlined square,
+    // Follow it, Wrong guess, Mark it, Finish. None where the reader is
+    // asked to choose (Keep or Wrong guess) or is done.
+    const next = { stuck: buttons.open, following: buttons.follow, kept: buttons.abandon,
+      offered: buttons.mark, proved: buttons.finish }[phase] ?? null;
+    for (const button of Object.values(buttons)) button.classList.toggle("is-next", button === next);
+    board.querySelector(`.hts-cell[data-row="${pr}"][data-column="${pc}"]`)
+      ?.classList.toggle("is-next", phase === "open");
     // A button that was pressed and then hid itself (Follow it at the last
     // step, Wrong guess, Mark it, Finish) hands the focus to the first one
     // still offered, for the same reason drawBoard keeps a square's.
