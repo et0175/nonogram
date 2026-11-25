@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_player_public_mode.py
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3)
 **Started:** 2026-11-24T19:06Z
 **Closed:** —
 **Actual:** —
@@ -68,3 +68,5 @@ A longer timeout alone would not have fixed the gate reds: the 30 s timeout stil
 **Not done, outside this card's Touches:** a gate on this laptop can still lose any browser test to an idle sleep, and only this test now tolerates it. Running the gate under `caffeinate -i` (Makefile `test-gate`/`test-wave-close`) would prevent the sleep itself. That needs a decision; it is not changed here.
 
 **Process incident.** One measurement run (19:38Z, pid 9634) passed node ids that zsh expanded as subscripts (`$T[...]`). pytest got no node id, started the whole suite and took the full-suite lock. I killed it, which left the lock stale; it blocked CARD-544 for 16 min until the coordinator removed it. Later runs quoted the ids and were bounded by a watchdog.
+
+[Review 1/3] Score: 9.5, not certified. One medium finding is open. Verified by running, from this worktree: the full parametrize gave 27 passed in 196.70s, awake throughout, so every mutant still reds its check. The whole file gave 79 passed, 0 skipped, exit 0. `--collect-only` gave 79 on head and 79 with main's copy of the file, so the net test count is 0. A probe (temporary `_CONTROL_TIMEOUT = 1` plus a print per `_awake` attempt, reverted) gave 2 failed and exactly 2 attempts for 2 cases: on an awake machine a red control is returned on its first run, never retried away. The sleep detector is sound. `time.monotonic` is `mach_absolute_time()` here, which stops in sleep; an NTP step costs at most one harmless re-run; and `range(3)` bounds the loop. pmset shows Idle Sleep at 08:10:46, 08:40:26, 16:33:12 and 17:22:46, as the notes state. F-001 (medium, open): AC-2 asks for green "under the load recorded in AC-1", but the after-change run used 8 `yes` (load 10-83). The CPU-load stall reds were reproduced only at 16 `yes` (load 144-183), and at 8 `yes` the unchanged test was already 27/27. So no recorded run backs "this covers the stall goto aborts of run 1". Either run at the reproducing load or record that this half is argued from the margin. F-002 (low): `_awake` returns a slept result once its 3 attempts run out, where it could fail loudly. F-003 (info): the figures in the new comments come from an uncommitted scratch plugin. Report: meta/review/CARD-543-review-1.yml (gitignored; sync it before removing the worktree).
