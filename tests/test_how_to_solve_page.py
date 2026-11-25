@@ -380,6 +380,9 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     assert _visible_step(page) == [2]
     assert page.evaluate("() => location.hash") == "#2"
     assert page.locator("[data-hts-next]").inner_text() == "Next: Find what is certain"
+    # Owner on an iPhone, 2026-11-25: no double-tap zoom on the exercise squares.
+    cell = page.locator("[data-hts-practice='squeeze'] .hts-strip-cell").first
+    assert page.evaluate("(el) => getComputedStyle(el.closest('[data-hts-page]')).touchAction", cell.element_handle()) == "manipulation"
 
     page.locator("[data-hts-goto='4']").click()
     page.wait_for_function("() => window.howToSolve.getStep() === 4", timeout=PAGES_SETTLE_MS)
