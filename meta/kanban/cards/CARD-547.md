@@ -1,6 +1,6 @@
 # CARD-547: EC-022's property test is renamed to the rule it now checks
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/547-rename-ec022-property-test
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-547
 **Source:** roadmap wave 21, cut 2026-11-25 on the owner's "pick the next no-decision wave from the backlog". Backlog IDEA-179; the rename has been owed since CARD-224 (trace.yml FR-032 notes, 2026-10-17).
 **Idea:** IDEA-179
 **Wave:** 100
@@ -19,7 +19,7 @@
 **Touches:** tests/property/test_book_pdf_geometry.py, tests/property/test_book_layout.py (module docstring only), tests/wave_close_marker.py, tests/test_wave_close_marker.py, meta/architecture/requirements.yml (EC-022 `test:` and the comments that name the test), meta/architecture/trace.yml (the FR-032 row and its notes)
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-25T11:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

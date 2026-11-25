@@ -1,6 +1,6 @@
 # CARD-546: The book PDF writer loses its dead defaults and guards (CARD-147 leftovers)
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/546-book-writer-dead-code
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-546
 **Source:** roadmap wave 21, cut 2026-11-25 on the owner's "pick the next no-decision wave from the backlog". Backlog IDEA-019 (CARD-147 F-002/F-003/F-005).
 **Idea:** IDEA-019
 **Wave:** 100
@@ -19,7 +19,7 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py (`BookPDFGenerator._write_pdf`, `BookPDFGenerator._write_page` only), the existing tests that call `_write_pdf` / `_write_page` (tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py) only if a call there relies on a removed default
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-25T11:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
