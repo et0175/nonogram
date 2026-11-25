@@ -2,8 +2,8 @@
 
     EC-019 (PDF half)  PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell
         -> test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages
-    EC-022 (PDF half)  PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
-        -> test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages
+    EC-022 (PDF half)  PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent
+        -> test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages
     EC-032 (PDF half)  PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
         -> test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages
 
@@ -689,7 +689,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
     assert below_book_floor >= 20, below_book_floor
 
 
-def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages() -> None:
+def test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages() -> None:
     """EC-022 (PDF half), as amended 2026-10-17: every puzzle page of a book is
     portrait, its grid is drawn unrotated, and its top edge lies at 42% of that
     page's own puzzle-area spare height — **not** at one fixed offset —
@@ -924,7 +924,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
     assert windowed * 10 <= checked * 2, (windowed, checked)
 
 
-def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages() -> None:
+def test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_two_up_pages() -> None:
     """EC-022 (PDF half), two-up pages — CARD-127 adds them to this corpus.
 
     FR-040 lets two puzzles of one tier share a page. The clause this property
