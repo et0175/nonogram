@@ -41,7 +41,7 @@ export const TRY_STEPS = [{"rows": [2], "columns": []}, {"rows": [], "columns": 
 const STEP_NAMES = [
   "The rules",
   "Squeeze from both ends",
-  "What every arrangement agrees on",
+  "Find what is certain",
   "The buttons",
   "Probe, and watch it break",
   "Line mode",
@@ -391,6 +391,134 @@ function setupLineFigure(page) {
   view.className = "hts-linefig-view";
   view.append(head, strip);
   box.replaceChildren(map, view);
+}
+
+// "Your turn" (owner, 2026-11-25: steps 2 and 3 only showed pictures). One
+// row of ten: the reader marks what must be so, presses Check, and is told.
+// The answer is worked out here from the lesson's own `arrangements`, so the
+// exercise cannot disagree with the rule it practises.
+const PRACTICE = {
+  squeeze: {
+    clue: [7], known: [], whites: false,
+    ask: "Your turn. A row of 10 with the clue 7: tap every square that must be black, then press Check.",
+    hint: "Slide the 7 as far left as it goes, then as far right. Which squares does it cover both times?",
+    right: "Right: the four in the middle are black wherever the run starts.",
+  },
+  agree: {
+    clue: [4], known: [2], whites: true,
+    ask: "Your turn. Clue 4, the third square already black. Tap once for black, twice for white (the dot): mark every square you can be sure of, then press Check.",
+    hint: "The 4 must cover the black square, so it starts at square 1, 2 or 3. What is black in all three, and what can it never reach?",
+    right: "Right: one more black, and the four at the far end are white. Those whites are what unlock other lines.",
+  },
+};
+
+function setupPractice(page) {
+  for (const box of page.querySelectorAll("[data-hts-practice]")) {
+    const task = PRACTICE[box.dataset.htsPractice];
+    if (task === undefined) continue;
+    const length = 10;
+    const ways = arrangements(task.clue, length).filter((line) => task.known.every((k) => line[k]));
+    const answer = Array.from({ length }, (_, k) => (ways.every((line) => line[k]) ? "filled"
+      : task.whites && ways.every((line) => !line[k]) ? "empty" : "unknown"));
+    let marks = Array.from({ length }, (_, k) => (task.known.includes(k) ? "filled" : "unknown"));
+    let verdict = null; // null | "right" | "wrong"
+
+    const head = document.createElement("div");
+    head.className = "hts-card-head";
+    const title = document.createElement("h3");
+    title.textContent = "Your turn";
+    const tag = document.createElement("span");
+    tag.className = "hts-tag";
+    head.append(title, tag);
+    const say = document.createElement("p");
+    say.className = "hts-say";
+    say.setAttribute("aria-live", "polite");
+    const strip = document.createElement("div");
+    strip.className = "hts-strip";
+    const clue = stripClue(task.clue.join(" "));
+    const cells = document.createElement("div");
+    cells.className = "hts-strip-cells";
+    cells.setAttribute("role", "group");
+    cells.setAttribute("aria-label", `A row of ${length}, clue ${task.clue.join(" ")}`);
+    strip.append(clue, cells);
+    const actions = document.createElement("div");
+    actions.className = "hts-actions";
+    const button = (text, quiet) => {
+      const made = document.createElement("button");
+      made.type = "button";
+      made.className = `btn ${quiet ? "hts-quiet" : "hts-go"}`;
+      made.textContent = text;
+      return made;
+    };
+    const check = button("Check", false);
+    const show = button("Show the answer", true);
+    const again = button("Start over", true);
+    actions.append(check, show, again);
+    box.append(head, say, strip, actions);
+
+    const said = { filled: "black", empty: "white", unknown: "open" };
+    function redraw() {
+      cells.replaceChildren(...marks.map((state, k) => {
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "hts-strip-cell";
+        cell.dataset.state = state;
+        cell.dataset.index = String(k);
+        const fixed = task.known.includes(k);
+        cell.setAttribute("aria-label", `Square ${k + 1}, ${said[state]}${fixed ? ", given" : ""}`);
+        if (fixed) cell.setAttribute("aria-disabled", "true");
+        if (verdict === "wrong" && state !== answer[k]) cell.classList.add("is-off");
+        return cell;
+      }));
+      box.dataset.verdict = verdict ?? "";
+      tag.textContent = verdict === "right" ? "Done" : "";
+      say.textContent = verdict === "right" ? task.right
+        : verdict === "wrong" ? `Not yet: the outlined squares are not right. ${task.hint}`
+          : task.ask;
+      check.hidden = verdict === "right";
+      show.hidden = verdict === "right";
+    }
+    cells.addEventListener("click", (event) => {
+      const cell = event.target instanceof Element ? event.target.closest(".hts-strip-cell") : null;
+      if (cell === null || verdict === "right") return;
+      const k = Number(cell.dataset.index);
+      if (task.known.includes(k)) return;
+      const order = task.whites ? ["unknown", "filled", "empty"] : ["unknown", "filled"];
+      marks[k] = order[(order.indexOf(marks[k]) + 1) % order.length];
+      verdict = null;
+      redraw();
+      cells.querySelector(`[data-index="${k}"]`)?.focus();
+    });
+    check.addEventListener("click", () => {
+      verdict = marks.every((state, k) => state === answer[k]) ? "right" : "wrong";
+      redraw();
+    });
+    show.addEventListener("click", () => {
+      marks = [...answer];
+      verdict = "right";
+      redraw();
+    });
+    again.addEventListener("click", () => {
+      marks = Array.from({ length }, (_, k) => (task.known.includes(k) ? "filled" : "unknown"));
+      verdict = null;
+      redraw();
+    });
+    redraw();
+  }
+}
+
+// The buttons step shows the four used most; one press shows the rest
+// (owner, 2026-11-25: ten paragraphs was a wall).
+function setupKeys(page) {
+  const list = page.querySelector("[data-hts-keys]");
+  const all = page.querySelector("[data-hts-keys-all]");
+  if (list === null || all === null) return;
+  all.addEventListener("click", () => {
+    const open = !list.classList.contains("is-all");
+    list.classList.toggle("is-all", open);
+    all.setAttribute("aria-expanded", String(open));
+    all.textContent = open ? "Show fewer" : "Show all the buttons";
+  });
 }
 
 function setupSqueeze(page) {
@@ -852,10 +980,12 @@ async function dressFor(home) {
   // Review of 2026-11-17, pass 2 (item 17): the last step offered only the
   // way back; from a book it also starts that book's first puzzle.
   const first = book !== null && typeof book === "object" && Array.isArray(book.puzzles) ? book.puzzles[0] : null;
-  const start = document.querySelector("[data-hts-start]");
-  if (start !== null && first !== null && typeof first === "object" && /^[0-9a-f]{10}$/.test(first.key ?? "")) {
-    start.href = `/play/${first.key}?book=${slug}`;
-    start.hidden = false;
+  if (first !== null && typeof first === "object" && /^[0-9a-f]{10}$/.test(first.key ?? "")) {
+    // Every "Start puzzle 1": the last step's, and step 2's way out (2026-11-25).
+    for (const start of document.querySelectorAll("[data-hts-start]")) {
+      start.href = `/play/${first.key}?book=${slug}`;
+      start.hidden = false;
+    }
     document.querySelector(".hts-end .hts-home-end")?.classList.replace("hts-go", "hts-quiet");
   }
   if (book === null || typeof book !== "object" || typeof book.theme !== "string"
@@ -883,6 +1013,8 @@ function load() {
   setupSqueeze(page);
   setupAgree(page);
   setupLineFigure(page);
+  setupPractice(page);
+  setupKeys(page);
   const probe = setupProbe(page);
   window.howToSolve = {
     getStep: wizard.getStep,

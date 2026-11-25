@@ -379,7 +379,7 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)
     assert _visible_step(page) == [2]
     assert page.evaluate("() => location.hash") == "#2"
-    assert page.locator("[data-hts-next]").inner_text() == "Next: What every arrangement agrees on"
+    assert page.locator("[data-hts-next]").inner_text() == "Next: Find what is certain"
 
     page.locator("[data-hts-goto='4']").click()
     page.wait_for_function("() => window.howToSolve.getStep() === 4", timeout=PAGES_SETTLE_MS)
@@ -575,12 +575,12 @@ def test_back_to_your_puzzles_returns_to_the_book_it_came_from(browser_page, pag
     homes = page.locator("[data-hts-home]")
 
     _open(page, url, referer=f"{url}/b/{slug}")
-    assert homes.count() == 2
-    assert {homes.nth(i).get_attribute("href") for i in range(2)} == {f"/b/{slug}"}
+    assert homes.count() == 3  # top, step 2's way out (2026-11-25), the last step
+    assert {homes.nth(i).get_attribute("href") for i in range(3)} == {f"/b/{slug}"}
 
     _open(page, url)
-    assert {homes.nth(i).get_attribute("href") for i in range(2)} == {"/library"}
+    assert {homes.nth(i).get_attribute("href") for i in range(3)} == {"/library"}
 
     # Another site's /b/ path is not this site's book.
     _open(page, url, referer=f"https://elsewhere.example/b/{slug}")
-    assert {homes.nth(i).get_attribute("href") for i in range(2)} == {"/library"}
+    assert {homes.nth(i).get_attribute("href") for i in range(3)} == {"/library"}
