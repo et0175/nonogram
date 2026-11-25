@@ -92,6 +92,15 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 20 — IN PROGRESS (board wave 99)
+
+### As cut
+
+Cut against main on 2026-11-25 on the owner's "card the caffeinate change", proposed at the Wave 19 close. One card.
+
+### tech-debt
+- **CARD-545** The merge gate and the wave close keep the Mac awake while they run — 1c
+
 ## Wave 19 — DONE 2026-11-25 (board wave 98)
 
 Two cards merged, both certified: CARD-544 (`45017736`, 9.5 at cycle 1, net 0), CARD-543 (`1c779737`, 9.5 at cycle 2, net 0). Net tests 0. Wave close: `make test-wave-close` on main at `b37ea225`, in a detached worktree pinned to that commit, under `caffeinate -i`: 1 failed, 10683 passed, 30 skipped (unarmed), 1 xfailed, 36 min. The red, `tests/test_puzzle_solver_marking.py::TestSolverMarking_RevealsNoCorrectness::test_marking_all_but_the_last_solution_cell_changes_nothing_but_cell_states` (cell 92 read `unknown` where `filled` was expected), is in a file neither card touches; no sleep in `pmset -g log` during the run; re-run alone on the same tree 3 passed of 3 and its file 77 passed. First red of that test in this board's logged gates and closes; recorded as a flake, not carded. Verdicts: CARD-543 found the gate reds were macOS idle sleep during the browser sweep (Playwright's timer counts the sleep; both reds overlap an Idle Sleep in `pmset`), with CPU load separately aborting the stall control's 3 s page load; the clean control now has a 30 s timeout and re-runs only a check the machine provably slept through, failing loudly after three. CARD-544 found the review's mutant R4 equivalent (a pair shares one tier, and the payload feeds only the band's tier word); the extended test now reads each band's clues from the exported page and reds the swaps that put a band over the other grid. Test-only: nothing to publish. Open for the owner: running `test-gate`/`test-wave-close` under `caffeinate` (it held no sleep already in progress at CARD-544's gate). Recorded, not carded: CARD-544 F-002, CARD-543 F-004.
