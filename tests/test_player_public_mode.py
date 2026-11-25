@@ -1743,13 +1743,18 @@ def _awake(run, attempts: int = 3):
     awake time, measured), whatever the timeout; on macOS ``time.time``
     counts the sleep and ``time.monotonic`` does not, so their drift is the
     sleep. A run the machine stayed awake through is returned as it is, so an
-    abort on an awake machine is never retried away."""
+    abort on an awake machine is never retried away. If every attempt slept,
+    no result is trusted (a sleep could have decided it, and on the mutant's
+    side that would count as a catch): the test fails, saying so."""
+    slept = []
     for _ in range(attempts):
         drift = time.time() - time.monotonic()
         result = run()
-        if abs(time.time() - time.monotonic() - drift) < 2.0:
+        gap = abs(time.time() - time.monotonic() - drift)
+        if gap < 2.0:
             return result
-    return result
+        slept.append(round(gap, 1))
+    pytest.fail(f"the machine slept through all {attempts} attempts ({slept} s); no verdict: {result}")
 
 
 @pytest.fixture
