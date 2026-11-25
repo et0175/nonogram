@@ -325,10 +325,12 @@ class TestWaveCloseMarker_TheWaveCloseIsBare:
         makefile = (REPO / "Makefile").read_text(encoding="utf-8")
         assert _recipe(makefile, "test") == ["$(PY) -m pytest"]
         wave_close = _recipe(makefile, "test-wave-close")
-        assert wave_close[-1] == "$(PY) -m pytest"
-        assert [c for c in wave_close if "pytest" in c and "PYTEST_ADDOPTS" not in c and "echo" not in c] == ["$(PY) -m pytest"]
+        # CARD-545: the long runs carry $(KEEPAWAKE) (caffeinate -i on macOS, empty
+        # elsewhere); the pytest it prefixes is still the bare one.
+        assert wave_close[-1] == "$(KEEPAWAKE) $(PY) -m pytest"
+        assert [c for c in wave_close if "pytest" in c and "PYTEST_ADDOPTS" not in c and "echo" not in c] == ["$(KEEPAWAKE) $(PY) -m pytest"]
         assert any("PYTEST_ADDOPTS" in c for c in wave_close), "the wave close does not look at PYTEST_ADDOPTS"
-        assert _recipe(makefile, "test-marked") == ["$(PY) -m pytest -m wave_close_only"]
+        assert _recipe(makefile, "test-marked") == ["$(KEEPAWAKE) $(PY) -m pytest -m wave_close_only"]
 
     def test_review_test_command_is_bare_and_the_gate_form_is_named(self):
         text = (REPO / "meta" / "kanban" / "config.yml").read_text(encoding="utf-8")
