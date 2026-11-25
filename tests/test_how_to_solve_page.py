@@ -547,6 +547,11 @@ def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) ->
     assert "is-flagged" in abandon.get_attribute("class")
     assert page.locator("[data-hts-probe-text]").inner_text() == (
         f"Hint: this guess breaks {bad['axis']} {bad['index'] + 1}.")
+    # Owner, 2026-11-25: a press anywhere else withdraws it, as on the board.
+    page.locator("h1").click()
+    assert not page.locator("[data-hts-probe-text]").inner_text().startswith("Hint:")
+    assert "is-flagged" not in abandon.get_attribute("class")
+    page.locator("[data-hts-probe-hint]").click()
     page.locator("[data-hts-probe-keep]").click()
     assert phase() == "kept"
     assert "is-bad" not in clue.get_attribute("class")
