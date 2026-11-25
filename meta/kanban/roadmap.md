@@ -92,7 +92,11 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 21 — OPEN 2026-11-25 (board wave 100)
+## Wave 21 — DONE 2026-11-25 (board wave 100)
+
+Two cards merged. CARD-547 (`a9dcb45d`, 9.5 at cycle 1, net 0): EC-022's property test is now `PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent`. All three functions were renamed (the card said two). The registry, trace and requirements refs were renamed, and three census digests were re-measured. Its gate ran FULL: 10684 passed, 0 failed. CARD-546 (`5092f24e`, 9.5 at cycle 1, net +1): `_write_page` takes `mode` as a required keyword. Both `_write_pdf` guards are kept, and the colour-space refusal now has its first test. PDF bytes are unchanged (three digests). Its gate ran a SELECTION: 9085 passed plus 11 marked, 0 failed. The migration-013 `UPDATE` was declined (applied history).
+
+Wave close: `make test-wave-close` on main at `58079f8d`, in a detached worktree, under caffeinate. Result: **3 failed**, 10682 passed, 30 skipped, 1 xfailed, 37 min. All three are `tests/test_player_viewport_matrix.py::test_the_library_a_book_and_the_lesson_work_at_this_screen[desktop|portrait|landscape]`, and **they are not this wave's**. They pass 3/3 on `445f5c5c` (main before the other session's how-to-solve merge `2ce09651`) and fail 3/3 on `58079f8d`. That merge's `d5ddef72` puts a "New? 2-minute lesson" link on the `.player-howto` summary's own line, so the test's press on the summary lands on that link and navigates away before `[data-player-lesson]` is reached. The test's walk is stale against the new UX; it is not a sleep flake. Left to the session that owns the lesson change.
 
 ### As cut
 
