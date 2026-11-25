@@ -1,6 +1,6 @@
 # CARD-544: A two-up page whose grids are swapped under their bands fails a test
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/544-two-up-slot-swap
-**Worktree:** ../PythonProject4-card-544
+**Worktree:** —
 **Source:** roadmap wave 19, cut 2026-11-24 on the owner's "card both" (CARD-541 review F-001).
 **Idea:** —
 **Wave:** 98
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-24T19:06Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-25T02:51Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 45017736
 **Blocked by:** —
 
 ## Why this card exists
