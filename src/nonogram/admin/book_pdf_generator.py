@@ -6628,7 +6628,7 @@ class BookPDFGenerator:
                         f"bitmap, but arrived as {type(page).__name__}"
                     )
                 self._write_page(pdf, page, image_refs[index], page_refs[index],
-                                 contents_refs[index], mode)
+                                 contents_refs[index], mode=mode)
             else:
                 if not isinstance(page, ContentStream):
                     raise TypeError(
@@ -6659,7 +6659,8 @@ class BookPDFGenerator:
         image_ref: Any,
         page_ref: Any,
         contents_ref: Any,
-        mode: str = "RGB",
+        *,
+        mode: str,
     ) -> None:
         """Write one page's three objects into ``pdf``, at its own object ids.
 
@@ -6687,9 +6688,12 @@ class BookPDFGenerator:
         ``v`` — 0 stays 0, 255 stays 255, and nothing between them is invented
         (ADR-0037/R2).
 
-        ``mode`` defaults to ``"RGB"``, the one colour space every book PDF was
-        written in before this card, so a caller that names none gets the old
-        behaviour; :meth:`_write_pdf` always names it.
+        ``mode`` is a required keyword, as it is on :meth:`_write_pdf` and for
+        the same reason (CARD-546, closing CARD-147's F-002): a default of
+        ``"RGB"`` here was exactly the silent colour space the required keyword
+        upstream exists to prevent — a call that forgot the mode would have
+        written a black-and-white book's bitmap pages in colour. The one key
+        check is :meth:`_write_pdf`'s; this method trusts the mode it is named.
         """
         colour_space, procset = _PDF_COLOUR_SPACE[mode]
         if page.mode != mode:

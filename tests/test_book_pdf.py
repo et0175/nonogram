@@ -3329,6 +3329,22 @@ class TestWritePdf_RefusesWhatItCannotWrite:
             )
         assert "2 page kind(s)" in str(raised.value), str(raised.value)
 
+    def test_a_colour_space_it_does_not_know_is_refused(self) -> None:
+        """CARD-546: the other before-the-buffer refusal, driven.
+
+        No production call reaches it (``InkMode.bitmap_mode`` yields ``"L"``
+        or ``"RGB"`` and the cover names ``"RGB"``), but ``_write_pdf`` is a
+        boundary the test tree calls directly. Without the check a raster page
+        would surface as a ``KeyError`` from ``_write_page`` mid-write, and an
+        all-vector file would accept any mode silently."""
+        generator = self._generator()
+        page = Image.new("RGB", (60, 80), "white")
+        with pytest.raises(ValueError) as raised:
+            generator._write_pdf(
+                iter([page]), 1, mode="CMYK", kinds=(PageKind.COVER,)
+            )
+        assert "not 'CMYK'" in str(raised.value), str(raised.value)
+
     def test_a_bitmap_under_a_vector_declaration_is_refused(
         self, monkeypatch
     ) -> None:
