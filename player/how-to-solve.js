@@ -841,6 +841,14 @@ function setupProbe(page) {
     }, { capture: true });
   }
   board.addEventListener("click", () => { asked = false; said = null; }, { capture: true });
+  // Owner, 2026-11-25: Hint's answer goes away on a press anywhere else, as
+  // the player's own hint box does, and the step's sentence comes back.
+  document.addEventListener("pointerdown", (event) => {
+    if (said === null || (event.target instanceof Element && event.target.closest("[data-hts-probe-hint]"))) return;
+    asked = false;
+    said = null;
+    redraw();
+  }, true);
   buttons.hint.addEventListener("click", () => {
     asked = true;
     // The player's own sentences (solver.js probeBrokenText).
