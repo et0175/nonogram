@@ -1172,3 +1172,5 @@ Not observed: a real phone.
 | Preview | **`nonogram-studio-26nr6pzsx`**; Pixel-sized Chromium: an Easy puzzle shows no Probe and no How-to-play Probe line, a Medium shows both; lesson step 6 "Line mode" with its 4 4 strip; no page errors. |
 | Production | `vercel promote` created **`nonogram-studio-gfmk7t1n9`**; new `solver.js` on poll 2; hashes matched, doors 200, `/nope` 404. |
 | Rollback target | The test-notes deployment (`nonogram-studio-dx2xosgcx`). |
+
+**The desktop zoom-pill publish, 2026-11-25.** The owner's "так, публікуй" after the public desktop zoom became the phone's pill (`84223acf`). Built from main the same way into `~/Documents/nonogram-reviews/deploy-2026-11-25-zoom/src`, no `--analytics`. Exactly one served file differed from production: `admin.css` (`f0dbd0b45eca`). Preview **`nonogram-studio-em8jxstm2`** (doors 200, `/nope` 404, `admin.css` at the built hash); `vercel promote` created **`nonogram-studio-132pefmxn`**, new `admin.css` on poll 2. Rollback target: `nonogram-studio-gfmk7t1n9`.
