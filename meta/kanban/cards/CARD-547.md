@@ -1,6 +1,6 @@
 # CARD-547: EC-022's property test is renamed to the rule it now checks
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/547-rename-ec022-property-test
-**Worktree:** ../PythonProject4-card-547
+**Worktree:** —
 **Source:** roadmap wave 21, cut 2026-11-25 on the owner's "pick the next no-decision wave from the backlog". Backlog IDEA-179; the rename has been owed since CARD-224 (trace.yml FR-032 notes, 2026-10-17).
 **Idea:** IDEA-179
 **Wave:** 100
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-25T11:41Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-25T12:29Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** a9dcb45d
 **Blocked by:** —
 
 ## Why this card exists
@@ -85,3 +85,5 @@ Reason: every one of the three bodies asserts portrait, unrotated (columns x row
 - Runs: `tests/test_wave_close_marker.py`, `tests/test_check_ref_resolution.py` and the three renamed tests by node id gave 48 passed, 0 skipped, exit 0, 2 UserWarnings. The warnings were not compared against a base run. `-m wave_close_only --collect-only` lists the renamed `_pdf_pages` (3/5). The forge_1 validator gives 0 errors and 104 warnings.
 - Trace notes: CARD-224's facts are kept (merge c65bb3b, AC-190's class deleted, 3 cases, sound test). The "rename still owed" passage became the dated "Renamed 2026-11-25 (CARD-547)" line. The older amendments below it are untouched.
 - System contract: 24 rules checked. 1 holds (ADR-0039/R4: the moved figures name their instrument). 23 are unchecked with no_eligible_fact. 0 are violated.
+
+[Review 1/3] Score: 9.5, certified. F-001 (low): the `_two_up_pages` name reads as if two-up slots float at 42%, which EC-022 does not claim; its docstring states the split. Marker line added by the orchestrator at close, from the cycle-1 report above. Report: meta/review/CARD-547-review-1.yml.
