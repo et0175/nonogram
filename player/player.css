@@ -647,6 +647,19 @@ body {
 .hts-linefig-axis > .is-on { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 .hts-linefig .hts-strip-cell { height: 1.9rem; }
 
+/* "Your turn" (2026-11-25): the strip's squares are buttons here. */
+button.hts-strip-cell { padding: 0; font: inherit; color: inherit; cursor: pointer; height: 2.2rem; }
+button.hts-strip-cell[aria-disabled="true"] { cursor: default; }
+button.hts-strip-cell:focus-visible { outline: 3px solid var(--color-accent); outline-offset: -3px; }
+button.hts-strip-cell.is-off { box-shadow: inset 0 0 0 3px var(--color-danger); }
+[data-hts-practice][data-verdict="right"] { border-color: var(--color-success); }
+/* Step 2's way out for the Easy reader. */
+.hts-enough { background: var(--color-success-tint); border-color: var(--color-success); }
+.hts-enough p { margin: 0; }
+.hts-aside { font-size: var(--text-sm); color: var(--color-text-secondary); }
+/* The buttons step: four at first, the rest on request. */
+.hts-keys:not(.is-all) > .hts-key-more { display: none; }
+
 /* The probe example's next press (owner, 2026-11-25): a ring that pulses
    gently, still for a reader who asked for less motion. */
 .is-next { position: relative; z-index: 1; box-shadow: 0 0 0 3px var(--color-accent); animation: hts-next 1.4s ease-in-out infinite; }

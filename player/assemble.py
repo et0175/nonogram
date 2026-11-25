@@ -902,6 +902,18 @@ async function main() {
     lesson.textContent = "New to nonograms? The 2-minute lesson";
     item.append(lesson);
     howtoList.append(item);
+    // Owner, 2026-11-25: that link was only inside the closed How to play.
+    // The same way to the lesson, in sight, on the summary's own line.
+    const summary = document.querySelector(".player-howto > summary");
+    if (summary !== null) {
+      const top = document.createElement("a");
+      top.href = "/how-to-solve";
+      top.dataset.playerLessonTop = "";
+      top.textContent = "New? 2-minute lesson";
+      top.setAttribute("style", "margin-left:var(--space-4);font-weight:400;"
+        + "font-size:var(--text-sm);color:var(--color-text-secondary)");
+      summary.append(top);
+    }
   }
   const data = document.createElement("script");
   data.type = "application/json";

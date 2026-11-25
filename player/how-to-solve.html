@@ -43,7 +43,7 @@
     <div class="hts-dots">
       <button type="button" class="hts-dot" data-hts-goto="1" aria-label="Step 1: The rules"></button>
       <button type="button" class="hts-dot" data-hts-goto="2" aria-label="Step 2: Squeeze from both ends"></button>
-      <button type="button" class="hts-dot" data-hts-goto="3" aria-label="Step 3: What every arrangement agrees on"></button>
+      <button type="button" class="hts-dot" data-hts-goto="3" aria-label="Step 3: Find what is certain"></button>
       <button type="button" class="hts-dot" data-hts-goto="4" aria-label="Step 4: The buttons"></button>
       <button type="button" class="hts-dot" data-hts-goto="5" aria-label="Step 5: Probe, and watch it break"></button>
       <button type="button" class="hts-dot" data-hts-goto="6" aria-label="Step 6: Line mode"></button>
@@ -73,7 +73,7 @@
         <button type="button" class="hts-brush" data-hts-brush="unknown" aria-pressed="false"><span class="hts-swatch" data-state="unknown" aria-hidden="true"></span>Clear</button>
       </div>
       <div class="hts-actions">
-        <button type="button" class="btn hts-quiet" data-hts-try-show>Show me</button>
+        <button type="button" class="btn hts-quiet" data-hts-try-show>Show this step</button>
         <button type="button" class="btn hts-quiet" data-hts-try-reset>Start over</button>
       </div>
     </div>
@@ -88,10 +88,22 @@
     <p>Six squares solved without knowing where the run starts. Come back to
       this after every discovery: the more you know, the tighter the
       squeeze.</p>
+    <div class="hts-card" data-hts-practice="squeeze"></div>
+    <!-- Owner, 2026-11-25: a way out for the reader who came for the Easy
+         puzzles; the rest of the lesson is for Medium and Hard. -->
+    <div class="hts-card hts-enough" data-hts-enough>
+      <p><b>That is all an Easy puzzle needs.</b> The rules and the squeeze
+        solve every Easy puzzle, start to finish.</p>
+      <div class="hts-end">
+        <a class="btn hts-go" data-hts-start hidden>Start puzzle 1</a>
+        <a class="btn hts-quiet" href="/library" data-hts-home>Back to your puzzles</a>
+      </div>
+      <p class="hts-aside">Or press Next: the steps after this are for Medium and Hard.</p>
+    </div>
   </section>
 
-  <section class="hts-step" data-hts-step="3" data-hts-name="What every arrangement agrees on" hidden>
-    <h2>Keep what every arrangement agrees on</h2>
+  <section class="hts-step" data-hts-step="3" data-hts-name="Find what is certain" hidden>
+    <h2>Find what is certain</h2>
     <p>Think of every way the clue could fit the line, given what you already
       know. A square black in all of them is black. A square empty in all of
       them is white.</p>
@@ -101,11 +113,12 @@
     <p>A row of 10 with the clue <b class="hts-num">3</b>, its second square
       already black. Only two ways still fit, and both agree:</p>
     <div class="hts-card hts-squeeze" data-hts-agree></div>
+    <div class="hts-card" data-hts-practice="agree"></div>
   </section>
 
   <section class="hts-step" data-hts-step="4" data-hts-name="The buttons" hidden>
     <h2>The buttons</h2>
-    <p>Every puzzle has these, and the same list sits under each board as
+    <p>The four you will use most. The whole list sits under each board as
       <b>How to play</b>.</p>
     <!-- CARD-444: the player's own "How to play" list (puzzle_solve.html's
          #puzzle-player-hint, less the panel-only Check), word for word, each
@@ -115,15 +128,16 @@
     <ul class="hts-keys" data-hts-keys>
       <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="unknown"></span></span><span><strong>Tap</strong> or click a square to fill it. Do it again to cycle: black, white (dot), empty.</span></li>
       <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span></span><span><strong>Brush</strong> (the square): choose what a tap puts down: Black, White, Maybe (?) or Clear.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span><span class="hts-swatch" data-state="filled"></span></span><span><strong>Region</strong> (the two squares): turn it on, then drag along a row or column to mark many squares at once, or press and hold one square and tap the other end. With it off, dragging scrolls.</span></li>
+      <li class="hts-key-more"><span class="hts-key" aria-hidden="true"><span class="hts-swatch" data-state="filled"></span><span class="hts-swatch" data-state="filled"></span></span><span><strong>Region</strong> (the two squares): turn it on, then drag along a row or column to mark many squares at once, or press and hold one square and tap the other end. With it off, dragging scrolls.</span></li>
       <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6"></path></svg><svg class="hts-icon hts-mirror" viewBox="0 0 16 16" focusable="false"><path d="M6 4L3 7l3 3M3 7h6.5a3.5 3.5 0 010 7H6"/></svg></span><span><strong>Undo</strong> and <strong>Redo</strong>: step back or forward one mark at a time.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M13 8a5 5 0 01-8.7 3.4M3 8a5 5 0 018.7-3.4M11 2v3h-3M5 14v-3h3"/></svg></span><span><strong>Reset</strong>: clears the whole board after asking. Undo brings it back.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v7h-13zM5.8 4.5v7M10.2 4.5v7"/></svg></span><span><strong>Line</strong> (on a phone): opens one row or column in big squares.</span></li>
+      <li class="hts-key-more"><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M13 8a5 5 0 01-8.7 3.4M3 8a5 5 0 018.7-3.4M11 2v3h-3M5 14v-3h3"/></svg></span><span><strong>Reset</strong>: clears the whole board after asking. Undo brings it back.</span></li>
+      <li class="hts-key-more"><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v7h-13zM5.8 4.5v7M10.2 4.5v7"/></svg></span><span><strong>Line</strong> (on a phone): opens one row or column in big squares.</span></li>
       <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M6 12.5h4M6.5 14.5h3M5.8 10.5a4.5 4.5 0 114.4 0c-.4.3-.7.8-.7 1.3v.7h-3v-.7c0-.5-.3-1-.7-1.3z"/></svg></span><span><strong>Hint</strong>: press up to three times. First it shows where to look, then why, then it fills the square.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg></span><span><strong>Probe</strong>: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.</span></li>
-      <li><span class="hts-key" aria-hidden="true">&minus; +</span><span><strong>Zoom</strong>: &minus; / + or Fit to see the whole puzzle.</span></li>
-      <li><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v8h-13zM4 7h1M7 7h1M10 7h1M5 10h6"/></svg></span><span>On a computer, right-click puts White; the arrow keys move and Space marks.</span></li>
+      <li class="hts-key-more"><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M3 3h10v10H3z" stroke-dasharray="2 2"/></svg></span><span><strong>Probe</strong>: try a guess safely. Keep it if it works out, or press Wrong guess to undo it all.</span></li>
+      <li class="hts-key-more"><span class="hts-key" aria-hidden="true">&minus; +</span><span><strong>Zoom</strong>: &minus; / + or Fit to see the whole puzzle.</span></li>
+      <li class="hts-key-more"><span class="hts-key" aria-hidden="true"><svg class="hts-icon" viewBox="0 0 16 16" focusable="false"><path d="M1.5 4.5h13v8h-13zM4 7h1M7 7h1M10 7h1M5 10h6"/></svg></span><span>On a computer, right-click puts White; the arrow keys move and Space marks.</span></li>
     </ul>
+    <button type="button" class="btn hts-quiet" data-hts-keys-all aria-expanded="false">Show all the buttons</button>
   </section>
 
   <section class="hts-step" data-hts-step="5" data-hts-name="Probe, and watch it break" hidden>
@@ -186,7 +200,8 @@
     <h2>What the levels mean</h2>
     <dl class="hts-levels">
       <dt><span class="hts-level" data-tier="easy" aria-hidden="true"></span>Easy</dt>
-      <dd>Squeezing from both ends is enough, start to finish.</dd>
+      <dd>Squeezing from both ends is enough, start to finish. These have no
+        <b>Probe</b> button: you never need it.</dd>
       <dt><span class="hts-level" data-tier="medium" aria-hidden="true"></span>Medium</dt>
       <dd>Needs what every arrangement agrees on, and may need a probe for part of the grid.</dd>
       <dt><span class="hts-level" data-tier="hard" aria-hidden="true"></span>Hard</dt>
