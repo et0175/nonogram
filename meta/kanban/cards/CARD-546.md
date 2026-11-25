@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py (`BookPDFGenerator._write_pdf`, `BookPDFGenerator._write_page` only), the existing tests that call `_write_pdf` / `_write_page` (tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py) only if a call there relies on a removed default
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-25T11:41Z
 **Closed:** —
 **Actual:** —
@@ -111,3 +111,14 @@ The bw interior writes 4 raster pages as DeviceGray and its other pages as vecto
 - `tests/test_book_pdf.py tests/test_book_pdf_ink_mode.py tests/test_book_puzzle_page_vector.py tests/test_book_solved_answer_key.py`: 332 collected, 332 passed, 0 skipped (no SKIPPED/FAILED lines under `-rfs`), exit 0.
 - `tests/test_kanban_review_record.py`: 71 passed, 0 skipped, exit 0.
 - The full suite was not run here; the merge gate runs it.
+
+### Review cycle 1 (2026-11-25)
+
+**Score:** 9.5/10. **Verdict:** CERTIFIED (no critical or important findings).
+
+[Review 1/3] Score: 9.5, certified. Independent forge:review, re-run from this worktree with the main venv. `tests/test_book_pdf.py::TestWritePdf_RefusesWhatItCannotWrite`: 5 collected, 5 passed, 0 skipped, exit 0. The `_write_page` wrapper classes (`TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage` + `TestBookPdfMemory_NothingHalfWrittenEscapes`): 7 collected, 7 passed, 0 skipped. The seven PDF files that reference `_write_pdf`/`_write_page` (test_book_pdf, test_book_pdf_ink_mode, test_book_puzzle_page_vector, test_book_solved_answer_key, test_book_uploaded_dividers, test_export_pdf, test_book_pdf_vector_primitives): 547 collected, 547 passed, 0 skipped, exit 0. Mutant MA (AC-2: default restored and `mode=` dropped at the `_write_pdf` call): killed, 7 failed in test_book_pdf_ink_mode.py. Mutant MB (colour-space guard disabled and `_write_page`'s lookup softened to a silent DeviceRGB fallback): killed by the new `test_a_colour_space_it_does_not_know_is_refused` alone, 1 failed, 4 passed, exit 1. Both restored from a captured copy; `git diff` against HEAD empty afterwards. AC-3: main's `src` exported with `git archive` and the same frozen-clock script run on both trees: bw interior sha256 70a67148..., colour interior b0c80a40..., cover 1a48c05b..., before = after (diff exit 0); the two interior digests match the implementer's figures. AC-4: `def test_` count in test_book_pdf.py 112 on main, 113 on the branch, net +1; not a duplicate (no other test drives the colour-space refusal, and no other test passes a mode other than L/RGB). No docstring or comment in src/, tests/, docs/ or meta/architecture still describes `_write_page`'s old RGB default. System contract: 52 rules, 5 hold, 47 unchecked (no_eligible_fact), 0 violated.
+
+- F-001 (low): AC-1 asks for "the commands used"; the ast walker and the digest script are described in prose with their output but not recorded verbatim. They were reproducible from the description, so this is optional.
+- F-002 (info): the ast walk covered src/ and tests/ only; `git grep` also finds scripts/card293_vector_probe.py (docstring) and scratchpad/card337/measure_raster_writes.py (an `*args/**kwargs` spy). Neither relies on the default, so the claim stands.
+
+Report: meta/review/CARD-546-review-1.yml (gitignored; sync it before removing the worktree).
