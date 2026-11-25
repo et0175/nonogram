@@ -666,6 +666,14 @@ button.hts-strip-cell.is-off { box-shadow: inset 0 0 0 3px var(--color-danger); 
 /* The buttons step: four at first, the rest on request. */
 .hts-keys:not(.is-all) > .hts-key-more { display: none; }
 
+/* The probe example's sentence, above its buttons (2026-11-25): a new one
+   flashes its background once. */
+.hts-say-near { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--color-accent-tint); }
+.hts-say-near.is-new { animation: hts-said 0.9s ease-out; }
+@keyframes hts-said { from { background: color-mix(in srgb, var(--color-accent) 35%, var(--color-accent-tint)); } }
+@media (prefers-reduced-motion: reduce) { .hts-say-near.is-new { animation: none; } }
+button[data-hts-probe-keep][aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+
 /* The probe example's next press (owner, 2026-11-25): a ring that pulses
    gently, still for a reader who asked for less motion. */
 .is-next { position: relative; z-index: 1; box-shadow: 0 0 0 3px var(--color-accent); animation: hts-next 1.4s ease-in-out infinite; }

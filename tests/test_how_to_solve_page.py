@@ -558,7 +558,11 @@ def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) ->
     # Owner, 2026-11-24 ("Keep doesn't work"): Keep answers in words, goes
     # away, and flags the one move left.
     assert "press Wrong guess" in page.locator("[data-hts-probe-text]").inner_text()
-    assert page.locator("[data-hts-probe-keep]").is_hidden()
+    # 2026-11-25: it stays in sight, inert, rather than vanishing; and the
+    # sentence sits just above the buttons, not above the board.
+    assert page.locator("[data-hts-probe-keep]").get_attribute("aria-disabled") == "true"
+    assert page.evaluate("""() => document.querySelector('[data-hts-probe-text]').getBoundingClientRect().top
+      > document.querySelector('[data-hts-probe-board]').getBoundingClientRect().bottom""")
     assert "is-flagged" in abandon.get_attribute("class")
     # CARD-444: Wrong guess, as the player names it, then the player's offer.
     page.locator("[data-hts-probe-abandon]").click()

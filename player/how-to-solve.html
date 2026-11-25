@@ -153,8 +153,11 @@
         <h3>Try a probe</h3>
         <span class="hts-tag" data-hts-probe-tag></span>
       </div>
-      <p class="hts-say" data-hts-probe-text aria-live="polite"></p>
       <div class="hts-board" data-hts-probe-board></div>
+      <!-- Owner, 2026-11-25: Keep and Hint "did nothing" on a phone; their
+           answer was written ABOVE the board, off the screen while the
+           thumb was on the buttons. It now sits right above them. -->
+      <p class="hts-say hts-say-near" data-hts-probe-text aria-live="polite"></p>
       <div class="hts-offer" data-hts-probe-offer hidden>
         <p data-hts-probe-offer-text></p>
         <button type="button" class="btn hts-quiet" data-hts-probe-mark>Mark it</button>

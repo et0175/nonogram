@@ -783,9 +783,10 @@ function setupProbe(page) {
     buttons.open.setAttribute("aria-pressed", String(open));
     buttons.follow.hidden = phase !== "following";
     buttons.hint.hidden = !(phase === "following" || phase === "broken" || phase === "kept");
-    // Owner, 2026-11-24: Keep "did nothing" here. It answers in words, and
-    // goes away once pressed, leaving the one move that fits this probe.
-    buttons.keep.hidden = phase !== "broken";
+    // Owner, 2026-11-24/25: Keep answers in words; it stays where it was
+    // (it vanishing read as broken too), only inert, and Wrong guess is lit.
+    buttons.keep.hidden = !(phase === "broken" || phase === "kept");
+    buttons.keep.setAttribute("aria-disabled", String(phase === "kept"));
     buttons.abandon.hidden = !(phase === "broken" || phase === "kept");
     // The player flags Wrong guess while the probe has broken a line (CARD-410).
     buttons.abandon.classList.toggle("is-flagged", bad || phase === "kept");
@@ -798,7 +799,14 @@ function setupProbe(page) {
     // The square the offer names is outlined, as the player outlines it.
     board.querySelector(`.hts-cell[data-row="${pr}"][data-column="${pc}"]`)
       ?.classList.toggle("is-offered", phase === "offered");
+    const before = text.textContent;
     text.textContent = said ?? probeText(phase, step, clues);
+    // A new answer flashes once, so a press is seen to have done something.
+    if (text.textContent !== before) {
+      text.classList.remove("is-new");
+      void text.offsetWidth;
+      text.classList.add("is-new");
+    }
     // The next press, lit (owner, 2026-11-25: "an arrow to Probe, or
     // something better"): the one control this step of the example wants
     // gets a pulsing ring, all the way through — Probe, the outlined square,
@@ -838,7 +846,7 @@ function setupProbe(page) {
     // The player's own sentences (solver.js probeBrokenText).
     const broken = phase === "broken" || phase === "kept" ? [PROBE_CHAIN.at(-1)] : [];
     said = broken.length === 0
-      ? "Hint: this guess breaks no row or column yet."
+      ? "Hint: nothing is broken yet. Press Follow it to see what the black square forces next."
       : `Hint: this guess breaks ${broken.map((entry) => `${entry.axis} ${entry.index + 1}`).join(", ")}.`;
     redraw();
   });
