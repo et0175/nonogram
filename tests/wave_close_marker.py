@@ -86,11 +86,11 @@ LIST_1: tuple[Entry, ...] = (
         file="tests/property/test_book_pdf_geometry.py",
         marked=(
             "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages",
-            "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages",
+            "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages",
             "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages",
         ),
         smoke=(
-            "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages",
+            "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_two_up_pages",
         ),
         controls=(
             "tests/property/test_book_pdf_geometry.py::test_a_page_box_one_pixel_off_the_trim_reds_the_trim_assertion",
@@ -101,7 +101,7 @@ LIST_1: tuple[Entry, ...] = (
                 "at_cap": 20,
                 "below_book_floor": 20,
             },
-            "test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages": {
+            "test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages": {
                 "len(extents)": 120,
                 "counted": 150,
                 "overflowed": 1,

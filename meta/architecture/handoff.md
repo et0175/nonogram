@@ -380,7 +380,7 @@ Tests: `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`,
 `TestCliExports_ByteIdenticalAfterBookGeometry`,
 `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` (CON-019's
 check ref), `PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell`,
-`PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent`,
+`PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent`,
 `TestBookPdf_CellSizedForBookTrimNotA4`, `TestBookPdf_PageSizeEqualsStoredTrim`,
 `TestBookPdf_EveryFifthGridLineWider`, `TestBookCell_*` (AC-236..AC-239),
 `TestBookCreate_StoresBook1PrintProfile`,

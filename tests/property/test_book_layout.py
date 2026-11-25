@@ -6,8 +6,8 @@
     ADR-0037/R2           PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin
         -> test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin
         -> test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_pixels
-    EC-022 (layout half)  PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
-        -> test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+    EC-022 (layout half)  PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent
+        -> test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent
     EC-032 (layout half)  PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
         -> test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
     PageSpec's invariant  test_PropertyTest_PageSpec_ExistsExactlyWhenItsUsableAreaIsPositive
@@ -380,20 +380,22 @@ def test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_p
     assert checked == 12
 
 
-def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent() -> None:
+def test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent() -> None:
     """EC-022 (layout half), as amended 2026-10-17: portrait, unrotated, and the
     drawing floats at **42% of the puzzle area's spare height** — not at one
     fixed offset below the top margin — for every extent 10..30 x 10..30,
     including the wide grids NFR-006 would turn.
 
-    **Function name kept for trace stability.** EC-022 names this test by
-    exact name in ``requirements.yml``; the amendment of 2026-10-17 restated
-    the constraint's *invariant* from "one fixed offset ... never varies
-    between puzzle pages" to the 42% ratio (instances AC-189, AC-240, AC-366,
+    **Renamed by CARD-547 (2026-11-25).** EC-022 names this test by exact
+    name in ``requirements.yml``; the amendment of 2026-10-17 restated the
+    constraint's *invariant* from "one fixed offset ... never varies between
+    puzzle pages" to the 42% ratio (instances AC-189, AC-240, AC-366,
     AC-367), and retired AC-190 — "two differently-sized drawings share a top
-    edge" — outright. The name's "FixedTopEdge" now reads as the fixed
-    *ratio*; renaming it is architect-station work and is out of CARD-224's
-    scope. Nothing was silently dropped: the retired ``len(tops) == 1``
+    edge" — outright. CARD-224 kept the old "fixed top edge" name; CARD-547
+    renamed this test and its two PDF halves in
+    ``tests/property/test_book_pdf_geometry.py`` to the rule they check, in
+    one change with EC-022's ``test:`` field and FR-032's trace row. Nothing
+    was silently dropped: the retired ``len(tops) == 1``
     assertion's survivor is :data:`varying_tops` below, which requires the
     opposite and would fail on any build that pinned the top edge again.
 

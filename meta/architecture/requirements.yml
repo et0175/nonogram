@@ -2851,7 +2851,7 @@ functional:
       # 2026-10-25: it sits in the ADR-0037/R2 stroke-weight sibling
       # (`..._StrokesAtLeastQuarterMillimetreHeavyTwiceThin_pixels`), not in
       # this EC's own test
-      # (PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent), which
+      # (PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent), which
       # reads geometry in millimetres and is unaffected on its own terms —
       # see the fuller note on EC-019 and the obligation recorded on FR-033.
       - id: EC-022
@@ -2879,7 +2879,7 @@ functional:
           attributed, not dropped.
         kind: consistency
         instances: [AC-189, AC-240, AC-366, AC-367, AC-378]
-        test: PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+        test: PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent
       # New 2026-09-22 (c) — mirrored margins, centred drawing.
       # NOTE 2026-10-17 (propagation pass): this property is UNCHANGED and
       # still true, but on the amended CON-018 profile its "gutter margin

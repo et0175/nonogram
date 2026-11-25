@@ -1820,7 +1820,7 @@ links:
   - TestBookPuzzleFrame_TallestGridYieldsToTheFooter
   - TestBookPdf_WideGridPrintsUprightNeverRotated
   - TestBookSelect_WideGridAboveFloorCarriesNoFlag
-  - PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
+  - PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent
   - TestBookPdf_DrawingCentredOnRightHandPage
   - TestBookPdf_DrawingCentredOnLeftHandPage
   - TestBookPdf_ParityNeverMovesTopEdge
@@ -1831,13 +1831,14 @@ links:
     AC-366/AC-367 added, EC-022 restated); the amendment CARD-204 had logged
     against the "centred" clause is CANCELLED, not applied, because CARD-224
     reverses CARD-204's flush-by-parity placement. AC-274/AC-275 re-measured on
-    CON-018's amended margins (both 25.45 mm). The test name
-    PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent still encodes
-    the retired rule. CARD-224 did NOT rename it (merged c65bb3b): it deleted
-    AC-190's own class instead and left this name alone, so the rename is still
-    owed and is recorded in meta/kanban/backlog.md rather than against a card
-    that has closed. The test itself is sound and keeps EC-022's control (3 cases
-    collected at the AC gate) -- only its name lies.
+    CON-018's amended margins (both 25.45 mm). CARD-224 did NOT rename EC-022's
+    property test (merged c65bb3b): it deleted AC-190's own class instead and
+    left the test's "fixed top edge" name alone, though the test itself was
+    sound and kept EC-022's control (3 cases collected at the AC gate).
+    Renamed 2026-11-25 (CARD-547): the rename landed as
+    PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent
+    (its layout half and its two PDF halves, _pdf_pages and _two_up_pages), in
+    one change with EC-022's test: field; bodies and assertions unchanged.
     Amended 2026-09-22 (d): parity counted from interior page 1 (FR-043);
     AC-274/AC-275 reworded to "interior page", test names unchanged.
     Amended 2026-09-22 (c): the drawing is centred across the usable width of
