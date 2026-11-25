@@ -949,7 +949,14 @@ function setupWizard(page) {
     // long one wrapped the button and stacked Back above it; the accessible
     // name keeps it.
     nextLabel();
-    if (focus) page.querySelector(`[data-hts-step="${n}"] h2`)?.focus?.();
+    if (focus) {
+      // Owner, 2026-11-25: Next kept the page where the button was, so a new
+      // step opened on its END. A step changed by the reader now starts at
+      // the progress bar, its heading in sight, and the focus moves without
+      // scrolling again.
+      page.querySelector(".hts-steps")?.scrollIntoView({ block: "start", behavior: "instant" });
+      page.querySelector(`[data-hts-step="${n}"] h2`)?.focus?.({ preventScroll: true });
+    }
   }
   const go = (n) => {
     if (window.location.hash !== `#${n}`) window.location.hash = String(n);
