@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/property/test_book_pdf_geometry.py, tests/property/test_book_layout.py (module docstring only), tests/wave_close_marker.py, tests/test_wave_close_marker.py, meta/architecture/requirements.yml (EC-022 `test:` and the comments that name the test), meta/architecture/trace.yml (the FR-032 row and its notes)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-25T11:41Z
 **Closed:** —
 **Actual:** —
@@ -68,3 +68,20 @@ Reason: every one of the three bodies asserts portrait, unrotated (columns x row
 - AC-2: `tests/test_wave_close_marker.py` passes (19 collected, inside the run below). `-m wave_close_only --collect-only` over the two property files: 3/15 collected (12 deselected), exit 0, listing `..._DrawingFitsUsableAreaUnderStandardCell_pdf_pages`, `test_PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent_pdf_pages`, `..._MirroredMarginsCentreDrawingForEveryParity_pdf_pages`. `_two_up_pages` is not listed, as before the card (it is the entry's smoke node).
 - AC-3: tests that read `trace.yml` / `requirements.yml` refs: `tests/test_check_ref_resolution.py` (26), `tests/test_grid_bound_agreement.py` (4), `tests/test_book_page_packing_doc.py` (3), `tests/test_approval_guess_gate.py::test_the_registrys_check_refs_for_this_card_all_resolve` (1), `tests/test_impact_set.py` (217, holds the trace census in its regret table), plus `tests/test_wave_close_marker.py` (19): 270 collected, 270 passed, 0 skipped, exit 0 (2 UserWarnings, identical on the base). Forge validator (forge_1, `~/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py --root meta/architecture`): before 0 errors / 104 warnings, after 0 errors / 104 warnings; output identical modulo the name.
 - AC-4: no test added or removed. Collection over the four edited test files: 60 before, 60 after. Net test count 0.
+
+### Review cycle 1 (2026-11-25)
+
+**Score:** 9.5/10. **Verdict:** CERTIFIED (score >= 9, no important findings). Report: `meta/review/CARD-547-review-1.yml` (gitignored). Reviewed head 73bc995e against main a5a1a320.
+
+**Findings:**
+- F-001 (Minor, low): the `_two_up_pages` half's name reads as claiming the 42% float of two-up slots, which EC-022 disclaims ("the ratio is NOT claimed of a slot before that split"). Its body pins two-up slots at band foot + rule gap and single pages at 42%. The docstring explains the split, and the shared stem is the suffix convention, so it is not gating. An optional fix is one docstring sentence.
+
+**Verified independently:**
+- Name truthfulness: all three bodies assert portrait (`orientation == "portrait"` / `size[0] < size[1]`), unrotated (`(columns, rows)` as drawn), and the 42% float (layout `SPARE_ABOVE * spare_mm`; `_pdf_pages` `sheet.drawing_top_mm`; `_two_up_pages` on its single pages). Leaving "clear of both rules" out of the name is the conservative choice.
+- Names and docs only: 0 changed `assert` lines in the diff. The non-name hunks are the layout docstring paragraph, the three census pins with dated comments, and the trace.yml notes.
+- Census: TRACE_TESTS re-derived by an independent `yaml.safe_load` reader (every `tests:` string, sha256 of sorted newline-joined, first 16 characters). HEAD gives 509 `47e991490e34a5a3`, equal to the pin. Base gives 509 `7eae2da7662d683f`, equal to the old pin. CENSUS and DEFINED are held by the green run only and were not re-derived.
+- Residual: `grep -rn PortraitWithFixedTopEdge src tests meta/architecture` prints the `tests/hang_guard.py` comment only (ruling c). Outside that set, the name appears only in `meta/kanban/**` and `meta/profiling/**`, both historical. By `ast`, the new name resolves to 3 defs and the old name to 0.
+- Mutants, both killed and restored (git status clean): (1) trace.yml FR-032 row reverted to the old name failed 3 tests in `tests/test_check_ref_resolution.py` (3 failed / 23 passed), including `test_the_trace_tests_lists_agree_with_an_independent_reading`. (2) The `tests/wave_close_marker.py` smoke node reverted failed 1 of 19 tests (`test_every_smoke_and_control_exists_is_unmarked_and_is_in_the_gate_set`).
+- Runs: `tests/test_wave_close_marker.py`, `tests/test_check_ref_resolution.py` and the three renamed tests by node id gave 48 passed, 0 skipped, exit 0, 2 UserWarnings. The warnings were not compared against a base run. `-m wave_close_only --collect-only` lists the renamed `_pdf_pages` (3/5). The forge_1 validator gives 0 errors and 104 warnings.
+- Trace notes: CARD-224's facts are kept (merge c65bb3b, AC-190's class deleted, 3 cases, sound test). The "rename still owed" passage became the dated "Renamed 2026-11-25 (CARD-547)" line. The older amendments below it are untouched.
+- System contract: 24 rules checked. 1 holds (ADR-0039/R4: the moved figures name their instrument). 23 are unchecked with no_eligible_fact. 0 are violated.
