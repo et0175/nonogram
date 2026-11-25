@@ -2038,6 +2038,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      empty (a 10 x 10 was ~300 px at 1280 x 800); the cap is 36 px there. A
      big board is bound by the window's height long before either cap. */
   .player-toolbar:not(:has([data-player-action="check"])) ~ .player-stage-wrap .player-stage { --player-cell-max: 64px; }
+  /* Owner, 2026-11-25: the desktop zoom is the phone's pill too (CARD-430's
+     compact rule below, without its 44 px tap floor): minus, readout and
+     plus as one rounded control divided by hairlines, at the toolbar's own
+     height. */
+  .player-toolbar:not(:has([data-player-action="check"])) .player-zoom {
+    flex-wrap: nowrap; gap: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-border-strong);
+    border-radius: calc(var(--control-h) / 2); overflow: hidden;
+  }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > .btn { border: 0; border-radius: 0; min-width: 40px; justify-content: center; }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > * + * { border-left: var(--border-width) solid var(--color-border); }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > .player-zoom-readout { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; }
+  .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > :focus-visible { outline-offset: -3px; }
 }
 /* Owner's test notes, 2026-11-23 ("Desktop - maybe we can use space
    better?", option a): 36 px still left a 13 x 12 in the top-left third of
