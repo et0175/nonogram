@@ -1,6 +1,6 @@
 # CARD-546: The book PDF writer loses its dead defaults and guards (CARD-147 leftovers)
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/546-book-writer-dead-code
-**Worktree:** ../PythonProject4-card-546
+**Worktree:** —
 **Source:** roadmap wave 21, cut 2026-11-25 on the owner's "pick the next no-decision wave from the backlog". Backlog IDEA-019 (CARD-147 F-002/F-003/F-005).
 **Idea:** IDEA-019
 **Wave:** 100
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-25T11:41Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-25T13:09Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** 5092f24e
 **Blocked by:** —
 
 ## Why this card exists
