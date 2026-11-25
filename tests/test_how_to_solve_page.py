@@ -387,6 +387,18 @@ def test_the_wizard_moves_by_next_by_segment_and_by_fragment(browser_page, pages
     page.locator("[data-hts-goto='4']").click()
     page.wait_for_function("() => window.howToSolve.getStep() === 4", timeout=PAGES_SETTLE_MS)
     assert _visible_step(page) == [4]
+    # Owner, 2026-11-25: Next from the bottom of a long step opens the next
+    # one at its top (it used to open on its end). Plant: drop the
+    # scrollIntoView in show() -> the heading is above the viewport.
+    size = page.viewport_size
+    page.set_viewport_size({"width": 390, "height": 600})
+    page.locator("[data-hts-next]").scroll_into_view_if_needed()
+    page.locator("[data-hts-next]").click()
+    page.wait_for_function("() => window.howToSolve.getStep() === 5", timeout=PAGES_SETTLE_MS)
+    assert page.evaluate("() => document.querySelector('[data-hts-step=\\'5\\'] h2').getBoundingClientRect().top") >= 0
+    page.set_viewport_size(size)
+    page.go_back()
+    page.wait_for_function("() => window.howToSolve.getStep() === 4", timeout=PAGES_SETTLE_MS)
 
     page.go_back()
     page.wait_for_function("() => window.howToSolve.getStep() === 2", timeout=PAGES_SETTLE_MS)

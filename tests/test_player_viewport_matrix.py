@@ -355,8 +355,10 @@ def test_the_library_a_book_and_the_lesson_work_at_this_screen(screen, preview_h
     # 2026-11-17: it was the library, and the book's look was lost) ---------
     press(page.locator(".tile.square").first)
     page.wait_for_function("() => window.puzzlePlayer !== undefined")
-    press(page.locator(".player-howto summary"))
-    press(page.locator("[data-player-lesson]"))
+    # Since 2026-11-25 the lesson's link sits on the How to play summary's
+    # own line, in sight: the reader's way there is that link, with nothing
+    # to open first (pressing the summary's middle now lands on it).
+    press(page.locator("[data-player-lesson-top]"))
     page.wait_for_function("() => window.howToSolve !== undefined")
     assert page.evaluate("window.howToSolve.home") == f"/b/{slug}"
     steps = page.locator("[data-hts-goto]").count()
