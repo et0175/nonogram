@@ -43,3 +43,31 @@ CARD-543 measured that the browser-test timeouts at the CARD-535 and CARD-542 ga
 - AC-3: owner's test budget: change existing tests rather than add; net test count at most +1; report it.
 
 ## Worktree notes
+
+### Implementation round 1 (2026-11-25)
+
+**Verdict:** done; all three ACs met by the runs below. Scratch paths below are this session's scratchpad (`$S`).
+
+**AC-1 -- caffeinate verified on this machine (step 1).**
+`caffeinate -i sh -c 'sleep 3; exit 7' & sleep 1; pmset -g assertions | grep -iE "caffeinate|PreventUserIdleSystemSleep"; wait $!; echo exit=$?`
+- during the run: `pid 16686(caffeinate): PreventUserIdleSystemSleep named: "caffeinate command-line tool" / Details: caffeinate asserting on behalf of 'sh' (pid 16684)`
+- after: `caffeinate exit=7`, and pid 16686 is gone from `pmset -g assertions` (only two unrelated `caffeinate asserting for 300 secs` holders, not started here, remain).
+So the assertion lasts as long as the command does, and the command's exit status comes back unchanged.
+
+**Change (Makefile).** A new variable, and three recipe lines get a prefix:
+- `KEEPAWAKE ?= $(if $(shell command -v caffeinate 2>/dev/null),caffeinate -i)`: this is `caffeinate -i` when caffeinate is on PATH and empty when it is not. `KEEPAWAKE=` on the command line turns it off.
+- `test-wave-close`: `$(KEEPAWAKE) $(PY) -m pytest` (the PYTEST_ADDOPTS refusal comes before it and is untouched)
+- `test-marked`: `$(KEEPAWAKE) $(PY) -m pytest -m wave_close_only`
+- `test-gate`: `... echo "+ $$cmd"; $(KEEPAWAKE) sh -c "$$cmd" || rc=1; ...` (each `run N:` command is wrapped; the impact_set derivation and the 12/3/other exit paths are untouched)
+- `test` and `test-impact` are not changed (`test` must stay the bare line, AC-7 of CARD-395).
+No timeout or retry was added. The lock and conftest were not touched. CLAUDE.md's Commands lines are still true ("runs everything bare"), so CLAUDE.md is not changed.
+
+**AC-2 -- runs.** A harness (`$S/watch.sh`) starts the command in the background and samples `pmset -g assertions` every 0.3 s until the command exits. The selection is narrowed with a node id in PYTEST_ADDOPTS (a positional node id is not one of the options the wave close refuses), so `full_suite_lock.is_full_suite` is False and no lock is taken.
+- `PYTEST_ADDOPTS="'tests/test_wave_close_marker.py::TestWaveCloseMarker_TheWaveCloseIsBare::test_make_test_and_the_wave_close_are_the_bare_pytest_line'" make test-wave-close`: echoes `caffeinate -i .../.venv/bin/python -m pytest`, `1 passed`, exit 0. pmset during the run: `caffeinate asserting on behalf of '.../.venv/bin/python' (pid 19208)`, PreventUserIdleSystemSleep.
+- Failing control, same target with node `...::test_does_not_exist`: `ERROR: not found`, `make: *** [test-wave-close] Error 4`, exit 2. The assertion was held (pid 19249). pytest's 4 reaches make through caffeinate.
+- `test-marked` with PYTEST_ADDOPTS naming one unmarked node (`tests/property/test_book_pdf_geometry.py::test_a_page_box_one_pixel_off_the_trim_reds_the_trim_assertion`): echoes `caffeinate -i .../python -m pytest -m wave_close_only`, `1 deselected`, `make: *** [test-marked] Error 5`, exit 2. The assertion was held on behalf of python (pid 19005). No marked test was run, because every marked test is a heavy sweep.
+- `test-gate`: a real gate on this diff is FULL (the Makefile is unanalysable), so it was not run. Instead, the exact expanded loop line from `make -n test-gate` (`printf '%s\n' "$cmds" | { rc=0; while IFS= read -r cmd; do echo "+ $cmd"; caffeinate -i sh -c "$cmd" || rc=1; done; exit $rc; }`) was run with `cmds` set by hand. With one passing pytest node: `1 passed`, exit 0, assertion on behalf of 'sh' (pid 21700). With that node plus a not-found node: exit 1, one assertion per command (pids 21735, 21782).
+- Without caffeinate: PATH=`$S/nocaf-bin:/bin:/usr/sbin:/sbin`, where nocaf-bin symlinks every `/usr/bin/*` except caffeinate (`command -v caffeinate` finds nothing). `make test-wave-close` with the passing node echoes the bare `.../python -m pytest`, `1 passed`, exit 0, and pmset shows no caffeinate assertion. With the not-found node: `Error 4`, exit 2. With `PYTEST_ADDOPTS='-k foo'`: the refusal message and exit 2, as before. `make -n` under the same PATH expands test-gate's loop to `... echo "+ $cmd";  sh -c "$cmd" || rc=1; ...` and test-marked to the bare `.../python -m pytest -m wave_close_only`. `make -n KEEPAWAKE= test-marked` gives the bare line too.
+
+**AC-3 -- test budget.** Only existing assertions were changed: `tests/test_wave_close_marker.py::TestWaveCloseMarker_TheWaveCloseIsBare::test_make_test_and_the_wave_close_are_the_bare_pytest_line` now expects the `$(KEEPAWAKE) ` prefix on test-wave-close and test-marked. No test was added. Net test count: 0 (`--collect-only` on test_wave_close_marker.py + test_impact_set.py gives 236 before and after).
+`.venv/bin/python -m pytest tests/test_wave_close_marker.py tests/test_impact_set.py -o addopts= -q`: 236 passed, exit 0. The PYTEST_ADDOPTS refusal test runs `make` with caffeinate present and passed.

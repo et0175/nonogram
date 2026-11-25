@@ -30,6 +30,12 @@ MAIN_VENV_PY := $(dir $(abspath $(shell git rev-parse --git-common-dir 2>/dev/nu
 PY ?= $(firstword $(wildcard ./.venv/bin/python) $(wildcard $(MAIN_VENV_PY)) ./.venv/bin/python)
 BASE ?= $(shell git merge-base HEAD main 2>/dev/null || echo main)
 FILES ?=
+# KEEPAWAKE (CARD-545): the prefix the long runs (test-gate, test-wave-close,
+# test-marked) put before their pytest: `caffeinate -i` where caffeinate is on
+# PATH (macOS), so idle sleep cannot stall a browser test mid-run (CARD-543);
+# empty where it is not (Linux CI, Docker), so the command runs unchanged.
+# caffeinate returns the command's own exit status. KEEPAWAKE= turns it off.
+KEEPAWAKE ?= $(if $(shell command -v caffeinate 2>/dev/null),caffeinate -i)
 
 .PHONY: test test-impact impact-set test-gate test-marked test-wave-close
 
@@ -49,13 +55,13 @@ test-wave-close:
 		exit 2; \
 	fi
 	@echo "WAVE CLOSE: full suite, no marker deselection"
-	$(PY) -m pytest
+	$(KEEPAWAKE) $(PY) -m pytest
 
 ## The tests the gate defers (marker `wave_close_only`), alone: for a bisect
 ## over a wave's merges when the wave close reds in one of them, or a
 ## pre-wave-close check.
 test-marked:
-	$(PY) -m pytest -m wave_close_only
+	$(KEEPAWAKE) $(PY) -m pytest -m wave_close_only
 
 ## MERGE GATE (CARD-395): derive the gate's block, print it, run the command(s)
 ## it names, propagate the exit code.
@@ -81,7 +87,7 @@ test-gate:
 	fi; \
 	cmds=$$(printf '%s\n' "$$block" | sed -n 's|^run [0-9]*: python |$(PY) |p'); \
 	if [ -z "$$cmds" ]; then echo "test-gate: the block names no command; nothing was run" >&2; exit 3; fi; \
-	printf '%s\n' "$$cmds" | { rc=0; while IFS= read -r cmd; do echo "+ $$cmd"; sh -c "$$cmd" || rc=1; done; exit $$rc; }
+	printf '%s\n' "$$cmds" | { rc=0; while IFS= read -r cmd; do echo "+ $$cmd"; $(KEEPAWAKE) sh -c "$$cmd" || rc=1; done; exit $$rc; }
 
 ## Print the derived selection without running it -- for reading a gate's scope
 ## before spending it.
