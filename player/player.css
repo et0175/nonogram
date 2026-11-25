@@ -647,6 +647,12 @@ body {
 .hts-linefig-axis > .is-on { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 .hts-linefig .hts-strip-cell { height: 1.9rem; }
 
+/* Owner on an iPhone, 2026-11-25: a quick second tap on a square (black,
+   then white) zoomed the page. manipulation keeps scrolling and pinch-zoom
+   and drops double-tap zoom, for every control on the lesson: touch-action
+   applies through the ancestors up to the scroller, the page itself. */
+.hts-page { touch-action: manipulation; }
+
 /* "Your turn" (2026-11-25): the strip's squares are buttons here. */
 button.hts-strip-cell { padding: 0; font: inherit; color: inherit; cursor: pointer; height: 2.2rem; }
 button.hts-strip-cell[aria-disabled="true"] { cursor: default; }
