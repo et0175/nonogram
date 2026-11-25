@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** Makefile, tests/test_wave_close_marker.py (only if a Makefile assertion there needs the new form), CLAUDE.md (only the Commands section's one line on the gate/close targets, if the run form changes what it says)
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-25T08:57Z
 **Closed:** —
 **Actual:** —
@@ -71,3 +71,5 @@ No timeout or retry was added. The lock and conftest were not touched. CLAUDE.md
 
 **AC-3 -- test budget.** Only existing assertions were changed: `tests/test_wave_close_marker.py::TestWaveCloseMarker_TheWaveCloseIsBare::test_make_test_and_the_wave_close_are_the_bare_pytest_line` now expects the `$(KEEPAWAKE) ` prefix on test-wave-close and test-marked. No test was added. Net test count: 0 (`--collect-only` on test_wave_close_marker.py + test_impact_set.py gives 236 before and after).
 `.venv/bin/python -m pytest tests/test_wave_close_marker.py tests/test_impact_set.py -o addopts= -q`: 236 passed, exit 0. The PYTEST_ADDOPTS refusal test runs `make` with caffeinate present and passed.
+
+[Review 1/3] Score: 9.5, certified. No high or medium findings. Verified by running, from this worktree. The way test-gate runs each command did not change: main's loop was already `sh -c "$$cmd" || rc=1`, and the diff only puts `$(KEEPAWAKE)` before it. I ran that loop with no prefix and with `caffeinate -i` over hand-set echo-only cmds: a quoted node id `'tests/x.py::T::t[a-b]' -o addopts=`, a double-quoted `$HOME`, a command exiting 3, and `echo ok`. The output was byte-identical both ways, and rc=1 both ways, with later commands still run. `caffeinate -i sh -c 'sleep 2; exit 7'` held the assertion on behalf of sh, returned exit=7, and left no process. With caffeinate removed from PATH, `make -n` gives the bare pytest lines for test-marked and test-wave-close and an unprefixed `sh -c "$cmd"` for test-gate. `make -n KEEPAWAKE= test-marked` gives the bare line too. `PYTEST_ADDOPTS='-k foo' make test-wave-close` refuses with Error 2, both with and without caffeinate on PATH. tests/test_wave_close_marker.py + tests/test_impact_set.py: 236 passed, 0 skipped, exit 0. The diff changes assertions only, so the net test count is 0. The only consumer of the recipe text is test_wave_close_marker's `_recipe` and its stub-PY `make test-gate` run, which goes through the prefixed loop and passed. F-001 (low): no assertion pins test-gate's `$(KEEPAWAKE)` prefix. F-002 (info): `?=` lets an exported KEEPAWAKE override the default, which is intended. F-003 (info, out of scope): `-i` stops idle sleep only, not a lid close. Report: meta/review/CARD-545-review-1.yml (gitignored; sync it before removing the worktree).
