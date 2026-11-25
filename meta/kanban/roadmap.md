@@ -92,7 +92,9 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 20 — IN PROGRESS (board wave 99)
+## Wave 20 — DONE 2026-11-25 (board wave 99)
+
+One card merged: CARD-545 (`5e953a9c`, 9.5 at cycle 1, net 0). Its gate answered FULL (the Makefile is unanalysable) and ran the whole suite green: 10684 passed, 0 failed. Wave close: `make test-wave-close` on main at `b3f9486e`, in a detached worktree pinned to that commit, the first run under the new recipe (it printed `caffeinate -i .../python -m pytest`): 10684 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 37 min. `make test-gate`, `test-wave-close` and `test-marked` now hold a `PreventUserIdleSystemSleep` assertion while their pytest runs when `caffeinate` is on PATH, and run unchanged where it is not; `KEEPAWAKE=` turns it off. It does not hold a lid close or a sleep already in progress. Recorded, not carded: CARD-545 F-001 (no assertion holds the test-gate prefix), F-002, F-003.
 
 ### As cut
 
