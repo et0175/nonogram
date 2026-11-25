@@ -1,6 +1,6 @@
 # CARD-545: The merge gate and the wave close keep the Mac awake while they run
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/545-caffeinate-gates
+**Worktree:** ../PythonProject4-card-545
 **Source:** roadmap wave 20, cut 2026-11-25 on the owner's "card the caffeinate change" (proposed at the Wave 19 close).
 **Idea:** —
 **Wave:** 99
@@ -19,7 +19,7 @@
 **Touches:** Makefile, tests/test_wave_close_marker.py (only if a Makefile assertion there needs the new form), CLAUDE.md (only the Commands section's one line on the gate/close targets, if the run form changes what it says)
 **UI surface:** —
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-25T08:57Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
