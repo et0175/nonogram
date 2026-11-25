@@ -647,6 +647,15 @@ body {
 .hts-linefig-axis > .is-on { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 .hts-linefig .hts-strip-cell { height: 1.9rem; }
 
+/* The probe example's next press (owner, 2026-11-25): a ring that pulses
+   gently, still for a reader who asked for less motion. */
+.is-next { position: relative; z-index: 1; box-shadow: 0 0 0 3px var(--color-accent); animation: hts-next 1.4s ease-in-out infinite; }
+@keyframes hts-next {
+  0%, 100% { box-shadow: 0 0 0 3px var(--color-accent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-accent) 25%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .is-next { animation: none; } }
+
 /* Keep and Wrong guess stay on one row together (owner's test notes,
    2026-11-23); the pair wraps as one, never between its two buttons. */
 .hts-pair { display: inline-flex; flex-wrap: nowrap; gap: var(--space-2); }

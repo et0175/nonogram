@@ -535,6 +535,11 @@ def test_the_probe_demo_runs_like_the_players_probe(browser_page, pages_host) ->
     page.locator("[data-hts-probe-keep]").click()
     assert phase() == "kept"
     assert "is-bad" not in clue.get_attribute("class")
+    # Owner, 2026-11-25: the next press is lit (here Wrong guess), and this
+    # board, whose squares cannot be chosen, draws no crosshair.
+    assert "is-next" in abandon.get_attribute("class")
+    target().hover()
+    assert page.locator("[data-hts-probe-board] .is-crossed").count() == 0
     # Owner, 2026-11-24 ("Keep doesn't work"): Keep answers in words, goes
     # away, and flags the one move left.
     assert "press Wrong guess" in page.locator("[data-hts-probe-text]").inner_text()
