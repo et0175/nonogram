@@ -92,7 +92,11 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 23 — OPEN 2026-11-26 (board wave 102)
+## Wave 23 — DONE 2026-11-26 (board wave 102)
+
+CARD-548 was merged (`ffb59e44`, 9.5 at cycle 1, notes only, net 0). CARD-277's 225-cell zoom drag did not reproduce in any of 56 runs: 50 runs of the two tests alone and 6 runs of the 13-file solver family. All ran under caffeinate with no sleep overlap, and the per-pointermove probe was shown able to see broken drags. A code reading, which the reviewer confirmed at d90753df and at HEAD, shows `dragStroke` goes through `dragLine`, so one drag marks only one row or column (at most 15 cells), and none of CARD-277's three suspects can produce 225. CARD-277 is therefore **skipped as unreproduced**, and its AC-4 detector is not built. Gate SELECTION: 4154 passed, 0 failed.
+
+Wave close: `make test-wave-close` on main at `f696c49c`, run in a detached worktree under caffeinate. 1 failed, 10685 passed, 30 skipped (unarmed), 1 xfailed, 40 min. The red is `tests/test_book_published_confirm.py::TestBookPublished_PuzzleChangeRequiresConfirmation::test_a_removal_of_a_puzzle_the_book_never_held_is_not_a_question[db]` with `AttributeError: 'float' object has no attribute 'replace'` in `uuid.UUID`. That is **CARD-320's known full-suite-only defect** (a float reaches `uuid.UUID` through `add_puzzle`), not this wave's, which changed card notes only. Re-run alone it passed 3/3, and its file passed 86/86. CARD-320 stays ready; it edits `tests/conftest.py`, so it needs the owner's go-ahead.
 
 ### As cut
 
