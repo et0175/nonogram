@@ -2067,7 +2067,9 @@ function lineName(axis, index, clue) {
 export const LADDER_REASON = Object.freeze({
   "runs-complete": (axis) => `every block in this ${axis} is placed, so the rest is white.`,
   overlap: (axis, run) => `wherever the block of ${run} can sit, it always covers the same cells, so they are black.`,
-  generic: (axis) => `every way of placing this ${axis}'s blocks agrees on at least one cell.`,
+  // Owner, 2026-11-26: "black or white" — the agreed cell is often white, and
+  // a reader looking only for black squares read this as a hint with nothing in it.
+  generic: (axis) => `every way of placing this ${axis}'s blocks agrees on at least one cell, black or white.`,
 });
 
 //: Rung 2: rung 1's sentence with the checked reason added.
