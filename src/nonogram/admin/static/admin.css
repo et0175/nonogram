@@ -2710,6 +2710,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   overflow-y: auto; overscroll-behavior: contain;
 }
 .player-line[hidden] { display: none; }
+/* Owner on an iPhone, 2026-11-26: a long press on the view's arrows or on
+   Rows/Cols selected their text (iOS's blue bar and handles). Nothing in
+   the view is text to copy. */
+.player-line { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html.is-line-open, html.is-line-open body { overflow: hidden; overscroll-behavior-x: none; }
 .player-line .btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); }
 .player-line .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
