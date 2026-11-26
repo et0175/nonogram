@@ -2736,6 +2736,18 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
             puzzle.get("book_id"), puzzle.get("status")
         )
 
+    def _board_page_title(puzzle) -> str:
+        """What the player's solved banner and the editor's heading call a puzzle.
+
+        Its name, then its source file, then the first 8 characters of its id
+        — one spelling for both pages that load ``static/solver.js`` (CARD-249
+        G-3), so the editor cannot drift into a second idea of what a puzzle
+        is called. The player shows it only once solved (FR-044 AC-322/AC-316:
+        the name is the answer); the editor shows it from the start, because
+        it opens with the answer already painted (CARD-246 AC-2).
+        """
+        return puzzle.get("puzzle_name") or puzzle.get("source_image") or str(puzzle["id"])[:8]
+
     def _board_page_payload(puzzle_id, mode=None):
         """``(puzzle, grid, payload)`` for the panel's one board renderer.
 
@@ -3202,6 +3214,10 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
         return render_template(
             "puzzle_edit.html",
             puzzle_id=str(puzzle["id"]),
+            # CARD-249: the heading and the tab title name the puzzle, by the
+            # player's own chain — a template variable and NOT a payload key
+            # (CARD-246 G-1: the payload is the six documented keys + mode).
+            title=_board_page_title(puzzle),
             extent=(payload["width"], payload["height"]),
             payload=payload,
             book=book,
@@ -6863,7 +6879,7 @@ def create_app(debug=None, *, allow_in_memory_when_deployed=False):
         # exactly the six keys solver.js's header documents (CARD-246 G-1).
         puzzle, grid, payload = _board_page_payload(puzzle_id)
         tier = tier_of_record(puzzle.get("difficulty_tier"))
-        title = puzzle.get("puzzle_name") or puzzle.get("source_image") or str(puzzle["id"])[:8]
+        title = _board_page_title(puzzle)
         return render_template(
             "puzzle_solve.html",
             title=title,

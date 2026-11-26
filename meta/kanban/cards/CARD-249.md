@@ -15,7 +15,7 @@
 **Wave:** 101
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_editor_ui.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-26T09:37Z
 **Closed:** —
 **Actual:** —
@@ -204,3 +204,67 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-249 --root meta/architectu
   page isolation because CARD-235's glob is `tests/test_puzzle_solver_*.py` (CARD-246 review cycle
   1, F-014). A new browser test in that file must be added to `PAGE_ISOLATION_DECLARATION` there;
   the glob itself is a filed backlog item, not this card's job.
+
+### Implementation round 1 (2026-11-26)
+
+**Verdict:** implemented; every AC met; net test count **+1** (tests/test_puzzle_editor_ui.py collects 119, was 118 at the branch base — measured by collecting a copy of `HEAD:` that file).
+
+**Premise checks (against the tree at 7ac3c027, by name):**
+- `puzzle_edit_page` still passed only `puzzle_id`, `extent`, `payload` (+ `book`, CARD-251) — no name. HOLDS.
+- `puzzle_solve` still built `title = puzzle.get("puzzle_name") or puzzle.get("source_image") or str(puzzle["id"])[:8]` inline. HOLDS.
+- `puzzle_edit.html`'s title block and `<h1>` both read `Edit puzzle W×H`; no test pinned that text (`grep "Edit puzzle" tests/` → none). HOLDS.
+- `_board_page_payload` is the shared payload writer; the F-008 no-badge comment and docstring are still in place. HOLDS.
+- `MAX_PUZZLE_NAME_LENGTH = 120` in `puzzle_review.py`. HOLDS.
+- The 120-character precedent moved: it is `_LONG_NAMES` / `TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth` in `tests/test_puzzle_solver_maybe.py`, now at 600×900, 1100×700, 390×844. This card keeps its own three viewports (AC-6) and imports `_LONG_NAMES` rather than copying it.
+- **Does not hold:** `PAGE_ISOLATION_DECLARATION` no longer lives in `tests/test_puzzle_editor_ui.py`; CARD-527 moved it into `tests/test_puzzle_solver_page.py`'s `PAGE_ISOLATION` table, where the file is already declared `own-page`. The new browser test sets the viewport on its own per-test `browser_page`, which that declaration covers, so no edit to the table was needed.
+- A third spelling of the chain exists in Jinja: `_puzzle_table.html`'s `label` (the list's Edit control's aria-label). The new assertions compare against the player's output as the AC requires, and the list's label is checked in the same test.
+
+**Change:**
+- `app.py`: new `_board_page_title(puzzle)` beside `_board_page_payload`, holding the one fallback chain. `puzzle_solve` now calls it instead of its inline literal, and `puzzle_edit_page` passes `title=_board_page_title(puzzle)` as a template variable, not a payload key (G-2, G-3: the chain is shared, not copied).
+- `puzzle_edit.html`: the tab title reads `Edit “<name>” W×H - Nonogram admin` and the heading reads `Edit “<name>” — W×H`, with `×` as U+00D7. The name is autoescaped (G-5) and set only in this template (G-1). The badge and F-008 comment are untouched (G-4).
+- `admin.css`: one self-contained rule beside `.editor-note`, `.editor-title { overflow-wrap: anywhere; min-width: 0; }`, so an unbroken 120-character token wraps and does not overflow (Trap 3). It does not touch any shared selector.
+
+**Tests (owner's budget: change existing tests, net at most +1):**
+- AC-1 and AC-2 are folded into the existing `TestPuzzleEditor_ReachableFromListAndCard::test_the_edit_control_says_which_puzzle_it_edits` and not added as the card's `TestPuzzleEditor_NamesThePuzzleItEdits::test_the_fallback_chain_matches_the_players`, to stay inside the budget. The test covers three rows: a named row `Duck & <Drake>` at 12×8, a source-only row, and a row with neither. For each, the editor's `<h1>` is asserted equal to `Edit “<player's solved-banner name>” — W×H`, the title to contain `“<name>” W×H`, the raw name markup to be absent (escaping), and the three names to be `{Duck & <Drake>, heron.png, id[:8]}`.
+- AC-3 extends the existing `TestPuzzleEditor_ThePlayerIsNotRegressed::test_the_player_keeps_its_hint_and_its_counters`. On one row named Duck, the player's `.page-head` and `document.title` do not contain Duck and do contain `10×10`; the same row's editor head and title do contain Duck.
+- AC-4 and AC-5 use the existing `TestPuzzleEditor_Guardrails::test_the_players_payload_is_untouched` and `::test_the_editor_page_claims_no_difficulty_of_its_own`, unchanged, and both pass.
+- AC-6 is new, `TestPuzzleEditor_TheLongestNameFitsTheHeading::test_the_whole_name_wraps_inside_the_column`: one test over the 6 cases, with the case count asserted. Measured on this host in Chromium (h1 width / column width, lines, page overflow):
+  - 1440 px words: 1140.0 / 1220.0 px, 2 lines, 0 px
+  - 1200 px words: 900.0 / 980.0 px, 3 lines, 0 px
+  - 390 px words: 358.0 / 390.0 px, 3 lines, 0 px
+  - 1440 px token: 1140.0 / 1220.0 px, 4 lines, 0 px
+  - 1200 px token: 900.0 / 980.0 px, 4 lines, 0 px
+  - 390 px token: 358.0 / 390.0 px, 5 lines, 0 px
+
+  The whole name is in the heading and the title, there is no ellipsis, and the h1's `scrollWidth - clientWidth` is 0. The toolbar and board are inside the window and below the heading. The h1's `scrollHeight - clientHeight` is about 3 px: glyph descenders under the tight display leading, painted because overflow is visible, so not asserted as clipping.
+
+**Mutants (each caught, then reverted with `cmp`/`git status` confirming):**
+- (A) The editor uses its own chain with no `source_image`: AC-2 test fails with `'Edit “puzzle_0” — 10×10' == 'Edit “heron.png” — 10×10'`.
+- (B) `.editor-title` rule removed: AC-6 test fails at 1440 px token, h1 right edge 2365.8 > 1440.5.
+- (C) `{{ title|safe }}` in the heading: AC-2 test fails with `'<Drake>' not in …`.
+- (D) Name added to `puzzle_solve.html`'s `<h1>` (the G-1 trap): AC-3 test fails.
+
+**Evidence (`-o addopts= -rfs`):**
+- `tests/test_puzzle_editor_ui.py tests/test_admin_design_tokens.py tests/test_puzzle_solver_page.py::TestSolverPage_HidesThePictureNameUntilSolved` (AC-322/AC-323): 138 collected, 138 passed, 0 skipped, exit 0.
+- `tests/test_player_base_css.py tests/test_public_player.py tests/test_puzzle_edit_routes.py tests/test_puzzle_solver_page.py tests/test_player_shared_ui_site.py`: 217 collected, 213 passed, 4 skipped (conftest: `DATABASE_URL` not set, unarmed), exit 0.
+- Full suite not run (the orchestrator's merge gate).
+
+### Review cycle 1 (2026-11-26)
+
+**Score:** 9.5/10. **Verdict:** CERTIFIED (no critical or important findings).
+
+[Review 1/3] Score: 9.5, certified. Independent forge:review, re-run from this worktree with the main venv. Key evidence by node id (the AC-1/2 test, the AC-3 test, the AC-4 and AC-5 guardrail tests, `TestPuzzleEditor_TheLongestNameFitsTheHeading`, `tests/test_puzzle_solver_page.py::TestSolverPage_HidesThePictureNameUntilSolved`), `-o addopts= -rfs`: 10 collected, 10 passed, 0 skipped, exit 0. The AC-6 figures printed match the implementer's to 0.1 px. The wider run (`tests/test_puzzle_editor_ui.py`, `tests/test_admin_design_tokens.py`, `tests/test_puzzle_solver_page.py`, `tests/test_puzzle_solver_maybe.py`): 235 collected, 235 passed, 0 skipped, exit 0. The co-change peer `tests/test_player_base_css.py`: 3 passed, 0 skipped. Net test count: +1. A copy of the merge-base version of `tests/test_puzzle_editor_ui.py` collects 118 and HEAD collects 119; it is the only test file in the diff. System contract: 8 rules, 5 hold, 3 unchecked (no_eligible_fact), 0 violated.
+
+- **Deviation (a), accepted.** AC-1 and AC-2 are folded into `test_the_edit_control_says_which_puzzle_it_edits` to stay within the owner's test budget. The test does what AC-2 asks: it compares the editor against the player's solved-banner output for the same row, and the literal `shown` map keeps that comparison from being circular under a shared helper. Mutant M4 drops `source_image` from `_board_page_title`, which changes both pages at once. The page-vs-page equality cannot see that change, but the literal catches it. M6 (`id[:6]`) is killed by `bare[:8]`.
+- **Deviation (b), accepted.** `_board_page_title` returns exactly the expression `puzzle_solve` had inline. It goes into the same template variable through the same autoescape, and `puzzle_solve.html` is untouched. The player's output is byte-identical for every row, including names that need escaping. `_board_page_title` has two callers, which satisfies G-3: the chain is shared, not copied.
+- **AC-6 asserts something real.** Mutant M2 (drop `overflow-wrap: anywhere`) is killed. The h1 is a flex item in `.page-head`, so the unbroken token grows the h1's own box past the column. The box-in-column and `scrollWidth` assertions see that growth.
+- **CSS reach.** `.editor-title` is a bare class selector, and grep finds it only in `puzzle_edit.html`. It cannot style the player or any other page (G-1).
+- **Escaping (G-5).** M5 puts `|safe` on the tab title only and is killed by the `'<Drake>'` assertion.
+- All mutants were reverted with `git checkout -- <file>`. `git status --short` and `git diff --stat` were empty afterwards, and `admin.css` compared identical (`cmp`) with a copy taken before M1.
+
+- F-001 (low): `min-width: 0` in `.editor-title` is not discriminated by any test. Mutant M1 drops it and survives, because `overflow-wrap: anywhere` already lowers the flex item's min-content width. Drop the declaration or say in the comment that it is deliberate.
+- F-002 (low): AC-1 and AC-2 still name `TestPuzzleEditor_NamesThePuzzleItEdits[::test_the_fallback_chain_matches_the_players]`, which does not exist. The real node is `tests/test_puzzle_editor_ui.py::TestPuzzleEditor_ReachableFromListAndCard::test_the_edit_control_says_which_puzzle_it_edits`. Run the AC gate by that id at done, or re-point the refs.
+
+Verdict: CERTIFIED.
+
+Report: meta/review/CARD-249-review-1.yml (gitignored; sync it before removing the worktree).

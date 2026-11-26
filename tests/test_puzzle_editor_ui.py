@@ -66,6 +66,7 @@ from __future__ import annotations
 import json
 import random
 import re
+from html import unescape
 from pathlib import Path
 from urllib.parse import quote
 
@@ -219,6 +220,13 @@ def seed(app, grid=None, **overrides) -> str:
     return app.puzzle_review_service.add_puzzle(**payload)
 
 
+#: CARD-249: the editor's heading, the document title, and the player's
+#: solved banner — the one place the player shows the name (AC-316).
+_EDITOR_HEADING = re.compile(r'<h1 class="editor-title">(.*?)</h1>', re.S)
+_TITLE = re.compile(r"<title>(.*?)</title>", re.S)
+_SOLVED_NAME = re.compile(r"data-player-solved-name>(.*?)</strong>", re.S)
+
+
 def payload_of(html: str) -> dict:
     match = _PAYLOAD.search(html)
     assert match is not None, "the page carries no puzzle data"
@@ -304,6 +312,40 @@ class TestPuzzleEditor_ReachableFromListAndCard:
         anchor = row[: row.index("</a>")]
         assert 'aria-label="Edit the grid of snowflake.png"' in anchor
         assert ">Edit" in anchor
+
+        # CARD-249 AC-1 / AC-2: and the page the control opens says the same
+        # — its heading and its tab title name the puzzle and keep its extent,
+        # by the player's chain (name, then source file, then the id's first 8
+        # characters), asserted against the PLAYER'S output for the same row
+        # (its solved banner, the one place it shows the name) rather than
+        # against a re-derived literal. One row per link of the chain, and
+        # "Duck" is the card's own named case.
+        service = admin_app.puzzle_review_service
+        duck = seed(admin_app, grid=solid(8, 12), source_image="duck.png")  # 12 wide, 8 high
+        # A name that needs escaping (G-5): autoescaped on both pages, so the
+        # raw markup never reaches the editor's heading or title.
+        service.rename_puzzle(duck, "Duck & <Drake>")
+        unnamed = seed(admin_app, source_image="heron.png")
+        bare = seed(admin_app, source_image=None)
+        client = admin_app.test_client()
+        shown = {}
+        for row_id in (duck, unnamed, bare):
+            editor = client.get(EDITOR.format(row_id)).get_data(as_text=True)
+            player = client.get(f"/puzzle/{row_id}/solve").get_data(as_text=True)
+            solved = _SOLVED_NAME.search(player)
+            heading = _EDITOR_HEADING.search(editor)
+            title = _TITLE.search(editor)
+            assert solved and heading and title, row_id
+            name = unescape(solved.group(1))
+            board = payload_of(editor)
+            extent = f"{board['width']}×{board['height']}"
+            assert unescape(heading.group(1)).strip() == f"Edit “{name}” — {extent}"
+            assert f"“{name}” {extent}" in unescape(title.group(1))
+            assert "<Drake>" not in heading.group(1) + title.group(1)
+            shown[row_id] = name
+        assert shown == {duck: "Duck & <Drake>", unnamed: "heron.png", bare: bare[:8]}
+        assert "12×8" in unescape(_EDITOR_HEADING.search(
+            client.get(EDITOR.format(duck)).get_data(as_text=True)).group(1))
 
     def test_the_control_reaches_the_editor_of_that_very_puzzle(self, admin_app) -> None:
         first = seed(admin_app, source_image="first.png")
@@ -2237,13 +2279,25 @@ class TestPuzzleEditor_ThePlayerIsNotRegressed:
         assert _button(browser_page, "Undo").get_attribute("aria-disabled") == "false"
 
     def test_the_player_keeps_its_hint_and_its_counters(self, browser_page, live) -> None:
-        puzzle_id = _seed_live(live)
+        """CARD-249 AC-3 too: the player still hides the picture's name until
+        solved (FR-044 AC-322 / AC-323) — read on the SAME row whose editor
+        page, opened next, does name it, so the two pages are compared on one
+        puzzle and the name added to the editor is shown to reach it alone."""
+        puzzle_id = _seed_live(live, name="Duck")
         browser_page.goto(f"{live.url}/puzzle/{puzzle_id}/solve")
         browser_page.wait_for_function("window.puzzlePlayer !== undefined")
 
         assert _button(browser_page, "Hint").count() == 1
         assert browser_page.locator("[data-player-errors]").count() == 1
         assert browser_page.locator("[data-player-progress]").count() == 1
+        player_head = browser_page.locator(".page-head").inner_text()
+        assert "Duck" not in player_head and "Duck" not in browser_page.title()
+        assert "10×10" in player_head  # AC-323: the size stands in for it
+
+        _open_editor(browser_page, live, puzzle_id)
+        editor_head = browser_page.locator(".page-head").inner_text()
+        assert "Duck" in editor_head and "10×10" in editor_head
+        assert "Duck" in browser_page.title()
 
 
 # --------------------------------------------------------------------------
@@ -4274,3 +4328,85 @@ class TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule:
         assert page.locator('[data-player-zoom-action="in"]').count() == 1
         assert page.locator('[data-player-zoom-action="out"]').count() == 1
         assert page.locator("[data-player-zoom-readout]").text_content() == "100%"
+
+
+# --------------------------------------------------------------------------
+# CARD-249 AC-6 — the longest name the panel accepts fits the heading
+# --------------------------------------------------------------------------
+
+#: CARD-249 AC-6's three windows: the two desktop widths and the phone.
+_NAME_VIEWPORTS = ({"width": 1440, "height": 900}, {"width": 1200, "height": 900},
+                   {"width": 390, "height": 844})
+
+_HEADING_FIT = """() => {
+  const box = (el) => { const r = el.getBoundingClientRect();
+    return {left: r.left, right: r.right, top: r.top, bottom: r.bottom}; };
+  const h1 = document.querySelector('h1.editor-title');
+  const style = getComputedStyle(h1);
+  const line = parseFloat(style.lineHeight);
+  return {
+    text: h1.textContent,
+    h1: box(h1), column: box(h1.closest('.page-head').parentElement),
+    lines: Math.round(h1.getBoundingClientRect().height / line),
+    h1Overflow: [h1.scrollWidth - h1.clientWidth, h1.scrollHeight - h1.clientHeight],
+    pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+    textOverflow: style.textOverflow, overflowX: style.overflowX,
+    toolbar: box(document.getElementById('puzzle-player-controls')),
+    board: box(document.querySelector('.player-board')),
+    innerWidth: window.innerWidth,
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_TheLongestNameFitsTheHeading:
+    """CARD-249 AC-6 / Trap 3. ``MAX_PUZZLE_NAME_LENGTH`` (120) is the only
+    bound on a name and nothing shortens it, so the heading meets it whole —
+    as words and as one unbroken token, the two shapes CARD-163's banner test
+    pins (``_LONG_NAMES``, imported, not copied) — at 1440 x 900, 1200 x 900
+    and 390 x 844. Wrapping is acceptable; horizontal overflow, an ellipsis
+    and a clipped name are not, and the toolbar and the board stay inside the
+    window and clear of the heading. One test over the six cases (the owner's
+    test budget), with the case count asserted so the sweep cannot shrink."""
+
+    def test_the_whole_name_wraps_inside_the_column(self, browser_page, live) -> None:
+        from tests.test_puzzle_solver_maybe import _LONG_NAMES
+
+        page = browser_page
+        measured = []
+        for long_name in _LONG_NAMES:
+            assert len(long_name) == 120
+            puzzle_id = _seed_live(live, name=long_name)
+            for viewport in _NAME_VIEWPORTS:
+                page.set_viewport_size(viewport)
+                _open_editor(page, live, puzzle_id)
+                fit = page.evaluate(_HEADING_FIT)
+                case = (viewport["width"], " " in long_name, fit)
+                measured.append(case)
+                # The whole name, shown, in the heading and the tab title.
+                assert f"“{long_name}”" in fit["text"], case
+                assert long_name in page.title(), case
+                assert fit["textOverflow"] != "ellipsis" and fit["overflowX"] == "visible", case
+                # No sideways overflow inside the heading. (Its few px of
+                # vertical scroll overflow are glyph descenders under the
+                # display font's tight leading — painted, since overflow is
+                # visible — not a clipped line.)
+                assert fit["h1Overflow"][0] == 0, case
+                # Inside its column and the window; the page does not scroll
+                # sideways.
+                assert fit["column"]["left"] - 0.5 <= fit["h1"]["left"], case
+                assert fit["h1"]["right"] <= fit["column"]["right"] + 0.5, case
+                assert fit["pageOverflow"] <= 0, case
+                # The toolbar and the board are inside the window's width and
+                # start below the heading (it wraps down, never over them).
+                for part in ("toolbar", "board"):
+                    assert 0 <= fit[part]["left"] and fit[part]["right"] <= fit["innerWidth"], case
+                    assert fit[part]["top"] >= fit["h1"]["bottom"], case
+                assert page.locator("#puzzle-player-controls").is_visible(), case
+                assert page.locator(".player-board").is_visible(), case
+        assert len(measured) == len(_LONG_NAMES) * len(_NAME_VIEWPORTS) == 6
+        print("CARD-249 AC-6 measured:", *(
+            f"{w}px {'words' if words else 'token'}: h1 {f['h1']['right'] - f['h1']['left']:.1f}px "
+            f"in column {f['column']['right'] - f['column']['left']:.1f}px, {f['lines']} lines, "
+            f"page overflow {f['pageOverflow']}px"
+            for w, words, f in measured), sep="\n  ")
