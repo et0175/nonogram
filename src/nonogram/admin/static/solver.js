@@ -728,7 +728,7 @@ import { boardOfGrid } from "./solver_state.js";
 // save is written from and the two transitions are all pure (ADR-0038/R4);
 // the three buttons, the one-line notice and the marker on the member cells
 // are this file's.
-import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, probeCells, probeChangedCells, probeVerdict } from "./solver_state.js";
+import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, probeCells, probeChangedCells, probeGuessChanged, probeVerdict } from "./solver_state.js";
 // Line focus (CARD-439): see LINE FOCUS in wireMarking. The line's cells, the
 // crossing line of a long press and the split into strips are pure
 // (ADR-0038/R4); the dialog, its mini board and its strips are this file's.
@@ -2804,9 +2804,10 @@ function wireMarking(container, player) {
   // board. aria-hidden: aria-pressed on Probe and the buttons' own names
   // already say it to a screen reader.
   const stageWrap = container.closest(".player-stage-wrap");
+  const PROBE_FLAG_TEXT = "Probing \u00b7 \u2713 Keep \u00b7 \u2717 Wrong guess";
   const probeFlag = probeBar === null || stageWrap === null ? null
     : stageWrap.appendChild(Object.assign(document.createElement("p"), {
-      className: "player-probe-flag", textContent: "Probing \u00b7 \u2713 Keep \u00b7 \u2717 Wrong guess",
+      className: "player-probe-flag", textContent: PROBE_FLAG_TEXT,
     }));
   probeFlag?.setAttribute("aria-hidden", "true");
   // The probe's frame, round the board's visible part (see admin.css
@@ -3444,6 +3445,11 @@ function wireMarking(container, player) {
     probeNote.hidden = !open;
     stageWrap?.classList.toggle("is-probing", open);
     if (probeFlag !== null) {
+      // Owner, 2026-11-26: once the first guess is changed after the probe
+      // moved on, the line says why Wrong guess will offer nothing.
+      probeFlag.textContent = open && probeGuessChanged(player.getHistory(), probe)
+        ? "You changed your first guess. \u2717 Wrong guess will undo the whole probe."
+        : PROBE_FLAG_TEXT;
       // A class and not `hidden`, for the census's reason (see runBadge).
       probeFlag.classList.toggle("is-shown", open);
       placeProbeFlag();
