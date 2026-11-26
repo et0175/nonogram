@@ -2101,6 +2101,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    bar until puzzle_edit.js has wired it, the pair until a grid has been
    verified. */
 .editor-note { max-width: 70ch; margin: 0 0 var(--space-4); color: var(--color-text-secondary); }
+/* CARD-249: the editor's heading names the puzzle, and a name can be 120
+   characters with no space in it — wrapped anywhere, never overflowed or cut. */
+.editor-title { overflow-wrap: anywhere; min-width: 0; }
 .editor-save { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-4); }
 .editor-save[hidden] { display: none; }
 .editor-message { flex: 1 1 24rem; margin: 0; }

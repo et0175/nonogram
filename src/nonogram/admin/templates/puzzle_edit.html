@@ -69,7 +69,7 @@
 #}
 {% extends "base.html" %}
 
-{% block title %}Edit puzzle {{ extent[0] }}×{{ extent[1] }} - Nonogram admin{% endblock %}
+{% block title %}Edit &ldquo;{{ title }}&rdquo; {{ extent[0] }}×{{ extent[1] }} - Nonogram admin{% endblock %}
 {% block section %}Puzzles{% endblock %}
 
 {% block content %}
@@ -80,8 +80,18 @@
     difficulty is shown where it is true instead: in the save bar's message,
     from the solve that graded the grid and then from the row that was
     stored. -#}
+{#- CARD-249: the heading and the tab title NAME the puzzle — `title` is
+    the player's own fallback chain (app.py `_board_page_title`: name, then
+    source file, then the id's first 8 characters) — and keep its extent.
+    The player hides the name until solved because the name is the answer
+    (FR-044 AC-322); this page opens with the answer already painted
+    (CARD-246 AC-2), so there is nothing left to spoil. That is why the name
+    is added HERE and in no shared template or rule (CARD-249 G-1), and as a
+    template variable, not a payload key (G-2). A name may be 120
+    characters with no space in it: .editor-title wraps it anywhere rather
+    than overflow or cut it. Autoescaped like every other stored string. -#}
 <div class="page-head player-head">
-    <h1>Edit puzzle {{ extent[0] }}×{{ extent[1] }}</h1>
+    <h1 class="editor-title">Edit &ldquo;{{ title }}&rdquo; &mdash; {{ extent[0] }}×{{ extent[1] }}</h1>
 </div>
 
 <p class="editor-note">
