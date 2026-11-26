@@ -886,9 +886,19 @@ export function hintStroke(row, col, state) {
   return Object.freeze({ ...makeStroke([[row, col]], state), hint: true });
 }
 
-// The number of hints on the undo stack.
+// The number of hints on the undo stack SINCE THE LAST RESET (owner,
+// 2026-11-26: "Revealed: 2" stayed on a board Reset had just cleared). A
+// reset is the one stroke that clears every cell of the board (resetStroke):
+// no drag covers more than one line, so the test cannot mistake a drag for
+// it. Undoing the reset takes it off the stack, and the count comes back
+// with the cells it counted.
 export function hintCount(history) {
-  return history.done.filter((entry) => entry.stroke.hint === true).length;
+  const all = history.board.width * history.board.height;
+  let from = 0;
+  history.done.forEach((entry, at) => {
+    if (entry.stroke.state === UNKNOWN && entry.stroke.cells.length === all) from = at + 1;
+  });
+  return history.done.slice(from).filter((entry) => entry.stroke.hint === true).length;
 }
 
 // ---------------------------------------------------------------------------

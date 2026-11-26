@@ -181,6 +181,9 @@ class TestSolverClues_RuleExamples:
         _blank_page(browser_page, live)
         got = _numbers(browser_page, [(clue, marks) for clue, marks, _ in self.ROWS])
         assert got == [circled for _, _, circled in self.ROWS]
+        # And the public player doc's own table (owner, 2026-11-26), read out
+        # of the file: see _check_the_documented_circle_cases.
+        _check_the_documented_circle_cases(browser_page)
 
     #: "What to implement" 2, rule A: a closed run whose length is not its
     #: anchored clue number STOPS the walk from that edge. These marks fit no
@@ -248,8 +251,7 @@ _CIRCLES_DOC = "docs/how-it-works/01-domain/puzzle-creation/11-the-public-player
 _CIRCLES_ROW = re.compile(r"^\| ([A-Z]\d+) \| ([\d ]+) \| `([DW.?]+)` \| `([\d \[\]]+)` \| .+ \|$", re.M)
 
 
-@pytest.mark.browser
-def test_the_documented_circle_cases_are_what_the_player_does(browser_page, live) -> None:
+def _check_the_documented_circle_cases(browser_page) -> None:
     """Every row of the doc's "The cases" table, read out of the file: the
     player's ``circledNumbers`` and this file's ``_rule_circles`` (written from
     the rules' prose, not the module's code) both give the documented circles.
@@ -277,7 +279,6 @@ def test_the_documented_circle_cases_are_what_the_player_does(browser_page, live
         lines.append((clue, marks))
         want.append([part.startswith("[") for part in parts])
 
-    _blank_page(browser_page, live)
     got = _numbers(browser_page, lines)
     wrong = [(case, marks, g, w) for (case, _, marks, _), g, w in zip(rows, got, want) if g != w]
     assert wrong == [], wrong

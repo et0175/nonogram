@@ -193,7 +193,7 @@ through the last cell touched. **Board** (an arrow alone under 375 px) goes back
 ## Circled clue numbers: the readout that needs no answer
 
 > The table at the end of this section is executed: `tests/test_puzzle_solver_clues.py`'s
-> `test_the_documented_circle_cases_are_what_the_player_does` reads every row out
+> `TestSolverClues_RuleExamples::test_each_row_circles_what_the_table_says` reads every row out
 > of this file and holds the player's `circledNumbers`, and the test tree's own
 > second implementation of the rules, to it.
 

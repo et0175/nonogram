@@ -224,7 +224,12 @@ def test_PropertyTest_SolverResume_SaveAndRestoreRoundTrip(browser_page, live) -
             # The original, checked without the module's own functions.
             assert original["board"] == _replay(width, height, original["done"])
             assert original["errors"] == _errors_of(original["board"], payload["solution"])
-            assert original["hints"] == sum(stroke["hint"] for stroke in original["done"])
+            # Hints since the last reset (owner, 2026-11-26): a reset is the
+            # one stroke clearing all width * height cells.
+            resets = [k for k, stroke in enumerate(original["done"])
+                      if stroke["state"] == "unknown" and len(stroke["cells"]) == width * height]
+            since = original["done"][resets[-1] + 1:] if resets else original["done"]
+            assert original["hints"] == sum(stroke["hint"] for stroke in since)
             assert original["solved"] == _is_solved(original["board"], payload["solution"])
             # The text: exactly the documented fields; no solution in it.
             saved = json.loads(result["text"])
