@@ -853,7 +853,8 @@ _REASON_SENTENCE = {
     # agrees on at least one cell."
     "runs-complete": lambda axis, run: f"every block in this {axis} is placed, so the rest is white.",
     "overlap": lambda axis, run: f"wherever the block of {run} can sit, it always covers the same cells, so they are black.",
-    "generic": lambda axis, run: f"every way of placing this {axis}'s blocks agrees on at least one cell.",
+    # Owner, 2026-11-26: ", black or white" added (the agreed cell is often white).
+    "generic": lambda axis, run: f"every way of placing this {axis}'s blocks agrees on at least one cell, black or white.",
 }
 
 
