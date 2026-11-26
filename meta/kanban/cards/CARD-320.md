@@ -1,24 +1,24 @@
 # CARD-320: A float reaches `uuid.UUID` through `add_puzzle`, and only under the full suite — four narrower reproductions all pass
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 2c (0.5d)
+**Estimate:** 2c
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/320-float-uuid-full-suite
+**Worktree:** ../PythonProject4-card-320
 **Source:** CARD-299's first merge gate, 2026-10-29, which failed 2 of 9736 and whose second failure could not be attributed to the card. Cut by the orchestrator on owner decision.
 **Idea:** —
-**Wave:** —
+**Wave:** 103
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_arrange_size_filter.py, src/nonogram/admin/puzzle_review.py, tests/conftest.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-26T16:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

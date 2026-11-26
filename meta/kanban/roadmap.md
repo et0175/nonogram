@@ -92,6 +92,15 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 24 — OPEN 2026-11-26 (board wave 103)
+
+### As cut
+
+Cut on 2026-11-26 on the owner's "card CARD-320 and carry on, conftest edit allowed". CARD-320 (ready since wave 66) went red again at the Wave 23 close (`f696c49c`), on the `[db]` node of `test_a_removal_of_a_puzzle_the_book_never_held_is_not_a_question`. The owner allowed this card, and only this card, to edit `tests/conftest.py`.
+
+### tech-debt
+- **CARD-320** A float reaches `uuid.UUID` through `add_puzzle`, and only under the full suite — 2c
+
 ## Wave 23 — DONE 2026-11-26 (board wave 102)
 
 CARD-548 was merged (`ffb59e44`, 9.5 at cycle 1, notes only, net 0). CARD-277's 225-cell zoom drag did not reproduce in any of 56 runs: 50 runs of the two tests alone and 6 runs of the 13-file solver family. All ran under caffeinate with no sleep overlap, and the per-pointermove probe was shown able to see broken drags. A code reading, which the reviewer confirmed at d90753df and at HEAD, shows `dragStroke` goes through `dragLine`, so one drag marks only one row or column (at most 15 cells), and none of CARD-277's three suspects can produce 225. CARD-277 is therefore **skipped as unreproduced**, and its AC-4 detector is not built. Gate SELECTION: 4154 passed, 0 failed.
