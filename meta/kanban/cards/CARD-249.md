@@ -1,6 +1,6 @@
 # CARD-249: The editor page says which puzzle it is editing
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/249-editor-names-its-puzzle
-**Worktree:** ../PythonProject4-card-249
+**Worktree:** —
 **Source:** owner, 2026-10-18 — found by eye on the wave-46 render (`~/Documents/nonogram-reviews/CARD-246/02-editor-as-opened-NO-DIFFICULTY-BADGE.png`), filed on owner instruction 2026-10-19
 **Idea:** —
 **Wave:** 101
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_editor_ui.py
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-26T09:37Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-26T10:24Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** e313ce19
 **Blocked by:** —
 
 ## What to implement
@@ -268,3 +268,7 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-249 --root meta/architectu
 Verdict: CERTIFIED.
 
 Report: meta/review/CARD-249-review-1.yml (gitignored; sync it before removing the worktree).
+
+### Close (2026-11-26)
+
+AC-1 and AC-2 are verified by `tests/test_puzzle_editor_ui.py::TestPuzzleEditor_ReachableFromListAndCard::test_the_edit_control_says_which_puzzle_it_edits`, not by the `TestPuzzleEditor_NamesThePuzzleItEdits` class the ACs name (review F-002; folded in for the test budget). Recorded, not carded: F-001, `min-width: 0` in `.editor-title`, which no test holds.
