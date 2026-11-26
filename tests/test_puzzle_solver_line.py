@@ -508,6 +508,21 @@ class TestSolverLine_ReadsLikeTheBoard:
             # A paper gap inside each black cell, either side of the ink rule.
             for shadow in (cell["shadow"], before):
                 assert shadow != "none" and cell["bg"] not in shadow
+            # 2026-11-26: like the board's, these circles follow the RECORDED
+            # line. A Clear drag along the strip previews the cells blank and
+            # keeps every circle until the pointer lifts.
+            circled = "els => els.map((e) => e.classList.contains('is-circled'))"
+            page.locator('[data-player-line-tool="unknown"]').tap()
+            first = BIG[row].index(True)
+            a = page.locator(_cell(first)).bounding_box()
+            b = page.locator(_cell(first + 1)).bounding_box()
+            page.mouse.move(a["x"] + a["width"] / 2, a["y"] + a["height"] / 2)
+            page.mouse.down()
+            page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2, steps=4)
+            assert page.eval_on_selector(_cell(first), "e => e.dataset.state") != F, "no preview painted"
+            assert all(page.eval_on_selector_all(".player-line-num", circled))
+            page.mouse.up()
+            assert not all(page.eval_on_selector_all(".player-line-num", circled))
         finally:
             context.close()
 

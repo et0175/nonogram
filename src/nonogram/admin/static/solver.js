@@ -4532,8 +4532,10 @@ function wireMarking(container, player) {
     lineParts.action.next.setAttribute("aria-label", `Next ${name.toLowerCase()}`);
     lineParts.action.prev.setAttribute("aria-disabled", String(index === 0));
     lineParts.action.next.setAttribute("aria-disabled", String(index === lineCount(axis) - 1));
-    // The clue, its numbers circled as the board circles them.
-    const circled = circledNumbers(clue, cells);
+    // The clue, its numbers circled as the board circles them: from the
+    // RECORDED board, never a drag's preview, as the board's own circles are
+    // (2026-11-26: a strip drag circled numbers before the finger lifted).
+    const circled = circledNumbers(clue, lineOf(player.getHistory().board, axis, index));
     lineParts.clue.replaceChildren(...clue.map((value, k) => {
       const number = document.createElement("span");
       number.className = "player-line-num";
