@@ -15,7 +15,7 @@
 **Wave:** 101
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_editor_ui.py
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-26T09:37Z
 **Closed:** —
 **Actual:** —
@@ -248,3 +248,23 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-249 --root meta/architectu
 - `tests/test_puzzle_editor_ui.py tests/test_admin_design_tokens.py tests/test_puzzle_solver_page.py::TestSolverPage_HidesThePictureNameUntilSolved` (AC-322/AC-323): 138 collected, 138 passed, 0 skipped, exit 0.
 - `tests/test_player_base_css.py tests/test_public_player.py tests/test_puzzle_edit_routes.py tests/test_puzzle_solver_page.py tests/test_player_shared_ui_site.py`: 217 collected, 213 passed, 4 skipped (conftest: `DATABASE_URL` not set, unarmed), exit 0.
 - Full suite not run (the orchestrator's merge gate).
+
+### Review cycle 1 (2026-11-26)
+
+**Score:** 9.5/10. **Verdict:** CERTIFIED (no critical or important findings).
+
+[Review 1/3] Score: 9.5, certified. Independent forge:review, re-run from this worktree with the main venv. Key evidence by node id (the AC-1/2 test, the AC-3 test, the AC-4 and AC-5 guardrail tests, `TestPuzzleEditor_TheLongestNameFitsTheHeading`, `tests/test_puzzle_solver_page.py::TestSolverPage_HidesThePictureNameUntilSolved`), `-o addopts= -rfs`: 10 collected, 10 passed, 0 skipped, exit 0. The AC-6 figures printed match the implementer's to 0.1 px. The wider run (`tests/test_puzzle_editor_ui.py`, `tests/test_admin_design_tokens.py`, `tests/test_puzzle_solver_page.py`, `tests/test_puzzle_solver_maybe.py`): 235 collected, 235 passed, 0 skipped, exit 0. The co-change peer `tests/test_player_base_css.py`: 3 passed, 0 skipped. Net test count: +1. A copy of the merge-base version of `tests/test_puzzle_editor_ui.py` collects 118 and HEAD collects 119; it is the only test file in the diff. System contract: 8 rules, 5 hold, 3 unchecked (no_eligible_fact), 0 violated.
+
+- **Deviation (a), accepted.** AC-1 and AC-2 are folded into `test_the_edit_control_says_which_puzzle_it_edits` to stay within the owner's test budget. The test does what AC-2 asks: it compares the editor against the player's solved-banner output for the same row, and the literal `shown` map keeps that comparison from being circular under a shared helper. Mutant M4 drops `source_image` from `_board_page_title`, which changes both pages at once. The page-vs-page equality cannot see that change, but the literal catches it. M6 (`id[:6]`) is killed by `bare[:8]`.
+- **Deviation (b), accepted.** `_board_page_title` returns exactly the expression `puzzle_solve` had inline. It goes into the same template variable through the same autoescape, and `puzzle_solve.html` is untouched. The player's output is byte-identical for every row, including names that need escaping. `_board_page_title` has two callers, which satisfies G-3: the chain is shared, not copied.
+- **AC-6 asserts something real.** Mutant M2 (drop `overflow-wrap: anywhere`) is killed. The h1 is a flex item in `.page-head`, so the unbroken token grows the h1's own box past the column. The box-in-column and `scrollWidth` assertions see that growth.
+- **CSS reach.** `.editor-title` is a bare class selector, and grep finds it only in `puzzle_edit.html`. It cannot style the player or any other page (G-1).
+- **Escaping (G-5).** M5 puts `|safe` on the tab title only and is killed by the `'<Drake>'` assertion.
+- All mutants were reverted with `git checkout -- <file>`. `git status --short` and `git diff --stat` were empty afterwards, and `admin.css` compared identical (`cmp`) with a copy taken before M1.
+
+- F-001 (low): `min-width: 0` in `.editor-title` is not discriminated by any test. Mutant M1 drops it and survives, because `overflow-wrap: anywhere` already lowers the flex item's min-content width. Drop the declaration or say in the comment that it is deliberate.
+- F-002 (low): AC-1 and AC-2 still name `TestPuzzleEditor_NamesThePuzzleItEdits[::test_the_fallback_chain_matches_the_players]`, which does not exist. The real node is `tests/test_puzzle_editor_ui.py::TestPuzzleEditor_ReachableFromListAndCard::test_the_edit_control_says_which_puzzle_it_edits`. Run the AC gate by that id at done, or re-point the refs.
+
+Verdict: CERTIFIED.
+
+Report: meta/review/CARD-249-review-1.yml (gitignored; sync it before removing the worktree).
