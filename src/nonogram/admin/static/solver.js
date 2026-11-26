@@ -728,7 +728,7 @@ import { boardOfGrid } from "./solver_state.js";
 // save is written from and the two transitions are all pure (ADR-0038/R4);
 // the three buttons, the one-line notice and the marker on the member cells
 // are this file's.
-import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, probeCells, probeVerdict } from "./solver_state.js";
+import { abandonProbe, brokenLines, checkpointHistory, markStroke, nextProbe, probeCells, probeChangedCells, probeVerdict } from "./solver_state.js";
 // Line focus (CARD-439): see LINE FOCUS in wireMarking. The line's cells, the
 // crossing line of a long press and the split into strips are pure
 // (ADR-0038/R4); the dialog, its mini board and its strips are this file's.
@@ -1183,7 +1183,7 @@ function start() {
   // leave behind — the crosshair's forget() has no counterpart here.
   function paintProbe() {
     const probe = marking.getProbe();
-    const members = new Set(probeCells(history, probe)
+    const members = new Set(probeChangedCells(history, probe)
       .map(([row, col]) => row * payload.width + col));
     cellElements.forEach((element, index) => {
       if (members.has(index)) element.dataset.probe = "true";
@@ -4582,7 +4582,7 @@ function wireMarking(container, player) {
     // quiet on the board and loud here. The members are NOT gated: the
     // dashed marks are what the reader made, not an answer about them.
     const history = player.getHistory();
-    const members = new Set(probeCells(history, probe).map(([r, c]) => `${r},${c}`));
+    const members = new Set(probeChangedCells(history, probe).map(([r, c]) => `${r},${c}`));
     const broken = brokenNow();
     const anyBroken = broken.rows.length + broken.columns.length > 0;
     lineParts.clue.classList.toggle("is-broken",
@@ -4701,6 +4701,10 @@ function wireMarking(container, player) {
     drawLine();
   }
 
+  const LINE_ENTRY = "nonogramLineView";
+  window.addEventListener("popstate", () => {
+    if (focused !== null && window.history.state?.[LINE_ENTRY] !== true) closeLine(true);
+  });
   function openLine() {
     if (!lineOffered() || focused !== null) return;
     closeMenu();
@@ -4714,10 +4718,24 @@ function wireMarking(container, player) {
     if (lineAxis === "column") focusLine("column", col, lastCell === null ? null : row);
     else focusLine("row", row, lastCell === null ? null : col);
     lineParts.action.close.focus();
+    // Owner, 2026-11-26: a sideways swipe in the view (Safari's edge swipe,
+    // the phone's Back gesture) went BACK — to the book. The view now takes a
+    // history entry of its own, so Back closes it onto the board; the same
+    // URL, so nothing reloads, and closing it any other way takes the entry
+    // back out (closeLine), so the history is as it was before.
+    try {
+      const state = window.history.state;
+      window.history.pushState({ ...(state !== null && typeof state === "object" ? state : {}), [LINE_ENTRY]: true }, "");
+    } catch {
+      // No pushState: Back leaves the page, as it did before.
+    }
   }
 
-  function closeLine() {
+  function closeLine(byBack = false) {
     if (focused === null) return;
+    if (!byBack && window.history.state?.[LINE_ENTRY] === true) {
+      try { window.history.back(); } catch { /* the entry stays; harmless */ }
+    }
     cancelLineGesture();
     focused = null;
     focusAt = null;
@@ -4780,7 +4798,7 @@ function wireMarking(container, player) {
   function wireLine() {
     lineOpen.setAttribute("aria-expanded", "false");
     lineOpen.addEventListener("click", openLine);
-    lineParts.action.close.addEventListener("click", closeLine);
+    lineParts.action.close.addEventListener("click", () => closeLine());
     // On the document (review of 2026-11-17): a tap on the mini board or a
     // long-press pivot leaves the focus on <body>, outside the dialog, and
     // Escape then no longer closed the view.

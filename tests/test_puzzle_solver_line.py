@@ -366,8 +366,18 @@ class TestSolverLine_OpensAtTheLastCellTouched:
             _open_line(page)
             page.locator('[data-player-line-axis="column"]').tap()
             page.locator('[data-player-line-action="close"]').tap()
+            url = page.url
             _open_line(page)
             assert _title(page).startswith("Column 11 of ")
+            # Owner, 2026-11-26: the phone's Back (Safari's edge swipe) in the
+            # view closes it onto the board instead of leaving the page, and
+            # closing it by Board leaves no extra history entry behind.
+            page.go_back()
+            assert _dialog(page).is_hidden() and page.url == url
+            _open_line(page)
+            page.locator('[data-player-line-action="close"]').tap()
+            page.wait_for_timeout(100)
+            assert page.evaluate("() => history.state?.nonogramLineView") is None
         finally:
             context.close()
 
