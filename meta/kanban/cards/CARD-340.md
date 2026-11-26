@@ -1,6 +1,6 @@
 # CARD-340: The arrangement screen spills its buttons off a phone, and has since before anyone looked
 
-**Status:** in_progress
+**Status:** skipped
 **Priority:** P2
 **Category:** bug
 **Estimate:** 1c
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** general-purpose
 **TDD:** false
-**Branch:** card/340-arrange-phone-overflow
-**Worktree:** ../PythonProject4-card-340
+**Branch:** —
+**Worktree:** —
 **Source:** CARD-332's fix round 1, 2026-11-03, found while writing the Chromium cell that guards *its own* layout fix. Its brief said "one cell"; one cell would have been wrong at either viewport, and finding out why surfaced a defect that is **not CARD-332's** and predates it. Raised, measured, named on that card and in the new test file's docstring, and deliberately left for an owner rather than absorbed.
 **Idea:** —
 **Wave:** 101
@@ -112,3 +112,61 @@ timings are only trustworthy on a quiet host.
 `tests/test_book_arrange_play_link.py` and the arrangement-screen fixtures arrive with it. Start
 before it lands and this card builds a second harness for the same screen, which is the thing
 item 4 exists to prevent.
+
+## Worktree notes
+
+### Implementation round 1 (2026-11-26)
+
+**Verdict: premise false on the current tree. Cut the card; nothing was built.** CARD-495
+(`945a42d9`, then review fix `a2e276bf`, both 2026-11-20) already repaired this defect in
+`src/nonogram/admin/static/admin.css`. It also added the containment cell that item 4 asks for,
+to `TestArrangePlayLink_TheUrlWrapsRatherThanSpill::test_the_url_stays_inside_the_row` in
+`tests/test_book_arrange_play_link.py`.
+
+**CARD-332's verdict.** Its Worktree notes and both review YAMLs do not rule on this overflow
+claim. The claim lives on as a docstring line in `tests/test_book_arrange_play_link.py`, which
+CARD-495 rewrote to say the overflow is repaired. The premise was therefore re-measured, not
+inherited.
+
+**Premise measurement (re-derived, 390 x 844, Chromium, three-member fixture
+`live_arrangement`).** It was taken with a scratch measuring cell that reuses the module's
+fixtures. The cell was untracked and is deleted.
+- **HEAD = merge-base `7ac3c027`** (`git merge-base HEAD main` returns HEAD, so this one
+  measurement covers both commits): `scrollWidth` 390 against `clientWidth` 390. In every row,
+  `.item-actions` right edge is 344 and the row's right edge is 357, an overhang of **-13 px**.
+  No element ends past the viewport.
+- **Control: HEAD with CARD-495's two CSS hunks reverse-applied**
+  (`git diff 945a42d9^ a2e276bf -- admin.css | git apply -R`): `scrollWidth` **401**, and
+  `.item-actions` right edge 401.34 against a row right edge of 357, an overhang of **44.34 px**.
+  These are exactly this card's figures. The elements past the viewport are `.item-actions` and
+  its move and delete forms and buttons, so both numbers come from one cause: the actions column
+  is pushed past the card. The cause was the phone rule's `1fr` middle column, which could not
+  shrink below its content, together with the 120 px thumb. CARD-495 fixed it with
+  `minmax(0, 1fr)`, the 80 px thumb, `flex-wrap`/`min-width: 0` on `.item-info`, and a
+  `max-width: 480px` rule that gives the title and link their own rows. The selectors are all
+  scoped to `.puzzle-list-item`.
+- Host load at measurement: 1-minute load 42.8 (G-4). These are geometry figures, not timings,
+  and they are identical across all three rows.
+
+**Evidence per AC (no change made, so each AC is either already met by CARD-495 or moot):**
+- AC-1 (met by CARD-495): `tests/test_book_arrange_play_link.py`, the whole file: 9 collected,
+  9 passed, 0 skipped, exit 0, at HEAD. The phone cell asserts row containment of the URL, the
+  title and the actions, and `scrollWidth <= 390`.
+- AC-2 (measured on CARD-495's fix): with its CSS reverted, the same file gave 1 failed and
+  8 passed, exit 1. The only red was `test_the_url_stays_inside_the_row`, with
+  `('actions', {... 'right': 401.34375 ...}, {... 'right': 357 ...})`. After restoring,
+  `shasum -a 256 -c` reported admin.css OK
+  (`92aa2686af0a64a4850b5427e36463c1d1692945946d446a3eed66f3b182495f`), and the re-run gave
+  9 passed, exit 0. The 1024 px cells stayed green in both runs (G-2).
+- AC-3: both figures are recorded above. HEAD and the merge-base are the same commit, and the
+  pre-repair figure comes from the reverted-CSS control.
+- AC-4: `git diff --quiet 7ac3c027 -- tests/test_book_setup_print_mobile.py` exits 0
+  (byte-identical).
+- G-3 renders are in `~/Documents/nonogram-reviews/CARD-340/`: `head-7ac3c027-390px.png`
+  (clean) and `card495-css-reverted-390px.png` (the defect).
+
+**Net test count: +0.** No source, template or test file was changed.
+
+### Skipped by the orchestrator (2026-11-26)
+
+Skipped, not built: the defect was already fixed by CARD-495 (2026-11-20, `945a42d9`, `a2e276bf`). That card also added the 390 px containment control `TestArrangePlayLink_TheUrlWrapsRatherThanSpill::test_the_url_stays_inside_the_row`. Implementation round 1 above re-measured it at `7ac3c027`: the page is 390 px wide in a 390 px window. With CARD-495's CSS reverted, it measures 401 px with a 44 px overhang, which are this card's figures. Nothing merged; branch deleted.
