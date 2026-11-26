@@ -92,7 +92,11 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
-## Wave 22 — OPEN 2026-11-26 (board wave 101)
+## Wave 22 — DONE 2026-11-26 (board wave 101)
+
+CARD-249 merged (`e313ce19`, 9.5 at cycle 1, net +1). The editor's heading and tab title now name the puzzle, as `Edit “Duck” — 10×10`, through one helper, `_board_page_title`, which the player's solve page now shares. The name is autoescaped, and a 120-character name wraps inside the column at 1440, 1200 and 390 px. Gate SELECTION: 9112 passed plus 11 marked, 0 failed. Recorded, not carded: F-001 (`min-width: 0` is held by no test) and F-002 (the ACs name a class that was folded into `test_the_edit_control_says_which_puzzle_it_edits`, which is noted on the card). CARD-340 was skipped and not built: CARD-495 had fixed the overflow on 2026-11-20. Re-measured at `7ac3c027`, the page is 390 px in a 390 px window; with CARD-495's CSS reverted it is 401 px, reproducing the card's figures.
+
+Wave close: `make test-wave-close` on main at `ad20c57d`, in a detached worktree, under caffeinate: 10686 passed, 30 skipped (unarmed), 1 xfailed, 0 failed, 33 min.
 
 ### As cut
 
