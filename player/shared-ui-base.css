@@ -22,6 +22,16 @@
   box-sizing: border-box;
 }
 
+/* iOS (Safari, and Chrome, which is WebKit there) knows only the prefixed
+   property, and reads it on the root: without it a phone may inflate the
+   clue numerals and the board no longer fits its stage (owner, 2026-11-26,
+   puzzle 128 sliding sideways). Bootstrap's reboot, which base.css stands
+   in for, sets it here. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background-color: var(--color-bg);
