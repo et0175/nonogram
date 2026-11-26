@@ -2848,7 +2848,8 @@ function wireMarking(container, player) {
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
   // REGION BY HOLD, THEN TAP (CARD-449; Anna's QA, 2026-11-16, item 6, the
   // owner's "add the two-tap region"; the safer of two variants, so ordinary
-  // taps keep their meaning). With Region on, a press held REGION_HOLD_MS on
+  // taps keep their meaning). With Region on, a touch or pen press (never a
+// mouse, 2026-11-26) held REGION_HOLD_MS on
   // a cell without leaving it marks nothing and makes that cell the ANCHOR
   // (.is-anchor); the next tap in the anchor's row or column paints the
   // whole segment between them with the brush — one dragStroke, so one
@@ -3675,8 +3676,11 @@ function wireMarking(container, player) {
     // applies to the next drag, not this one.
     gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool: rightClick ? EMPTY : tool, paints };
     // CARD-449: with Region on, a press held without leaving its cell sets
-    // the anchor instead of marking.
-    if (region) {
+    // the anchor instead of marking — on a touch screen or a pen only
+    // (owner, 2026-11-26: on a desktop a mouse press held a moment before a
+    // drag set the anchor, drew its green frame and the drag marked
+    // nothing). A mouse drag always marks, so a mouse has no need of it.
+    if (region && event.pointerType !== "mouse") {
       const held = gesture;
       held.hold = setTimeout(() => {
         if (gesture !== held || held.dragging) return;

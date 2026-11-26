@@ -172,9 +172,13 @@ def test_every_option_of_the_player_works_at_this_screen(screen, preview_host) -
     # painted run on the board that no undo could reach).
     drawn = page.evaluate(_DRAWN)
     drag(hold_ms=HOLD_MS)
-    assert page.evaluate(_DRAWN) == drawn == page.evaluate(_MARKED)
-    page.keyboard.press("Escape")  # drops the anchor
-    drag()
+    if touch:
+        assert page.evaluate(_DRAWN) == drawn == page.evaluate(_MARKED)
+        page.keyboard.press("Escape")  # drops the anchor
+        drag()
+    else:
+        # A mouse sets no anchor (owner, 2026-11-26): the held drag marks.
+        assert page.locator("td.player-cell.is-anchor").count() == 0
     assert [_cell(page, 2, c).get_attribute("data-state") for c in range(1, 6)] == ["filled"] * 5
 
     # ---- zoom: the cells grow, the stage scrolls, the page does not -------
