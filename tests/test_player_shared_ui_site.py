@@ -586,7 +586,10 @@ class TestSharedUi_ThePageRuns:
         open_play_at(page, url, f"/play/{key}?book={slug}")
         page.wait_for_selector('[data-player-book="solved"]', timeout=PAGES_SETTLE_MS)
         wide = page.evaluate(_LOOK)
-        assert wide["slot"] - wide["link"] > 100, wide  # the row really has slack here
+        # Since 2026-11-26 (the owner's centred desktop column) the head is as
+        # wide as its content, so the slot has no slack left to mistake for the
+        # link: it is the link plus its 20 px lead-in, and nothing more.
+        assert 0 <= wide["slot"] - wide["link"] <= 24, wide
         assert wide["link"] - wide["words"] <= 1, wide  # and the anchor is only its words
         # The other half of F-002, at the viewport where the row is wide
         # enough: given the space, the whole name IS painted. So "clipped at

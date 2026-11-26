@@ -2054,6 +2054,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > * + * { border-left: var(--border-width) solid var(--color-border); }
   .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > .player-zoom-readout { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; }
   .player-toolbar:not(:has([data-player-action="check"])) .player-zoom > :focus-visible { outline-offset: -3px; }
+  /* Owner, 2026-11-26: on a wide screen the public page is centred as one
+     column — the title row, the toolbar and the board share the window's
+     middle — instead of hugging the left edge with the right half empty.
+     The stage keeps its full width (its cell fit reads it), so only what
+     sits inside it moves; a board zoomed past the stage still scrolls from
+     its left edge (auto margins are 0 then). */
+  /* (One :has may not hold another, so the public page is named by what it
+     has — Hint — and what it lacks — Check — on .main itself.) */
+  .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-head,
+  .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-toolbar,
+  .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-howto {
+    width: fit-content; max-width: 100%; margin-inline: auto;
+  }
+  .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-head > span:last-child { flex: 0 1 auto; }
+  .player-toolbar:not(:has([data-player-action="check"])) ~ .player-stage-wrap .player-stage > .player-board { margin-inline: auto; }
 }
 /* Owner's test notes, 2026-11-23 ("Desktop - maybe we can use space
    better?", option a): 36 px still left a 13 x 12 in the top-left third of
