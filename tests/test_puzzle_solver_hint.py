@@ -470,6 +470,10 @@ _PURE = """async () => {
   counts.push(S.hintCount(history));
   history = S.record(history, S.resetStroke(history.board));
   counts.push(S.hintCount(history));
+  // Owner, 2026-11-26: a reset starts the count again; undoing it brings the
+  // count back, and a hint after it counts from one.
+  counts.push(S.hintCount(S.undo(history)));
+  counts.push(S.hintCount(S.record(history, S.hintStroke(0, 1, S.FILLED))));
   return {
     stroke: { frozen: Object.isFrozen(stroke) && Object.isFrozen(stroke.cells) && Object.isFrozen(stroke.cells[0]),
               cells: stroke.cells, state: stroke.state, hint: stroke.hint },
@@ -513,7 +517,7 @@ class TestSolverHintModule:
         got = browser_page.evaluate(_PURE)
         assert got["stroke"] == {"frozen": True, "cells": [[1, 0]], "state": F, "hint": True}
         # click, +hint, +hint, undo, redo, reset (a reset keeps the count)
-        assert got["counts"] == [0, 1, 2, 1, 2, 2]
+        assert got["counts"] == [0, 1, 2, 1, 2, 0, 2, 1]
         assert got["replayed"] == got["board"] == [U, U, U, U]
         assert got["fromSolution"] == [0, 0, E, True]
         assert got["nullRow"] == [0, 1, E, True]
@@ -1319,6 +1323,10 @@ class TestSolverHint_IsOneUndoableStroke:
         _button(browser_page, "Reset").click()
         _button(browser_page, "Reset board").click()
         assert _marked(_states(browser_page)) == {}
+        # Owner, 2026-11-26: Reset starts the count again (the name, kept for
+        # the node id, is from before); Undo of the reset brings it back.
+        assert _hints_shown(browser_page) == 0
+        _button(browser_page, "Undo").click()
         assert _hints_shown(browser_page) == 2
         _set(browser_page, [U] * (SIDE * SIDE))
         assert _hints_shown(browser_page) == 0
