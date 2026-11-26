@@ -241,6 +241,56 @@ def _safety_corpus(rng, size):
     return lines
 
 
+#: The public player's page of record for the circling rules (owner,
+#: 2026-11-26: "describe every case where a clue number is circled and
+#: un-circled, and test all of them"). Its table is the test's corpus.
+_CIRCLES_DOC = "docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md"
+_CIRCLES_ROW = re.compile(r"^\| ([A-Z]\d+) \| ([\d ]+) \| `([DW.?]+)` \| `([\d \[\]]+)` \| .+ \|$", re.M)
+
+
+@pytest.mark.browser
+def test_the_documented_circle_cases_are_what_the_player_does(browser_page, live) -> None:
+    """Every row of the doc's "The cases" table, read out of the file: the
+    player's ``circledNumbers`` and this file's ``_rule_circles`` (written from
+    the rules' prose, not the module's code) both give the documented circles.
+
+    The table cannot shrink or lose a family unseen: at least 28 rows, every
+    rule's letter present, and each of A, B, C, E and Z (the 0 clue) with at
+    least one row that circles and one that does not — the "goes away" half
+    the owner asked for. Plants: drop rule E from solver_state.js -> E1 reds;
+    change a row's Circled cell in the doc -> that row reds.
+    """
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parent.parent / _CIRCLES_DOC).read_text(encoding="utf-8")
+    table = text[text.index("### The cases"):]
+    rows = _CIRCLES_ROW.findall(table)
+    assert len(rows) >= 28, len(rows)
+    assert len({case for case, *_ in rows}) == len(rows), "a case id is used twice"
+
+    lines, want = [], []
+    for case, clue_text, marks, shown in rows:
+        clue = tuple(int(n) for n in clue_text.split())
+        parts = shown.split()
+        assert tuple(int(part.strip("[]")) for part in parts) == clue, (case, "the Circled cell is not the clue")
+        assert len(marks) == 10, case
+        lines.append((clue, marks))
+        want.append([part.startswith("[") for part in parts])
+
+    _blank_page(browser_page, live)
+    got = _numbers(browser_page, lines)
+    wrong = [(case, marks, g, w) for (case, _, marks, _), g, w in zip(rows, got, want) if g != w]
+    assert wrong == [], wrong
+    reference = [_rule_circles(clue, marks) for clue, marks in lines]
+    assert reference == want, [(rows[k][0], reference[k], want[k]) for k in range(len(rows)) if reference[k] != want[k]]
+
+    for family in "ABCEZ":
+        verdicts = {any(w) for (case, *_), w in zip(rows, want) if case.startswith(family)}
+        assert verdicts == {True, False}, (family, "needs a row that circles and one that does not")
+    assert any(case.startswith("X") for case, *_ in rows)
+    assert any("?" in marks for _, _, marks, _ in rows), "no Maybe row"
+
+
 @pytest.mark.browser
 def test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot(browser_page, live) -> None:
     """AC-1 — on every line whose marks fit at least one placement of its

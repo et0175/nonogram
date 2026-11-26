@@ -355,28 +355,126 @@ Hint control — and, per CARD-380, the probe controls — live outside
 
 ## Circled clue numbers: the readout that needs no answer
 
-A clue number is circled once the player's marks account for it. **Which** numbers
-is `solver_state.js`'s `circledClues` and nothing in `play.js`: it takes the board
-and the payload's clues, never a solution, and it is the very function the admin
-player calls, so the two pages cannot disagree about when a number is circled
-(CARD-326). This page only carries the answer to the DOM, and carries it without
-deciding anything — the value handed to `classList.toggle` is a bare member of
-`circledClues`'s return value, which `tests/test_public_player_circles.py` holds
-both structurally (the painter has no operator, no comparison and no property it
-was not given) and by corpus (the page's set equals the module's across seeded
-boards). The circles are painted from the **recorded** board, never from a drag's
-preview: a number is not circled by marks that are not yet made.
+> Rewritten 2026-11-26 for the shared player (`solver.js` in public mode); this
+> section is current, unlike the stale parts of the page around it. The table at
+> its end is executed: `tests/test_puzzle_solver_clues.py`'s
+> `test_the_documented_circle_cases_are_what_the_player_does` reads every row out
+> of this file and holds the player's `circledNumbers`, and the test tree's own
+> second implementation of the rules, to it.
 
-**Circled is not satisfied**, and the solved check is deliberately not built from
-this set. A board can circle every number and still be wrong — the module's own
-example is a line clued `1 2` marked with its 2-run to the left of its 1-run, which
-circles both — so `isClueSolved` stays an exact clue-satisfaction check and
-CARD-326's AC-4 holds it with a board that does exactly this.
+A clue number is circled when the player's **marks** settle it. Which numbers is
+decided by `solver_state.js`'s `circledNumbers` (one line) and `circledClues` (the
+whole board): they take the board and the clues, never a solution, so the public
+page can run them, and the admin player calls the very same functions. `solver.js`
+only carries the answer to the page: after every recorded change it sets or
+removes `.is-circled` on each number.
 
-The ring is a **border** on the number's `::before`, not a background, so the
-crosshair's tint on the clue box cannot hide it. This page has one gutter per axis
-— the admin's doubled gutters (CARD-212) are a layout it does not have — so each
-number is one span and there are no twins to keep in step.
+### The words
+
+In one row or column a cell is **black**, **white** (the dot), or **undecided**.
+A blank cell and a Maybe (`?`) are both undecided: a `?` never closes a run.
+
+A **run** is a stretch of black cells with no gap. A run is **closed** when the
+cell on each side of it is a white dot or the edge of the board. A run beside a
+blank or a `?` is **open**, and an open run never circles anything.
+
+### When a number is circled
+
+A number is circled when any one of these holds. Each line is read by itself.
+
+- **A. Counted in from an edge.** Start at one end of the line and walk inward.
+  White dots are skipped. The first closed run met is the first clue number from
+  that end if its length matches; circle it and walk on to the next run and the
+  next number. The walk stops at the first undecided cell, the first open run, or
+  the first run of the wrong length. Both ends are walked, separately.
+- **B. The whole line is there.** Every run on the line is closed, and their
+  lengths, in order, are exactly the clue. Every number is circled, even when
+  undecided cells remain between the runs.
+- **C. The only number of that size.** The number's value occurs once in this
+  line's clue, and the line holds exactly one closed run of that length. No other
+  number could own that run, so it is circled wherever it stands.
+- **E. The only number with room there.** The run's length occurs more than once
+  in the clue, but only one of those numbers leaves room for the numbers before it
+  (each with a gap) to its left and the numbers after it to its right. That one is
+  circled. In `2 2 2` on ten cells, a closed pair on cells 6 and 7 can only be the
+  middle 2.
+- **The clue `0`.** Circled only when every cell of the line is a white dot.
+
+(There is no rule D. It circled numbers pinned by the marks without a closed run;
+the owner withdrew it on 2026-11-12: a circle appears only beside dots or the
+edge.)
+
+### When the circle goes away
+
+The circles are worked out again from scratch after every recorded change, so a
+number loses its circle the moment none of the rules above holds for it any more.
+In practice:
+
+- a dot beside the run is cleared or turned into `?`, so the run is open again;
+- the run grows or shrinks by a cell, so its length no longer matches;
+- a second closed run of the same length appears where rule C needed exactly one;
+- a mark elsewhere stops rule A's walk earlier, or breaks rule B's "exactly the
+  clue", and no other rule still covers the number;
+- **Undo** takes back the mark that completed it; **Redo** brings it back;
+- **Reset** clears the board, so every circle goes (a `0` clue included);
+- **Wrong guess** removes a probe's marks, and the circles they made go with them.
+  Probe marks count like any other mark while the probe is open, and **Keep**
+  leaves the circles as they are.
+
+A drag does not circle anything until the finger or the button is lifted: circles
+follow recorded marks, never a preview.
+
+### Circled is not "correct"
+
+The rules read the player's marks, not the answer. Marks that are wrong but
+agree with each other can circle a number (rows X2 and X3 below), and a line with
+every number circled can still be wrong. Whether the board is solved is decided
+separately, by an exact check of every line against its clue.
+
+### The cases
+
+`D` is black, `W` a white dot, `.` blank, `?` Maybe. Every line has ten cells.
+In the last-but-one column the circled numbers are in brackets.
+
+| Case | Clue | Marks | Circled | Why |
+|---|---|---|---|---|
+| A1 | 3 2 | `DDDW......` | `[3] 2` | The first run is closed by the edge and a dot: rule A from the left. |
+| A2 | 3 2 | `DDD.......` | `3 2` | The dot is gone: the run is open, the circle goes. |
+| A3 | 3 2 | `DDD?......` | `3 2` | A `?` is not a dot. |
+| A4 | 3 2 | `.DDDW.....` | `3 2` | A blank before the run: the walk cannot pass it and the run is open. |
+| A5 | 3 2 | `WDDDW.....` | `[3] 2` | Dots before the run are skipped. |
+| A6 | 3 2 | `......WDDW` | `3 [2]` | The same walk from the right end. |
+| A7 | 3 2 | `DDDW...WDD` | `[3] [2]` | Both walks, each from its own end. |
+| A8 | 1 1 3 | `DWDW......` | `[1] [1] 3` | The walk goes on past one closed run to the next. |
+| A9 | 1 1 3 | `DW.DW.....` | `[1] 1 3` | It stops at the blank; the second 1 is open on its left. |
+| A10 | 3 2 | `DDDDW.....` | `3 2` | One cell too many: a closed 4 is neither number. |
+| B1 | 1 1 | `.WDW.WDW..` | `[1] [1]` | Every run closed and the runs are exactly the clue: rule B. |
+| B2 | 1 1 | `.WD..WDW..` | `1 1` | One dot cleared: a run is open, so rule B no longer holds. |
+| B3 | 1 1 | `.WDW.WDW.D` | `1 1` | A third, open run: the line is not exactly the clue. |
+| C1 | 1 4 2 | `...WDDDDW.` | `1 [4] 2` | The only 4 in the clue, the only closed 4 on the line: rule C. |
+| C2 | 1 4 2 | `...WDDDD..` | `1 4 2` | The same run, open on one side. |
+| C3 | 1 4 2 | `DDDDWDDDDW` | `1 4 2` | Two closed 4s contradict each other: neither is circled. |
+| C4 | 1 1 | `...WDW....` | `1 1` | A repeated value, and either 1 has room there: nothing to choose by. |
+| E1 | 2 2 2 | `.D..WDDW.D` | `2 [2] 2` | Only the middle 2 has room on both sides: rule E. |
+| E2 | 2 2 2 | `.D..WDD..D` | `2 2 2` | The dot after it cleared: open, the circle goes. |
+| E3 | 2 2 2 | `WDDWWDDWDD` | `[2] [2] [2]` | The outer runs closed too: the walks circle all three. |
+| E4 | 2 3 2 | `....WDDW..` | `2 3 2` | Neither 2 has room there, so the marks fit no number. |
+| Z1 | 0 | `WWWWWWWWWW` | `[0]` | A `0` line, every cell dotted. |
+| Z2 | 0 | `WWWW.WWWWW` | `0` | One cell still blank. |
+| Z3 | 0 | `WWWWDWWWWW` | `0` | A black cell on a `0` line. |
+| X1 | 3 2 | `DDDWWWWWDD` | `[3] [2]` | The finished line. |
+| X2 | 3 2 | `DDWWWWWDDD` | `[3] [2]` | Wrong order, yet each run is the only one of its size (rule C): circled is not correct. |
+| X3 | 3 2 | `DDW.......` | `3 [2]` | A closed 2 at the wrong end is still the only closed 2: rule C circles it. |
+| X4 | 3 2 | `..........` | `3 2` | Nothing marked, nothing circled. |
+
+What the page does with the answer (the events, not the rules) is held on a real
+board by `TestSolverClues_CirclesFollowEveryCommit` in
+`tests/test_puzzle_solver_clues.py` (drag, click, Undo, Redo, Reset, and no circle
+before release) and by the probe tests in `tests/test_puzzle_solver_probe.py`.
+
+The ring is a **border** drawn around the number, not a background, so the
+crosshair's tint on the clue box cannot hide it. On a board wide or tall enough to
+repeat its clues on both sides, both copies of a number circle together.
 
 ## The hint derives the next cell, and never reveals one
 
