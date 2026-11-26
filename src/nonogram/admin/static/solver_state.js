@@ -1587,21 +1587,28 @@ export function probeVerdict(history, probe) {
   const at = probeStart(history, probe);
   const first = history.done[at];
   if (first === undefined) return null;
-  const { stroke } = first;
-  if (stroke.hint || stroke.cells.length !== 1) return null;
-  if (stroke.state !== FILLED && stroke.state !== EMPTY) return null;
-  const [row, col] = stroke.cells[0];
-  const state = stroke.state === FILLED ? EMPTY : FILLED;
+  const single = (entry) => entry !== undefined && !entry.stroke.hint && entry.stroke.cells.length === 1;
+  if (!single(first)) return null;
+  const [row, col] = first.stroke.cells[0];
+  // Owner, 2026-11-26: the guess is the cell as the probe's OPENING taps left
+  // it — a run of one-cell strokes on that one cell (white, then black: the
+  // guess was black). Choosing the colour is part of making the guess.
+  let last = at;
+  while (single(history.done[last + 1]) && history.done[last + 1].stroke.cells[0][0] === row
+         && history.done[last + 1].stroke.cells[0][1] === col) last += 1;
+  const guess = history.done[last].stroke.state;
+  if (guess !== FILLED && guess !== EMPTY) return null;
+  const state = guess === FILLED ? EMPTY : FILLED;
   // CARD-412 review cycle 1, F-305: a guess that recoloured a cell the player
   // had already marked the other way has nothing to offer — the cell is
   // back to that colour once Wrong guess undoes the probe.
   if (cellAt(first.before, row, col) === state) return null;
-  // Review of 2026-11-17: and a guess the player went on to change INSIDE the
-  // probe is no longer the hypothesis that broke — a second tap with the same
-  // brush turns a dark guess white (clickedState's repeat), and Clear takes
-  // it back. The contradiction then says nothing about the first colour, and
-  // offering its opposite would offer the very mark that just failed.
-  if (cellAt(history.board, row, col) !== stroke.state) return null;
+  // Review of 2026-11-17, narrowed 2026-11-26: a guess changed AFTER the
+  // probe went on to other cells is no longer the hypothesis that broke (its
+  // consequences were drawn from another colour), so nothing is offered.
+  for (let k = last + 1; k < history.done.length; k += 1) {
+    if (history.done[k].stroke.cells.some(([r, c]) => r === row && c === col)) return null;
+  }
   return Object.freeze({ row, col, state });
 }
 
