@@ -2689,7 +2689,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   overflow-y: auto; overscroll-behavior: contain;
 }
 .player-line[hidden] { display: none; }
-html.is-line-open, html.is-line-open body { overflow: hidden; }
+html.is-line-open, html.is-line-open body { overflow: hidden; overscroll-behavior-x: none; }
 .player-line .btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); }
 .player-line .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 .player-line-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }

@@ -1494,6 +1494,18 @@ export function probeCells(history, probe) {
   return Object.freeze(cells);
 }
 
+// The probe's cells that the probe has actually CHANGED: probeCells less
+// every cell whose state now is the state it had when the probe opened (owner,
+// 2026-11-26: a white cell tapped round black -> white -> ... and left white
+// was drawn dashed, as if the guess had marked it). Only the dashed look reads
+// this; rules 3-10 keep probeCells. Solution-free, like the rest.
+export function probeChangedCells(history, probe) {
+  if (probe === null) return Object.freeze([]);
+  const start = checkpointHistory(history, probe).board;
+  return Object.freeze(probeCells(history, probe)
+    .filter(([row, col]) => cellAt(history.board, row, col) !== cellAt(start, row, col)));
+}
+
 // `history` undone back to the probe's own strokes (rule 4): the board is
 // exactly the board the probe opened on, and the probe's strokes sit on the
 // redo stack like any other undos — which is what makes "redo after an

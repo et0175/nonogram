@@ -914,8 +914,11 @@ class TestSolverProbe_MarksCarryTheTint:
         _drag(browser_page, [(7, 4), (7, 6)])
 
         marked = _states(browser_page)
+        # (6, 3) went black, white and back to blank: it ends as it began, so
+        # it carries no marker (owner, 2026-11-26: a cell the probe left as it
+        # found it is not drawn as part of the guess).
         assert _members(browser_page) == sorted(
-            [(6, 0), (6, 1), (6, 2), (6, 3), (7, 4), (7, 5), (7, 6)]
+            [(6, 0), (6, 1), (6, 2), (7, 4), (7, 5), (7, 6)]
         )
         # G-4: the states are the ones those same marks give without a probe.
         assert {(6, c): marked[6 * SIDE + c] for c in range(4)} == {
@@ -930,6 +933,10 @@ class TestSolverProbe_MarksCarryTheTint:
 
     def test_the_four_states_stay_apart_under_the_tint(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
+        # An undecided member is a cell the probe CLEARED: one left as it was
+        # found carries no marker (owner, 2026-11-26). So (6, 3) is black
+        # before the probe and goes white, then blank, inside it.
+        _cell(browser_page, 6, 3).click()
         _probe(browser_page)
         _cell(browser_page, 6, 0).click()                     # filled
         _tool(browser_page, "White")
@@ -937,7 +944,7 @@ class TestSolverProbe_MarksCarryTheTint:
         _tool(browser_page, "Maybe")
         _cell(browser_page, 6, 2).click()                     # maybe
         _tool(browser_page, "Black")
-        _click_times(browser_page, 6, 3, 3)                   # undecided, still a member
+        _click_times(browser_page, 6, 3, 2)                   # white, then undecided: a member
 
         look = _look(browser_page, {F: [6, 0], E: [6, 1], M: [6, 2], U: [6, 3]})
         assert [look[state]["state"] for state in (F, E, M, U)] == [F, E, M, U]
@@ -1213,8 +1220,15 @@ class TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround:
                 _click_times(browser_page, *at, 3)   # black, white, blank
 
         mark(_PLAIN)              # before the probe: the ground's own control
+        if state != F:
+            # A blank member is a cell the probe CLEARED (owner, 2026-11-26:
+            # one it left as it found carries no marker): black first.
+            _cell(browser_page, *_PROBED).click()
         _probe(browser_page)
-        mark(_PROBED)             # inside it: the same run, now a member
+        if state == F:
+            mark(_PROBED)         # inside it: the same mark, now a member
+        else:
+            _click_times(browser_page, *_PROBED, 2)  # white, then blank: a member
         assert _members(browser_page) == [_PROBED], _members(browser_page)
 
         if neighbour == "cross":
