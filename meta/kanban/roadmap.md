@@ -92,6 +92,16 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 22 — OPEN 2026-11-26 (board wave 101)
+
+### As cut
+
+Cut against main on 2026-11-26 on the owner's "pick the next no-decision wave from the backlog". The scored backlog has no such item left, so the wave is drawn from cards that were already `ready` on the board and never scheduled. Not taken: CARD-320 and CARD-397 (both edit `tests/conftest.py`), CARD-273/274 (the ADR-0040 refactors, 1d each, behind open dependencies), CARD-277 and CARD-279 (each ends in a decision), CARD-275 (its fallback asks the owner to choose between two renders), CARD-375 (drops databases), CARD-526 (waits on the owner's pictures). CARD-249's premise was re-checked at the cut: `puzzle_edit.html` still heads the page with the extent alone. Both cards touch `admin.css`; they merge sequentially.
+
+### feature
+- **CARD-249** The editor page says which puzzle it is editing — 1c
+- **CARD-340** The arrangement screen spills its buttons off a phone — 1c
+
 ## Wave 21 — DONE 2026-11-25 (board wave 100)
 
 Two cards merged. CARD-547 (`a9dcb45d`, 9.5 at cycle 1, net 0): EC-022's property test is now `PropertyTest_BookPdf_PortraitUnrotatedFloatingAtFortyTwoPercentForEveryExtent`. All three functions were renamed (the card said two). The registry, trace and requirements refs were renamed, and three census digests were re-measured. Its gate ran FULL: 10684 passed, 0 failed. CARD-546 (`5092f24e`, 9.5 at cycle 1, net +1): `_write_page` takes `mode` as a required keyword. Both `_write_pdf` guards are kept, and the colour-space refusal now has its first test. PDF bytes are unchanged (three digests). Its gate ran a SELECTION: 9085 passed plus 11 marked, 0 failed. The migration-013 `UPDATE` was declined (applied history).

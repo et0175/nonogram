@@ -1,22 +1,22 @@
 # CARD-249: The editor page says which puzzle it is editing
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
-**Estimate:** 0.5d
+**Estimate:** 1c
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/249-editor-names-its-puzzle
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-249
 **Source:** owner, 2026-10-18 — found by eye on the wave-46 render (`~/Documents/nonogram-reviews/CARD-246/02-editor-as-opened-NO-DIFFICULTY-BADGE.png`), filed on owner instruction 2026-10-19
 **Idea:** —
-**Wave:** —
+**Wave:** 101
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_editor_ui.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-26T09:37Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

@@ -1,24 +1,24 @@
 # CARD-340: The arrangement screen spills its buttons off a phone, and has since before anyone looked
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bug
-**Estimate:** 0.5d
+**Estimate:** 1c
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** general-purpose
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/340-arrange-phone-overflow
+**Worktree:** ../PythonProject4-card-340
 **Source:** CARD-332's fix round 1, 2026-11-03, found while writing the Chromium cell that guards *its own* layout fix. Its brief said "one cell"; one cell would have been wrong at either viewport, and finding out why surfaced a defect that is **not CARD-332's** and predates it. Raised, measured, named on that card and in the new test file's docstring, and deliberately left for an owner rather than absorbed.
 **Idea:** —
-**Wave:** —
+**Wave:** 101
 **Created wave:** 73
 **Deferred waves:** 0
 **Depends on:** CARD-332
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_arrange_play_link.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-26T09:37Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
