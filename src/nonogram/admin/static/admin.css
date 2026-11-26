@@ -2062,10 +2062,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      its left edge (auto margins are 0 then). */
   /* (One :has may not hold another, so the public page is named by what it
      has — Hint — and what it lacks — Check — on .main itself.) */
+  /* ...and (owner, 2026-11-26, second look) the title row, the toolbar and
+     How to play start at the board's left edge rather than being centred
+     each on its own: solver.js measures that edge into --player-board-inset. */
   .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-head,
   .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-toolbar,
   .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-howto {
-    width: fit-content; max-width: 100%; margin-inline: auto;
+    width: fit-content; max-width: calc(100% - var(--player-board-inset, 0px));
+    margin-left: var(--player-board-inset, 0px); margin-right: 0;
   }
   .main:has([data-player-action="hint"]):not(:has([data-player-action="check"])) > .player-head > span:last-child { flex: 0 1 auto; }
   .player-toolbar:not(:has([data-player-action="check"])) ~ .player-stage-wrap .player-stage > .player-board { margin-inline: auto; }

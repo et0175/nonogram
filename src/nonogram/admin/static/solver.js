@@ -1586,6 +1586,15 @@ function start() {
     table.classList.toggle("is-keeping-cols", affords(
       stage.scrollHeight - stage.clientHeight,
       band("th.player-clue.is-col.is-stuck-col", "height"), stage.clientHeight));
+    // Owner, 2026-11-26: on the public desktop page the board is centred
+    // and the title row, the toolbar and How to play start at its LEFT edge.
+    // That edge moves with the board's width (a doubled board, a zoom), so
+    // it is measured here, where every layout change already passes, and
+    // handed to admin.css as --player-board-inset (0 once the board is
+    // wider than its stage). Only admin.css's public desktop rule reads it.
+    const inset = Math.max(0, table.getBoundingClientRect().left - stage.getBoundingClientRect().left
+      + stage.scrollLeft);
+    stage.closest(".main")?.style.setProperty("--player-board-inset", `${Math.round(inset)}px`);
   }
 
   function redraw() {
