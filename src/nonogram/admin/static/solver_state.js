@@ -1612,6 +1612,25 @@ export function probeVerdict(history, probe) {
   return Object.freeze({ row, col, state });
 }
 
+// Whether the open probe's guess cell (its opening run of one-cell strokes,
+// as probeVerdict reads it) was changed AFTER the probe moved on to other
+// cells (owner, 2026-11-26): then the probe mixes two guesses, Wrong guess
+// offers nothing, and the page says so while the probe is open.
+export function probeGuessChanged(history, probe) {
+  if (probe === null) return false;
+  const at = probeStart(history, probe);
+  const single = (entry) => entry !== undefined && !entry.stroke.hint && entry.stroke.cells.length === 1;
+  if (!single(history.done[at])) return false;
+  const [row, col] = history.done[at].stroke.cells[0];
+  let last = at;
+  while (single(history.done[last + 1]) && history.done[last + 1].stroke.cells[0][0] === row
+         && history.done[last + 1].stroke.cells[0][1] === col) last += 1;
+  for (let k = last + 1; k < history.done.length; k += 1) {
+    if (history.done[k].stroke.cells.some(([r, c]) => r === row && c === col)) return true;
+  }
+  return false;
+}
+
 // The stroke that marks one cell `state` (CARD-412's "Mark it"): an ordinary
 // stroke, recorded like a click — one undo step, counted like any mark.
 export function markStroke(row, col, state) {

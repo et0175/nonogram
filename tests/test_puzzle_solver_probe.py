@@ -2575,3 +2575,15 @@ class TestSolverProbe_AWrongGuessOffersTheOtherColour:
         _drag(page, [(6, 0), (6, 3)])     # a drag first: no single guess
         _contradiction(page)
         assert not page.evaluate(_OFFER)["shown"]
+        # Owner, 2026-11-26: a first guess changed after the probe moved on
+        # offers nothing either, and the probe's line says so while it is open.
+        flag = page.locator(".player-probe-flag")
+        _probe(page)
+        _cell(page, 2, 3).click()           # the guess: black
+        assert flag.inner_text().startswith("Probing")
+        _cell(page, 5, 5).click()           # the probe moves on
+        _tool(page, "White")
+        _cell(page, 2, 3).click()           # the guess changed: white
+        assert flag.inner_text() == "You changed your first guess. \u2717 Wrong guess will undo the whole probe."
+        _contradiction(page)
+        assert not page.evaluate(_OFFER)["shown"]
