@@ -1,6 +1,6 @@
 # CARD-277: A drag at 200% zoom marked the whole board once — reproduce it before deciding what it is
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
@@ -174,3 +174,11 @@ regression test turns out to be — deliberately unnamed until the cause is know
   its control is recomputation. "Did not reproduce in N runs" with N stated, the selection stated and the
   instrumentation stated is worth more than a speculative fix, and it is the outcome this card should be
   willing to ship.
+
+### Closed as unreproduced (2026-11-26, orchestrator, on CARD-548's measurement)
+
+Skipped, not built. CARD-548 (certified 9.5) ran the drag 0 out of 56 times without failing, which is 0 hits in 56 runs:
+- 50 runs of the two tests alone;
+- 6 runs of the 13-file solver family set.
+
+The runs were under caffeinate with no sleep overlap, and a per-pointermove probe was shown to see broken drags. Its code reading, confirmed by the reviewer at d90753df and at HEAD: `dragStroke` goes through `dragLine`, so one drag marks only the start cell's row or column, at most 15 cells on a 15×15 board. All three suspects here change the path, so none of them can produce 225. The twin failure `test_marks_zoom_and_circles_survive_crossing_both_ways` makes no drag. `_marked` counts every decided cell, so "225" means no cell was undecided, which fits a whole board set or restored outside the drag. AC-4's count detector is not built: the existing exact-set assertion already prints the size. A recurrence goes on a new card that starts from board state set outside the drag.

@@ -1,6 +1,6 @@
 # CARD-548: CARD-277's 225-cell zoom drag: reproduce it, or measure that it does not reproduce
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 1c
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/548-reproduce-zoom-drag
-**Worktree:** ../PythonProject4-card-548
+**Worktree:** —
 **Source:** roadmap wave 23, cut 2026-11-26 on the owner's "card CARD-277's reproduction and carry on". This splits out step 1 of CARD-277 ("Reproduce it first ... This is the whole card"), plus the path capture of step 2.
 **Idea:** —
 **Wave:** 102
@@ -20,9 +20,9 @@
 **UI surface:** —
 **Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-26T14:02Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-26T15:20Z
+**Actual:** 1c — ratio 1/1 = 1.0
+**Merge commit:** ffb59e44
 **Blocked by:** —
 
 ## Why this card exists
