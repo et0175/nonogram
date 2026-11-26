@@ -92,6 +92,15 @@ Cut against main on 2026-11-19. Closed at the cut rather than carded: **IDEA-069
 - **CARD-487** (IDEA-006) ADR-0029/R4's check tests its rule — 1c
 - **CARD-488** (IDEA-034, IDEA-017, IDEA-083, IDEA-100) Four small test-side gaps — 2c
 
+## Wave 23 — OPEN 2026-11-26 (board wave 102)
+
+### As cut
+
+Cut on 2026-11-26 on the owner's "card CARD-277's reproduction and carry on". CARD-277's step 1, the reproduction, is split out as CARD-548, which measures and changes nothing. CARD-277 keeps the fix and now depends on CARD-548.
+
+### tech-debt
+- **CARD-548** CARD-277's 225-cell zoom drag: reproduce it, or measure that it does not reproduce — 1c
+
 ## Wave 22 — DONE 2026-11-26 (board wave 101)
 
 CARD-249 merged (`e313ce19`, 9.5 at cycle 1, net +1). The editor's heading and tab title now name the puzzle, as `Edit “Duck” — 10×10`, through one helper, `_board_page_title`, which the player's solve page now shares. The name is autoescaped, and a 120-character name wraps inside the column at 1440, 1200 and 390 px. Gate SELECTION: 9112 passed plus 11 marked, 0 failed. Recorded, not carded: F-001 (`min-width: 0` is held by no test) and F-002 (the ACs name a class that was folded into `test_the_edit_control_says_which_puzzle_it_edits`, which is noted on the card). CARD-340 was skipped and not built: CARD-495 had fixed the overflow on 2026-11-20. Re-measured at `7ac3c027`, the page is 390 px in a 390 px window; with CARD-495's CSS reverted it is 401 px, reproducing the card's figures.

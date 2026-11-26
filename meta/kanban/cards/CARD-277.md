@@ -13,7 +13,7 @@
 **Source:** CARD-270's fix round hit it once and chased it rather than reporting it; CARD-270's review cycle 2 ruled that recording it was right for that card's gate but that it **needs a card of its own** — "a drag marking 225 cells instead of 5 at 200% zoom is correctness-shaped nondeterminism in the player's drag handling", and "recorded, not diagnosed" dies with the worktree. Board precedent is one card old: F-004 got CARD-275 rather than a note.
 **Idea:** —
 **Wave:** —
-**Depends on:** —
+**Depends on:** CARD-548 (the reproduction, split out 2026-11-26)
 **Touches:** tests/test_puzzle_solver_zoom.py, src/nonogram/admin/static/solver.js
 **Review score:** —
 **Started:** —
