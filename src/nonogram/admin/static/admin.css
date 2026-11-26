@@ -1331,13 +1331,16 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    under the board). solver.js placeProbeFrame sizes it from the board's and
    the stage's boxes; fixed, like the flag, and never in the pointer's way. */
 .player-probe-frame {
-  position: fixed; z-index: 1024; box-sizing: border-box; pointer-events: none;
+  /* 5 (owner, 2026-11-26: at 1024 it showed through the open brush menu):
+     above the sticky clue bands (1-3), below the toolbar's menus and the
+     reset confirmation (10) and every dialog. */
+  position: fixed; z-index: 5; box-sizing: border-box; pointer-events: none;
   /* --player-rule-major lives on .player-stage, which this is not inside. */
   border: calc(4 * var(--border-width)) dashed var(--color-warning);
 }
 .player-probe-frame:not(.is-shown) { display: none; }
 .player-probe-flag {
-  position: fixed; inset: var(--space-2) 0 auto 0; margin: 0 auto; z-index: 1025;
+  position: fixed; inset: var(--space-2) 0 auto 0; margin: 0 auto; z-index: 6; /* above the frame, below the menus (2026-11-26) */
   width: max-content; max-width: calc(100vw - 2 * var(--space-4));
   padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm); line-height: var(--leading-base); color: var(--color-text);
