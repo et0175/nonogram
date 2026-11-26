@@ -662,11 +662,15 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             # Review cycle 1, F-305: the guess recoloured (0, 0), which the
             # player had marked dark before the probe — nothing to offer.
             "a recoloured mark": [["p"], ["click", 0, 0, "e"]],
-            # Review of 2026-11-17: the guess was changed INSIDE the probe (a
-            # second tap turns it white; Clear takes it back), so the
-            # contradiction no longer speaks about the first colour.
+            # Owner, 2026-11-26: the opening taps on one cell choose the guess
+            # (white, then black: the guess was black, so white is offered).
             "a guess turned over": [["p"], ["click", 2, 3, "f"], ["click", 2, 3, "e"]],
+            "white, then black": [["p"], ["click", 2, 3, "e"], ["click", 2, 3, "f"], ["click", 4, 4, "e"]],
+            "opened, then cleared": [["p"], ["click", 2, 3, "f"], ["click", 2, 3, "u"]],
+            # Review of 2026-11-17: a guess changed after the probe moved on
+            # to other cells is no longer the one that broke.
             "a guess taken back": [["p"], ["click", 2, 3, "e"], ["click", 4, 4, "f"], ["click", 2, 3, "u"]],
+            "a guess changed later": [["p"], ["click", 2, 3, "f"], ["click", 4, 4, "e"], ["click", 2, 3, "e"]],
         }
         got = browser_page.evaluate("""async (cases) => {
           const S = await import('/static/solver_state.js');
@@ -692,11 +696,18 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             strokes = [op for op in ops[1:] if op[0] != "undo"]
             undone = sum(1 for op in ops if op[0] == "undo")
             strokes = strokes[: len(strokes) - undone]
-            if not strokes or strokes[0][0] != "click" or strokes[0][3] not in ("f", "e"):
+            if not strokes or strokes[0][0] != "click":
                 return None
             _, row, col, tool = strokes[0]
-            if [op[3] for op in strokes if op[0] == "click" and (op[1], op[2]) == (row, col)][-1] != tool:
-                return None  # the guess cell no longer holds the guess
+            # The opening run of clicks on that one cell: its last colour is the guess.
+            k = 0
+            while k + 1 < len(strokes) and strokes[k + 1][0] == "click" and strokes[k + 1][1:3] == [row, col]:
+                k += 1
+            tool = strokes[k][3]
+            if tool not in ("f", "e"):
+                return None
+            if any(op[0] in ("click", "hint") and op[1:3] == [row, col] for op in strokes[k + 1:]):
+                return None  # changed after the probe moved on
             offered = "empty" if tool == "f" else "filled"
             if (row, col) == (0, 0) and offered == "filled":  # the pre-probe mark is (0, 0) dark
                 return None
@@ -704,7 +715,7 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
 
         want = {name: expected(ops) for name, ops in cases.items()}
         assert got == want, (got, want)
-        assert sum(v is not None for v in want.values()) == 2 and sum(v is None for v in want.values()) == 8
+        assert sum(v is not None for v in want.values()) == 4 and sum(v is None for v in want.values()) == 9
 
     def test_the_checkpoint_prefix_is_a_savable_history(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
