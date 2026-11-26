@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** nothing in `src/`; a scratch harness and instrumentation outside the tree (the scratchpad or `/tmp`-style location), and this card's notes. `tests/test_puzzle_solver_zoom.py` only if a run needs a temporary probe, and that probe is reverted before commit.
 **UI surface:** —
-**Review score:** —
+**Review score:** 9.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-26T14:02Z
 **Closed:** —
 **Actual:** —
@@ -185,3 +185,22 @@ it does recur.
 **Left behind: nothing.** `src/` is unchanged and no test file was edited, so the net test count is 0. AC-3: this card's commit
 carries only `meta/kanban/cards/CARD-548.md`. The check is `git diff --name-only main...HEAD`, run after the
 commit.
+
+### Review cycle 1 (2026-11-26)
+
+[Review 1/3] Score: 9.5, CERTIFIED. Nothing gating. Every claim the verdict rests on was re-derived.
+- **Claim 1 holds at d90753df and at HEAD.** `dragStroke` is `makeStroke(dragLine(start, path), tool)`, and `dragLine` emits only cells of the start cell's row or column. At d90753df it skipped off-line path cells; at HEAD it projects them. The stroke is applied to `history.board` (preview and commit alike), so one drag adds at most one line, 15 cells, to what was already there. Attempts to break it found nothing: every board-changing site in `solver.js` at HEAD was listed. The anchor tap is `dragStroke(from, [done.start])`, in line only. The line view's stroke is one line. Click, hint and mark strokes are one cell each. `resetStroke` sets every cell to undecided, which `_marked` does not count. `pointercancel` only reverts the preview. No path through `pointermove`, `pointerup` or `dragStroke` marks a second line.
+- **Claim 2 holds at both revisions.** `test_marks_zoom_and_circles_survive_crossing_both_ways` uses `_set`, which calls `setBoard`, plus `_zoom_to` button clicks and `set_viewport_size`. It has no mouse, drag or pointer call.
+- **Claim 3: the counts match.** I recounted from the JSONL with my own script. The two tests: 50 runs, 100 passed, 0 failed, 2 collected each. The family set: 6 runs, 3888 passed, 0 failed, 648 collected each. All 56 drag captures show the path `(0,1)..(0,4)`, 5 marked, and no redraw or scroll mid-gesture. `pmset`'s last sleep ended at 08:50:21 +0200, before the first run at 14:06Z.
+- **Claim 4 (AC-2): re-run once, not counted.** `zoom:-2` on the drag test alone gave 1 failed, 7 marked, and the path `(0,1) (0,2) (0,4) (0,6)`, which matches the notes' row.
+- **Claim 5 (AC-3).** `git diff --name-only main...HEAD` lists only this card.
+- **ADR-0039/R4 holds.** The other 5 rules (CON-005, CON-009, CON-010, CON-011, CON-012) are unchecked: no_eligible_fact.
+
+Findings:
+- F-001 (low, non-gating) The 0-of-56 figure was measured on HEAD's drag test, not on the one that failed. HEAD's version gained CARD-404's `scrollIntoView` and 150 ms wait before the drag, and `dragLine` now projects off-line cells. These are the conditions suspect 3 depends on, and the notes do not say the test text changed. It does not move the verdict, because the structural argument holds at both revisions.
+- F-002 (low, non-gating) Two more AC-2 demos ran and are not reported: `redraw` and `scroll`. Both passed with no effect: the redraw break redrew nothing, and the scroll break left the stage at `[0, 0]`. The probe's docstring still says `redraw` "redraws the board". The draw and table fields are called the redraw detector without being shown to rise. They do rise in the counted family data: `test_the_highlight_survives_a_redraw` and `test_a_one_pixel_resize_keeps_the_highlight_on_the_same_cell` show draws 2 to 4 and table 1 to 2, in 6 of 6 runs. The claim is true, but its evidence is not in the notes.
+- F-003 (info, for CARD-277) `_marked` keeps every cell that is not undecided. So "225 marked" means no undecided cell was left: black or white, not 225 black. That fits a board set or restored whole better than any painted path. pytest prints the size difference ("Left contains 2 more items" in this review's re-run), which supports the notes' remark that 225 may have been read off that diff.
+
+**Recommendation, judged: agree.** Close CARD-277 as unreproduced, and do not build its AC-4 count detector as specified. Its mechanism section rests on "225 marked cells means the path genuinely accumulated 225 distinct cells", and that is false at both revisions: a path cannot produce the whole board through `dragStroke`. So none of its three suspects can explain the symptom, and a detector aimed at them targets a refuted mechanism. The existing exact-set assertion already reports the size. A recurrence belongs on a new card, starting from state that exists outside the stroke. The optional pre-drag "board is empty" line is a cheap way to name that.
+
+Verdict: CERTIFIED.
