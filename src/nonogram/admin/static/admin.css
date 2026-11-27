@@ -2752,7 +2752,10 @@ html.is-line-open, html.is-line-open body { overflow: hidden; overscroll-behavio
 .player-line-mini {
   --player-line-aspect: 1;
   display: block; flex: none; aspect-ratio: var(--player-line-aspect); height: auto; overflow: visible;
-  width: min(calc(100vw - 2 * var(--space-4) - 2 * (44px + var(--space-3))), 32svh);
+  /* The map's height is held to the same bound as its width (32svh here,
+     24svh upright): a tall board narrows instead (2026-11-27). */
+  --player-line-ratio: 1;
+  width: min(calc(100vw - 2 * var(--space-4) - 2 * (44px + var(--space-3))), 32svh, calc(32svh * var(--player-line-ratio)));
   border: var(--border-width) solid var(--color-border-strong); background: var(--grid-paper);
   cursor: pointer; touch-action: manipulation;
 }
@@ -2760,7 +2763,7 @@ html.is-line-open, html.is-line-open body { overflow: hidden; overscroll-behavio
    the strips and brushes low; a quarter less keeps every line tappable on it
    (a 30 x 30 map is ~200 px, ~6.7 px a line) and lifts the strips. */
 @media (orientation: portrait) {
-  .player-line-mini { width: min(calc(100vw - 2 * var(--space-4) - 2 * (44px + var(--space-3))), 24svh); }
+  .player-line-mini { width: min(calc(100vw - 2 * var(--space-4) - 2 * (44px + var(--space-3))), 24svh, calc(24svh * var(--player-line-ratio))); }
 }
 /* The map's drawing (solver.js drawMini): one rect per decided cell. */
 .player-line-mini-paper { fill: var(--grid-paper); }

@@ -4710,6 +4710,11 @@ function wireMarking(container, player) {
   function sizeMini() {
     const { width, height } = player.getHistory().board;
     lineParts.mini.style.setProperty("--player-line-aspect", `${width} / ${height}`);
+    // Owner, 2026-11-27: the map was sized by its WIDTH alone, so a tall
+    // narrow board (10 x 29) drew a map three times as tall as wide and
+    // pushed the strips and the buttons off the screen. The width/height
+    // ratio as a plain number lets admin.css cap the HEIGHT too.
+    lineParts.mini.style.setProperty("--player-line-ratio", String(width / height));
   }
 
   // The axis the view was last on (owner's test notes, 2026-11-23: Cols,
