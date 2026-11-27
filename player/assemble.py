@@ -751,7 +751,9 @@ function wayBack(slug, title) {
 // `hidden` attribute rather than a second copy of "is this solved?", and it
 // is real <a href>s, styled inline from tokens.css for the same reason.
 const WAY_ON_ROW = "display:flex;flex-wrap:wrap;justify-content:flex-start;gap:var(--space-2);"
-  + "margin:var(--space-3) 0";
+  // Owner, 2026-11-26/27: under the board, from its left edge (solver.js
+  // measures it into --player-board-inset; 0 where it is not set).
+  + "margin:var(--space-3) 0 var(--space-3) var(--player-board-inset,0px)";
 // The public page links no Bootstrap, so .btn-primary's --bs-btn-* custom
 // properties are never read: the filled look is spelled out here.
 const WAY_ON_NEXT = "background:var(--color-accent);border-color:var(--color-accent);"
@@ -780,6 +782,19 @@ function wayOn(slug, next) {
   shelf.setAttribute("style", WAY_ON_BOOK);
   row.append(shelf);
   document.querySelector(".player-stage-wrap").after(row);
+  // Owner, 2026-11-27: the way on was only under the board, below the fold
+  // on a laptop once the board fills the window. Solved, the title row
+  // carries "Next →" too, beside the way back, where the reader is looking.
+  let headNext = null;
+  if (next !== undefined && next !== null && typeof next === "object" && KEY.test(next.key)) {
+    headNext = document.createElement("a");
+    headNext.href = `/play/${next.key}?book=${slug}`;
+    headNext.dataset.playerNextTop = "";
+    headNext.textContent = "Next \u2192";
+    headNext.setAttribute("style", "margin-left:var(--space-3);white-space:nowrap;font-weight:600;"
+      + "color:var(--color-accent);text-decoration:underline");
+    document.querySelector("[data-player-book]")?.after(headNext);
+  }
   const banner = document.querySelector("#puzzle-player-solved");
   // How to play has nothing left to say once the puzzle is solved, and on a
   // landscape phone it holds the one grid row under the board that is on
@@ -788,6 +803,7 @@ function wayOn(slug, next) {
   const howto = document.querySelector(".player-howto");
   const follow = () => {
     row.style.display = banner.hidden ? "none" : "flex";
+    if (headNext !== null) headNext.style.display = banner.hidden ? "none" : "";
     if (howto !== null) howto.style.display = banner.hidden ? "" : "none";
   };
   new MutationObserver(follow).observe(banner, { attributes: true, attributeFilter: ["hidden"] });

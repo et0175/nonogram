@@ -589,7 +589,12 @@ class TestSharedUi_ThePageRuns:
         # Since 2026-11-26 (the owner's centred desktop column) the head is as
         # wide as its content, so the slot has no slack left to mistake for the
         # link: it is the link plus its 20 px lead-in, and nothing more.
-        assert 0 <= wide["slot"] - wide["link"] <= 24, wide
+        # (2026-11-27: solved, the slot also holds "Next ->" after the link,
+        # its 12 px margin included; still no slack beyond the two.)
+        after = page.evaluate("""() => { const n = document.querySelector('[data-player-next-top]');
+          return n === null || n.offsetParent === null ? 0
+            : n.getBoundingClientRect().width + parseFloat(getComputedStyle(n).marginLeft); }""")
+        assert 0 <= wide["slot"] - wide["link"] - after <= 24, (wide, after)
         assert wide["link"] - wide["words"] <= 1, wide  # and the anchor is only its words
         # The other half of F-002, at the viewport where the row is wide
         # enough: given the space, the whole name IS painted. So "clipped at

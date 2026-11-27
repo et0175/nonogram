@@ -1341,6 +1341,14 @@ function start() {
         // picture, never across it; centred only where there is no room.
         const praiseBox = document.getElementById("puzzle-player-explain");
         if (praiseBox !== null && !placeInSlot(praiseBox, stage)) praiseBox.removeAttribute("data-place");
+        // Placed again a frame later (2026-11-27): the public page shows its
+        // way on (Next puzzle) under the board in answer to this same solve,
+        // and the room under the board is only known once that row is drawn.
+        if (praiseBox !== null) {
+          requestAnimationFrame(() => {
+            if (!placeInSlot(praiseBox, stage)) praiseBox.removeAttribute("data-place");
+          });
+        }
         showExplain(praise);
         setTimeout(() => {
           table.classList.remove("is-celebrating");
@@ -2232,10 +2240,16 @@ function freeSlot(stage, nearY = null) {
     const y = nearY === null ? top : Math.max(top, Math.min(nearY - 24, window.innerHeight - 160));
     return { place: "side", left: right + SLOT_GAP, top: y, width };
   }
-  const roomBelow = window.innerHeight - bottom - 2 * SLOT_GAP;
+  // Owner, 2026-11-27: a solved public page puts its way on (Next puzzle,
+  // Back to the book) right under the board, and the box under the board
+  // covered it. Under-room starts below that row when it is showing.
+  const wayOn = document.querySelector("[data-player-next]");
+  const under = wayOn !== null && wayOn.offsetParent !== null
+    ? Math.max(bottom, wayOn.getBoundingClientRect().bottom) : bottom;
+  const roomBelow = window.innerHeight - under - 2 * SLOT_GAP;
   if (roomBelow >= 72) {
     const width = Math.min(window.innerWidth - 2 * SLOT_GAP, 480);
-    return { place: "under", left: (window.innerWidth - width) / 2, top: bottom + SLOT_GAP / 2, width };
+    return { place: "under", left: (window.innerWidth - width) / 2, top: under + SLOT_GAP / 2, width };
   }
   return null;
 }
